@@ -1,16 +1,48 @@
-# React + Vite
+# TurnoApp - Gestione Personale e Turni
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Descrizione
+TurnoApp è un'applicazione web sviluppata per gestire i turni del personale in uno stabilimento produttivo. Permette di visualizzare le presenze, gestire le rotazioni dei turni, assegnare il personale alle macchine e monitorare le competenze.
 
-Currently, two official plugins are available:
+## Funzionalità Principali
+- **Dashboard Turni**: Visualizzazione dinamica dei turni (A, B, C, D) con rotazione automatica.
+- **Gestione Personale**: Anagrafica dipendenti con dettagli su reparto e skills.
+- **Pianificazione**: Calendario mensile per la gestione delle presenze e assenze.
+- **Assegnazione Macchine**: Associazione rapida tra operatori e macchinari.
+- **Reportistica**: Esportazione dati e statistiche di presenza.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Stack Tecnologico
+- **Frontend**: React + Vite
+- **Styling**: CSS Modules / Vanilla CSS (Design Responsivo)
+- **Backend/Database**: integrazione con Supabase
+- **Language**: JavaScript (ES6+)
 
-## React Compiler
+## Installazione
+1. Clona il repository:
+   ```bash
+   git clone https://github.com/TuoNomeUtente/turno-app.git
+   ```
+2. Installa le dipendenze:
+   ```bash
+   npm install
+   ```
+3. Configura le variabili d'ambiente in `.env`:
+   ```env
+   VITE_SUPABASE_URL=your_supabase_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_key
+   ```
+4. Avvia il server di sviluppo:
+   ```bash
+   npm run dev
+   ```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Struttura del Progetto
+- `/src/components`: Componenti UI riutilizzabili.
+- `/src/lib`: Logica di business (es. rotazione turni, Supabase client).
+- `/src/views`: Pagine principali dell'applicazione.
+- `/src/data`: Costanti e dati statici di configurazione.
 
-## Expanding the ESLint configuration
+## Contribuire
+Le Pull Request sono benvenute. Per modifiche importanti, apri prima una issue per discutere cosa vorresti cambiare.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Licenza
+[MIT](https://choosealicense.com/licenses/mit/)
