@@ -200,9 +200,7 @@ export default function ZoneView({ zones, setZones, macchine, setMacchine }) {
                                         {z.label}
                                     </td>
                                     <td style={{ padding: "12px 16px" }}>
-                                        <span className={`tag tag-${(z.repart_id || z.reparto) === 'T11' ? 'blue' : ((z.repart_id || z.reparto) === 'T12' ? 'red' : 'purple')}`}>
-                                            {z.repart_id || z.reparto}
-                                        </span>
+                                        {z.repart_id || z.reparto}
                                     </td>
                                     <td style={{ padding: "12px 16px" }}>
                                         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
