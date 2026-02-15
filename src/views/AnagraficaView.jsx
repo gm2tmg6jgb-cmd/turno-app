@@ -29,9 +29,21 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
         try {
             if (isEditing) {
                 // Update on DB
+                const payload = {
+                    nome: newDip.nome,
+                    cognome: newDip.cognome,
+                    turno_default: newDip.turno,
+                    reparto_id: newDip.reparto_id,
+                    tipo: newDip.tipo,
+                    ruolo: newDip.ruolo,
+                    agenzia: newDip.agenzia,
+                    scadenza: newDip.scadenza,
+                    l104: newDip.l104
+                };
+
                 const { error } = await supabase
                     .from('dipendenti')
-                    .update(newDip)
+                    .update(payload)
                     .eq('id', currentDipId);
 
                 if (error) throw error;
@@ -42,8 +54,17 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
             } else {
                 // Create new
                 const dip = {
-                    ...newDip,
-                    id: crypto.randomUUID(), // More robust ID
+                    id: crypto.randomUUID(),
+                    nome: newDip.nome,
+                    cognome: newDip.cognome,
+                    turno_default: newDip.turno || "D", // Map 'turno' to 'turno_default'
+                    reparto_id: newDip.reparto_id || newDip.reparto || "T11", // Ensure ID is used
+                    tipo: newDip.tipo,
+                    ruolo: newDip.ruolo,
+                    // Optional fields
+                    agenzia: newDip.tipo === 'interinale' ? newDip.agenzia : null,
+                    scadenza: newDip.tipo === 'interinale' ? newDip.scadenza : null,
+                    l104: newDip.l104
                 };
 
                 const { data, error } = await supabase
