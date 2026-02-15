@@ -337,9 +337,6 @@ export default function App() {
               setAttivita={setAttivita}
               repartoCorrente={repartoCorrente}
               turnoCorrente={turnoCorrente}
-              setAttivita={setAttivita}
-              repartoCorrente={repartoCorrente}
-              turnoCorrente={turnoCorrente}
               showToast={showToast}
               zones={zone} // Pass zones for grouping
             />
