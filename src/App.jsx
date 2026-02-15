@@ -43,6 +43,17 @@ export default function App() {
       try {
         console.log("🔄 Fetching data from Supabase...");
 
+        // Debug Connection
+        const sbUrl = import.meta.env.VITE_SUPABASE_URL;
+        if (!sbUrl) {
+          showToast("⚠️ ERRORE CONFIGURAZIONE: URL Supabase mancante!", "error");
+        } else {
+          // Show first 8 chars of URL to confirm environment
+          const shortUrl = sbUrl.substring(8, 20) + "...";
+          console.log("🔗 Connected to:", shortUrl);
+          // Verify simple existence (optional, maybe too noisy for prod, but good for debug now)
+        }
+
         const { data: dipHelper, error: errDip } = await supabase.from('dipendenti').select('*');
         if (errDip) throw errDip;
         // Parse competenze from JSONB if needed, Supabase returns object automatically for jsonb
