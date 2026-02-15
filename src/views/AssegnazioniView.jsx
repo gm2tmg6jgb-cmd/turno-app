@@ -154,7 +154,7 @@ export default function AssegnazioniView({
                                 const zoneAss = assRep.filter(a => a.macchina_id === zoneId || a.attivita_id === zoneId);
 
                                 return (
-                                    <div key={zoneId} className="zone-section" style={{ marginBottom: 24, padding: 16, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-secondary)' }}>
+                                    <div key={zoneId} className="zone-section" style={{ marginBottom: 12, padding: 10, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-secondary)' }}>
                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                                             <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
                                                 {Icons.grid} {zoneLabel}
@@ -252,9 +252,7 @@ export default function AssegnazioniView({
                                                                 </span>
                                                             );
                                                         })}
-                                                        <button className="add-operator-btn" onClick={() => setShowModal({ id: m.id, type: 'machine', name: m.nome })}>
-                                                            {Icons.plus} Aggiungi
-                                                        </button>
+                                                        {/* Button removed as per request */}
                                                     </div>
                                                 </div>
                                             );
