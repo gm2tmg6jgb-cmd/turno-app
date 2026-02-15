@@ -3,15 +3,56 @@ import { REPARTI, TURNI, MOTIVI_ASSENZA } from "../data/constants";
 import { Icons } from "../components/ui/Icons";
 import {
     PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
-    BarChart, Bar, XAxis, YAxis, CartesianGrid
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, AreaChart, Area
 } from 'recharts';
 
 export default function ReportView({ dipendenti, presenze, assegnazioni, macchine, repartoCorrente, turnoCorrente }) {
     const [reportType, setReportType] = useState("turno");
-    const allDip = dipendenti;
-    const allPres = presenze.filter(p => p.data === new Date().toISOString().split("T")[0]); // Only today's presence for report
-    const allAss = assegnazioni.filter(a => a.data === new Date().toISOString().split("T")[0]);
-    const allMacchine = macchine;
+
+    // Filter by Turno (Consistency with Dashboard)
+    const allDip = useMemo(() => {
+        return dipendenti.filter(d => !turnoCorrente || d.turno_default === turnoCorrente);
+    }, [dipendenti, turnoCorrente]);
+
+    const allPres = useMemo(() => {
+        const today = new Date().toISOString().split("T")[0];
+        return presenze.filter(p => p.data === today && (!turnoCorrente || p.turno_id === turnoCorrente));
+    }, [presenze, turnoCorrente]);
+
+    const allAss = useMemo(() => {
+        const today = new Date().toISOString().split("T")[0];
+        return assegnazioni.filter(a => a.data === today && (!turnoCorrente || a.turno_id === turnoCorrente));
+    }, [assegnazioni, turnoCorrente]);
+
+    // Trend Data Calculation (Last 14 Days)
+    const trendData = useMemo(() => {
+        const data = [];
+        const today = new Date();
+        // Go back 14 days
+        for (let i = 13; i >= 0; i--) {
+            const d = new Date(today);
+            d.setDate(today.getDate() - i);
+            const dateStr = d.toISOString().split('T')[0];
+            const label = d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
+
+            const dayPres = presenze.filter(p =>
+                p.data === dateStr &&
+                (!turnoCorrente || p.turno_id === turnoCorrente)
+            );
+
+            const assenti = dayPres.filter(p => !p.presente).length;
+            const imprevisti = dayPres.filter(p => !p.presente && ['malattia', 'infortunio'].includes(p.motivo_assenza)).length;
+
+            data.push({
+                name: label,
+                Assenze: assenti,
+                Imprevisti: imprevisti
+            });
+        }
+        return data;
+    }, [presenze, turnoCorrente]);
+
+    const allMacchine = macchine; // Machines might not strictly belong to a shift, but their operators do.
 
     const presentiCount = allPres.filter((p) => p.presente).length;
     const assentiCount = allPres.filter((p) => !p.presente).length;
@@ -221,19 +262,33 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
             {reportType === "settimanale" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                     <div className="card">
-                        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Analisi Avanzata Reparto</h3>
+                        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Analisi Trend Assenze (Ultimi 14 gg)</h3>
                         <div style={{ height: 400, width: '100%' }}>
                             <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 20 }}>
-                                Trend di saturazione macchine e saturazione competenze nel reparto {reparto?.nome}.
+                                Monitoraggio dell'andamento delle assenze totali e impreviste (Malattia, Infortunio).
                             </p>
-                            {/* Placeholder for more complex analytics */}
-                            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: 300, background: 'var(--bg-tertiary)', borderRadius: 12, border: '1px dashed var(--border)' }}>
-                                <div style={{ textAlign: "center" }}>
-                                    <div style={{ fontSize: 40, marginBottom: 8 }}>🔮</div>
-                                    <div style={{ fontWeight: 600 }}>Analisi Predittiva in arrivo</div>
-                                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Basata sullo storico delle assenze e delle competenze disponibili.</div>
-                                </div>
-                            </div>
+                            <ResponsiveContainer width="100%" height={340}>
+                                <AreaChart data={trendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="colorAssenze" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="var(--danger)" stopOpacity={0.8} />
+                                            <stop offset="95%" stopColor="var(--danger)" stopOpacity={0} />
+                                        </linearGradient>
+                                        <linearGradient id="colorImprevisti" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="var(--warning)" stopOpacity={0.8} />
+                                            <stop offset="95%" stopColor="var(--warning)" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <XAxis dataKey="name" stroke="var(--text-muted)" tick={{ fontSize: 12 }} />
+                                    <YAxis stroke="var(--text-muted)" tick={{ fontSize: 12 }} />
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+                                    <Tooltip
+                                        contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px' }}
+                                    />
+                                    <Area type="monotone" dataKey="Assenze" stroke="var(--danger)" fillOpacity={1} fill="url(#colorAssenze)" />
+                                    <Area type="monotone" dataKey="Imprevisti" stroke="var(--warning)" fillOpacity={1} fill="url(#colorImprevisti)" />
+                                </AreaChart>
+                            </ResponsiveContainer>
                         </div>
                     </div>
                 </div>

@@ -14,12 +14,13 @@ import RicercaView from "./views/RicercaView";
 
 import ImportView from "./views/ImportView";
 import SkillsView from "./views/SkillsView";
+import MotiviView from "./views/MotiviView";
 import PlanningView from "./views/PlanningView";
 import ZoneView from "./views/ZoneView";
 
 export default function App() {
   const [currentView, setCurrentView] = useState("dashboard");
-  const [repartoCorrente, setRepartoCorrente] = useState("T11");
+  const [repartoCorrente, setRepartoCorrente] = useState(null);
   const [turnoCorrente, setTurnoCorrente] = useState("D");
 
   // State from DB
@@ -29,6 +30,7 @@ export default function App() {
   const [attivita, setAttivita] = useState([]);
   const [assegnazioni, setAssegnazioni] = useState([]);
   const [presenze, setPresenze] = useState([]);
+  const [motivi, setMotivi] = useState([]);
   const [toast, setToast] = useState(null);
 
   const showToast = useCallback((message, type) => {
@@ -60,6 +62,10 @@ export default function App() {
         const { data: presHelper, error: errPres } = await supabase.from('presenze').select('*');
         if (errPres) throw errPres;
 
+        const { data: motiviHelper, error: errMotivi } = await supabase.from('motivi_assenza').select('*');
+        // If error or empty, we might want to use defaults, but better to just use what we get.
+        // For migration stability, if empty, we might use default constants, but user should run SQL.
+
         // --- AUTO-GENERATE PRESENCE FOR TODAY IF MISSING ---
         // Use local date for consistency
         const getLocalDate = (d) => {
@@ -74,8 +80,10 @@ export default function App() {
 
         let finalPresenze = presHelper || [];
 
-        // Strict Verify: Only generate if ABSOLUTELY 0 records for today
-        if (presenzeOggi.length === 0 && dipendenti.length > 0) { // Check state dipendenti? No, use dipHelper
+        // Strict Verify: Only generate if ABSOLUTELY 0 records for today AND NOT SUNDAY
+        const isSunday = new Date(today).getDay() === 0;
+
+        if (!isSunday && presenzeOggi.length === 0 && dipendenti.length > 0) { // Check state dipendenti? No, use dipHelper
           // Double check with DB again to avoid race condition in React StrictMode
           const { count } = await supabase
             .from('presenze')
@@ -117,6 +125,7 @@ export default function App() {
         setAttivita(attHelper || []);
         setAssegnazioni(assHelper || []);
         setPresenze(finalPresenze);
+        setMotivi(motiviHelper || []);
 
         console.log("✅ Data fetched successfully");
       } catch (error) {
@@ -126,7 +135,26 @@ export default function App() {
     };
 
     fetchData();
+    fetchData();
   }, [showToast]);
+
+  // --- ONE-TIME CLEANUP FOR SUNDAY 15/02 ---
+  useEffect(() => {
+    const cleanupSunday = async () => {
+      const today = new Date().toISOString().split('T')[0];
+      const isSunday = new Date().getDay() === 0;
+      if (isSunday) {
+        console.log("🧹 Running Sunday cleanup...");
+        const { error } = await supabase.from('presenze').delete().eq('data', today);
+        if (!error) {
+          console.log("✅ Sunday records cleaned up.");
+          // Force reload of data after cleanup (simple way: reload page or re-fetch, but user will likely reload anyway)
+        }
+      }
+    };
+    cleanupSunday();
+  }, []);
+  // ------------------------------------------
 
 
 
@@ -139,9 +167,9 @@ export default function App() {
 
   // Count alerts for badge
   // Count alerts for badge
-  const dipRep = dipendenti.filter((d) => d.reparto_id === repartoCorrente);
+  const dipRep = repartoCorrente ? dipendenti.filter((d) => d.reparto_id === repartoCorrente) : dipendenti;
   const assRep = assegnazioni.filter((a) => dipRep.some((d) => d.id === a.dipendente_id));
-  const macchineReparto = macchine.filter((m) => m.reparto_id === repartoCorrente);
+  const macchineReparto = repartoCorrente ? macchine.filter((m) => m.reparto_id === repartoCorrente) : macchine;
   const alertCount = macchineReparto.filter((m) => {
     const assigned = assRep.filter((a) => a.macchina_id === m.id).length;
     return assigned < (m.personale_minimo || 1);
@@ -149,12 +177,13 @@ export default function App() {
 
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: Icons.dashboard },
-    { id: "planning", label: "Pianificazione", icon: "📅" },
+    { id: "planning", label: "Pianificazione", icon: Icons.calendar },
     { id: "assegnazioni", label: "Assegnazioni", icon: Icons.machine, badge: alertCount || null },
-    { id: "skills", label: "Competenze", icon: "🧠" },
+    { id: "skills", label: "Competenze", icon: Icons.brain },
     { id: "anagrafica", label: "Anagrafica", icon: Icons.users },
     { id: "report", label: "Report", icon: Icons.report },
     { id: "ricerca", label: "Ricerca Storica", icon: Icons.history },
+    { id: "motivi", label: "Motivi Assenza", icon: Icons.filter }, // using filter icon as placeholder or similar
     { id: "import", label: "Import SAP", icon: Icons.upload },
   ];
 
@@ -165,6 +194,7 @@ export default function App() {
     anagrafica: "Anagrafica Personale",
     report: "Report & Esportazioni",
     ricerca: "Ricerca Storica",
+    motivi: "Gestione Motivi Assenza",
 
     import: "Import Dati SAP",
     zones: "Anagrafica Zone",
@@ -209,12 +239,6 @@ export default function App() {
         </div>
 
         <div style={{ padding: "0 12px" }}>
-          <div className="form-group" style={{ marginBottom: 8 }}>
-            <label className="form-label">Reparto</label>
-            <select className="select-input" value={repartoCorrente} onChange={(e) => setRepartoCorrente(e.target.value)}>
-              {REPARTI.map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
-            </select>
-          </div>
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">Squadra / Turno</label>
             <select className="select-input" value={turnoCorrente} onChange={(e) => setTurnoCorrente(e.target.value)}>
@@ -259,10 +283,10 @@ export default function App() {
 
         <div className="sidebar-footer">
           <div className="sidebar-user">
-            <div className="sidebar-avatar">{reparto?.capoturno?.substring(0, 2).toUpperCase() || "CT"}</div>
+            <div className="sidebar-avatar">{reparto ? reparto.capoturno?.substring(0, 2).toUpperCase() : "PM"}</div>
             <div className="sidebar-user-info">
-              <div className="name">{reparto?.capoturno || "Capoturno"}</div>
-              <div className="role">Capoturno — {reparto?.nome}</div>
+              <div className="name">{reparto ? reparto.capoturno : "Plant Manager"}</div>
+              <div className="role">{reparto ? `Capoturno — ${reparto.nome}` : "Gestione Stabilimento"}</div>
             </div>
           </div>
         </div>
@@ -274,7 +298,7 @@ export default function App() {
           <div>
             <h1>{viewTitles[currentView]}</h1>
             <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
-              {reparto?.nome} • {turno?.nome} ({activeTurnoSlot?.nome}) • {new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })}
+              {reparto ? reparto.nome : "Tutti i Reparti"} • {turno?.nome} ({activeTurnoSlot?.nome}) • {new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })}
             </div>
           </div>
           <div className="main-header-actions">
@@ -286,7 +310,7 @@ export default function App() {
 
         <div className="main-content">
           {currentView === "dashboard" && (
-            <DashboardView dipendenti={dipendenti} presenze={presenze} setPresenze={setPresenze} assegnazioni={assegnazioni} macchine={macchine} repartoCorrente={repartoCorrente} turnoCorrente={turnoCorrente} showToast={showToast} />
+            <DashboardView dipendenti={dipendenti} presenze={presenze} setPresenze={setPresenze} assegnazioni={assegnazioni} macchine={macchine} repartoCorrente={repartoCorrente} turnoCorrente={turnoCorrente} showToast={showToast} motivi={motivi} />
           )}
           {currentView === "planning" && (
             <PlanningView dipendenti={dipendenti} setDipendenti={setDipendenti} />
@@ -302,7 +326,11 @@ export default function App() {
               setAttivita={setAttivita}
               repartoCorrente={repartoCorrente}
               turnoCorrente={turnoCorrente}
+              setAttivita={setAttivita}
+              repartoCorrente={repartoCorrente}
+              turnoCorrente={turnoCorrente}
               showToast={showToast}
+              zones={zone} // Pass zones for grouping
             />
           )}
           {currentView === "anagrafica" && (
@@ -322,6 +350,9 @@ export default function App() {
           )}
           {currentView === "skills" && (
             <SkillsView dipendenti={dipendenti} setDipendenti={setDipendenti} macchine={macchine} showToast={showToast} />
+          )}
+          {currentView === "motivi" && (
+            <MotiviView motivi={motivi} setMotivi={setMotivi} showToast={showToast} />
           )}
         </div>
       </div>

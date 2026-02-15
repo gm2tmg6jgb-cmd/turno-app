@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { supabase } from "../lib/supabase";
 import { REPARTI } from "../data/constants";
 import { Icons } from "../components/ui/Icons";
 import { Modal } from "../components/ui/Modal";
@@ -7,70 +8,160 @@ export default function ZoneView({ zones, setZones, macchine, setMacchine }) {
     const [searchTerm, setSearchTerm] = useState("");
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
-    const [newZone, setNewZone] = useState({ id: "", label: "", reparto: "T11" });
+    const [newZone, setNewZone] = useState({ id: "", label: "", reparto: "T11", max_machines: 0 });
 
     // State for machine management inside modal
     const [newMac, setNewMac] = useState({ id: "", nome: "", personaleMinimo: 1 });
 
     const filteredZones = zones.filter(z =>
-        z.label.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        z.reparto.toLowerCase().includes(searchTerm.toLowerCase())
+        (z.label || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (z.reparto || z.repart_id || "").toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const handleSaveZone = () => {
-        if (!newZone.id || !newZone.label) return;
+    const handleSaveZone = async () => {
+        if (!newZone.label) return;
 
-        if (isEditing) {
-            setZones(zones.map(z => z.id === newZone.id ? newZone : z));
-        } else {
-            if (zones.some(z => z.id === newZone.id)) {
-                alert("ID Zona già esistente!");
-                return;
+        try {
+            // Auto-generate ID if creating
+            let zoneId = newZone.id;
+            if (!isEditing) {
+                // Generate simple slug: ZONE_LABEL
+                const slug = newZone.label.trim().replace(/[^a-zA-Z0-9]/g, '_').toUpperCase();
+                zoneId = `Z_${slug}_${Date.now().toString().slice(-4)}`; // Add timestamp suffix to ensure uniqueness
             }
-            setZones([...zones, newZone]);
+
+            const payload = {
+                id: zoneId,
+                label: newZone.label,
+                repart_id: newZone.reparto, // Map to DB column 'repart_id' (typo in DB)
+                max_machines: parseInt(newZone.max_machines) || null
+            };
+
+            const { data, error } = await supabase
+                .from('zone')
+                .upsert(payload)
+                .select();
+
+            if (error) throw error;
+
+            // Normalize back to UI model if needed, or just use what DB returns
+            // best to allow both during transition/typo handling
+            const savedZone = { ...data[0], reparto: data[0].repart_id || data[0].reparto };
+
+            if (isEditing) {
+                setZones(zones.map(z => z.id === zoneId ? { ...z, ...payload } : z));
+            } else {
+                setZones([...zones, { ...payload }]);
+            }
+            setShowModal(false);
+            resetForm();
+        } catch (error) {
+            console.error("Error saving zone:", error);
+            alert("Errore salvataggio zona: " + error.message);
         }
-        setShowModal(false);
-        resetForm();
     };
 
-    const handleDeleteZone = (id) => {
+    const handleDeleteZone = async (id) => {
         if (window.confirm("Eliminare questa zona? Le macchine associate verranno mantenute ma non avranno più una zona.")) {
-            setZones(zones.filter(z => z.id !== id));
+            try {
+                const { error } = await supabase.from('zone').delete().eq('id', id);
+                if (error) throw error;
+                setZones(zones.filter(z => z.id !== id));
+            } catch (error) {
+                console.error("Error deleting zone:", error);
+                alert("Errore eliminazione zona: " + error.message);
+            }
         }
     };
 
     const resetForm = () => {
-        setNewZone({ id: "", label: "", reparto: "T11" });
+        setNewZone({ id: "", label: "", reparto: "T11", max_machines: 0 });
         setIsEditing(false);
     };
 
     const openEdit = (zone) => {
-        setNewZone({ ...zone });
+        // Map DB fields to Form State
+        setNewZone({
+            ...zone,
+            reparto: zone.repart_id || zone.reparto || "T11"
+        });
         setIsEditing(true);
         setShowModal(true);
     };
 
-    const deleteMachine = (macId) => {
-        if (window.confirm("Eliminare definitivamente questa macchina?")) {
-            setMacchine(macchine.filter(m => m.id !== macId));
+    const deleteMachine = async (macId) => {
+        if (window.confirm("Rimuovere questa macchina dalla zona? (La macchina rimarrà nel database, ma senza zona)")) {
+            try {
+                const { error } = await supabase
+                    .from('macchine')
+                    .update({ zona: null })
+                    .eq('id', macId);
+
+                if (error) throw error;
+
+                setMacchine(macchine.map(m => m.id === macId ? { ...m, zona: null } : m));
+            } catch (error) {
+                console.error("Error removing machine from zone:", error);
+                alert("Errore aggiornamento macchina: " + error.message);
+            }
         }
     };
 
-    const addMachineToZone = () => {
+    const addMachineToZone = async () => {
         if (!newMac.id || !newMac.nome) return;
-        if (macchine.some(m => m.id === newMac.id)) {
-            alert("ID Macchina già esistente!");
+
+        // Check Max Machines Limit
+        const currentMachinesCount = macchine.filter(m => m.zona === newZone.id).length;
+        const maxLimit = parseInt(newZone.max_machines) || 0;
+
+        if (maxLimit > 0 && currentMachinesCount >= maxLimit) {
+            alert(`Impossibile aggiungere macchina: Limite di ${maxLimit} macchine raggiunto per questa zona.`);
             return;
         }
 
-        const machine = {
-            ...newMac,
+        const machineData = {
+            id: newMac.id,
+            nome: newMac.nome,
             zona: newZone.id,
-            reparto: newZone.reparto
+            reparto_id: newZone.reparto, // Align with DB column
+            personale_minimo: newMac.personaleMinimo
         };
 
-        setMacchine([...macchine, machine]);
-        setNewMac({ id: "", nome: "", personaleMinimo: 1 });
+        try {
+            // Check if machine exists
+            const existing = macchine.find(m => m.id === newMac.id);
+
+            let result;
+            if (existing) {
+                // Update existing machine
+                const { data, error } = await supabase
+                    .from('macchine')
+                    .update({ zona: newZone.id })
+                    .eq('id', newMac.id)
+                    .select();
+                if (error) throw error;
+                result = data[0];
+
+                // Update local state
+                setMacchine(macchine.map(m => m.id === newMac.id ? { ...m, ...result } : m));
+            } else {
+                // Insert new machine
+                const { data, error } = await supabase
+                    .from('macchine')
+                    .insert(machineData)
+                    .select();
+                if (error) throw error;
+                result = data[0];
+
+                // Update local state
+                setMacchine([...macchine, result]);
+            }
+
+            setNewMac({ id: "", nome: "", personaleMinimo: 1 });
+        } catch (error) {
+            console.error("Error saving machine:", error);
+            alert("Errore salvataggio macchina: " + error.message);
+        }
     };
 
     return (
@@ -93,7 +184,6 @@ export default function ZoneView({ zones, setZones, macchine, setMacchine }) {
                 <table style={{ fontSize: 15 }}>
                     <thead>
                         <tr>
-                            <th style={{ textAlign: "left", padding: "12px 16px" }}>ID Zona</th>
                             <th style={{ textAlign: "left", padding: "12px 16px" }}>Descrizione</th>
                             <th style={{ textAlign: "left", padding: "12px 16px" }}>Reparto</th>
                             <th style={{ textAlign: "left", padding: "12px 16px" }}>Macchine Incluse</th>
@@ -106,13 +196,12 @@ export default function ZoneView({ zones, setZones, macchine, setMacchine }) {
 
                             return (
                                 <tr key={z.id}>
-                                    <td style={{ padding: "12px 16px", fontWeight: 700 }}>{z.id}</td>
                                     <td style={{ padding: "12px 16px", fontSize: 15, fontWeight: 700, color: "var(--text-primary)" }}>
-                                        {z.label.split(" - ")[1] || z.label}
+                                        {z.label}
                                     </td>
                                     <td style={{ padding: "12px 16px" }}>
-                                        <span className={`tag tag-${z.reparto === 'T11' ? 'blue' : (z.reparto === 'T12' ? 'red' : 'purple')}`}>
-                                            {z.reparto}
+                                        <span className={`tag tag-${(z.repart_id || z.reparto) === 'T11' ? 'blue' : ((z.repart_id || z.reparto) === 'T12' ? 'red' : 'purple')}`}>
+                                            {z.repart_id || z.reparto}
                                         </span>
                                     </td>
                                     <td style={{ padding: "12px 16px" }}>
@@ -129,6 +218,11 @@ export default function ZoneView({ zones, setZones, macchine, setMacchine }) {
                                             ))}
                                             {macchineZona.length === 0 && <span style={{ color: "var(--text-muted)", fontSize: 11 }}>—</span>}
                                         </div>
+                                        {z.max_machines > 0 && (
+                                            <div style={{ fontSize: 10, color: macchineZona.length >= z.max_machines ? "var(--danger)" : "var(--success)", marginTop: 4 }}>
+                                                {macchineZona.length} / {z.max_machines} slots utilizzati
+                                            </div>
+                                        )}
                                     </td>
                                     <td style={{ padding: "12px 16px" }}>
                                         <div style={{ display: "flex", gap: 8 }}>
@@ -155,9 +249,9 @@ export default function ZoneView({ zones, setZones, macchine, setMacchine }) {
                     }
                 >
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                        <div className="form-group">
-                            <label className="form-label">ID Zona</label>
-                            <input className="input" value={newZone.id} onChange={(e) => setNewZone({ ...newZone, id: e.target.value })} disabled={isEditing} placeholder="Es: Z35" />
+                        <div className="form-group" style={{ gridColumn: "span 2" }}>
+                            <label className="form-label">Descrizione Completa</label>
+                            <input className="input" value={newZone.label} onChange={(e) => setNewZone({ ...newZone, label: e.target.value })} placeholder="Es: Nuova Area Produzione" />
                         </div>
                         <div className="form-group">
                             <label className="form-label">Reparto</label>
@@ -165,9 +259,15 @@ export default function ZoneView({ zones, setZones, macchine, setMacchine }) {
                                 {REPARTI.map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
                             </select>
                         </div>
-                        <div className="form-group" style={{ gridColumn: "span 2" }}>
-                            <label className="form-label">Descrizione Completa</label>
-                            <input className="input" value={newZone.label} onChange={(e) => setNewZone({ ...newZone, label: e.target.value })} placeholder="Es: Z35 - Nuova Area" />
+                        <div className="form-group">
+                            <label className="form-label">Max Macchine (0 = Illimitato)</label>
+                            <input
+                                type="number"
+                                className="input"
+                                value={newZone.max_machines || ""}
+                                onChange={(e) => setNewZone({ ...newZone, max_machines: e.target.value })}
+                                placeholder="Es: 5"
+                            />
                         </div>
                     </div>
 

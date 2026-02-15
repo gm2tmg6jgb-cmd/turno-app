@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
-import { MOTIVI_ASSENZA, REPARTI } from "../data/constants";
+import { REPARTI } from "../data/constants";
 
-export default function DashboardView({ dipendenti, presenze, setPresenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, showToast }) {
+export default function DashboardView({ dipendenti, presenze, setPresenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, showToast, motivi }) {
     if (!dipendenti) return <div className="p-4 text-center">Caricamento dipendenti...</div>;
 
     // Fix: Use local date to avoid UTC mismatch
@@ -72,19 +72,16 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
             // If record exists, use it
             if (p.presente) return true;
             if (p.motivo_assenza) {
-                const m = MOTIVI_ASSENZA.find(ma => ma.id === p.motivo_assenza);
+                const m = motivi.find(ma => ma.id === p.motivo_assenza);
                 return m ? m.sigla : "?";
             }
             return false; // Should generally have reason if not present
         }
 
         // Default behavior if no record exists
-        if (date === today) return true; // Default present today? Or wait for generation?
-        // In original logic: 
-        // if (day.date === today) { wp[key] = p ? p.presente : true; }
-        // else { wp[key] = day.isSunday ? "-" : true; }
-
         if (isSunday) return "-";
+        if (date === today) return true; // Default present today only if NOT Sunday
+
         return true; // Default present in future/past if no record
     };
 
@@ -127,7 +124,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
         });
 
         setMotivoPopup(null);
-        const motivoObj = MOTIVI_ASSENZA.find(m => m.id === motivo);
+        const motivoObj = motivi.find(m => m.id === motivo);
         showToast(`Assenza registrata: ${motivoObj?.label}`, "warning");
     };
 
@@ -144,15 +141,17 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
 
     const presenzeOdierni = presenze ? presenze.filter((p) => p.data === today) : [];
 
-    // Ricalcolo statistiche basato sui dipendenti FILTRATI
+    // Ricalcolo statistiche basato sui dipendenti FILTRATI e sulla logica di visualizzazione (default incluri)
+    const isTodaySunday = new Date(today).getDay() === 0;
+
     const presenti = filteredDipendenti.filter(d => {
-        const p = presenzeOdierni.find(pr => pr.dipendente_id === d.id);
-        return p && p.presente;
+        const status = getPresenceStatus(d.id, today, isTodaySunday);
+        return status === true;
     }).length;
 
     const assenti = filteredDipendenti.filter(d => {
-        const p = presenzeOdierni.find(pr => pr.dipendente_id === d.id);
-        return p && !p.presente;
+        const status = getPresenceStatus(d.id, today, isTodaySunday);
+        return status !== true && status !== "-" && status !== "?";
     }).length;
 
     // 2. ORDINAMENTO con Team Leader per primi
@@ -409,7 +408,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                         minWidth: 160,
                     }}>
                         <div style={{ fontSize: 10, color: "var(--text-muted)", padding: "4px 8px", fontWeight: 600, textTransform: "uppercase" }}>Motivo assenza</div>
-                        {MOTIVI_ASSENZA.map((m) => (
+                        {motivi.map((m) => (
                             <div
                                 key={m.id}
                                 onClick={() => confirmAssenza(m.id)}
@@ -423,10 +422,9 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                     gap: 6,
                                     transition: "background 0.1s",
                                 }}
-                                onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-elevated)"}
                                 onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                             >
-                                <span>{m.icona}</span>
+                                <div style={{ width: 12, height: 12, borderRadius: 2, background: m.colore, marginRight: 6 }}></div>
                                 <span>{m.label}</span>
                             </div>
                         ))}

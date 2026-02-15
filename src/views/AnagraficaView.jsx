@@ -47,7 +47,11 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
     };
 
     const openEdit = (dip) => {
-        setNewDip({ ...dip });
+        setNewDip({
+            ...dip,
+            turno: dip.turno || "D", // Ensure fallback to 'D' if null/undefined
+            reparto: dip.reparto || dip.reparto_id || "T11" // Ensure fallback for team too just in case
+        });
         setCurrentDipId(dip.id);
         setIsEditing(true);
         setShowModal(true);
@@ -83,14 +87,13 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
                 <table>
                     <thead>
                         <tr>
-                            <th>Cognome e Nome</th>
-                            <th>Turno</th>
-                            <th>Team</th>
-                            <th>Ruolo</th>
-                            <th>Tipo Contratto</th>
-                            <th>L104</th>
-                            <th>Competenze Macchine</th>
-                            <th>Azioni</th>
+                            <th style={{ textAlign: "left" }}>Cognome e Nome</th>
+                            <th style={{ textAlign: "left" }}>Turno</th>
+                            <th style={{ textAlign: "left" }}>Team</th>
+                            <th style={{ textAlign: "left" }}>Ruolo</th>
+                            <th style={{ textAlign: "left" }}>Tipo Contratto</th>
+                            <th style={{ textAlign: "left" }}>Limitazioni</th>
+                            <th style={{ textAlign: "left" }}>Azioni</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -99,56 +102,21 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
                             return (
                                 <tr key={d.id}>
                                     <td style={{ fontWeight: 600 }}>{d.cognome} {d.nome}</td>
-                                    <td><span className="tag tag-blue">Turno {d.turno || "D"}</span></td>
+                                    <td>{d.turno || "D"}</td>
                                     <td>
-                                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: rep?.colore }} />
-                                            {rep?.nome}
-                                        </span>
+                                        {rep?.id ? rep.id.replace(/\D/g, '') : ""}
                                     </td>
-                                    <td style={{ textTransform: "capitalize" }}>{d.ruolo}</td>
+                                    <td style={{ textTransform: "capitalize" }}>{d.ruolo === "capoturno" ? "Team Leader" : d.ruolo}</td>
                                     <td>
-                                        <span className={`tag ${d.tipo === "interinale" ? "tag-orange" : "tag-blue"}`}>
-                                            {d.tipo === "interinale" ? `INT — ${d.agenzia}` : "Indeterminato"}
-                                        </span>
+                                        {d.tipo === "interinale" ? `Interinale — ${d.agenzia}` : "Indeterminato"}
                                         {d.scadenza && (
-                                            <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>
+                                            <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
                                                 Scade: {d.scadenza}
                                             </div>
                                         )}
                                     </td>
                                     <td>
-                                        {d.l104 ? (
-                                            <span className="tag tag-purple">{d.l104}</span>
-                                        ) : (
-                                            <span style={{ color: "var(--text-muted)" }}>—</span>
-                                        )}
-                                    </td>
-                                    <td>
-                                        <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
-                                            {d.competenze && Object.keys(d.competenze).length > 0 ? Object.keys(d.competenze).map((c) => {
-                                                const mac = macchine.find((m) => m.id === c);
-                                                return (
-                                                    <span key={c} style={{
-                                                        width: 22,
-                                                        height: 22,
-                                                        borderRadius: "50%",
-                                                        display: "inline-flex",
-                                                        alignItems: "center",
-                                                        justifyContent: "center",
-                                                        background: d.competenze[c] > 0 ? "var(--accent)" : "var(--bg-tertiary)",
-                                                        color: d.competenze[c] > 0 ? "white" : "var(--text-muted)",
-                                                        fontSize: 11,
-                                                        fontWeight: 700,
-                                                        border: "1px solid var(--border)"
-                                                    }} title={mac?.nome || c}>
-                                                        {d.competenze[c]}
-                                                    </span>
-                                                );
-                                            }) : (
-                                                <span style={{ color: "var(--text-muted)", fontSize: 11 }}>Da assegnare</span>
-                                            )}
-                                        </div>
+                                        {d.l104 ? d.l104 : <span style={{ color: "var(--text-muted)" }}>—</span>}
                                     </td>
                                     <td>
                                         <div style={{ display: "flex", gap: 8 }}>
@@ -215,7 +183,7 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
                                 </select>
                             </div>
                             <div className="form-group" style={{ gridColumn: "span 2" }}>
-                                <label className="form-label">L104</label>
+                                <label className="form-label">Limitazioni</label>
                                 <input className="input" placeholder="Es: SI + ESE, 104 x 2, ecc." value={newDip.l104} onChange={(e) => setNewDip({ ...newDip, l104: e.target.value })} />
                             </div>
                         </div>
