@@ -372,35 +372,36 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                     <div className="card">
                         <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Analisi Trend Assenze (Ultimi 14 gg)</h3>
                         <div style={{ height: 400, width: '100%' }}>
-                            Monitoraggio dell'andamento delle assenze totali e impreviste (Tutto eccetto Ferie/ROL).
-                        </p>
-                        <ResponsiveContainer width="100%" height={340}>
-                            <AreaChart data={trendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                                <defs>
-                                    <linearGradient id="colorAssenze" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="var(--danger)" stopOpacity={0.8} />
-                                        <stop offset="95%" stopColor="var(--danger)" stopOpacity={0} />
-                                    </linearGradient>
-                                    <linearGradient id="colorImprevisti" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="var(--warning)" stopOpacity={0.8} />
-                                        <stop offset="95%" stopColor="var(--warning)" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <XAxis dataKey="name" stroke="var(--text-muted)" tick={{ fontSize: 12 }} />
-                                <YAxis stroke="var(--text-muted)" tick={{ fontSize: 12 }} />
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
-                                <Tooltip
-                                    contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px' }}
-                                />
-                                <Area type="monotone" dataKey="Assenze" stroke="var(--danger)" fillOpacity={1} fill="url(#colorAssenze)" />
-                                <Area type="monotone" dataKey="Imprevisti" stroke="var(--warning)" fillOpacity={1} fill="url(#colorImprevisti)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                            <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 20 }}>
+                                Monitoraggio dell'andamento delle assenze totali e impreviste (Tutto eccetto Ferie/ROL).
+                            </p>
+                            <ResponsiveContainer width="100%" height={340}>
+                                <AreaChart data={trendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="colorAssenze" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="var(--danger)" stopOpacity={0.8} />
+                                            <stop offset="95%" stopColor="var(--danger)" stopOpacity={0} />
+                                        </linearGradient>
+                                        <linearGradient id="colorImprevisti" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="var(--warning)" stopOpacity={0.8} />
+                                            <stop offset="95%" stopColor="var(--warning)" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <XAxis dataKey="name" stroke="var(--text-muted)" tick={{ fontSize: 12 }} />
+                                    <YAxis stroke="var(--text-muted)" tick={{ fontSize: 12 }} />
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+                                    <Tooltip
+                                        contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px' }}
+                                    />
+                                    <Area type="monotone" dataKey="Assenze" stroke="var(--danger)" fillOpacity={1} fill="url(#colorAssenze)" />
+                                    <Area type="monotone" dataKey="Imprevisti" stroke="var(--warning)" fillOpacity={1} fill="url(#colorImprevisti)" />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
                     </div>
                 </div>
-                </div>
-    )
-}
+            )
+            }
         </div >
     );
 }
