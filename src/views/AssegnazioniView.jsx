@@ -346,42 +346,43 @@ export default function AssegnazioniView({
                                 );
                             })}
                         </select>
-                        Vengono mostrati tutti gli operatori presenti. Quelli già assegnati sono contrassegnati.
-                    </p>
-                </div>
+                        <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 6 }}>
+                            Vengono mostrati tutti gli operatori presenti. Quelli già assegnati sono contrassegnati.
+                        </p>
+                    </div>
 
                     {selectedDip && showModal.type === 'machine' && (() => {
-                const skill = getSelectedDipSkill(selectedDip, showModal.id);
-                if (skill && skill.value < 2) {
-                    return (
-                        <div className="alert alert-danger" style={{ marginTop: 12 }}>
-                            <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
-                                {Icons.alert} Attenzione: Competenza {skill.label}
-                            </div>
-                            <div style={{ fontSize: 12, marginTop: 4 }}>
-                                L'operatore selezionato non è pienamente autonomo su questa macchina.
-                            </div>
-                        </div>
-                    );
-                } else if (skill && skill.value >= 2) {
-                    return (
-                        <div className="alert alert-success" style={{ marginTop: 12, padding: "8px 12px" }}>
-                            <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
-                                {Icons.check} Competenza: {skill.label}
-                            </div>
-                        </div>
-                    );
-                }
-            })()}
+                        const skill = getSelectedDipSkill(selectedDip, showModal.id);
+                        if (skill && skill.value < 2) {
+                            return (
+                                <div className="alert alert-danger" style={{ marginTop: 12 }}>
+                                    <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+                                        {Icons.alert} Attenzione: Competenza {skill.label}
+                                    </div>
+                                    <div style={{ fontSize: 12, marginTop: 4 }}>
+                                        L'operatore selezionato non è pienamente autonomo su questa macchina.
+                                    </div>
+                                </div>
+                            );
+                        } else if (skill && skill.value >= 2) {
+                            return (
+                                <div className="alert alert-success" style={{ marginTop: 12, padding: "8px 12px" }}>
+                                    <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                                        {Icons.check} Competenza: {skill.label}
+                                    </div>
+                                </div>
+                            );
+                        }
+                    })()}
 
-            {getAvailableOps().length === 0 && (
-                <div className="alert alert-warning" style={{ marginTop: 12 }}>
-                    {Icons.info} Tutti gli operatori presenti sono già stati assegnati.
-                </div>
-            )}
-        </Modal>
-    )
-}
+                    {getAvailableOps().length === 0 && (
+                        <div className="alert alert-warning" style={{ marginTop: 12 }}>
+                            {Icons.info} Tutti gli operatori presenti sono già stati assegnati.
+                        </div>
+                    )}
+                </Modal>
+            )
+            }
         </div >
     );
 }
