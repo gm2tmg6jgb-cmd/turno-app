@@ -228,7 +228,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                 {Icons.grid} {zone.label}
                                                             </div>
                                                             <div>
-                                                                <span style={{ fontSize: 12, color: "var(--text-muted)", marginRight: 8 }}>Responsabile:</span>
+                                                                <span style={{ fontSize: 12, color: "var(--text-muted)", marginRight: 8 }}>Operatore Zona:</span>
                                                                 {zoneResponsibles.length > 0 ? (
                                                                     zoneResponsibles.map(a => {
                                                                         const d = allDip.find(dd => dd.id === a.dipendente_id);

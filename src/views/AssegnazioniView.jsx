@@ -159,8 +159,26 @@ export default function AssegnazioniView({
                                             <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
                                                 {Icons.grid} {zoneLabel}
                                             </h4>
-                                            {/* Removed Responsabile assignment as per request */}
+                                            <button className="btn btn-secondary btn-sm" onClick={() => setShowModal({ id: zoneId, type: 'activity', name: `${zoneLabel}` })}>
+                                                {Icons.plus} Assegna Operatore
+                                            </button>
                                         </div>
+
+                                        {/* Zone Operators / Assignments */}
+                                        {zoneAss.length > 0 && (
+                                            <div style={{ marginBottom: 12, display: "flex", gap: 8, flexWrap: "wrap", padding: "8px", background: "rgba(59, 130, 246, 0.1)", borderRadius: 6 }}>
+                                                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--info)", alignSelf: "center" }}>Operatori di Zona:</span>
+                                                {zoneAss.map(a => {
+                                                    const d = dipendenti.find(dd => dd.id === a.dipendente_id);
+                                                    return d ? (
+                                                        <span key={a.id} className="operator-chip" style={{ background: "var(--bg-card)", border: "1px solid var(--info)" }}>
+                                                            {d.cognome} {d.nome.charAt(0)}.
+                                                            <span className="remove" onClick={() => removeAssegnazione(a.id)}>✕</span>
+                                                        </span>
+                                                    ) : null;
+                                                })}
+                                            </div>
+                                        )}
 
                                         <div className="machine-grid">
                                             {zoneMachines.map((m) => {
