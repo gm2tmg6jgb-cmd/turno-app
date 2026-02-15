@@ -198,22 +198,18 @@ export default function AssegnazioniView({
                                                             </span>
                                                         </div>
 
-                                                        <div className="machine-card-operators">
-                                                            {ops.map((o) => {
-                                                                const d = dipendenti.find((dd) => dd.id === o.dipendente_id);
-                                                                if (!d) return null;
-                                                                return (
-                                                                    <span key={o.id} className={`operator-chip ${d.tipo === "interinale" ? "interinale" : ""} `}>
-                                                                        {d.cognome} {d.nome.charAt(0)}.
-                                                                        {d.tipo === "interinale" && <span style={{ fontSize: 9, color: "var(--warning)" }}>INT</span>}
-                                                                        <span className="remove" onClick={() => removeAssegnazione(o.id)}>✕</span>
-                                                                    </span>
-                                                                );
-                                                            })}
-                                                            <button className="add-operator-btn" onClick={() => setShowModal({ id: m.id, type: 'machine', name: m.nome })}>
-                                                                {Icons.plus} Aggiungi
-                                                            </button>
-                                                        </div>
+                                                        {ops.map((o) => {
+                                                            const d = dipendenti.find((dd) => dd.id === o.dipendente_id);
+                                                            if (!d) return null;
+                                                            return (
+                                                                <span key={o.id} className={`operator-chip ${d.tipo === "interinale" ? "interinale" : ""} `}>
+                                                                    {d.cognome} {d.nome.charAt(0)}.
+                                                                    {d.tipo === "interinale" && <span style={{ fontSize: 9, color: "var(--warning)" }}>INT</span>}
+                                                                    <span className="remove" onClick={() => removeAssegnazione(o.id)}>✕</span>
+                                                                </span>
+                                                            );
+                                                        })}
+                                                        {/* Button removed as per request: Operators are assigned to Zone, not individual machines */}
                                                     </div>
                                                 );
                                             })}
