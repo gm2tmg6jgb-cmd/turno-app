@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { REPARTI } from "../data/constants";
+import { supabase } from "../lib/supabase";
 
 export default function DashboardView({ dipendenti, presenze, setPresenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, showToast, motivi }) {
     if (!dipendenti) return <div className="p-4 text-center">Caricamento dipendenti...</div>;
@@ -85,7 +86,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
         return true; // Default present in future/past if no record
     };
 
-    const toggleWeekPresenza = (dipId, date, event) => {
+    const toggleWeekPresenza = async (dipId, date, event) => {
         const status = getPresenceStatus(dipId, date, false);
         const isCurrentlyPresent = status === true;
 
@@ -97,7 +98,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
             // Going from absent (or null/-) → present
             setMotivoPopup(null);
 
-            // Update global state (Upsert)
+            // Optimistic Update
             setPresenze((prev) => {
                 const exists = prev.find(p => p.dipendente_id === dipId && p.data === date);
                 if (exists) {
@@ -106,14 +107,31 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                     return [...prev, { dipendente_id: dipId, data: date, presente: true, motivo_assenza: null, turno_id: "D" }];
                 }
             });
+
+            // DB Update
+            try {
+                const { error } = await supabase.from('presenze').upsert({
+                    dipendente_id: dipId,
+                    data: date,
+                    presente: true,
+                    motivo_assenza: null,
+                    turno_id: turnoCorrente || "D" // Default to current or D
+                }, { onConflict: 'dipendente_id, data' });
+
+                if (error) throw error;
+            } catch (error) {
+                console.error("Error saving presence:", error);
+                showToast("Errore salvataggio presenza", "error");
+                // Revert logic could go here
+            }
         }
     };
 
-    const confirmAssenza = (motivo) => {
+    const confirmAssenza = async (motivo) => {
         if (!motivoPopup) return;
         const { dipId, date } = motivoPopup;
 
-        // Update global state (Upsert)
+        // Optimistic Update
         setPresenze((prev) => {
             const exists = prev.find(p => p.dipendente_id === dipId && p.data === date);
             if (exists) {
@@ -126,6 +144,22 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
         setMotivoPopup(null);
         const motivoObj = motivi.find(m => m.id === motivo);
         showToast(`Assenza registrata: ${motivoObj?.label}`, "warning");
+
+        // DB Update
+        try {
+            const { error } = await supabase.from('presenze').upsert({
+                dipendente_id: dipId,
+                data: date,
+                presente: false,
+                motivo_assenza: motivo,
+                turno_id: turnoCorrente || "D"
+            }, { onConflict: 'dipendente_id, data' });
+
+            if (error) throw error;
+        } catch (error) {
+            console.error("Error saving absence:", error);
+            showToast("Errore salvataggio assenza", "error");
+        }
     };
 
     // -------------------------------------------------------------------------
