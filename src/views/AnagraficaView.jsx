@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { REPARTI, TURNI, MACCHINE } from "../data/constants";
+import { supabase } from "../lib/supabase";
 import { Icons } from "../components/ui/Icons";
 import { Modal } from "../components/ui/Modal";
 
@@ -22,22 +23,45 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
         return matchSearch && matchReparto && matchTipo;
     }).sort((a, b) => a.cognome.localeCompare(b.cognome) || a.nome.localeCompare(b.nome));
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!newDip.nome || !newDip.cognome) return;
 
-        if (isEditing) {
-            setDipendenti(dipendenti.map(d => d.id === currentDipId ? { ...newDip, id: currentDipId } : d));
-            showToast("Dipendente modificato", "success");
-        } else {
-            const dip = {
-                ...newDip,
-                id: `D${Date.now()}`,
-            };
-            setDipendenti([...dipendenti, dip]);
-            showToast("Dipendente aggiunto", "success");
+        try {
+            if (isEditing) {
+                // Update on DB
+                const { error } = await supabase
+                    .from('dipendenti')
+                    .update(newDip)
+                    .eq('id', currentDipId);
+
+                if (error) throw error;
+
+                // Optimistic Update
+                setDipendenti(dipendenti.map(d => d.id === currentDipId ? { ...newDip, id: currentDipId } : d));
+                showToast("Dipendente modificato", "success");
+            } else {
+                // Create new
+                const dip = {
+                    ...newDip,
+                    id: crypto.randomUUID(), // More robust ID
+                };
+
+                const { data, error } = await supabase
+                    .from('dipendenti')
+                    .insert([dip])
+                    .select();
+
+                if (error) throw error;
+
+                setDipendenti([...dipendenti, data[0]]);
+                showToast("Dipendente aggiunto", "success");
+            }
+            setShowModal(false);
+            resetForm();
+        } catch (error) {
+            console.error("Error saving dipendente:", error);
+            showToast("Errore salvataggio: " + error.message, "error");
         }
-        setShowModal(false);
-        resetForm();
     };
 
     const resetForm = () => {
@@ -57,10 +81,18 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
         setShowModal(true);
     };
 
-    const handleDelete = (id) => {
+    const handleDelete = async (id) => {
         if (window.confirm("Sei sicuro di voler eliminare questo dipendente?")) {
-            setDipendenti(dipendenti.filter(d => d.id !== id));
-            showToast("Dipendente eliminato", "warning");
+            try {
+                const { error } = await supabase.from('dipendenti').delete().eq('id', id);
+                if (error) throw error;
+
+                setDipendenti(dipendenti.filter(d => d.id !== id));
+                showToast("Dipendente eliminato", "warning");
+            } catch (error) {
+                console.error("Error deleting dipendente:", error);
+                showToast("Errore eliminazione: " + error.message, "error");
+            }
         }
     };
 

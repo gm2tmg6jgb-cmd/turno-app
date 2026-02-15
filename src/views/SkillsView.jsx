@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { MACCHINE, REPARTI, LIVELLI_COMPETENZA } from "../data/constants";
+import { supabase } from "../lib/supabase";
 
 export default function SkillsView({ dipendenti, setDipendenti, macchine, showToast }) {
     const [repartoCorrente, setRepartoCorrente] = useState("T11");
@@ -8,21 +9,43 @@ export default function SkillsView({ dipendenti, setDipendenti, macchine, showTo
     const macchineReparto = macchine.filter(m => m.reparto === repartoCorrente);
     const reparto = REPARTI.find(r => r.id === repartoCorrente);
 
-    const toggleSkill = (dipId, macchineId) => {
+    const toggleSkill = async (dipId, macchineId) => {
+        // Find current val from local state
+        const dip = dipendenti.find(d => d.id === dipId);
+        if (!dip) return;
+
+        const currentLevel = dip.competenze?.[macchineId] || 0;
+        const nextLevel = (currentLevel + 1) % 7;
+
+        const newCompetenze = {
+            ...dip.competenze,
+            [macchineId]: nextLevel
+        };
+
+        // Optimistic Update
         setDipendenti(prev => prev.map(d => {
             if (d.id !== dipId) return d;
-
-            const currentLevel = d.competenze?.[macchineId] || 0;
-            const nextLevel = (currentLevel + 1) % 7; // Updated for 7 levels (0-6)
-
             return {
                 ...d,
-                competenze: {
-                    ...d.competenze,
-                    [macchineId]: nextLevel
-                }
+                competenze: newCompetenze
             };
         }));
+
+        // DB Update
+        try {
+            const { error } = await supabase
+                .from('dipendenti')
+                .update({ competenze: newCompetenze })
+                .eq('id', dipId);
+
+            if (error) {
+                // Revert logic could go here
+                throw error;
+            }
+        } catch (error) {
+            console.error("Error updating skill:", error);
+            showToast("Errore aggiornamento competenza", "error");
+        }
     };
 
     const getSkillInfo = (level) => {
