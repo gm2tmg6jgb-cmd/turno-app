@@ -321,7 +321,7 @@ export default function App() {
 
         <div className="main-content">
           {currentView === "dashboard" && (
-            <DashboardView dipendenti={dipendenti} presenze={presenze} setPresenze={setPresenze} assegnazioni={assegnazioni} macchine={macchine} repartoCorrente={repartoCorrente} turnoCorrente={turnoCorrente} showToast={showToast} motivi={motivi} />
+            <DashboardView dipendenti={dipendenti} presenze={presenze} setPresenze={setPresenze} assegnazioni={assegnazioni} macchine={macchine} repartoCorrente={repartoCorrente} turnoCorrente={turnoCorrente} showToast={showToast} motivi={motivi} zones={zone} />
           )}
           {currentView === "planning" && (
             <PlanningView dipendenti={dipendenti} setDipendenti={setDipendenti} />

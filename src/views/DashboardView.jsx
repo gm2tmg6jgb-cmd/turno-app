@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { REPARTI } from "../data/constants";
 import { supabase } from "../lib/supabase";
 
-export default function DashboardView({ dipendenti, presenze, setPresenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, showToast, motivi }) {
+export default function DashboardView({ dipendenti, presenze, setPresenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, showToast, motivi, zones }) {
     if (!dipendenti) return <div className="p-4 text-center">Caricamento dipendenti...</div>;
 
     // Fix: Use local date to avoid UTC mismatch
@@ -301,8 +301,16 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                             // Get assigments logic (same as before)
                             const dipAss = assegnazioni ? assegnazioni.filter((a) => a.dipendente_id === d.id && a.data === today) : [];
                             const macchineNames = dipAss.map((a) => {
+                                // 1. Try Machines
                                 const m = macchine ? macchine.find((mm) => mm.id === a.macchina_id) : null;
-                                return m ? m.nome : a.macchina_id;
+                                if (m) return m.nome;
+
+                                // 2. Try Zones (using ID match on a.macchina_id or a.attivita_id if aligned)
+                                // In AssegnazioniView we store zoneID in 'macchina_id' or 'attivita_id'.
+                                const z = zones ? zones.find((zz) => zz.id === a.macchina_id || zz.id === a.attivita_id) : null;
+                                if (z) return `Zona ${z.label || z.id}`; // Add "Zona" prefix for clarity
+
+                                return a.macchina_id || a.attivita_id || "N/A";
                             });
 
                             // -------------------------------------------------------------------------
