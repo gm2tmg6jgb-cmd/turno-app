@@ -110,10 +110,8 @@ export default function AssegnazioniView({
 
     const getAvailableOps = () => {
         return dipRep.filter((d) => {
-            // Must be present TODAY
-            const isPresente = presRep.some((p) => p.dipendente_id === d.id);
-            // Must be 'operatore'
-            return isPresente && d.ruolo === "operatore";
+            // User request: Show ALL operators, even if absent or already assigned.
+            return d.ruolo === "operatore";
         });
     };
 
@@ -338,16 +336,19 @@ export default function AssegnazioniView({
                         <select className="select-input" value={selectedDip} onChange={(e) => setSelectedDip(e.target.value)}>
                             <option value="">Seleziona operatore...</option>
                             {getAvailableOps().map((d) => {
+                                const isPresente = presRep.some((p) => p.dipendente_id === d.id);
                                 const isAssigned = assRep.some(a => a.dipendente_id === d.id);
                                 return (
                                     <option key={d.id} value={d.id}>
-                                        {d.cognome} {d.nome} {d.tipo === "interinale" ? "(INT)" : ""} {isAssigned ? "(Già Assegnato)" : ""}
+                                        {d.cognome} {d.nome} {d.tipo === "interinale" ? "(INT)" : ""}
+                                        {!isPresente ? " (Assente)" : ""}
+                                        {isAssigned ? " (Già Assegnato)" : ""}
                                     </option>
                                 );
                             })}
                         </select>
                         <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 6 }}>
-                            Vengono mostrati tutti gli operatori presenti. Quelli già assegnati sono contrassegnati.
+                            Puoi assegnare anche operatori assenti o già impegnati.
                         </p>
                     </div>
 
@@ -377,7 +378,7 @@ export default function AssegnazioniView({
 
                     {getAvailableOps().length === 0 && (
                         <div className="alert alert-warning" style={{ marginTop: 12 }}>
-                            {Icons.info} Tutti gli operatori presenti sono già stati assegnati.
+                            {Icons.info} Nessun operatore disponibile nel reparto.
                         </div>
                     )}
                 </Modal>
