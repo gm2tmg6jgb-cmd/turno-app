@@ -200,9 +200,13 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                     const repObj = REPARTI.find(r => r.id === repId);
                                     const macchineDelReparto = allMacchine.filter(m => m.reparto_id === repId);
 
-                                    // Group by Zone
-                                    const zoneIds = [...new Set(macchineDelReparto.map(m => m.zona).filter(Boolean))];
-                                    const machinesWithoutZone = macchineDelReparto.filter(m => !m.zona);
+                                    // Group by Zone - ONLY those defined in 'zones' prop
+                                    const repZones = zones.filter(z => (z.repart_id || z.reparto) === repId);
+
+                                    // Find machines that match these zones
+                                    const validZoneIds = repZones.map(z => z.id);
+                                    const machinesInZones = macchineDelReparto.filter(m => validZoneIds.includes(m.zona));
+                                    const machinesWithoutZone = macchineDelReparto.filter(m => !m.zona || !validZoneIds.includes(m.zona));
 
                                     return (
                                         <div key={repId} style={{ marginBottom: 32 }}>
@@ -211,19 +215,16 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                             </h4>
 
                                             {/* ZONES */}
-                                            {zoneIds.map(zoneId => {
-                                                const zoneMachines = macchineDelReparto.filter(m => m.zona === zoneId);
-                                                const zoneLabel = zones?.find(z => z.id === zoneId)?.label || `Zona ${zoneId}`;
+                                            {repZones.map(zone => {
+                                                const zoneMachines = macchineDelReparto.filter(m => m.zona === zone.id);
                                                 // Find Zone Responsible
-                                                // Check for assignment where macchina_id OR attivita_id matches zoneId AND dipendente is in this Reparto (optional, but safer)
-                                                // Actually assignments might be global or specific.
-                                                const zoneResponsibles = allAss.filter(a => (a.macchina_id === zoneId || a.attivita_id === zoneId));
+                                                const zoneResponsibles = allAss.filter(a => (a.macchina_id === zone.id || a.attivita_id === zone.id));
 
                                                 return (
-                                                    <div key={zoneId} style={{ marginBottom: 20, background: "var(--bg-secondary)", borderRadius: 8, padding: 16, border: "1px solid var(--border)" }}>
+                                                    <div key={zone.id} style={{ marginBottom: 20, background: "var(--bg-secondary)", borderRadius: 8, padding: 16, border: "1px solid var(--border)" }}>
                                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                                                             <div style={{ fontWeight: 700, fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}>
-                                                                {Icons.grid} {zoneLabel}
+                                                                {Icons.grid} {zone.label}
                                                             </div>
                                                             <div>
                                                                 <span style={{ fontSize: 12, color: "var(--text-muted)", marginRight: 8 }}>Responsabile:</span>
@@ -242,41 +243,45 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                             </div>
                                                         </div>
 
-                                                        <table style={{ background: "var(--bg-card)", borderRadius: 6, overflow: "hidden" }}>
-                                                            <thead>
-                                                                <tr>
-                                                                    <th style={{ fontSize: 11, padding: "8px 12px" }}>Macchina</th>
-                                                                    <th style={{ fontSize: 11, padding: "8px 12px" }}>ID</th>
-                                                                    <th style={{ fontSize: 11, padding: "8px 12px" }}>Operatori</th>
-                                                                    <th style={{ fontSize: 11, padding: "8px 12px", width: 80, textAlign: "center" }}>Stato</th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody>
-                                                                {zoneMachines.map(m => {
-                                                                    const ops = allAss.filter(a => a.macchina_id === m.id);
-                                                                    const names = ops.map(o => {
-                                                                        const d = allDip.find(dd => dd.id === o.dipendente_id);
-                                                                        return d ? `${d.cognome} ${d.nome.charAt(0)}.` : "";
-                                                                    });
-                                                                    const ok = ops.length >= (m.personale_minimo || 1);
+                                                        {zoneMachines.length > 0 ? (
+                                                            <table style={{ background: "var(--bg-card)", borderRadius: 6, overflow: "hidden" }}>
+                                                                <thead>
+                                                                    <tr>
+                                                                        <th style={{ fontSize: 11, padding: "8px 12px" }}>Macchina</th>
+                                                                        <th style={{ fontSize: 11, padding: "8px 12px" }}>ID</th>
+                                                                        <th style={{ fontSize: 11, padding: "8px 12px" }}>Operatori</th>
+                                                                        <th style={{ fontSize: 11, padding: "8px 12px", width: 80, textAlign: "center" }}>Stato</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {zoneMachines.map(m => {
+                                                                        const ops = allAss.filter(a => a.macchina_id === m.id);
+                                                                        const names = ops.map(o => {
+                                                                            const d = allDip.find(dd => dd.id === o.dipendente_id);
+                                                                            return d ? `${d.cognome} ${d.nome.charAt(0)}.` : "";
+                                                                        });
+                                                                        const ok = ops.length >= (m.personale_minimo || 1);
 
-                                                                    return (
-                                                                        <tr key={m.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
-                                                                            <td style={{ fontWeight: 600 }}>{m.nome}</td>
-                                                                            <td style={{ fontFamily: "monospace", fontSize: 11, color: "var(--text-muted)" }}>{m.id}</td>
-                                                                            <td>
-                                                                                {names.length > 0 ? names.join(", ") : <span style={{ color: "var(--text-muted)" }}>—</span>}
-                                                                            </td>
-                                                                            <td style={{ textAlign: "center" }}>
-                                                                                <span className={`tag ${ok ? "tag-green" : "tag-red"}`} style={{ fontSize: 10 }}>
-                                                                                    {ok ? "OK" : "SOTTO"}
-                                                                                </span>
-                                                                            </td>
-                                                                        </tr>
-                                                                    );
-                                                                })}
-                                                            </tbody>
-                                                        </table>
+                                                                        return (
+                                                                            <tr key={m.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                                                                <td style={{ fontWeight: 600 }}>{m.nome}</td>
+                                                                                <td style={{ fontFamily: "monospace", fontSize: 11, color: "var(--text-muted)" }}>{m.id}</td>
+                                                                                <td>
+                                                                                    {names.length > 0 ? names.join(", ") : <span style={{ color: "var(--text-muted)" }}>—</span>}
+                                                                                </td>
+                                                                                <td style={{ textAlign: "center" }}>
+                                                                                    <span className={`tag ${ok ? "tag-green" : "tag-red"}`} style={{ fontSize: 10 }}>
+                                                                                        {ok ? "OK" : "SOTTO"}
+                                                                                    </span>
+                                                                                </td>
+                                                                            </tr>
+                                                                        );
+                                                                    })}
+                                                                </tbody>
+                                                            </table>
+                                                        ) : (
+                                                            <div style={{ fontSize: 12, color: "var(--text-muted)", fontStyle: "italic", padding: 8 }}>Nessuna macchina assegnata a questa zona.</div>
+                                                        )}
                                                     </div>
                                                 );
                                             })}
