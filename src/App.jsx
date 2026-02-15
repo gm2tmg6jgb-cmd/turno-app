@@ -348,7 +348,15 @@ export default function App() {
             <ZoneView zones={zone} setZones={setZone} macchine={macchine} setMacchine={setMacchine} />
           )}
           {currentView === "report" && (
-            <ReportView dipendenti={dipendenti} presenze={presenze} assegnazioni={assegnazioni} macchine={macchine} repartoCorrente={repartoCorrente} turnoCorrente={turnoCorrente} />
+            <ReportView
+              dipendenti={dipendenti}
+              presenze={presenze}
+              assegnazioni={assegnazioni}
+              macchine={macchine}
+              repartoCorrente={repartoCorrente}
+              turnoCorrente={turnoCorrente}
+              zones={zone}
+            />
           )}
           {currentView === "ricerca" && (
             <RicercaView dipendenti={dipendenti} assegnazioni={assegnazioni} macchine={macchine} />
