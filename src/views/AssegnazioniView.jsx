@@ -12,99 +12,135 @@ export default function AssegnazioniView({
     const [showModal, setShowModal] = useState(null); // { id, type: 'machine' | 'activity' }
     const [selectedDip, setSelectedDip] = useState("");
     const [newActivityName, setNewActivityName] = useState("");
-    const today = new Date().toISOString().split("T")[0];
 
-    // --- AUTO-COPY ASSIGNMENTS LOGIC ---
+    // Fix: Use local date to avoid UTC mismatch (same as Dashboard/App)
+    const getLocalDate = (d) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+    const today = getLocalDate(new Date());
+
+    // --- PRESENCE LOGIC HELPER ---
+    // Align with DashboardView: If record missing for today -> Default PRESENT (unless Sunday)
+    const getIsPresent = (dipId) => {
+        const record = presRep.find(p => p.dipendente_id === dipId);
+        if (record) return record.presente;
+
+        // No record? Default logic
+        const d = new Date();
+        const isSunday = d.getDay() === 0;
+        return !isSunday;
+    };
+
+    // --- AUTO-COPY & DEDUPLICATE LOGIC ---
     useEffect(() => {
-        const checkAndCopyAssignments = async () => {
-            // Only run if we have data loaded and assignments for today are empty for this shift/reparto
-            // We check the specific shift (turnoCorrente) to avoid copying if data exists
-            if (assegnazioni.length > 0 && assegnazioni.some(a => a.data === today && a.turno_id === turnoCorrente)) {
-                return; // Already has assignments for today
-            }
+        const manageAssignments = async () => {
+            if (!turnoCorrente || !dipendenti.length) return; // Wait for basic data
 
-            console.log("🔍 Checking for previous assignments to copy...");
-
-            // Find last Day with assignments for this Turno
-            const { data: lastAss, error } = await supabase
+            // 1. DEDUPLICATE (Cleanup existing mess)
+            const { data: todaysAss, error: fetchErr } = await supabase
                 .from('assegnazioni')
                 .select('*')
+                .eq('data', today)
+                .eq('turno_id', turnoCorrente);
+
+            if (todaysAss && todaysAss.length > 0) {
+                const seen = new Set();
+                const duplicates = [];
+                todaysAss.forEach(a => {
+                    const key = `${a.dipendente_id}-${a.macchina_id || 'NULL'}-${a.attivita_id || 'NULL'}`;
+                    if (seen.has(key)) {
+                        duplicates.push(a.id);
+                    } else {
+                        seen.add(key);
+                    }
+                });
+
+                if (duplicates.length > 0) {
+                    console.log("🧹 Auto-cleaning duplicates:", duplicates);
+                    await supabase.from('assegnazioni').delete().in('id', duplicates);
+                    // Update local state by filtering
+                    setAssegnazioni(prev => prev.filter(a => !duplicates.includes(a.id)));
+                }
+                return; // If we had assignments (even with duplicates), we DON'T copy from yesterday.
+            }
+
+            // 2. COPY FROM PREVIOUS DAY (Only if DB was empty for today)
+            console.log("🔍 No assignments found today. Checking previous days...");
+
+            // Find last Day with assignments for this Turno
+            const { data: lastAssStub, error } = await supabase
+                .from('assegnazioni')
+                .select('data')
                 .eq('turno_id', turnoCorrente)
                 .lt('data', today)
                 .order('data', { ascending: false })
                 .limit(1);
 
-            if (error) {
-                console.error("Error fetching last assignment date:", error);
+            if (error || !lastAssStub || lastAssStub.length === 0) {
+                console.log("ℹ️ No previous assignments found to copy.");
                 return;
             }
 
-            if (lastAss && lastAss.length > 0) {
-                const lastDate = lastAss[0].data;
-                console.log(`📅 Found previous assignments from ${lastDate}. Copying...`);
+            const lastDate = lastAssStub[0].data;
+            console.log(`📅 Found previous assignments from ${lastDate}. Copying...`);
 
-                // Fetch ALL assignments from that day
-                const { data: previousAssignments, error: fetchError } = await supabase
-                    .from('assegnazioni')
-                    .select('*')
-                    .eq('data', lastDate)
-                    .eq('turno_id', turnoCorrente);
+            // Fetch FULL previous assignments
+            const { data: previousAssignments } = await supabase
+                .from('assegnazioni')
+                .select('*')
+                .eq('data', lastDate)
+                .eq('turno_id', turnoCorrente);
 
-                if (fetchError || !previousAssignments || previousAssignments.length === 0) return;
+            if (!previousAssignments || previousAssignments.length === 0) return;
 
-                // Prepare new assignments for TODAY
-                const newAssignments = previousAssignments.map(a => ({
-                    dipendente_id: a.dipendente_id,
-                    macchina_id: a.macchina_id,
-                    attivita_id: a.attivita_id,
-                    data: today,
-                    turno_id: turnoCorrente,
-                    note: a.note
-                }));
+            // Prepare new assignments
+            const newAssignments = previousAssignments.map(a => ({
+                dipendente_id: a.dipendente_id,
+                macchina_id: a.macchina_id,
+                attivita_id: a.attivita_id,
+                data: today,
+                turno_id: turnoCorrente,
+                note: a.note
+            }));
 
-                const { data: inserted, error: insertError } = await supabase
-                    .from('assegnazioni')
-                    .insert(newAssignments)
-                    .select();
+            const { data: inserted, error: insertError } = await supabase
+                .from('assegnazioni')
+                .insert(newAssignments)
+                .select();
 
-                if (insertError) {
-                    console.error("Error copying assignments:", insertError);
-                    showToast("Errore copia assegnazioni: " + insertError.message, "error");
-                } else {
-                    console.log(`✅ Copied ${inserted.length} assignments.`);
-                    // Update local state by appending new ones
-                    const localNew = inserted.map(savedAss => ({
-                        ...savedAss,
-                        macchina_id: savedAss.macchina_id || savedAss.attivita_id,
-                        isActivity: !!savedAss.attivita_id
-                    }));
-                    setAssegnazioni(prev => [...prev, ...localNew]);
-                    showToast(`Copiato piano dal ${lastDate}`, "success");
-                }
+            if (insertError) {
+                console.error("Error copying assignments:", insertError);
             } else {
-                console.log("ℹ️ No previous assignments found to copy.");
+                console.log(`✅ Copied ${inserted.length} assignments.`);
+                const localNew = inserted.map(savedAss => ({
+                    ...savedAss,
+                    macchina_id: savedAss.macchina_id || savedAss.attivita_id,
+                    isActivity: !!savedAss.attivita_id
+                }));
+                setAssegnazioni(prev => [...prev, ...localNew]);
+                showToast(`Piano copiato dal ${lastDate}`, "success");
             }
         };
 
-        const timer = setTimeout(() => {
-            checkAndCopyAssignments();
-        }, 1000);
-
+        const timer = setTimeout(manageAssignments, 1500); // Slight delay to let props settle
         return () => clearTimeout(timer);
 
-    }, [turnoCorrente, today]); // Dependencies: if shift changes, check again.
+    }, [turnoCorrente, today, dipendenti.length]); // Re-run if shift changes
 
     // --- FILTER LOGIC ---
     const dipRep = dipendenti.filter((d) =>
         (!repartoCorrente || d.reparto_id === repartoCorrente) &&
-        d.turno_default === turnoCorrente // Strict Shift Filter
+        d.turno_default === turnoCorrente
     );
-    // Presenze check needs to be broad for highlighting (any presence record for today)
+    // Presenze check needs to be broad 
     const presRep = presenze.filter((p) => p.data === today);
 
-    // Assigned for today
     const macchineReparto = repartoCorrente ? macchine.filter((m) => m.reparto_id === repartoCorrente) : macchine;
     const assRep = assegnazioni.filter((a) => dipRep.some((d) => d.id === a.dipendente_id) && a.data === today);
+
 
     const addAssegnazione = async (targetId, dipendenteId, type) => {
         if (!dipendenteId) return;
@@ -186,6 +222,9 @@ export default function AssegnazioniView({
     return (
         <div className="fade-in" style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
             <div style={{ flex: 1, overflowY: "auto", paddingRight: 8, paddingBottom: 20 }}>
+                {/* DEBUG PANEL - REMOVE LATER */}
+
+
                 <div className="alert alert-info" style={{ marginBottom: 20 }}>
                     <span style={{ flexShrink: 0 }}>{Icons.clock}</span>
                     Assegna gli operatori presenti alle macchine o alle attività extra. Gli operatori già assegnati non compaiono nell'elenco.
@@ -229,7 +268,7 @@ export default function AssegnazioniView({
                                                                     zoneAss.map(a => {
                                                                         const d = dipendenti.find(dd => dd.id === a.dipendente_id);
                                                                         // Check Presence
-                                                                        const isPresent = presRep.some(p => p.dipendente_id === a.dipendente_id && p.presente);
+                                                                        const isPresent = getIsPresent(a.dipendente_id);
 
                                                                         return d ? (
                                                                             // Increased fontSize to 15px to match Report legibility
@@ -269,13 +308,13 @@ export default function AssegnazioniView({
                                                         const ops = assRep.filter(a => a.macchina_id === m.id);
 
                                                         // Filter effective ops (PRESENT ones)
-                                                        const effectiveOps = ops.filter(a => presRep.some(p => p.dipendente_id === a.dipendente_id && p.presente));
+                                                        const effectiveOps = ops.filter(a => getIsPresent(a.dipendente_id));
 
                                                         const isUnder = effectiveOps.length < (m.personale_minimo || 1);
                                                         const isEmpty = ops.length === 0;
 
                                                         // Check zone coverage (Assigned AND Present)
-                                                        const isZoneCovered = zoneAss.some(a => presRep.some(p => p.dipendente_id === a.dipendente_id && p.presente));
+                                                        const isZoneCovered = zoneAss.some(a => getIsPresent(a.dipendente_id));
 
                                                         const isOk = !isUnder || isZoneCovered;
 
@@ -290,10 +329,9 @@ export default function AssegnazioniView({
                                                                         {ops.map(o => {
                                                                             const d = dipendenti.find(dd => dd.id === o.dipendente_id);
                                                                             // Check Presence
-                                                                            const isPresent = presRep.some(p => p.dipendente_id === o.dipendente_id && p.presente);
+                                                                            const isPresent = getIsPresent(o.dipendente_id);
 
                                                                             return d ? (
-                                                                                // Increased fontSize to 15px (inline style added/class modified)
                                                                                 <span key={o.id} className={`operator-chip ${d.tipo === "interinale" ? "interinale" : ""} `}
                                                                                     style={{
                                                                                         fontSize: 15,
@@ -341,7 +379,7 @@ export default function AssegnazioniView({
                                                 {machinesWithoutZone.map(m => {
                                                     const ops = assRep.filter(a => a.macchina_id === m.id);
                                                     // Filter effective
-                                                    const effectiveOps = ops.filter(a => presRep.some(p => p.dipendente_id === a.dipendente_id && p.presente));
+                                                    const effectiveOps = ops.filter(a => getIsPresent(a.dipendente_id));
                                                     const isUnder = effectiveOps.length < (m.personale_minimo || 1);
                                                     const hasAssignedButAbsent = ops.length > 0 && effectiveOps.length === 0;
 
@@ -356,7 +394,7 @@ export default function AssegnazioniView({
                                                                     {ops.map(o => {
                                                                         const d = dipendenti.find(dd => dd.id === o.dipendente_id);
                                                                         // Check Presence
-                                                                        const isPresent = presRep.some(p => p.dipendente_id === o.dipendente_id && p.presente);
+                                                                        const isPresent = getIsPresent(o.dipendente_id);
 
                                                                         return d ? (
                                                                             <span key={o.id} className={`operator-chip ${d.tipo === "interinale" ? "interinale" : ""} `}
@@ -431,7 +469,7 @@ export default function AssegnazioniView({
                                 <div className="machine-card-operators">
                                     {ops.map((o) => {
                                         const d = dipendenti.find((dd) => dd.id === o.dipendente_id);
-                                        const isPresent = presRep.some(p => p.dipendente_id === o.dipendente_id && p.presente);
+                                        const isPresent = getIsPresent(o.dipendente_id);
 
                                         if (!d) return null;
                                         return (
@@ -453,72 +491,71 @@ export default function AssegnazioniView({
                         );
                     })}
                 </div>
-
-                {showModal && (
-                    <Modal
-                        title={`Assegna Operatore — ${showModal.name} `}
-                        onClose={() => { setShowModal(null); setSelectedDip(""); }}
-                        footer={
-                            <>
-                                <button className="btn btn-secondary" onClick={() => { setShowModal(null); setSelectedDip(""); }}>Annulla</button>
-                                <button className="btn btn-primary" onClick={() => addAssegnazione(showModal.id, selectedDip, showModal.type)}>Conferma</button>
-                            </>
-                        }
-                    >
-                        <div className="form-group">
-                            <label className="form-label">Operatore disponibile</label>
-                            <select className="select-input" value={selectedDip} onChange={(e) => setSelectedDip(e.target.value)}>
-                                <option value="">Seleziona operatore...</option>
-                                {getAvailableOps().map((d) => {
-                                    const isPresente = presRep.some((p) => p.dipendente_id === d.id && p.presente);
-                                    const isAssigned = assRep.some(a => a.dipendente_id === d.id);
-                                    return (
-                                        <option key={d.id} value={d.id}>
-                                            {d.cognome} {d.nome} {d.tipo === "interinale" ? "(INT)" : ""}
-                                            {!isPresente ? " (Assente)" : ""}
-                                            {isAssigned ? " (Già Assegnato)" : ""}
-                                        </option>
-                                    );
-                                })}
-                            </select>
-                            <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 6 }}>
-                                Puoi assegnare anche operatori assenti o già impegnati.
-                            </p>
-                        </div>
-
-                        {selectedDip && showModal.type === 'machine' && (() => {
-                            const skill = getSelectedDipSkill(selectedDip, showModal.id);
-                            if (skill && skill.value < 2) {
-                                return (
-                                    <div className="alert alert-danger" style={{ marginTop: 12 }}>
-                                        <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
-                                            {Icons.alert} Attenzione: Competenza {skill.label}
-                                        </div>
-                                        <div style={{ fontSize: 12, marginTop: 4 }}>
-                                            L'operatore selezionato non è pienamente autonomo su questa macchina.
-                                        </div>
-                                    </div>
-                                );
-                            } else if (skill && skill.value >= 2) {
-                                return (
-                                    <div className="alert alert-success" style={{ marginTop: 12, padding: "8px 12px" }}>
-                                        <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
-                                            {Icons.check} Competenza: {skill.label}
-                                        </div>
-                                    </div>
-                                );
-                            }
-                        })()}
-
-                        {getAvailableOps().length === 0 && (
-                            <div className="alert alert-warning" style={{ marginTop: 12 }}>
-                                {Icons.info} Nessun operatore disponibile nel reparto.
-                            </div>
-                        )}
-                    </Modal>
-                )
-                }
             </div>
+
+            {showModal && (
+                <Modal
+                    title={`Assegna Operatore — ${showModal.name} `}
+                    onClose={() => { setShowModal(null); setSelectedDip(""); }}
+                    footer={
+                        <>
+                            <button className="btn btn-secondary" onClick={() => { setShowModal(null); setSelectedDip(""); }}>Annulla</button>
+                            <button className="btn btn-primary" onClick={() => addAssegnazione(showModal.id, selectedDip, showModal.type)}>Conferma</button>
+                        </>
+                    }
+                >
+                    <div className="form-group">
+                        <label className="form-label">Operatore disponibile</label>
+                        <select className="select-input" value={selectedDip} onChange={(e) => setSelectedDip(e.target.value)}>
+                            <option value="">Seleziona operatore...</option>
+                            {getAvailableOps().map((d) => {
+                                const isPresente = getIsPresent(d.id);
+                                const isAssigned = assRep.some(a => a.dipendente_id === d.id);
+                                return (
+                                    <option key={d.id} value={d.id}>
+                                        {d.cognome} {d.nome} {d.tipo === "interinale" ? "(INT)" : ""}
+                                        {!isPresente ? " (Assente)" : ""}
+                                        {isAssigned ? " (Già Assegnato)" : ""}
+                                    </option>
+                                );
+                            })}
+                        </select>
+                        <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 6 }}>
+                            Puoi assegnare anche operatori assenti o già impegnati.
+                        </p>
+                    </div>
+
+                    {selectedDip && showModal.type === 'machine' && (() => {
+                        const skill = getSelectedDipSkill(selectedDip, showModal.id);
+                        if (skill && skill.value < 2) {
+                            return (
+                                <div className="alert alert-danger" style={{ marginTop: 12 }}>
+                                    <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+                                        {Icons.alert} Attenzione: Competenza {skill.label}
+                                    </div>
+                                    <div style={{ fontSize: 12, marginTop: 4 }}>
+                                        L'operatore selezionato non è pienamente autonomo su questa macchina.
+                                    </div>
+                                </div>
+                            );
+                        } else if (skill && skill.value >= 2) {
+                            return (
+                                <div className="alert alert-success" style={{ marginTop: 12, padding: "8px 12px" }}>
+                                    <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                                        {Icons.check} Competenza: {skill.label}
+                                    </div>
+                                </div>
+                            );
+                        }
+                    })()}
+
+                    {getAvailableOps().length === 0 && (
+                        <div className="alert alert-warning" style={{ marginTop: 12 }}>
+                            {Icons.info} Nessun operatore disponibile nel reparto.
+                        </div>
+                    )}
+                </Modal>
+            )}
         </div>
     );
 }

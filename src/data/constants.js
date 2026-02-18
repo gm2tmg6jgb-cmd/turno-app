@@ -187,3 +187,13 @@ export const LIMITAZIONI = [
     { id: "PART_TIME", label: "Part Time", color: "#3B82F6" },
     { id: "LIMITATO", label: "Limitazioni Generiche", color: "#6B7280" }
 ];
+
+export const MOTIVI_FERMO = [
+    { id: "guasto_meccanico", label: "Guasto Meccanico", colore: "#EF4444", icona: "🔧" },
+    { id: "guasto_elettrico", label: "Guasto Elettrico", colore: "#F59E0B", icona: "⚡" },
+    { id: "mancanza_materiale", label: "Mancanza Materiale", colore: "#3B82F6", icona: "📦" },
+    { id: "attrezzaggio", label: "Attrezzaggio", colore: "#6366F1", icona: "⚙️" },
+    { id: "manutenzione", label: "Manutenzione", colore: "#10B981", icona: "🧹" },
+    { id: "pausa", label: "Pausa / Riunione", colore: "#6B7280", icona: "☕" },
+    { id: "altro", label: "Altro", colore: "#9CA3AF", icona: "📝" },
+];
