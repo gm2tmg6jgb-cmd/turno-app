@@ -365,9 +365,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                     {motivoObj ? (
                                                         <span style={{
                                                             display: "inline-flex", alignItems: "center", gap: 6,
-                                                            padding: "2px 8px", borderRadius: 4,
-                                                            background: "var(--bg-tertiary)", border: "1px solid var(--border)",
-                                                            fontSize: 12, fontWeight: 500
+                                                            fontSize: 13, fontWeight: 500
                                                         }}>
                                                             <span style={{ width: 10, height: 10, borderRadius: 2, background: motivoObj.colore }}></span>
                                                             {motivoObj.label}
