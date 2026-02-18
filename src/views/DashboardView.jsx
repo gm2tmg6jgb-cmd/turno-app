@@ -92,10 +92,13 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
 
         if (isCurrentlyPresent) {
             // Going from present → absent: show motivo popup
-            const rect = event.target.getBoundingClientRect();
+            const rect = event.currentTarget.getBoundingClientRect(); // Use currentTarget for consistency
             const spaceBelow = window.innerHeight - rect.bottom;
-            const ESTIMATED_HEIGHT = 300; // Approximate max height of popup
+            const ESTIMATED_HEIGHT = 200; // Reduced estimate
+            // Default to bottom unless space is tight (less than 200px)
             const placement = spaceBelow < ESTIMATED_HEIGHT ? 'top' : 'bottom';
+
+            console.log("Popup:", { rect, spaceBelow, placement, windowHeight: window.innerHeight });
 
             setMotivoPopup({
                 dipId,
