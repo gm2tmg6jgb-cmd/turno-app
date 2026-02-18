@@ -322,9 +322,15 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                 if (m) return m.nome;
 
                                 // 2. Try Zones (using ID match on a.macchina_id or a.attivita_id if aligned)
-                                // In AssegnazioniView we store zoneID in 'macchina_id' or 'attivita_id'.
                                 const z = zones ? zones.find((zz) => zz.id === a.macchina_id || zz.id === a.attivita_id) : null;
-                                if (z) return `Zona ${z.label || z.id}`; // Add "Zona" prefix for clarity
+                                if (z) {
+                                    // Find machines in this zone
+                                    const zoneMachines = macchine ? macchine.filter(m => m.zona === z.id).map(m => m.nome) : [];
+                                    return {
+                                        label: z.label || z.id, // Remove "Zona " prefix if it already exists or just use label
+                                        machines: zoneMachines
+                                    };
+                                }
 
                                 return a.macchina_id || a.attivita_id || "N/A";
                             });
@@ -421,19 +427,26 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                         ...rowStyle
                                     }}>
                                         {macchineNames.length > 0 ? (
-                                            macchineNames.map((name, i) => (
-                                                <span key={i} style={{
-                                                    display: "inline-block",
-                                                    padding: "2px 8px",
-                                                    background: "var(--info-muted)",
-                                                    color: "var(--info)",
-                                                    borderRadius: 4,
-                                                    fontWeight: 600,
-                                                    marginRight: 4,
-                                                }}>
-                                                    {name}
-                                                </span>
-                                            ))
+                                            macchineNames.map((item, i) => {
+                                                const isZone = typeof item === 'object';
+                                                const name = isZone ? item.label : item;
+                                                const title = isZone ? `Macchine: ${item.machines.join(', ')}` : '';
+
+                                                return (
+                                                    <span key={i} title={title} style={{
+                                                        display: "inline-block",
+                                                        padding: "2px 8px",
+                                                        background: "var(--info-muted)",
+                                                        color: "var(--info)",
+                                                        borderRadius: 4,
+                                                        fontWeight: 600,
+                                                        marginRight: 4,
+                                                        cursor: isZone ? "help" : "default"
+                                                    }}>
+                                                        {name}
+                                                    </span>
+                                                );
+                                            })
                                         ) : (
                                             <span style={{ color: "var(--text) opacity 0.3", fontSize: 11 }}>—</span>
                                         )}
