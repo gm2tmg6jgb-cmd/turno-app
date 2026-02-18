@@ -441,7 +441,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                                         borderRadius: 4,
                                                         fontWeight: 600,
                                                         marginRight: 4,
-                                                        cursor: isZone ? "help" : "default"
+                                                        cursor: isZone ? "pointer" : "default"
                                                     }}>
                                                         {name}
                                                     </span>
