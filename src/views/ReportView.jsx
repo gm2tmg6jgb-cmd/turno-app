@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { supabase } from "../lib/supabase";
 import { REPARTI, TURNI } from "../data/constants";
 import { Icons } from "../components/ui/Icons";
 import {
@@ -22,6 +23,40 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
 
     const [selectedDate, setSelectedDate] = useState(getLocalDate(new Date()));
     const [selectedTurno, setSelectedTurno] = useState(""); // Default to Daily View (All Shifts) as requested
+
+    // State for Machine Details (Fermi & Pezzi)
+    const [fermiMacchina, setFermiMacchina] = useState([]);
+    const [pezziProdotti, setPezziProdotti] = useState([]);
+    const [expandedMachine, setExpandedMachine] = useState(null); // ID of the machine currently expanded
+
+    // Fetch Fermi & Pezzi when Date or Turno changes
+    useEffect(() => {
+        const fetchData = async () => {
+            if (!selectedDate) return;
+
+            let queryFermi = supabase.from('fermi_macchina').select('*').eq('data', selectedDate);
+            let queryPezzi = supabase.from('pezzi_prodotti').select('*').eq('data', selectedDate);
+
+            if (selectedTurno) {
+                queryFermi = queryFermi.eq('turno_id', selectedTurno);
+                queryPezzi = queryPezzi.eq('turno_id', selectedTurno);
+            }
+
+            const [fermiRes, pezziRes] = await Promise.all([queryFermi, queryPezzi]);
+
+            if (fermiRes.error) console.error("Error fetching fermi:", fermiRes.error);
+            else setFermiMacchina(fermiRes.data || []);
+
+            if (pezziRes.error) console.error("Error fetching pezzi:", pezziRes.error);
+            else setPezziProdotti(pezziRes.data || []);
+        };
+
+        fetchData();
+    }, [selectedDate, selectedTurno]);
+
+    const toggleExpandMachine = (machineId) => {
+        setExpandedMachine(expandedMachine === machineId ? null : machineId);
+    };
 
     // Filter by Turno (Consistency with Dashboard)
     const allDip = useMemo(() => {
@@ -68,8 +103,12 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
 
     const allMacchine = macchine; // Machines might not strictly belong to a shift, but their operators do.
 
-    const presentiCount = allPres.filter((p) => p.presente).length;
+    // Calculate Assenti first
     const assentiCount = allPres.filter((p) => !p.presente).length;
+
+    // Calculate Presenti deductively (Total - Assenti) ensuring it's never negative
+    // This allows "Forza Lavoro" to be visible even if explicit "presente" records haven't been generated yet for the day
+    const presentiCount = Math.max(0, allDip.length - assentiCount);
 
     // Calculate Unplanned Absences (User Request: All EXCEPT Ferie, ROL, Riposo Compensativo)
     const plannedReasons = ['ferie', 'rol', 'riposo_compensativo'];
@@ -78,8 +117,8 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
     // Data for Presence PieChart
     const presenceData = useMemo(() => [
         { name: 'Presenti', value: presentiCount, color: 'var(--success)' },
-        { name: 'Assenze Pianificate', value: assentiCount - unplannedAbsencesCount, color: 'var(--info)' }, // Distinguish planned
-        { name: 'Assenze Non Pianificate', value: unplannedAbsencesCount, color: 'var(--warning)' }
+        { name: 'Assenze Pianificate', value: assentiCount - unplannedAbsencesCount, color: 'var(--warning)' }, // Planned = Yellow
+        { name: 'Assenze Non Pianificate', value: unplannedAbsencesCount, color: 'var(--danger)' } // Unplanned = Red
     ], [presentiCount, assentiCount, unplannedAbsencesCount]);
 
     // Data for Machine Coverage BarChart - Show by REPARTO instead of single machine if showing factory-wide?
@@ -109,13 +148,24 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
 
             const totalRequired = mRep.length;
 
+            // Staff Presente logic (Deductive per Team)
+            const teamMembers = allDip.filter(d => d.reparto_id === r.id);
+            const teamAbsences = allPres.filter(p => !p.presente && teamMembers.some(d => d.id === p.dipendente_id)).length;
+            const teamPresenti = Math.max(0, teamMembers.length - teamAbsences);
+
             return {
                 name: r.nome.replace("Team ", "T"), // Shorten for X-Axis
                 richiesti: totalRequired,
+                presenti: teamPresenti,
                 assegnati: coveredMachinesCount
             };
         });
-    }, [allMacchine, allAss, zones]);
+    }, [allMacchine, allAss, zones, allDip, allPres]);
+
+    // Total Machine Coverage %
+    const totalMachinesCount = allMacchine.length;
+    const totalCoveredMachines = coverageByReparto.reduce((sum, item) => sum + item.assegnati, 0);
+    const totalCoveragePercent = totalMachinesCount > 0 ? Math.round((totalCoveredMachines / totalMachinesCount) * 100) : 0;
 
     // PDF Export Function
     const exportPDF = async () => {
@@ -240,23 +290,23 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
 
                         <div className="stats-grid" style={{ marginBottom: 0, gridTemplateColumns: "repeat(4, 1fr)" }}>
                             <div style={{ padding: "12px 16px", background: "var(--bg-tertiary)", borderRadius: "var(--radius-sm)" }}>
-                                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, fontWeight: 600 }}>TOT ASSENTI</div>
-                                <div style={{ fontSize: 24, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "var(--danger)" }}>{assentiCount}</div>
-                            </div>
-                            <div style={{ padding: "12px 16px", background: "rgba(245, 158, 11, 0.1)", borderRadius: "var(--radius-sm)", border: "1px solid rgba(245, 158, 11, 0.2)" }}>
-                                <div style={{ fontSize: 11, color: "var(--warning)", marginBottom: 4, fontWeight: 600 }}>NON PIANIFICATE</div>
-                                <div style={{ fontSize: 24, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "var(--warning)" }}>{unplannedAbsencesCount}</div>
-                            </div>
-                            <div style={{ padding: "12px 16px", background: "var(--bg-tertiary)", borderRadius: "var(--radius-sm)" }}>
                                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, fontWeight: 600 }}>FORZA LAVORO</div>
                                 <div style={{ fontSize: 24, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "var(--info)" }}>
                                     {presentiCount} <span style={{ fontSize: 14, color: "var(--text-muted)", fontWeight: 500 }}>/ {allDip.length}</span>
                                 </div>
                             </div>
                             <div style={{ padding: "12px 16px", background: "var(--bg-tertiary)", borderRadius: "var(--radius-sm)" }}>
+                                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, fontWeight: 600 }}>TOT ASSENTI</div>
+                                <div style={{ fontSize: 24, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "var(--danger)" }}>{assentiCount}</div>
+                            </div>
+                            <div style={{ padding: "12px 16px", background: "rgba(220, 38, 38, 0.1)", borderRadius: "var(--radius-sm)", border: "1px solid rgba(220, 38, 38, 0.2)" }}>
+                                <div style={{ fontSize: 11, color: "var(--danger)", marginBottom: 4, fontWeight: 600 }}>NON PIANIFICATE</div>
+                                <div style={{ fontSize: 24, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "var(--danger)" }}>{unplannedAbsencesCount}</div>
+                            </div>
+                            <div style={{ padding: "12px 16px", background: "var(--bg-tertiary)", borderRadius: "var(--radius-sm)" }}>
                                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, fontWeight: 600 }}>% COPERTURA TOT</div>
                                 <div style={{ fontSize: 24, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "var(--accent)" }}>
-                                    {allDip.length > 0 ? Math.round((presentiCount / allDip.length) * 100) : 0}%
+                                    {totalCoveragePercent}%
                                 </div>
                             </div>
                         </div>
@@ -305,6 +355,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                         contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px' }}
                                     />
                                     <Bar dataKey="richiesti" fill="var(--text-muted)" radius={[4, 4, 0, 0]} name="Totale Macchine" opacity={0.3} />
+                                    <Bar dataKey="presenti" fill="var(--success)" radius={[4, 4, 0, 0]} name="Staff Presente" opacity={0.6} />
                                     <Bar dataKey="assegnati" fill="var(--accent)" radius={[4, 4, 0, 0]} name="Assegnate" />
                                 </BarChart>
                             </ResponsiveContainer>
@@ -389,23 +440,73 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                         const ok = machineOps.length > 0 || isZoneCovered;
 
                                                                         return (
-                                                                            <tr key={m.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
-                                                                                <td style={{ padding: "8px 12px 8px 32px", color: "var(--text-secondary)" }}>
-                                                                                    {m.nome}
-                                                                                </td>
-                                                                                <td style={{ padding: "8px 12px" }}>
-                                                                                    {specificNames.length > 0 ? (
-                                                                                        <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{specificNames.join(", ")}</span>
-                                                                                    ) : (
-                                                                                        <span style={{ color: "var(--text-lighter)", fontSize: 18, lineHeight: 0 }}>&middot;</span>
-                                                                                    )}
-                                                                                </td>
-                                                                                <td style={{ textAlign: "center", padding: "8px 12px" }}>
-                                                                                    <span className={`tag ${ok ? "tag-green" : "tag-red"}`} style={{ padding: "2px 8px", fontSize: 11, minWidth: 50, display: "inline-block", textAlign: "center" }}>
-                                                                                        {ok ? "OK" : "SOTTO"}
-                                                                                    </span>
-                                                                                </td>
-                                                                            </tr>
+                                                                            <React.Fragment key={m.id}>
+                                                                                <tr style={{ borderBottom: expandedMachine === m.id ? "none" : "1px solid var(--border-light)", background: expandedMachine === m.id ? "var(--bg-secondary)" : "transparent" }}>
+                                                                                    <td style={{ padding: "8px 12px 8px 12px", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 12 }}>
+                                                                                        <div onClick={() => toggleExpandMachine(m.id)} style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, borderRadius: 4, transition: "background 0.2s" }} className="hover-bg">
+                                                                                            {expandedMachine === m.id ? Icons.chevronDown : Icons.chevronRight}
+                                                                                        </div>
+                                                                                        <div>{m.nome}</div>
+                                                                                    </td>
+                                                                                    <td style={{ padding: "8px 12px" }}>
+                                                                                        {specificNames.length > 0 ? (
+                                                                                            <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{specificNames.join(", ")}</span>
+                                                                                        ) : (
+                                                                                            <span style={{ color: "var(--text-lighter)", fontSize: 18, lineHeight: 0 }}>&middot;</span>
+                                                                                        )}
+                                                                                    </td>
+                                                                                    <td style={{ textAlign: "center", padding: "8px 12px" }}>
+                                                                                        <span className={`tag ${ok ? "tag-green" : "tag-red"}`} style={{ padding: "2px 8px", fontSize: 11, minWidth: 50, display: "inline-block", textAlign: "center" }}>
+                                                                                            {ok ? "OK" : "SOTTO"}
+                                                                                        </span>
+                                                                                    </td>
+                                                                                </tr>
+                                                                                {expandedMachine === m.id && (
+                                                                                    <tr style={{ borderBottom: "1px solid var(--border-light)", background: "var(--bg-secondary)" }}>
+                                                                                        <td colSpan={3} style={{ padding: "0 12px 16px 48px" }}>
+                                                                                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, paddingTop: 8 }}>
+                                                                                                {/* FERMI MACCHINA */}
+                                                                                                <div>
+                                                                                                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", marginBottom: 8, textTransform: "uppercase" }}>Fermi Macchina</div>
+                                                                                                    {fermiMacchina.filter(f => f.macchina_id === m.id).length > 0 ? (
+                                                                                                        <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+                                                                                                            {fermiMacchina.filter(f => f.macchina_id === m.id).map(f => (
+                                                                                                                <li key={f.id} style={{ fontSize: 13, marginBottom: 4, display: "flex", gap: 8 }}>
+                                                                                                                    <span style={{ fontFamily: "monospace", color: "var(--danger)" }}>
+                                                                                                                        {f.ora_inizio?.slice(0, 5)} - {f.ora_fine?.slice(0, 5)}
+                                                                                                                    </span>
+                                                                                                                    <span>{f.motivo}</span>
+                                                                                                                    {f.durata_minuti && <span style={{ color: "var(--text-muted)" }}>({f.durata_minuti} min)</span>}
+                                                                                                                </li>
+                                                                                                            ))}
+                                                                                                        </ul>
+                                                                                                    ) : (
+                                                                                                        <div style={{ fontSize: 13, color: "var(--text-muted)", fontStyle: "italic" }}>Nessun fermo registrato</div>
+                                                                                                    )}
+                                                                                                </div>
+
+                                                                                                {/* PEZZI PRODOTTI */}
+                                                                                                <div>
+                                                                                                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", marginBottom: 8, textTransform: "uppercase" }}>Produzione</div>
+                                                                                                    {pezziProdotti.filter(p => p.macchina_id === m.id).length > 0 ? (
+                                                                                                        <div style={{ fontSize: 13 }}>
+                                                                                                            {pezziProdotti.filter(p => p.macchina_id === m.id).map(p => (
+                                                                                                                <div key={p.id}>
+                                                                                                                    <div>Quantità: <strong style={{ color: "var(--success)" }}>{p.quantita}</strong></div>
+                                                                                                                    {p.scarti > 0 && <div>Scarti: <span style={{ color: "var(--danger)" }}>{p.scarti}</span></div>}
+                                                                                                                    {p.note && <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Note: {p.note}</div>}
+                                                                                                                </div>
+                                                                                                            ))}
+                                                                                                        </div>
+                                                                                                    ) : (
+                                                                                                        <div style={{ fontSize: 13, color: "var(--text-muted)", fontStyle: "italic" }}>Nessun dato di produzione</div>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                )}
+                                                                            </React.Fragment>
                                                                         );
                                                                     })}
                                                                     {zoneMachines.length === 0 && (
@@ -436,23 +537,73 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                 const ok = machineOps.length >= (m.personale_minimo || 1);
 
                                                                 return (
-                                                                    <tr key={m.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
-                                                                        <td style={{ padding: "8px 12px 8px 32px", color: "var(--text-secondary)" }}>
-                                                                            {m.nome}
-                                                                        </td>
-                                                                        <td style={{ padding: "8px 12px" }}>
-                                                                            {specificNames.length > 0 ? (
-                                                                                <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{specificNames.join(", ")}</span>
-                                                                            ) : (
-                                                                                <span style={{ color: "var(--text-muted)" }}>—</span>
-                                                                            )}
-                                                                        </td>
-                                                                        <td style={{ textAlign: "center", padding: "8px 12px" }}>
-                                                                            <span className={`tag ${ok ? "tag-green" : "tag-red"}`} style={{ padding: "2px 8px", fontSize: 11, minWidth: 50, display: "inline-block", textAlign: "center" }}>
-                                                                                {ok ? "OK" : "SOTTO"}
-                                                                            </span>
-                                                                        </td>
-                                                                    </tr>
+                                                                    <React.Fragment key={m.id}>
+                                                                        <tr style={{ borderBottom: expandedMachine === m.id ? "none" : "1px solid var(--border-light)", background: expandedMachine === m.id ? "var(--bg-secondary)" : "transparent" }}>
+                                                                            <td style={{ padding: "8px 12px 8px 32px", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 12 }}>
+                                                                                <div onClick={() => toggleExpandMachine(m.id)} style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 20, height: 20, borderRadius: 4, transition: "background 0.2s" }} className="hover-bg">
+                                                                                    {expandedMachine === m.id ? Icons.chevronDown : Icons.chevronRight}
+                                                                                </div>
+                                                                                <div>{m.nome}</div>
+                                                                            </td>
+                                                                            <td style={{ padding: "8px 12px" }}>
+                                                                                {specificNames.length > 0 ? (
+                                                                                    <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{specificNames.join(", ")}</span>
+                                                                                ) : (
+                                                                                    <span style={{ color: "var(--text-muted)" }}>—</span>
+                                                                                )}
+                                                                            </td>
+                                                                            <td style={{ textAlign: "center", padding: "8px 12px" }}>
+                                                                                <span className={`tag ${ok ? "tag-green" : "tag-red"}`} style={{ padding: "2px 8px", fontSize: 11, minWidth: 50, display: "inline-block", textAlign: "center" }}>
+                                                                                    {ok ? "OK" : "SOTTO"}
+                                                                                </span>
+                                                                            </td>
+                                                                        </tr>
+                                                                        {expandedMachine === m.id && (
+                                                                            <tr style={{ borderBottom: "1px solid var(--border-light)", background: "var(--bg-secondary)" }}>
+                                                                                <td colSpan={3} style={{ padding: "0 12px 16px 48px" }}>
+                                                                                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, paddingTop: 8 }}>
+                                                                                        {/* FERMI MACCHINA */}
+                                                                                        <div>
+                                                                                            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", marginBottom: 8, textTransform: "uppercase" }}>Fermi Macchina</div>
+                                                                                            {fermiMacchina.filter(f => f.macchina_id === m.id).length > 0 ? (
+                                                                                                <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
+                                                                                                    {fermiMacchina.filter(f => f.macchina_id === m.id).map(f => (
+                                                                                                        <li key={f.id} style={{ fontSize: 13, marginBottom: 4, display: "flex", gap: 8 }}>
+                                                                                                            <span style={{ fontFamily: "monospace", color: "var(--danger)" }}>
+                                                                                                                {f.ora_inizio?.slice(0, 5)} - {f.ora_fine?.slice(0, 5)}
+                                                                                                            </span>
+                                                                                                            <span>{f.motivo}</span>
+                                                                                                            {f.durata_minuti && <span style={{ color: "var(--text-muted)" }}>({f.durata_minuti} min)</span>}
+                                                                                                        </li>
+                                                                                                    ))}
+                                                                                                </ul>
+                                                                                            ) : (
+                                                                                                <div style={{ fontSize: 13, color: "var(--text-muted)", fontStyle: "italic" }}>Nessun fermo registrato</div>
+                                                                                            )}
+                                                                                        </div>
+
+                                                                                        {/* PEZZI PRODOTTI */}
+                                                                                        <div>
+                                                                                            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", marginBottom: 8, textTransform: "uppercase" }}>Produzione</div>
+                                                                                            {pezziProdotti.filter(p => p.macchina_id === m.id).length > 0 ? (
+                                                                                                <div style={{ fontSize: 13 }}>
+                                                                                                    {pezziProdotti.filter(p => p.macchina_id === m.id).map(p => (
+                                                                                                        <div key={p.id}>
+                                                                                                            <div>Quantità: <strong style={{ color: "var(--success)" }}>{p.quantita}</strong></div>
+                                                                                                            {p.scarti > 0 && <div>Scarti: <span style={{ color: "var(--danger)" }}>{p.scarti}</span></div>}
+                                                                                                            {p.note && <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Note: {p.note}</div>}
+                                                                                                        </div>
+                                                                                                    ))}
+                                                                                                </div>
+                                                                                            ) : (
+                                                                                                <div style={{ fontSize: 13, color: "var(--text-muted)", fontStyle: "italic" }}>Nessun dato di produzione</div>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </td>
+                                                                            </tr>
+                                                                        )}
+                                                                    </React.Fragment>
                                                                 );
                                                             })}
                                                         </>
@@ -592,4 +743,3 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
         </div>
     );
 }
-

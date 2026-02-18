@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "../lib/supabase";
 import { LIVELLI_COMPETENZA, ATTIVITA } from "../data/constants";
 import { Icons } from "../components/ui/Icons";
@@ -14,11 +14,95 @@ export default function AssegnazioniView({
     const [newActivityName, setNewActivityName] = useState("");
     const today = new Date().toISOString().split("T")[0];
 
+    // --- AUTO-COPY ASSIGNMENTS LOGIC ---
+    useEffect(() => {
+        const checkAndCopyAssignments = async () => {
+            // Only run if we have data loaded and assignments for today are empty for this shift/reparto
+            // We check the specific shift (turnoCorrente) to avoid copying if data exists
+            if (assegnazioni.length > 0 && assegnazioni.some(a => a.data === today && a.turno_id === turnoCorrente)) {
+                return; // Already has assignments for today
+            }
+
+            console.log("🔍 Checking for previous assignments to copy...");
+
+            // Find last Day with assignments for this Turno
+            const { data: lastAss, error } = await supabase
+                .from('assegnazioni')
+                .select('*')
+                .eq('turno_id', turnoCorrente)
+                .lt('data', today)
+                .order('data', { ascending: false })
+                .limit(1);
+
+            if (error) {
+                console.error("Error fetching last assignment date:", error);
+                return;
+            }
+
+            if (lastAss && lastAss.length > 0) {
+                const lastDate = lastAss[0].data;
+                console.log(`📅 Found previous assignments from ${lastDate}. Copying...`);
+
+                // Fetch ALL assignments from that day
+                const { data: previousAssignments, error: fetchError } = await supabase
+                    .from('assegnazioni')
+                    .select('*')
+                    .eq('data', lastDate)
+                    .eq('turno_id', turnoCorrente);
+
+                if (fetchError || !previousAssignments || previousAssignments.length === 0) return;
+
+                // Prepare new assignments for TODAY
+                const newAssignments = previousAssignments.map(a => ({
+                    dipendente_id: a.dipendente_id,
+                    macchina_id: a.macchina_id,
+                    attivita_id: a.attivita_id,
+                    data: today,
+                    turno_id: turnoCorrente,
+                    note: a.note
+                }));
+
+                const { data: inserted, error: insertError } = await supabase
+                    .from('assegnazioni')
+                    .insert(newAssignments)
+                    .select();
+
+                if (insertError) {
+                    console.error("Error copying assignments:", insertError);
+                    showToast("Errore copia assegnazioni: " + insertError.message, "error");
+                } else {
+                    console.log(`✅ Copied ${inserted.length} assignments.`);
+                    // Update local state by appending new ones
+                    const localNew = inserted.map(savedAss => ({
+                        ...savedAss,
+                        macchina_id: savedAss.macchina_id || savedAss.attivita_id,
+                        isActivity: !!savedAss.attivita_id
+                    }));
+                    setAssegnazioni(prev => [...prev, ...localNew]);
+                    showToast(`Copiato piano dal ${lastDate}`, "success");
+                }
+            } else {
+                console.log("ℹ️ No previous assignments found to copy.");
+            }
+        };
+
+        const timer = setTimeout(() => {
+            checkAndCopyAssignments();
+        }, 1000);
+
+        return () => clearTimeout(timer);
+
+    }, [turnoCorrente, today]); // Dependencies: if shift changes, check again.
+
+    // --- FILTER LOGIC ---
     const dipRep = dipendenti.filter((d) =>
         (!repartoCorrente || d.reparto_id === repartoCorrente) &&
         d.turno_default === turnoCorrente // Strict Shift Filter
     );
-    const presRep = presenze.filter((p) => dipRep.some((d) => d.id === p.dipendente_id) && p.presente && p.data === today);
+    // Presenze check needs to be broad for highlighting (any presence record for today)
+    const presRep = presenze.filter((p) => p.data === today);
+
+    // Assigned for today
     const macchineReparto = repartoCorrente ? macchine.filter((m) => m.reparto_id === repartoCorrente) : macchine;
     const assRep = assegnazioni.filter((a) => dipRep.some((d) => d.id === a.dipendente_id) && a.data === today);
 
@@ -28,20 +112,6 @@ export default function AssegnazioniView({
         const exists = assegnazioni.find((a) => a.macchina_id === targetId && a.dipendente_id === dipendenteId && a.data === today);
         if (exists) return;
 
-        const newAss = {
-            dipendente_id: dipendenteId,
-            macchina_id: targetId,
-            isActivity: type === 'activity', // Note: DB doesn't have isActivity, but we might need to handle 'attivita_id' if implemented. 
-            // For now, let's assume 'macchina_id' stores ID for both machines and activities as per current logic, 
-            // BUT check schema: 'assegnazioni' has 'macchina_id' AND 'attivita_id'. 
-            // Current app logic uses 'macchina_id' for both. We should fix this alignment.
-            // Let's check logic: if type === 'activity', we should set attivita_id, else macchina_id.
-            data: today,
-            turno_id: turnoCorrente,
-            note: "",
-        };
-
-        // Fix for DB Schema: Separate columns
         const dbPayload = {
             dipendente_id: dipendenteId,
             data: today,
@@ -56,17 +126,6 @@ export default function AssegnazioniView({
             if (error) throw error;
 
             console.log("✅ Assignment saved:", data);
-            // We need to match local state structure. 
-            // Local state currently uses 'macchina_id' for everything in filtering logic.
-            // To keep frontend logic simple without full refactor, we map back DB result to frontend structure OR adjust frontend to use attivita_id.
-            // Let's adjust frontend state to reflect 'macchina_id' as the common ID for display if that's how it's built, 
-            // OR better: use the returned 'data' which has correct columns, and ensure filtering handles it.
-
-            // Actually, let's keep local state as returned from DB, but we need to ensure filters works.
-            // The filters use: `a.macchina_id === m.id` (machines) and `a.macchina_id === a.id` (activities).
-            // If we switch to real columns, activity filter needs `a.attivita_id === a.id`.
-
-            // Let's normalize for local state to keep UI working without deep refactor for now:
             const savedAss = data[0];
             const localAss = {
                 ...savedAss,
@@ -85,7 +144,6 @@ export default function AssegnazioniView({
     };
 
     const addCustomActivity = () => {
-        // ... (Local only for now, 'attivita' table changes not requested yet but advised)
         if (!newActivityName.trim()) return;
         const newAct = {
             id: `ACT-${Date.now()}`,
@@ -170,9 +228,19 @@ export default function AssegnazioniView({
                                                                 {zoneAss.length > 0 ? (
                                                                     zoneAss.map(a => {
                                                                         const d = dipendenti.find(dd => dd.id === a.dipendente_id);
+                                                                        // Check Presence
+                                                                        const isPresent = presRep.some(p => p.dipendente_id === a.dipendente_id && p.presente);
+
                                                                         return d ? (
                                                                             // Increased fontSize to 15px to match Report legibility
-                                                                            <span key={a.id} className="operator-chip" style={{ background: "var(--bg-card)", border: "1px solid var(--info)", fontSize: 15 }}>
+                                                                            <span key={a.id} className="operator-chip"
+                                                                                style={{
+                                                                                    background: isPresent ? "var(--bg-card)" : "rgba(220, 38, 38, 0.1)",
+                                                                                    border: isPresent ? "1px solid var(--info)" : "1px solid var(--danger)",
+                                                                                    fontSize: 15,
+                                                                                    textDecoration: isPresent ? "none" : "line-through",
+                                                                                    color: isPresent ? "inherit" : "var(--danger)"
+                                                                                }}>
                                                                                 {d.cognome} {d.nome.charAt(0)}.
                                                                                 <span className="remove" onClick={() => removeAssegnazione(a.id)}>✕</span>
                                                                             </span>
@@ -199,10 +267,16 @@ export default function AssegnazioniView({
                                                     {/* MACHINE ROWS */}
                                                     {zoneMachines.map(m => {
                                                         const ops = assRep.filter(a => a.macchina_id === m.id);
-                                                        const isUnder = ops.length < (m.personale_minimo || 1);
+
+                                                        // Filter effective ops (PRESENT ones)
+                                                        const effectiveOps = ops.filter(a => presRep.some(p => p.dipendente_id === a.dipendente_id && p.presente));
+
+                                                        const isUnder = effectiveOps.length < (m.personale_minimo || 1);
                                                         const isEmpty = ops.length === 0;
 
-                                                        const isZoneCovered = zoneAss.length > 0;
+                                                        // Check zone coverage (Assigned AND Present)
+                                                        const isZoneCovered = zoneAss.some(a => presRep.some(p => p.dipendente_id === a.dipendente_id && p.presente));
+
                                                         const isOk = !isUnder || isZoneCovered;
 
                                                         return (
@@ -215,9 +289,19 @@ export default function AssegnazioniView({
                                                                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                                                                         {ops.map(o => {
                                                                             const d = dipendenti.find(dd => dd.id === o.dipendente_id);
+                                                                            // Check Presence
+                                                                            const isPresent = presRep.some(p => p.dipendente_id === o.dipendente_id && p.presente);
+
                                                                             return d ? (
                                                                                 // Increased fontSize to 15px (inline style added/class modified)
-                                                                                <span key={o.id} className={`operator-chip ${d.tipo === "interinale" ? "interinale" : ""} `} style={{ fontSize: 15 }}>
+                                                                                <span key={o.id} className={`operator-chip ${d.tipo === "interinale" ? "interinale" : ""} `}
+                                                                                    style={{
+                                                                                        fontSize: 15,
+                                                                                        textDecoration: isPresent ? "none" : "line-through",
+                                                                                        color: isPresent ? "inherit" : "var(--danger)",
+                                                                                        background: isPresent ? "" : "rgba(220, 38, 38, 0.1)",
+                                                                                        border: isPresent ? "" : "1px solid var(--danger)"
+                                                                                    }}>
                                                                                     {d.cognome} {d.nome.charAt(0)}.
                                                                                     {d.tipo === "interinale" && <span style={{ fontSize: 10, color: "var(--warning)" }}>INT</span>}
                                                                                     <span className="remove" onClick={() => removeAssegnazione(o.id)}>✕</span>
@@ -236,7 +320,7 @@ export default function AssegnazioniView({
                                                                 </td>
                                                                 <td style={{ textAlign: "center", padding: "8px 12px" }}>
                                                                     <span className={`tag ${!isUnder ? "tag-green" : "tag-red"}`} style={{ padding: "2px 8px", minWidth: 50, textAlign: "center", display: "inline-block" }}>
-                                                                        {!isUnder ? "OK" : "SOTTO"}
+                                                                        {!isUnder ? "OK" : (ops.length > 0 && effectiveOps.length === 0 ? "SCOPERTA" : "SOTTO")}
                                                                     </span>
                                                                 </td>
                                                             </tr>
@@ -256,7 +340,11 @@ export default function AssegnazioniView({
                                                 </tr>
                                                 {machinesWithoutZone.map(m => {
                                                     const ops = assRep.filter(a => a.macchina_id === m.id);
-                                                    const isUnder = ops.length < (m.personale_minimo || 1);
+                                                    // Filter effective
+                                                    const effectiveOps = ops.filter(a => presRep.some(p => p.dipendente_id === a.dipendente_id && p.presente));
+                                                    const isUnder = effectiveOps.length < (m.personale_minimo || 1);
+                                                    const hasAssignedButAbsent = ops.length > 0 && effectiveOps.length === 0;
+
                                                     return (
                                                         <tr key={m.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
                                                             <td style={{ padding: "8px 12px 8px 32px", color: "var(--text-secondary)", fontWeight: 500 }}>
@@ -267,8 +355,17 @@ export default function AssegnazioniView({
                                                                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                                                                     {ops.map(o => {
                                                                         const d = dipendenti.find(dd => dd.id === o.dipendente_id);
+                                                                        // Check Presence
+                                                                        const isPresent = presRep.some(p => p.dipendente_id === o.dipendente_id && p.presente);
+
                                                                         return d ? (
-                                                                            <span key={o.id} className={`operator-chip ${d.tipo === "interinale" ? "interinale" : ""} `}>
+                                                                            <span key={o.id} className={`operator-chip ${d.tipo === "interinale" ? "interinale" : ""} `}
+                                                                                style={{
+                                                                                    textDecoration: isPresent ? "none" : "line-through",
+                                                                                    color: isPresent ? "inherit" : "var(--danger)",
+                                                                                    background: isPresent ? "" : "rgba(220, 38, 38, 0.1)",
+                                                                                    border: isPresent ? "" : "1px solid var(--danger)"
+                                                                                }}>
                                                                                 {d.cognome} {d.nome.charAt(0)}.
                                                                                 {d.tipo === "interinale" && <span style={{ fontSize: 9, color: "var(--warning)" }}>INT</span>}
                                                                                 <span className="remove" onClick={() => removeAssegnazione(o.id)}>✕</span>
@@ -287,7 +384,7 @@ export default function AssegnazioniView({
                                                             </td>
                                                             <td style={{ textAlign: "center", padding: "8px 16px" }}>
                                                                 <span className={`tag ${!isUnder ? "tag-green" : "tag-red"}`} style={{ padding: "2px 8px", minWidth: 50, textAlign: "center", display: "inline-block" }}>
-                                                                    {!isUnder ? "OK" : "SOTTO"}
+                                                                    {!isUnder ? "OK" : (hasAssignedButAbsent ? "SCOPERTA" : "SOTTO")}
                                                                 </span>
                                                             </td>
                                                         </tr>
@@ -334,9 +431,15 @@ export default function AssegnazioniView({
                                 <div className="machine-card-operators">
                                     {ops.map((o) => {
                                         const d = dipendenti.find((dd) => dd.id === o.dipendente_id);
+                                        const isPresent = presRep.some(p => p.dipendente_id === o.dipendente_id && p.presente);
+
                                         if (!d) return null;
                                         return (
-                                            <span key={o.id} className="operator-chip">
+                                            <span key={o.id} className="operator-chip"
+                                                style={{
+                                                    textDecoration: isPresent ? "none" : "line-through",
+                                                    color: isPresent ? "inherit" : "var(--danger)"
+                                                }}>
                                                 {d.cognome} {d.nome.charAt(0)}.
                                                 <span className="remove" onClick={() => removeAssegnazione(o.id)}>✕</span>
                                             </span>
@@ -367,7 +470,7 @@ export default function AssegnazioniView({
                             <select className="select-input" value={selectedDip} onChange={(e) => setSelectedDip(e.target.value)}>
                                 <option value="">Seleziona operatore...</option>
                                 {getAvailableOps().map((d) => {
-                                    const isPresente = presRep.some((p) => p.dipendente_id === d.id);
+                                    const isPresente = presRep.some((p) => p.dipendente_id === d.id && p.presente);
                                     const isAssigned = assRep.some(a => a.dipendente_id === d.id);
                                     return (
                                         <option key={d.id} value={d.id}>

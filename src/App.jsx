@@ -11,6 +11,7 @@ import AssegnazioniView from "./views/AssegnazioniView";
 import AnagraficaView from "./views/AnagraficaView";
 import ReportView from "./views/ReportView";
 import RicercaView from "./views/RicercaView";
+import FermiView from "./views/FermiView";
 
 import ImportView from "./views/ImportView";
 import SkillsView from "./views/SkillsView";
@@ -207,6 +208,7 @@ export default function App() {
     { id: "report", label: "Report", icon: Icons.report },
     { id: "motivi", label: "Motivi Assenza", icon: Icons.filter }, // using filter icon as placeholder or similar
     { id: "import", label: "Import SAP", icon: Icons.upload },
+    { id: "fermi", label: "Gestione Fermi Macchina", icon: Icons.alert },
   ];
 
   const viewTitles = {
@@ -218,6 +220,7 @@ export default function App() {
     motivi: "Gestione Motivi Assenza",
 
     import: "Import Dati SAP",
+    fermi: "Gestione Fermi Macchina",
     zones: "Anagrafica Zone",
     skills: "Matrice Competenze",
   };
@@ -406,6 +409,9 @@ export default function App() {
           )}
           {currentView === "import" && (
             <ImportView showToast={showToast} />
+          )}
+          {currentView === "fermi" && (
+            <FermiView />
           )}
           {currentView === "skills" && (
             <SkillsView dipendenti={dipendenti} setDipendenti={setDipendenti} macchine={macchine} showToast={showToast} />
