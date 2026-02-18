@@ -178,3 +178,12 @@ export const ATTIVITA = [
     { id: "A4", nome: "Pulizia/5S", icona: "🧹", color: "#6366F1" },
     { id: "A5", nome: "Altro", icona: "📌", color: "#6B7280" },
 ];
+
+export const LIMITAZIONI = [
+    { id: "L104", label: "Legge 104", color: "#8B5CF6" },
+    { id: "NO_NOTTE", label: "No Turno Notturno", color: "#EF4444" },
+    { id: "NO_SOLLEVAMENTO", label: "No Sollevamento Pesi", color: "#F59E0B" },
+    { id: "NO_CHIMICO", label: "Rischio Chimico", color: "#10B981" },
+    { id: "PART_TIME", label: "Part Time", color: "#3B82F6" },
+    { id: "LIMITATO", label: "Limitazioni Generiche", color: "#6B7280" }
+];

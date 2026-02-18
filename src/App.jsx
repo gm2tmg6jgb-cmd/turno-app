@@ -205,7 +205,6 @@ export default function App() {
     { id: "skills", label: "Competenze", icon: Icons.brain },
     { id: "anagrafica", label: "Anagrafica", icon: Icons.users },
     { id: "report", label: "Report", icon: Icons.report },
-    { id: "ricerca", label: "Ricerca Storica", icon: Icons.history },
     { id: "motivi", label: "Motivi Assenza", icon: Icons.filter }, // using filter icon as placeholder or similar
     { id: "import", label: "Import SAP", icon: Icons.upload },
   ];
@@ -216,7 +215,6 @@ export default function App() {
     assegnazioni: "Assegnazione Macchine",
     anagrafica: "Anagrafica Personale",
     report: "Report & Esportazioni",
-    ricerca: "Ricerca Storica",
     motivi: "Gestione Motivi Assenza",
 
     import: "Import Dati SAP",
@@ -380,7 +378,13 @@ export default function App() {
             />
           )}
           {currentView === "anagrafica" && (
-            <AnagraficaView dipendenti={dipendenti} setDipendenti={setDipendenti} macchine={macchine} showToast={showToast} />
+            <AnagraficaView
+              dipendenti={dipendenti}
+              setDipendenti={setDipendenti}
+              macchine={macchine}
+              showToast={showToast}
+              turnoCorrente={turnoCorrente} // Pass current shift for filtering
+            />
           )}
           {currentView === "zones" && (
             <ZoneView zones={zone} setZones={setZone} macchine={macchine} setMacchine={setMacchine} />

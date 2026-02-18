@@ -16,7 +16,9 @@ export default function ZoneView({ zones, setZones, macchine, setMacchine }) {
     const filteredZones = zones.filter(z =>
         (z.label || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (z.reparto || z.repart_id || "").toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    ).sort((a, b) => {
+        return (a.label || "").localeCompare(b.label || "", undefined, { numeric: true, sensitivity: 'base' });
+    });
 
     const handleSaveZone = async () => {
         if (!newZone.label) return;
@@ -108,7 +110,7 @@ export default function ZoneView({ zones, setZones, macchine, setMacchine }) {
     };
 
     const addMachineToZone = async () => {
-        if (!newMac.id || !newMac.nome) return;
+        if (!newMac.id) return; // Only verify ID presence
 
         // Check Max Machines Limit
         const currentMachinesCount = macchine.filter(m => m.zona === newZone.id).length;
@@ -121,7 +123,7 @@ export default function ZoneView({ zones, setZones, macchine, setMacchine }) {
 
         const machineData = {
             id: newMac.id,
-            nome: newMac.nome,
+            nome: newMac.id, // Use ID as Name
             zona: newZone.id,
             reparto_id: newZone.reparto, // Align with DB column
             personale_minimo: newMac.personaleMinimo
@@ -306,22 +308,15 @@ export default function ZoneView({ zones, setZones, macchine, setMacchine }) {
                                 border: "1px dashed var(--border)"
                             }}>
                                 <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>+ Aggiungi Macchina</div>
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
                                     <input
                                         className="input"
                                         style={{ fontSize: 12 }}
-                                        placeholder="ID (es. FRW123)"
+                                        placeholder="Nome Macchina / ID (es. FRW123)"
                                         value={newMac.id}
-                                        onChange={(e) => setNewMac({ ...newMac, id: e.target.value })}
+                                        onChange={(e) => setNewMac({ ...newMac, id: e.target.value.toUpperCase() })} // Auto-uppercase for consistency
                                     />
-                                    <input
-                                        className="input"
-                                        style={{ fontSize: 12 }}
-                                        placeholder="Nome Visualizzato"
-                                        value={newMac.nome}
-                                        onChange={(e) => setNewMac({ ...newMac, nome: e.target.value })}
-                                    />
-                                    <div style={{ gridColumn: "span 2", display: "flex", gap: 8, alignItems: "center" }}>
+                                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                                         <div style={{ fontSize: 11, color: "var(--text-muted)", flex: 1 }}>Pers. Minimo:</div>
                                         <input
                                             type="number"

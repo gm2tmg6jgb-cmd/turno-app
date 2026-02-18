@@ -9,12 +9,7 @@ import {
 export default function ReportView({ dipendenti, presenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, zones, motivi }) {
     const [reportType, setReportType] = useState("turno");
 
-    // Filter by Turno (Consistency with Dashboard)
-    const allDip = useMemo(() => {
-        return dipendenti.filter(d => !turnoCorrente || d.turno_default === turnoCorrente);
-    }, [dipendenti, turnoCorrente]);
-
-    // Fix: Use local date to avoid UTC mismatch (Consistent with Dashboard/App)
+    // Manage Date and Turno Selection explicitly
     const getLocalDate = (d) => {
         const year = d.getFullYear();
         const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -22,30 +17,37 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
         return `${year}-${month}-${day}`;
     };
 
+    const [selectedDate, setSelectedDate] = useState(getLocalDate(new Date()));
+    const [selectedTurno, setSelectedTurno] = useState(""); // Default to Daily View (All Shifts) as requested
+
+    // Filter by Turno (Consistency with Dashboard)
+    const allDip = useMemo(() => {
+        return dipendenti.filter(d => !selectedTurno || d.turno_default === selectedTurno);
+    }, [dipendenti, selectedTurno]);
+
     const allPres = useMemo(() => {
-        const today = getLocalDate(new Date());
-        return presenze.filter(p => p.data === today && (!turnoCorrente || p.turno_id === turnoCorrente));
-    }, [presenze, turnoCorrente]);
+        return presenze.filter(p => p.data === selectedDate && (!selectedTurno || p.turno_id === selectedTurno));
+    }, [presenze, selectedDate, selectedTurno]);
 
     const allAss = useMemo(() => {
-        const today = getLocalDate(new Date());
-        return assegnazioni.filter(a => a.data === today && (!turnoCorrente || a.turno_id === turnoCorrente));
-    }, [assegnazioni, turnoCorrente]);
+        return assegnazioni.filter(a => a.data === selectedDate && (!selectedTurno || a.turno_id === selectedTurno));
+    }, [assegnazioni, selectedDate, selectedTurno]);
 
-    // Trend Data Calculation (Last 14 Days)
+    // Trend Data Calculation (Last 14 Days from Selected Date)
     const trendData = useMemo(() => {
         const data = [];
-        const today = new Date();
+        const currentRefDate = new Date(selectedDate);
+
         // Go back 14 days
         for (let i = 13; i >= 0; i--) {
-            const d = new Date(today);
-            d.setDate(today.getDate() - i);
-            const dateStr = d.toISOString().split('T')[0];
+            const d = new Date(currentRefDate);
+            d.setDate(currentRefDate.getDate() - i);
+            const dateStr = getLocalDate(d); // Use helper to ensure "YYYY-MM-DD"
             const label = d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
 
             const dayPres = presenze.filter(p =>
                 p.data === dateStr &&
-                (!turnoCorrente || p.turno_id === turnoCorrente)
+                (!selectedTurno || p.turno_id === selectedTurno)
             );
 
             const assenti = dayPres.filter(p => !p.presente).length;
@@ -59,7 +61,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
             });
         }
         return data;
-    }, [presenze, turnoCorrente]);
+    }, [presenze, selectedDate, selectedTurno]);
 
     const allMacchine = macchine; // Machines might not strictly belong to a shift, but their operators do.
 
@@ -100,9 +102,58 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
 
     return (
         <div className="fade-in" style={{ height: "100%", overflowY: "auto", paddingRight: 8, paddingBottom: 20 }}>
-            <div className="tabs" style={{ display: "inline-flex" }}>
-                <button className={`tab ${reportType === "turno" ? "active" : ""}`} onClick={() => setReportType("turno")}>Report Fine Turno</button>
-                <button className={`tab ${reportType === "settimanale" ? "active" : ""}`} onClick={() => setReportType("settimanale")}>Analisi Avanzata</button>
+            {/* Filters Header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <div className="tabs" style={{ display: "inline-flex", margin: 0 }}>
+                    <button className={`tab ${reportType === "turno" ? "active" : ""}`} onClick={() => setReportType("turno")}>Report Fine Turno</button>
+                    <button className={`tab ${reportType === "settimanale" ? "active" : ""}`} onClick={() => setReportType("settimanale")}>Analisi Avanzata</button>
+                </div>
+
+                <div style={{ display: "flex", gap: 12, alignItems: "center", background: "var(--bg-card)", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)" }}>
+                    {/* Date Picker */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 500 }}>Data:</span>
+                        <input
+                            type="date"
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                            style={{
+                                background: "var(--bg-secondary)",
+                                border: "1px solid var(--border)",
+                                color: "var(--text-primary)",
+                                padding: "6px 10px",
+                                borderRadius: 6,
+                                fontSize: 13,
+                                fontFamily: "inherit"
+                            }}
+                        />
+                    </div>
+
+                    <div style={{ width: 1, height: 20, background: "var(--border)" }}></div>
+
+                    {/* Shift Selector */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 500 }}>Turno:</span>
+                        <select
+                            value={selectedTurno}
+                            onChange={(e) => setSelectedTurno(e.target.value)}
+                            style={{
+                                background: "var(--bg-secondary)",
+                                border: "1px solid var(--border)",
+                                color: "var(--text-primary)",
+                                padding: "6px 24px 6px 10px",
+                                borderRadius: 6,
+                                fontSize: 13,
+                                cursor: "pointer"
+                            }}
+                        >
+                            <option value="">Tutti i Turni (Giornaliero)</option>
+                            {TURNI.map(t => (
+                                <option key={t.id} value={t.id}>{t.nome}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
             </div>
 
             {reportType === "turno" && (
@@ -110,9 +161,9 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                     <div className="card" style={{ marginBottom: 16 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
                             <div>
-                                <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Report Totale Stabilimento</h2>
+                                <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Report {selectedTurno ? `Turno ${TURNI.find(t => t.id === selectedTurno)?.nome}` : "Giornaliero (Tutti i Turni)"}</h2>
                                 <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-                                    Tutti i Reparti — {new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                                    Tutti i Reparti — {new Date(selectedDate).toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
                                 </div>
                             </div>
                             <div style={{ display: "flex", gap: 8 }}>
@@ -224,113 +275,128 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                             </h4>
 
                                             {/* ZONES */}
-                                            {repZones.map(zone => {
-                                                const zoneMachines = macchineDelReparto.filter(m => m.zona === zone.id);
-                                                // Find Zone Responsible
-                                                const zoneResponsibles = allAss.filter(a => (a.macchina_id === zone.id || a.attivita_id === zone.id));
+                                            {/* Single Table per Reparto */}
+                                            <table style={{ background: "var(--bg-card)", borderRadius: 6, overflow: "hidden", marginBottom: 12 }}>
+                                                <thead>
+                                                    <tr>
+                                                        <th style={{ padding: "8px 12px", width: "40%", textAlign: "left" }}>Macchina / Zona</th>
+                                                        <th style={{ padding: "8px 12px", width: "40%", textAlign: "left" }}>Operatore</th>
+                                                        <th style={{ padding: "8px 12px", width: "20%", textAlign: "center" }}>Stato</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {zones
+                                                        .filter(z => (z.repart_id || z.reparto) === repId)
+                                                        .map(zone => {
+                                                            const zoneMachines = macchineDelReparto.filter(m => m.zona === zone.id);
+                                                            // Find Zone Responsible
+                                                            const zoneResponsibles = allAss.filter(a => (a.macchina_id === zone.id || a.attivita_id === zone.id));
+                                                            const zoneOpName = zoneResponsibles.map(z => {
+                                                                const d = allDip.find(dd => dd.id === z.dipendente_id);
+                                                                return d ? `${d.cognome} ${d.nome}` : "";
+                                                            }).filter(Boolean).join(", ");
 
-                                                return (
-                                                    <div key={zone.id} style={{ marginBottom: 20, background: "var(--bg-secondary)", borderRadius: 8, padding: 16, border: "1px solid var(--border)" }}>
-                                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                                                            <div style={{ fontWeight: 700, fontSize: 15, display: "flex", alignItems: "center", gap: 8 }}>
-                                                                {Icons.grid} {zone.label}
-                                                            </div>
-                                                            <div>
-                                                                <span style={{ fontSize: 12, color: "var(--text-muted)", marginRight: 8 }}>Operatore Zona:</span>
-                                                                {zoneResponsibles.length > 0 ? (
-                                                                    zoneResponsibles.map(a => {
-                                                                        const d = allDip.find(dd => dd.id === a.dipendente_id);
-                                                                        return d ? (
-                                                                            <span key={a.id} className="tag tag-blue" style={{ marginRight: 4 }}>
-                                                                                {d.cognome} {d.nome.charAt(0)}.
-                                                                            </span>
-                                                                        ) : null;
-                                                                    })
-                                                                ) : (
-                                                                    <span style={{ fontSize: 12, color: "var(--text-muted)", fontStyle: "italic" }}>Non assegnato</span>
-                                                                )}
-                                                            </div>
-                                                        </div>
+                                                            const isZoneCovered = zoneResponsibles.length > 0;
 
-                                                        {zoneMachines.length > 0 ? (
-                                                            <table style={{ background: "var(--bg-card)", borderRadius: 6, overflow: "hidden" }}>
-                                                                <thead>
-                                                                    <tr>
-                                                                        <th style={{ padding: "8px 12px" }}>Macchina</th>
-                                                                        <th style={{ padding: "8px 12px" }}>Operatori</th>
-                                                                        <th style={{ padding: "8px 12px", width: 80, textAlign: "center" }}>Stato</th>
+                                                            return (
+                                                                <>
+                                                                    {/* ZONE HEADER ROW */}
+                                                                    <tr key={`zone-${zone.id}`} style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border)", borderTop: "1px solid var(--border)" }}>
+                                                                        <td style={{ padding: "10px 12px", fontWeight: 700, color: "var(--text-primary)" }}>
+                                                                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                                                                {Icons.grid} {zone.label}
+                                                                            </div>
+                                                                        </td>
+                                                                        <td style={{ padding: "10px 12px", fontWeight: 600, color: "var(--primary)" }}>
+                                                                            {zoneOpName || <span style={{ color: "var(--text-muted)", fontWeight: 400, fontSize: 13, fontStyle: "italic" }}>— Nessun Responsabile —</span>}
+                                                                        </td>
+                                                                        <td style={{ textAlign: "center" }}>
+                                                                            {/* Optional: Zone Status if needed, currently empty as per request */}
+                                                                        </td>
                                                                     </tr>
-                                                                </thead>
-                                                                <tbody>
+
+                                                                    {/* MACHINE ROWS */}
                                                                     {zoneMachines.map(m => {
-                                                                        const ops = allAss.filter(a => a.macchina_id === m.id);
-                                                                        const names = ops.map(o => {
+                                                                        const machineOps = allAss.filter(a => a.macchina_id === m.id);
+                                                                        const specificNames = machineOps.map(o => {
                                                                             const d = allDip.find(dd => dd.id === o.dipendente_id);
-                                                                            return d ? `${d.cognome} ${d.nome.charAt(0)}.` : "";
-                                                                        });
-                                                                        const ok = ops.length >= (m.personale_minimo || 1);
+                                                                            return d ? `${d.cognome} ${d.nome.charAt(0)}.` : null;
+                                                                        }).filter(Boolean);
+
+                                                                        // Logic: Machine is OK if it has specific op OR if zone is covered
+                                                                        const ok = machineOps.length > 0 || isZoneCovered;
 
                                                                         return (
                                                                             <tr key={m.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
-                                                                                <td style={{ fontWeight: 600 }}>{m.nome}</td>
-                                                                                <td>
-                                                                                    {names.length > 0 ? names.join(", ") : <span style={{ color: "var(--text-muted)" }}>—</span>}
+                                                                                <td style={{ padding: "8px 12px 8px 32px", color: "var(--text-secondary)" }}>
+                                                                                    {m.nome}
                                                                                 </td>
-                                                                                <td style={{ textAlign: "center" }}>
-                                                                                    <span className={`tag ${ok ? "tag-green" : "tag-red"}`}>
+                                                                                <td style={{ padding: "8px 12px" }}>
+                                                                                    {specificNames.length > 0 ? (
+                                                                                        <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{specificNames.join(", ")}</span>
+                                                                                    ) : (
+                                                                                        <span style={{ color: "var(--text-lighter)", fontSize: 18, lineHeight: 0 }}>&middot;</span>
+                                                                                    )}
+                                                                                </td>
+                                                                                <td style={{ textAlign: "center", padding: "8px 12px" }}>
+                                                                                    <span className={`tag ${ok ? "tag-green" : "tag-red"}`} style={{ padding: "2px 8px", fontSize: 11, minWidth: 50, display: "inline-block", textAlign: "center" }}>
                                                                                         {ok ? "OK" : "SOTTO"}
                                                                                     </span>
                                                                                 </td>
                                                                             </tr>
                                                                         );
                                                                     })}
-                                                                </tbody>
-                                                            </table>
-                                                        ) : (
-                                                            <div style={{ fontSize: 12, color: "var(--text-muted)", fontStyle: "italic", padding: 8 }}>Nessuna macchina assegnata a questa zona.</div>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
+                                                                    {zoneMachines.length === 0 && (
+                                                                        <tr>
+                                                                            <td colSpan={3} style={{ padding: "8px 12px 8px 32px", fontSize: 12, color: "var(--text-muted)", fontStyle: "italic" }}>
+                                                                                Nessuna macchina in questa zona
+                                                                            </td>
+                                                                        </tr>
+                                                                    )}
+                                                                </>
+                                                            );
+                                                        })}
 
-                                            {/* Machines without Zone */}
-                                            {machinesWithoutZone.length > 0 && (
-                                                <div style={{ marginBottom: 20, padding: 16 }}>
-                                                    <h5 style={{ fontSize: 13, fontWeight: 700, color: "var(--text-muted)", marginBottom: 12, textTransform: "uppercase" }}>Altre Macchine (No Zona)</h5>
-                                                    <table style={{ background: "var(--bg-card)", borderRadius: 6, overflow: "hidden" }}>
-                                                        <thead>
-                                                            <tr>
-                                                                <th style={{ padding: "8px 12px" }}>Macchina</th>
-                                                                <th style={{ padding: "8px 12px" }}>Operatori</th>
-                                                                <th style={{ padding: "8px 12px", width: 80, textAlign: "center" }}>Stato</th>
+                                                    {/* Machines without Zone */}
+                                                    {machinesWithoutZone.length > 0 && (
+                                                        <>
+                                                            <tr style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border)", borderTop: "1px solid var(--border)" }}>
+                                                                <td colSpan={3} style={{ padding: "10px 12px", fontWeight: 700, color: "var(--text-muted)", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                                                                    Altre Macchine
+                                                                </td>
                                                             </tr>
-                                                        </thead>
-                                                        <tbody>
                                                             {machinesWithoutZone.map(m => {
-                                                                const ops = allAss.filter(a => a.macchina_id === m.id);
-                                                                const names = ops.map(o => {
+                                                                const machineOps = allAss.filter(a => a.macchina_id === m.id);
+                                                                const specificNames = machineOps.map(o => {
                                                                     const d = allDip.find(dd => dd.id === o.dipendente_id);
-                                                                    return d ? `${d.cognome} ${d.nome.charAt(0)}.` : "";
-                                                                });
-                                                                const ok = ops.length >= (m.personale_minimo || 1);
+                                                                    return d ? `${d.cognome} ${d.nome.charAt(0)}.` : null;
+                                                                }).filter(Boolean);
+                                                                const ok = machineOps.length >= (m.personale_minimo || 1);
+
                                                                 return (
                                                                     <tr key={m.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
-                                                                        <td style={{ fontWeight: 600 }}>{m.nome}</td>
-                                                                        <td>
-                                                                            {names.length > 0 ? names.join(", ") : <span style={{ color: "var(--text-muted)" }}>—</span>}
+                                                                        <td style={{ padding: "8px 12px 8px 32px", color: "var(--text-secondary)" }}>
+                                                                            {m.nome}
                                                                         </td>
-                                                                        <td style={{ textAlign: "center" }}>
-                                                                            <span className={`tag ${ok ? "tag-green" : "tag-red"}`}>
+                                                                        <td style={{ padding: "8px 12px" }}>
+                                                                            {specificNames.length > 0 ? (
+                                                                                <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{specificNames.join(", ")}</span>
+                                                                            ) : (
+                                                                                <span style={{ color: "var(--text-muted)" }}>—</span>
+                                                                            )}
+                                                                        </td>
+                                                                        <td style={{ textAlign: "center", padding: "8px 12px" }}>
+                                                                            <span className={`tag ${ok ? "tag-green" : "tag-red"}`} style={{ padding: "2px 8px", fontSize: 11, minWidth: 50, display: "inline-block", textAlign: "center" }}>
                                                                                 {ok ? "OK" : "SOTTO"}
                                                                             </span>
                                                                         </td>
                                                                     </tr>
                                                                 );
                                                             })}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            )}
+                                                        </>
+                                                    )}
+                                                </tbody>
+                                            </table>
                                         </div>
                                     );
                                 });
@@ -413,9 +479,55 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                             </ResponsiveContainer>
                         </div>
                     </div>
+
+                    {/* LIMITAZIONI & PRESCRIZIONI TABLE */}
+                    <div className="card">
+                        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Personale con Limitazioni / Prescrizioni</h3>
+                        <div className="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th style={{ textAlign: "left" }}>Dipendente</th>
+                                        <th style={{ textAlign: "center" }}>Turno</th>
+                                        <th style={{ textAlign: "left" }}>Limitazioni / Note</th>
+                                        <th style={{ textAlign: "center" }}>Team</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {dipendenti
+                                        .filter(d => d.l104 && d.l104.trim() !== "")
+                                        .sort((a, b) => (a.turno_default || "D").localeCompare(b.turno_default || "D"))
+                                        .map((d) => (
+                                            <tr key={d.id}>
+                                                <td style={{ fontWeight: 600, background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
+                                                    {d.cognome} {d.nome}
+                                                    {d.tipo === 'interinale' && <span style={{ fontSize: 10, marginLeft: 6, opacity: 0.7 }}> (Int.)</span>}
+                                                </td>
+                                                <td style={{ textAlign: "center", color: "var(--text-primary)", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
+                                                    {d.turno_default || d.turno || "D"}
+                                                </td>
+                                                <td style={{ color: "var(--text-primary)", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
+                                                    {d.l104.split(',').map((tag, idx) => (
+                                                        <span key={idx}>
+                                                            {tag.trim()}{idx < d.l104.split(',').length - 1 ? ", " : ""}
+                                                        </span>
+                                                    ))}
+                                                </td>
+                                                <td style={{ textAlign: "center", color: "var(--text-muted)", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
+                                                    {REPARTI.find(r => r.id === d.reparto_id)?.nome || d.reparto_id}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    {dipendenti.filter(d => d.l104 && d.l104.trim() !== "").length === 0 && (
+                                        <tr><td colSpan={4} style={{ textAlign: "center", padding: 20, color: "var(--text-muted)" }}>Nessuna limitazione registrata.</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
-            )
-            }
-        </div >
+            )}
+        </div>
     );
 }
+

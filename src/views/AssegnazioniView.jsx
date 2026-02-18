@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { supabase } from "../lib/supabase";
 import { LIVELLI_COMPETENZA, ATTIVITA } from "../data/constants";
 import { Icons } from "../components/ui/Icons";
@@ -14,7 +14,10 @@ export default function AssegnazioniView({
     const [newActivityName, setNewActivityName] = useState("");
     const today = new Date().toISOString().split("T")[0];
 
-    const dipRep = repartoCorrente ? dipendenti.filter((d) => d.reparto_id === repartoCorrente) : dipendenti;
+    const dipRep = dipendenti.filter((d) =>
+        (!repartoCorrente || d.reparto_id === repartoCorrente) &&
+        d.turno_default === turnoCorrente // Strict Shift Filter
+    );
     const presRep = presenze.filter((p) => dipRep.some((d) => d.id === p.dipendente_id) && p.presente && p.data === today);
     const macchineReparto = repartoCorrente ? macchine.filter((m) => m.reparto_id === repartoCorrente) : macchine;
     const assRep = assegnazioni.filter((a) => dipRep.some((d) => d.id === a.dipendente_id) && a.data === today);
@@ -123,261 +126,296 @@ export default function AssegnazioniView({
     };
 
     return (
-        <div className="fade-in">
-            <div className="alert alert-info" style={{ marginBottom: 20 }}>
-                <span style={{ flexShrink: 0 }}>{Icons.clock}</span>
-                Assegna gli operatori presenti alle macchine o alle attività extra. Gli operatori già assegnati non compaiono nell'elenco.
-            </div>
+        <div className="fade-in" style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <div style={{ flex: 1, overflowY: "auto", paddingRight: 8, paddingBottom: 20 }}>
+                <div className="alert alert-info" style={{ marginBottom: 20 }}>
+                    <span style={{ flexShrink: 0 }}>{Icons.clock}</span>
+                    Assegna gli operatori presenti alle macchine o alle attività extra. Gli operatori già assegnati non compaiono nell'elenco.
+                </div>
 
-            <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: "var(--text-secondary)" }}>MACCHINE DI PRODUZIONE</h3>
-            <div style={{ marginBottom: 40 }}>
-                {(() => {
-                    // 1. Group Data by Zone
-                    // Fetch Zones from props or use a unique list from machines if props not available.
-                    // Ideally pass 'zones' prop to AssegnazioniView, but for now derive or use empty.
-                    // We need to fetch zones in App.jsx and pass them here.
-                    // fallback: unique zone IDs from machines.
-                    const zoneIds = [...new Set(macchineReparto.map(m => m.zona).filter(Boolean))];
-                    const machinesWithoutZone = macchineReparto.filter(m => !m.zona);
-
-                    // We need labels for zones. 
-                    // Since 'zones' prop is not currently passed to AssegnazioniView, we might show ID.
-                    // TODO: Update App.jsx to pass 'zones' to AssegnazioniView for better labels.
-
-                    return (
-                        <>
-                            {zoneIds.map(zoneId => {
-                                const zoneMachines = macchineReparto.filter(m => m.zona === zoneId);
-                                const zoneLabel = zones?.find(z => z.id === zoneId)?.label || `Zona ${zoneId}`;
-
-                                // Check if anyone is assigned directly to the ZONE (Jolly/Leader)
-                                const zoneAss = assRep.filter(a => a.macchina_id === zoneId || a.attivita_id === zoneId);
+                <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: "var(--text-secondary)" }}>MACCHINE DI PRODUZIONE</h3>
+                <div className="card" style={{ padding: 0, marginBottom: 20 }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <thead>
+                            <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-tertiary)" }}>
+                                <th style={{ padding: "10px 12px", textAlign: "left", width: "35%", fontSize: 13, color: "var(--text-secondary)" }}>MACCHINA / ZONA</th>
+                                <th style={{ padding: "10px 12px", textAlign: "left", width: "45%", fontSize: 13, color: "var(--text-secondary)" }}>OPERATORI ASSEGNATI</th>
+                                <th style={{ padding: "10px 12px", textAlign: "center", width: "20%", fontSize: 13, color: "var(--text-secondary)" }}>STATO</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {(() => {
+                                const zoneIds = [...new Set(macchineReparto.map(m => m.zona).filter(Boolean))];
+                                const machinesWithoutZone = macchineReparto.filter(m => !m.zona);
 
                                 return (
-                                    <div key={zoneId} className="zone-section" style={{ marginBottom: 12, padding: 10, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-secondary)' }}>
-                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                                            <h4 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
-                                                {Icons.grid} {zoneLabel}
-                                            </h4>
-                                            <button className="btn btn-secondary btn-sm" onClick={() => setShowModal({ id: zoneId, type: 'activity', name: `${zoneLabel}` })}>
-                                                {Icons.plus} Assegna Operatore
-                                            </button>
-                                        </div>
-
-                                        {/* Zone Operators / Assignments */}
-                                        {zoneAss.length > 0 && (
-                                            <div style={{ marginBottom: 12, display: "flex", gap: 8, flexWrap: "wrap", padding: "8px", background: "rgba(59, 130, 246, 0.1)", borderRadius: 6 }}>
-                                                <span style={{ fontSize: 12, fontWeight: 600, color: "var(--info)", alignSelf: "center" }}>Operatori di Zona:</span>
-                                                {zoneAss.map(a => {
-                                                    const d = dipendenti.find(dd => dd.id === a.dipendente_id);
-                                                    return d ? (
-                                                        <span key={a.id} className="operator-chip" style={{ background: "var(--bg-card)", border: "1px solid var(--info)" }}>
-                                                            {d.cognome} {d.nome.charAt(0)}.
-                                                            <span className="remove" onClick={() => removeAssegnazione(a.id)}>✕</span>
-                                                        </span>
-                                                    ) : null;
-                                                })}
-                                            </div>
-                                        )}
-
-                                        <div className="machine-grid">
-                                            {zoneMachines.map((m) => {
-                                                const ops = assRep.filter((a) => a.macchina_id === m.id);
-                                                const isUnder = ops.length < (m.personale_minimo || 1);
-                                                const isEmpty = ops.length === 0;
-
-                                                return (
-                                                    <div key={m.id} className={`machine-card ${isUnder ? (isEmpty ? "danger" : "warning") : ""} `}>
-                                                        <div className="machine-card-header">
-                                                            <div>
-                                                                <div className="machine-card-name">{m.nome}</div>
-                                                                <div className="machine-card-id">{m.id}</div>
-                                                            </div>
-                                                            <span className={`tag ${isUnder ? "tag-red" : "tag-green"} `}>
-                                                                {ops.length}/{m.personale_minimo || 1}
-                                                            </span>
-                                                        </div>
-
-                                                        {ops.map((o) => {
-                                                            const d = dipendenti.find((dd) => dd.id === o.dipendente_id);
-                                                            if (!d) return null;
-                                                            return (
-                                                                <span key={o.id} className={`operator-chip ${d.tipo === "interinale" ? "interinale" : ""} `}>
-                                                                    {d.cognome} {d.nome.charAt(0)}.
-                                                                    {d.tipo === "interinale" && <span style={{ fontSize: 9, color: "var(--warning)" }}>INT</span>}
-                                                                    <span className="remove" onClick={() => removeAssegnazione(o.id)}>✕</span>
-                                                                </span>
-                                                            );
-                                                        })}
-                                                        {/* Button removed as per request: Operators are assigned to Zone, not individual machines */}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-
-                            {/* Machines without Zone */}
-                            {machinesWithoutZone.length > 0 && (
-                                <div className="zone-section" style={{ marginBottom: 24 }}>
-                                    <h4 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: "var(--text-secondary)" }}>MACCHINE NON ASSEGNATE A ZONE</h4>
-                                    <div className="machine-grid">
-                                        {machinesWithoutZone.map((m) => {
-                                            const ops = assRep.filter((a) => a.macchina_id === m.id);
-                                            const isUnder = ops.length < (m.personale_minimo || 1);
-                                            const isEmpty = ops.length === 0;
+                                    <>
+                                        {zoneIds.map(zoneId => {
+                                            const zoneMachines = macchineReparto.filter(m => m.zona === zoneId);
+                                            const zoneLabel = zones?.find(z => z.id === zoneId)?.label || `Zona ${zoneId}`;
+                                            const zoneAss = assRep.filter(a => a.macchina_id === zoneId || a.attivita_id === zoneId);
 
                                             return (
-                                                <div key={m.id} className={`machine-card ${isUnder ? (isEmpty ? "danger" : "warning") : ""} `}>
-                                                    <div className="machine-card-header">
-                                                        <div>
-                                                            <div className="machine-card-name">{m.nome}</div>
-                                                            <div className="machine-card-id">{m.id}</div>
-                                                        </div>
-                                                        <span className={`tag ${isUnder ? "tag-red" : "tag-green"} `}>
-                                                            {ops.length}/{m.personale_minimo || 1}
-                                                        </span>
-                                                    </div>
+                                                <React.Fragment key={zoneId}>
+                                                    {/* ZONE HEADER ROW */}
+                                                    <tr key={`zone-${zoneId}`} style={{ background: "var(--bg-secondary)", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
+                                                        <td style={{ padding: "10px 12px" }}>
+                                                            {/* Removed fontSize: 14 to match Report (inherit/16px) */}
+                                                            <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 700, color: "var(--text-primary)" }}>
+                                                                {Icons.grid} {zoneLabel}
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: "10px 12px" }}>
+                                                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                                                {zoneAss.length > 0 ? (
+                                                                    zoneAss.map(a => {
+                                                                        const d = dipendenti.find(dd => dd.id === a.dipendente_id);
+                                                                        return d ? (
+                                                                            // Increased fontSize to 15px to match Report legibility
+                                                                            <span key={a.id} className="operator-chip" style={{ background: "var(--bg-card)", border: "1px solid var(--info)", fontSize: 15 }}>
+                                                                                {d.cognome} {d.nome.charAt(0)}.
+                                                                                <span className="remove" onClick={() => removeAssegnazione(a.id)}>✕</span>
+                                                                            </span>
+                                                                        ) : null;
+                                                                    })
+                                                                ) : (
+                                                                    <span style={{ fontSize: 13, color: "var(--text-muted)", fontStyle: "italic" }}>Nessun responsabile zona</span>
+                                                                )}
+                                                                <button
+                                                                    className="btn-icon-small"
+                                                                    onClick={() => setShowModal({ id: zoneId, type: 'activity', name: `${zoneLabel}` })}
+                                                                    title="Assegna Responsabile Zona"
+                                                                    style={{ marginLeft: 8, background: "rgba(37, 99, 235, 0.1)", color: "var(--primary)", border: "none", borderRadius: 4, width: 24, height: 24, padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                                                                >
+                                                                    {Icons.plus}
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ textAlign: "center" }}>
+                                                            {/* Zone status if needed */}
+                                                        </td>
+                                                    </tr>
 
-                                                    <div className="machine-card-operators">
-                                                        {ops.map((o) => {
-                                                            const d = dipendenti.find((dd) => dd.id === o.dipendente_id);
-                                                            if (!d) return null;
-                                                            return (
-                                                                <span key={o.id} className={`operator-chip ${d.tipo === "interinale" ? "interinale" : ""} `}>
-                                                                    {d.cognome} {d.nome.charAt(0)}.
-                                                                    {d.tipo === "interinale" && <span style={{ fontSize: 9, color: "var(--warning)" }}>INT</span>}
-                                                                    <span className="remove" onClick={() => removeAssegnazione(o.id)}>✕</span>
-                                                                </span>
-                                                            );
-                                                        })}
-                                                        {/* Button removed as per request */}
-                                                    </div>
-                                                </div>
+                                                    {/* MACHINE ROWS */}
+                                                    {zoneMachines.map(m => {
+                                                        const ops = assRep.filter(a => a.macchina_id === m.id);
+                                                        const isUnder = ops.length < (m.personale_minimo || 1);
+                                                        const isEmpty = ops.length === 0;
+
+                                                        const isZoneCovered = zoneAss.length > 0;
+                                                        const isOk = !isUnder || isZoneCovered;
+
+                                                        return (
+                                                            <tr key={m.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                                                <td style={{ padding: "8px 12px 8px 32px", color: "var(--text-secondary)", fontWeight: 500 }}>
+                                                                    {m.nome}
+                                                                    <div style={{ fontSize: 10, color: "var(--text-muted)" }}>Min: {m.personale_minimo || 1}</div>
+                                                                </td>
+                                                                <td style={{ padding: "8px 12px" }}>
+                                                                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                                                        {ops.map(o => {
+                                                                            const d = dipendenti.find(dd => dd.id === o.dipendente_id);
+                                                                            return d ? (
+                                                                                // Increased fontSize to 15px (inline style added/class modified)
+                                                                                <span key={o.id} className={`operator-chip ${d.tipo === "interinale" ? "interinale" : ""} `} style={{ fontSize: 15 }}>
+                                                                                    {d.cognome} {d.nome.charAt(0)}.
+                                                                                    {d.tipo === "interinale" && <span style={{ fontSize: 10, color: "var(--warning)" }}>INT</span>}
+                                                                                    <span className="remove" onClick={() => removeAssegnazione(o.id)}>✕</span>
+                                                                                </span>
+                                                                            ) : null;
+                                                                        })}
+                                                                        <button
+                                                                            className="btn-icon-small"
+                                                                            onClick={() => setShowModal({ id: m.id, type: 'machine', name: m.nome })}
+                                                                            title="Assegna Operatore"
+                                                                            style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 4, width: 24, height: 24, padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-secondary)" }}
+                                                                        >
+                                                                            {Icons.plus}
+                                                                        </button>
+                                                                    </div>
+                                                                </td>
+                                                                <td style={{ textAlign: "center", padding: "8px 12px" }}>
+                                                                    <span className={`tag ${!isUnder ? "tag-green" : "tag-red"}`} style={{ padding: "2px 8px", minWidth: 50, textAlign: "center", display: "inline-block" }}>
+                                                                        {!isUnder ? "OK" : "SOTTO"}
+                                                                    </span>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </React.Fragment>
                                             );
                                         })}
-                                    </div>
-                                </div>
-                            )}
-                        </>
-                    );
-                })()}
-            </div>
 
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: "var(--text-secondary)" }}>ATTIVITÀ EXTRA</h3>
-                <div style={{ display: "flex", gap: 8 }}>
-                    <input
-                        className="input"
-                        placeholder="Nuova attività..."
-                        style={{ width: 180, height: 32, fontSize: 12 }}
-                        value={newActivityName}
-                        onChange={(e) => setNewActivityName(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && addCustomActivity()}
-                    />
-                    <button className="btn btn-primary" style={{ height: 32, padding: "0 12px", fontSize: 12 }} onClick={addCustomActivity}>
-                        {Icons.plus} Aggiungi Tipo
-                    </button>
+                                        {/* Machines without Zone */}
+                                        {machinesWithoutZone.length > 0 && (
+                                            <>
+                                                <tr style={{ background: "var(--bg-secondary)", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}>
+                                                    <td colSpan={3} style={{ padding: "10px 12px", fontWeight: 700, color: "var(--text-muted)", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                                                        ALTRE MACCHINE
+                                                    </td>
+                                                </tr>
+                                                {machinesWithoutZone.map(m => {
+                                                    const ops = assRep.filter(a => a.macchina_id === m.id);
+                                                    const isUnder = ops.length < (m.personale_minimo || 1);
+                                                    return (
+                                                        <tr key={m.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                                            <td style={{ padding: "8px 12px 8px 32px", color: "var(--text-secondary)", fontWeight: 500 }}>
+                                                                {m.nome}
+                                                                <div style={{ fontSize: 10, color: "var(--text-muted)" }}>Min: {m.personale_minimo || 1}</div>
+                                                            </td>
+                                                            <td style={{ padding: "8px 12px" }}>
+                                                                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                                                    {ops.map(o => {
+                                                                        const d = dipendenti.find(dd => dd.id === o.dipendente_id);
+                                                                        return d ? (
+                                                                            <span key={o.id} className={`operator-chip ${d.tipo === "interinale" ? "interinale" : ""} `}>
+                                                                                {d.cognome} {d.nome.charAt(0)}.
+                                                                                {d.tipo === "interinale" && <span style={{ fontSize: 9, color: "var(--warning)" }}>INT</span>}
+                                                                                <span className="remove" onClick={() => removeAssegnazione(o.id)}>✕</span>
+                                                                            </span>
+                                                                        ) : null;
+                                                                    })}
+                                                                    <button
+                                                                        className="btn-icon-small"
+                                                                        onClick={() => setShowModal({ id: m.id, type: 'machine', name: m.nome })}
+                                                                        title="Assegna Operatore"
+                                                                        style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 4, width: 24, height: 24, padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-secondary)" }}
+                                                                    >
+                                                                        {Icons.plus}
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                            <td style={{ textAlign: "center", padding: "8px 16px" }}>
+                                                                <span className={`tag ${!isUnder ? "tag-green" : "tag-red"}`} style={{ padding: "2px 8px", minWidth: 50, textAlign: "center", display: "inline-block" }}>
+                                                                    {!isUnder ? "OK" : "SOTTO"}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </>
+                                        )}
+                                    </>
+                                );
+                            })()}
+                        </tbody>
+                    </table>
                 </div>
-            </div>
 
-            <div className="machine-grid">
-                {attivita.map((a) => {
-                    const ops = assRep.filter((ass) => ass.macchina_id === a.id); // For activities we reuse macchina_id logic
-                    return (
-                        <div key={a.id} className="machine-card" style={{ borderLeft: `1px solid var(--border)` }}>
-                            <div className="machine-card-header">
-                                <div>
-                                    <div className="machine-card-name">{a.icona} {a.nome}</div>
-                                    <div className="machine-card-id">Supporto</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: "var(--text-secondary)" }}>ATTIVITÀ EXTRA</h3>
+                    <div style={{ display: "flex", gap: 8 }}>
+                        <input
+                            className="input"
+                            placeholder="Nuova attività..."
+                            style={{ width: 180, height: 32, fontSize: 12 }}
+                            value={newActivityName}
+                            onChange={(e) => setNewActivityName(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && addCustomActivity()}
+                        />
+                        <button className="btn btn-primary" style={{ height: 32, padding: "0 12px", fontSize: 12 }} onClick={addCustomActivity}>
+                            {Icons.plus} Aggiungi Tipo
+                        </button>
+                    </div>
+                </div>
+
+                <div className="machine-grid">
+                    {attivita.map((a) => {
+                        const ops = assRep.filter((ass) => ass.macchina_id === a.id); // For activities we reuse macchina_id logic
+                        return (
+                            <div key={a.id} className="machine-card" style={{ borderLeft: `1px solid var(--border)` }}>
+                                <div className="machine-card-header">
+                                    <div>
+                                        <div className="machine-card-name">{a.icona} {a.nome}</div>
+                                        <div className="machine-card-id">Supporto</div>
+                                    </div>
+                                    <span className="tag tag-blue">{ops.length}</span>
                                 </div>
-                                <span className="tag tag-blue">{ops.length}</span>
+                                <div className="machine-card-operators">
+                                    {ops.map((o) => {
+                                        const d = dipendenti.find((dd) => dd.id === o.dipendente_id);
+                                        if (!d) return null;
+                                        return (
+                                            <span key={o.id} className="operator-chip">
+                                                {d.cognome} {d.nome.charAt(0)}.
+                                                <span className="remove" onClick={() => removeAssegnazione(o.id)}>✕</span>
+                                            </span>
+                                        );
+                                    })}
+                                    <button className="add-operator-btn" onClick={() => setShowModal({ id: a.id, type: 'activity', name: a.nome })}>
+                                        {Icons.plus} Assegna
+                                    </button>
+                                </div>
                             </div>
-                            <div className="machine-card-operators">
-                                {ops.map((o) => {
-                                    const d = dipendenti.find((dd) => dd.id === o.dipendente_id);
-                                    if (!d) return null;
+                        );
+                    })}
+                </div>
+
+                {showModal && (
+                    <Modal
+                        title={`Assegna Operatore — ${showModal.name} `}
+                        onClose={() => { setShowModal(null); setSelectedDip(""); }}
+                        footer={
+                            <>
+                                <button className="btn btn-secondary" onClick={() => { setShowModal(null); setSelectedDip(""); }}>Annulla</button>
+                                <button className="btn btn-primary" onClick={() => addAssegnazione(showModal.id, selectedDip, showModal.type)}>Conferma</button>
+                            </>
+                        }
+                    >
+                        <div className="form-group">
+                            <label className="form-label">Operatore disponibile</label>
+                            <select className="select-input" value={selectedDip} onChange={(e) => setSelectedDip(e.target.value)}>
+                                <option value="">Seleziona operatore...</option>
+                                {getAvailableOps().map((d) => {
+                                    const isPresente = presRep.some((p) => p.dipendente_id === d.id);
+                                    const isAssigned = assRep.some(a => a.dipendente_id === d.id);
                                     return (
-                                        <span key={o.id} className="operator-chip">
-                                            {d.cognome} {d.nome.charAt(0)}.
-                                            <span className="remove" onClick={() => removeAssegnazione(o.id)}>✕</span>
-                                        </span>
+                                        <option key={d.id} value={d.id}>
+                                            {d.cognome} {d.nome} {d.tipo === "interinale" ? "(INT)" : ""}
+                                            {!isPresente ? " (Assente)" : ""}
+                                            {isAssigned ? " (Già Assegnato)" : ""}
+                                        </option>
                                     );
                                 })}
-                                <button className="add-operator-btn" onClick={() => setShowModal({ id: a.id, type: 'activity', name: a.nome })}>
-                                    {Icons.plus} Assegna
-                                </button>
-                            </div>
+                            </select>
+                            <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 6 }}>
+                                Puoi assegnare anche operatori assenti o già impegnati.
+                            </p>
                         </div>
-                    );
-                })}
-            </div>
 
-            {showModal && (
-                <Modal
-                    title={`Assegna Operatore — ${showModal.name} `}
-                    onClose={() => { setShowModal(null); setSelectedDip(""); }}
-                    footer={
-                        <>
-                            <button className="btn btn-secondary" onClick={() => { setShowModal(null); setSelectedDip(""); }}>Annulla</button>
-                            <button className="btn btn-primary" onClick={() => addAssegnazione(showModal.id, selectedDip, showModal.type)}>Conferma</button>
-                        </>
-                    }
-                >
-                    <div className="form-group">
-                        <label className="form-label">Operatore disponibile</label>
-                        <select className="select-input" value={selectedDip} onChange={(e) => setSelectedDip(e.target.value)}>
-                            <option value="">Seleziona operatore...</option>
-                            {getAvailableOps().map((d) => {
-                                const isPresente = presRep.some((p) => p.dipendente_id === d.id);
-                                const isAssigned = assRep.some(a => a.dipendente_id === d.id);
+                        {selectedDip && showModal.type === 'machine' && (() => {
+                            const skill = getSelectedDipSkill(selectedDip, showModal.id);
+                            if (skill && skill.value < 2) {
                                 return (
-                                    <option key={d.id} value={d.id}>
-                                        {d.cognome} {d.nome} {d.tipo === "interinale" ? "(INT)" : ""}
-                                        {!isPresente ? " (Assente)" : ""}
-                                        {isAssigned ? " (Già Assegnato)" : ""}
-                                    </option>
+                                    <div className="alert alert-danger" style={{ marginTop: 12 }}>
+                                        <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+                                            {Icons.alert} Attenzione: Competenza {skill.label}
+                                        </div>
+                                        <div style={{ fontSize: 12, marginTop: 4 }}>
+                                            L'operatore selezionato non è pienamente autonomo su questa macchina.
+                                        </div>
+                                    </div>
                                 );
-                            })}
-                        </select>
-                        <p style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 6 }}>
-                            Puoi assegnare anche operatori assenti o già impegnati.
-                        </p>
-                    </div>
+                            } else if (skill && skill.value >= 2) {
+                                return (
+                                    <div className="alert alert-success" style={{ marginTop: 12, padding: "8px 12px" }}>
+                                        <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                                            {Icons.check} Competenza: {skill.label}
+                                        </div>
+                                    </div>
+                                );
+                            }
+                        })()}
 
-                    {selectedDip && showModal.type === 'machine' && (() => {
-                        const skill = getSelectedDipSkill(selectedDip, showModal.id);
-                        if (skill && skill.value < 2) {
-                            return (
-                                <div className="alert alert-danger" style={{ marginTop: 12 }}>
-                                    <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
-                                        {Icons.alert} Attenzione: Competenza {skill.label}
-                                    </div>
-                                    <div style={{ fontSize: 12, marginTop: 4 }}>
-                                        L'operatore selezionato non è pienamente autonomo su questa macchina.
-                                    </div>
-                                </div>
-                            );
-                        } else if (skill && skill.value >= 2) {
-                            return (
-                                <div className="alert alert-success" style={{ marginTop: 12, padding: "8px 12px" }}>
-                                    <div style={{ fontWeight: 600, display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
-                                        {Icons.check} Competenza: {skill.label}
-                                    </div>
-                                </div>
-                            );
-                        }
-                    })()}
-
-                    {getAvailableOps().length === 0 && (
-                        <div className="alert alert-warning" style={{ marginTop: 12 }}>
-                            {Icons.info} Nessun operatore disponibile nel reparto.
-                        </div>
-                    )}
-                </Modal>
-            )
-            }
-        </div >
+                        {getAvailableOps().length === 0 && (
+                            <div className="alert alert-warning" style={{ marginTop: 12 }}>
+                                {Icons.info} Nessun operatore disponibile nel reparto.
+                            </div>
+                        )}
+                    </Modal>
+                )
+                }
+            </div>
+        </div>
     );
 }

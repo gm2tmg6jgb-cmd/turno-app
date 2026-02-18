@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { REPARTI, TURNI, MACCHINE } from "../data/constants";
+import { REPARTI, TURNI, MACCHINE, LIMITAZIONI } from "../data/constants";
 import { supabase } from "../lib/supabase";
 import { Icons } from "../components/ui/Icons";
 import { Modal } from "../components/ui/Modal";
 
-export default function AnagraficaView({ dipendenti, setDipendenti, macchine, showToast }) {
+export default function AnagraficaView({ dipendenti, setDipendenti, macchine, showToast, turnoCorrente }) {
     const [searchTerm, setSearchTerm] = useState("");
     const [filterReparto, setFilterReparto] = useState("all");
     const [filterTipo, setFilterTipo] = useState("all");
+    const [showAllShifts, setShowAllShifts] = useState(false); // Toggle state
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [currentDipId, setCurrentDipId] = useState(null);
@@ -20,7 +21,12 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
         const matchSearch = `${d.nome} ${d.cognome}`.toLowerCase().includes(searchTerm.toLowerCase());
         const matchReparto = filterReparto === "all" || d.reparto_id === filterReparto;
         const matchTipo = filterTipo === "all" || d.tipo === filterTipo;
-        return matchSearch && matchReparto && matchTipo;
+
+        // STRICT FILTER: Only show employees of the CURRENT ACTIVE SHIFT unless "Show All" is checked
+        // Fallback to 'D' if d.turno_default is missing.
+        const matchTurno = showAllShifts || d.turno_default === turnoCorrente;
+
+        return matchSearch && matchReparto && matchTipo && matchTurno;
     }).sort((a, b) => a.cognome.localeCompare(b.cognome) || a.nome.localeCompare(b.nome));
 
     const handleSave = async () => {
@@ -49,7 +55,7 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
                 if (error) throw error;
 
                 // Optimistic Update
-                setDipendenti(dipendenti.map(d => d.id === currentDipId ? { ...newDip, id: currentDipId } : d));
+                setDipendenti(dipendenti.map(d => d.id === currentDipId ? { ...newDip, id: currentDipId, turno_default: newDip.turno } : d));
                 showToast("Dipendente modificato", "success");
             } else {
                 // Create new
@@ -86,7 +92,18 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
     };
 
     const resetForm = () => {
-        setNewDip({ nome: "", cognome: "", turno: "D", reparto: "T11", tipo: "indeterminato", competenze: {}, ruolo: "operatore", agenzia: "", scadenza: "", l104: "" });
+        setNewDip({
+            nome: "",
+            cognome: "",
+            turno: turnoCorrente || "D", // Default to current shift
+            reparto: "T11",
+            tipo: "indeterminato",
+            competenze: {},
+            ruolo: "operatore",
+            agenzia: "",
+            scadenza: "",
+            l104: ""
+        });
         setIsEditing(false);
         setCurrentDipId(null);
     };
@@ -94,7 +111,7 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
     const openEdit = (dip) => {
         setNewDip({
             ...dip,
-            turno: dip.turno || "D", // Ensure fallback to 'D' if null/undefined
+            turno: dip.turno_default || dip.turno || "D", // Fix: Load from turno_default
             reparto: dip.reparto || dip.reparto_id || "T11" // Ensure fallback for team too just in case
         });
         setCurrentDipId(dip.id);
@@ -133,59 +150,86 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
                     <option value="indeterminato">Indeterminato</option>
                     <option value="interinale">Interinale</option>
                 </select>
+
+                {/* Visual Toggle for Show All Shifts */}
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer", userSelect: "none", background: "var(--bg-secondary)", padding: "6px 12px", borderRadius: 6, border: "1px solid var(--border)" }}>
+                    <input
+                        type="checkbox"
+                        checked={showAllShifts}
+                        onChange={(e) => setShowAllShifts(e.target.checked)}
+                        style={{ accentColor: "var(--primary)" }}
+                    />
+                    Mostra tutti i turni
+                </label>
+
                 <button className="btn btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>{Icons.plus} Nuovo</button>
             </div>
 
-            <div className="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th style={{ textAlign: "left" }}>Cognome e Nome</th>
-                            <th style={{ textAlign: "left" }}>Turno</th>
-                            <th style={{ textAlign: "left" }}>Team</th>
-                            <th style={{ textAlign: "left" }}>Ruolo</th>
-                            <th style={{ textAlign: "left" }}>Tipo Contratto</th>
-                            <th style={{ textAlign: "left" }}>Limitazioni</th>
-                            <th style={{ textAlign: "left" }}>Azioni</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filtered.map((d) => {
-                            const rep = REPARTI.find((r) => r.id === d.reparto_id);
-                            return (
-                                <tr key={d.id}>
-                                    <td style={{ fontWeight: 600 }}>{d.cognome} {d.nome}</td>
-                                    <td>{d.turno || "D"}</td>
-                                    <td>
-                                        {rep?.id ? rep.id.replace(/\D/g, '') : ""}
-                                    </td>
-                                    <td style={{ textTransform: "capitalize" }}>{d.ruolo === "capoturno" ? "Team Leader" : d.ruolo}</td>
-                                    <td>
-                                        {d.tipo === "interinale" ? `Interinale — ${d.agenzia}` : "Indeterminato"}
-                                        {d.scadenza && (
-                                            <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
-                                                Scade: {d.scadenza}
-                                            </div>
-                                        )}
-                                    </td>
-                                    <td>
-                                        {d.l104 ? d.l104 : <span style={{ color: "var(--text-muted)" }}>—</span>}
-                                    </td>
-                                    <td>
-                                        <div style={{ display: "flex", gap: 8 }}>
-                                            <button className="btn-action edit" onClick={() => openEdit(d)} title="Modifica">{Icons.edit}</button>
-                                            <button className="btn-action delete" onClick={() => handleDelete(d.id)} title="Elimina">{Icons.trash}</button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
+            <div className="teams-container" style={{ display: "flex", gap: 20, height: "calc(100vh - 180px)", overflow: "hidden" }}>
+                {REPARTI.map(reparto => {
+                    const teamMembers = filtered.filter(d => d.reparto_id === reparto.id);
+                    return (
+                        <div key={reparto.id} style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 300, background: "var(--bg-secondary)", borderRadius: 12, border: "1px solid var(--border)", overflow: "hidden" }}>
+                            {/* Column Header */}
+                            <div style={{ padding: "12px 16px", background: "var(--bg-tertiary)", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <div style={{ fontWeight: 700, color: "var(--text-primary)" }}>{reparto.nome}</div>
+                                <span className="tag tag-gray">{teamMembers.length}</span>
+                            </div>
 
-            <div style={{ marginTop: 10, fontSize: 12, color: "var(--text-muted)" }}>
-                {filtered.length} dipendenti trovati
+                            {/* Scrollable List */}
+                            <div style={{ flex: 1, overflowY: "auto", padding: 12 }}>
+                                {teamMembers.length > 0 ? (
+                                    <div style={{ display: "grid", gap: 12 }}>
+                                        {teamMembers.map((d) => (
+                                            <div
+                                                key={d.id}
+                                                className="card dipendente-card"
+                                                onClick={() => openEdit(d)}
+                                                style={{
+                                                    cursor: "pointer",
+                                                    background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "var(--bg-card)",
+                                                    border: d.tipo === 'interinale' ? "1px solid rgba(236, 72, 153, 0.3)" : "1px solid var(--border)",
+                                                    padding: 12,
+                                                    borderRadius: 8,
+                                                    transition: "all 0.2s"
+                                                }}
+                                            >
+                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                                                    <div>
+                                                        <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>{d.cognome} {d.nome}</div>
+                                                        <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
+                                                            {d.tipo === 'interinale' ? <span style={{ color: "#EC4899", fontWeight: 600 }}>INTERINALE</span> : "Indeterminato"}
+                                                        </div>
+                                                    </div>
+                                                    <div className="tag tag-blue" style={{ fontSize: 11, fontWeight: 700, padding: "2px 6px" }}>
+                                                        {d.turno_default || d.turno || "D"}
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                                    {d.ruolo === "capoturno" && <span className="tag tag-purple" style={{ fontSize: 10 }}>Leader</span>}
+                                                    {d.l104 && d.l104.split(',').map((l, i) => (
+                                                        <span key={i} className="tag tag-red" style={{ fontSize: 10 }}>{l.trim()}</span>
+                                                    ))}
+                                                </div>
+
+                                                {d.tipo === 'interinale' && d.scadenza && (
+                                                    <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 6, borderTop: "1px solid var(--border-light)", paddingTop: 6 }}>
+                                                        ⏳ {new Date(d.scadenza).toLocaleDateString()} {d.agenzia && <span>• {d.agenzia}</span>}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div style={{ textAlign: "center", padding: 20, color: "var(--text-muted)", fontSize: 12, fontStyle: "italic" }}>
+                                        Nessun dipendente
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
 
             {
@@ -232,12 +276,52 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
                                 <label className="form-label">Ruolo</label>
                                 <select className="select-input" value={newDip.ruolo} onChange={(e) => setNewDip({ ...newDip, ruolo: e.target.value })}>
                                     <option value="operatore">Operatore</option>
-                                    <option value="capoturno">Capoturno</option>
+                                    <option value="capoturno">Team Leader</option>
                                 </select>
                             </div>
                             <div className="form-group" style={{ gridColumn: "span 2" }}>
-                                <label className="form-label">Limitazioni</label>
-                                <input className="input" placeholder="Es: SI + ESE, 104 x 2, ecc." value={newDip.l104} onChange={(e) => setNewDip({ ...newDip, l104: e.target.value })} />
+                                <label className="form-label">Limitazioni (Seleziona per aggiungere/rimuovere)</label>
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                                    {LIMITAZIONI.map(l => {
+                                        const currentLims = newDip.l104 ? newDip.l104.split(", ") : [];
+                                        const isActive = currentLims.includes(l.label);
+                                        return (
+                                            <span
+                                                key={l.id}
+                                                onClick={() => {
+                                                    let newLims = [...currentLims];
+                                                    if (isActive) {
+                                                        newLims = newLims.filter(item => item !== l.label);
+                                                    } else {
+                                                        newLims.push(l.label);
+                                                    }
+                                                    // Clean up empty strings
+                                                    newLims = newLims.filter(item => item.trim() !== "");
+                                                    setNewDip({ ...newDip, l104: newLims.join(", ") });
+                                                }}
+                                                style={{
+                                                    padding: "4px 10px",
+                                                    borderRadius: 12,
+                                                    fontSize: 11,
+                                                    cursor: "pointer",
+                                                    border: `1px solid ${l.color}`,
+                                                    background: isActive ? l.color : "transparent",
+                                                    color: isActive ? "white" : l.color,
+                                                    transition: "all 0.2s"
+                                                }}
+                                            >
+                                                {l.label}
+                                            </span>
+                                        );
+                                    })}
+                                </div>
+                                <input
+                                    className="input"
+                                    placeholder="Altre limitazioni manuali..."
+                                    value={newDip.l104}
+                                    onChange={(e) => setNewDip({ ...newDip, l104: e.target.value })}
+                                    style={{ fontSize: 12 }}
+                                />
                             </div>
                         </div>
                         {newDip.tipo === "interinale" && (
