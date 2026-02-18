@@ -6,7 +6,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, AreaChart, Area
 } from 'recharts';
 
-export default function ReportView({ dipendenti, presenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, zones }) {
+export default function ReportView({ dipendenti, presenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, zones, motivi }) {
     const [reportType, setReportType] = useState("turno");
 
     // Filter by Turno (Consistency with Dashboard)
@@ -348,12 +348,24 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                 <tbody>
                                     {allPres.filter((p) => !p.presente).map((p) => {
                                         const d = allDip.find((dd) => dd.id === p.dipendente_id);
-                                        const motivoObj = MOTIVI_ASSENZA.find((m) => m.id === p.motivo_assenza);
+                                        const motivoObj = motivi.find((m) => m.id === p.motivo_assenza);
                                         return (
                                             <tr key={p.dipendente_id}>
                                                 <td style={{ fontWeight: 600 }}>{d?.cognome} {d?.nome}</td>
                                                 <td>{REPARTI.find((r) => r.id === d?.reparto_id)?.nome || "—"}</td>
-                                                <td>{motivoObj ? `${motivoObj.icona} ${motivoObj.label}` : "—"}</td>
+                                                <td>
+                                                    {motivoObj ? (
+                                                        <span style={{
+                                                            display: "inline-flex", alignItems: "center", gap: 6,
+                                                            padding: "2px 8px", borderRadius: 4,
+                                                            background: "var(--bg-tertiary)", border: "1px solid var(--border)",
+                                                            fontSize: 12, fontWeight: 500
+                                                        }}>
+                                                            <span style={{ width: 10, height: 10, borderRadius: 2, background: motivoObj.colore }}></span>
+                                                            {motivoObj.label}
+                                                        </span>
+                                                    ) : "—"}
+                                                </td>
                                             </tr>
                                         );
                                     })}

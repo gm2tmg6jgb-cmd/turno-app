@@ -356,6 +356,7 @@ export default function App() {
               repartoCorrente={repartoCorrente}
               turnoCorrente={turnoCorrente}
               zones={zone}
+              motivi={motivi}
             />
           )}
           {currentView === "ricerca" && (
