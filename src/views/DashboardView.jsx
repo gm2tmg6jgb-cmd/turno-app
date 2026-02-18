@@ -374,7 +374,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                     <div style={{
                         position: "fixed",
                         left: Math.min(motivoPopup.x, window.innerWidth - 180),
-                        top: motivoPopup.placement === 'bottom' ? motivoPopup.y : undefined,
+                        top: (motivoPopup.placement === 'bottom' || !motivoPopup.placement) ? motivoPopup.y : undefined,
                         bottom: motivoPopup.placement === 'top' ? (window.innerHeight - motivoPopup.y) : undefined,
                         zIndex: 1000,
                         background: "var(--bg-card)",
