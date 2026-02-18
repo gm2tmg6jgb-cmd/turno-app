@@ -176,15 +176,93 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
         }
     };
 
-    // ... (sorting logic) ...
+    // -------------------------------------------------------------------------
+    // FILTRO E ORDINAMENTO DIPENDENTI
+    // -------------------------------------------------------------------------
 
-    // ... (rendering logic) ...
+    // 1. FILTRO per Turno Corrente
+    // L'utente si aspetta di vedere solo i dipendenti appartenenti al turno selezionato (es. "D")
+    const filteredDipendenti = dipendenti.filter(d => {
+        if (!turnoCorrente) return true; // Mostra tutti se nessun turno è selezionato
+        return d.turno_default === turnoCorrente;
+    });
+
+    const presenzeOdierni = presenze ? presenze.filter((p) => p.data === today) : [];
+
+    // Ricalcolo statistiche basato sui dipendenti FILTRATI e sulla logica di visualizzazione (default incluri)
+    const isTodaySunday = new Date(today).getDay() === 0;
+
+    const presenti = filteredDipendenti.filter(d => {
+        const status = getPresenceStatus(d.id, today, isTodaySunday);
+        return status === true;
+    }).length;
+
+    const assenti = filteredDipendenti.filter(d => {
+        const status = getPresenceStatus(d.id, today, isTodaySunday);
+        return status !== true && status !== "-" && status !== "?";
+    }).length;
+
+    // 2. ORDINAMENTO con Team Leader per primi
+    const teamLeaders = {
+        'T11': 'Cianci',
+        'T12': 'Cappelluti',
+        'T13': 'Ferrandes'
+    };
+
+    const sortedDip = [...filteredDipendenti].sort((a, b) => {
+        // Primario: Reparto/Team
+        if (a.reparto_id !== b.reparto_id) return (a.reparto_id || "").localeCompare(b.reparto_id || "");
+
+        // Secondario: Verifica Team Leader
+        const leaderNameA = teamLeaders[a.reparto_id];
+        const cognomeA = a.cognome || "";
+        const isALeader = leaderNameA && cognomeA.includes(leaderNameA);
+
+        const leaderNameB = teamLeaders[b.reparto_id];
+        const cognomeB = b.cognome || "";
+        const isBLeader = leaderNameB && cognomeB.includes(leaderNameB);
+
+        if (isALeader && !isBLeader) return -1;
+        if (!isALeader && isBLeader) return 1;
+
+        // Terziario: Alfabetico per Cognome
+        return cognomeA.localeCompare(cognomeB);
+    });
+
+    let lastReparto = "";
 
     return (
         <div className="fade-in">
-            {/* ... (header and filters) ... */}
+            <div style={{ display: "flex", gap: 12, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
+                {/* COUNTER: Present Employees */}
+                <div style={{ padding: "8px 16px", background: "var(--success-muted)", borderRadius: "var(--radius-sm)", border: "1px solid rgba(34,197,94,0.2)" }}>
+                    <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>PRESENTI</span>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: "var(--success)", marginLeft: 8, fontFamily: "'JetBrains Mono', monospace" }}>{presenti}</span>
+                </div>
+                {/* COUNTER: Absent Employees */}
+                <div style={{ padding: "8px 16px", background: "var(--danger-muted)", borderRadius: "var(--radius-sm)", border: "1px solid rgba(239,68,68,0.2)" }}>
+                    <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>ASSENTI</span>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: "var(--danger)", marginLeft: 8, fontFamily: "'JetBrains Mono', monospace" }}>{assenti}</span>
+                </div>
+                {/* COUNTER: Total */}
+                <div style={{ padding: "8px 16px", background: "var(--info-muted)", borderRadius: "var(--radius-sm)", border: "1px solid rgba(59,130,246,0.2)" }}>
+                    <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>TOTALE</span>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: "var(--info)", marginLeft: 8, fontFamily: "'JetBrains Mono', monospace" }}>{filteredDipendenti.length}</span>
+                </div>
+                {/* DATE RANGE FILTER */}
+                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+                    <label style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>DA</label>
+                    <input type="date" className="input" style={{ width: 130, padding: "5px 8px", fontSize: 12 }} value={dateStart} onChange={(e) => setDateStart(e.target.value)} />
+                    <label style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>A</label>
+                    <input type="date" className="input" style={{ width: 130, padding: "5px 8px", fontSize: 12 }} value={dateEnd} onChange={(e) => setDateEnd(e.target.value)} />
+                </div>
+            </div>
 
-            {/* ... (table rendering) ... */}
+            {/* 
+              TABELLA DASHBOARD PRINCIPALE 
+              - Header sticky per le date
+              - Prime colonne sticky per Nome e Team
+            */}
 
             <div className="table-container">
                 <table style={{ fontSize: 11, borderCollapse: "separate", borderSpacing: 0 }}>
