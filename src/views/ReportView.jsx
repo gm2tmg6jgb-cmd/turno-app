@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { REPARTI, TURNI, MOTIVI_ASSENZA } from "../data/constants";
+import { REPARTI, TURNI } from "../data/constants";
 import { Icons } from "../components/ui/Icons";
 import {
     PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
