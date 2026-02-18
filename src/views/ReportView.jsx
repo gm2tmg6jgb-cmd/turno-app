@@ -14,13 +14,21 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
         return dipendenti.filter(d => !turnoCorrente || d.turno_default === turnoCorrente);
     }, [dipendenti, turnoCorrente]);
 
+    // Fix: Use local date to avoid UTC mismatch (Consistent with Dashboard/App)
+    const getLocalDate = (d) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
     const allPres = useMemo(() => {
-        const today = new Date().toISOString().split("T")[0];
+        const today = getLocalDate(new Date());
         return presenze.filter(p => p.data === today && (!turnoCorrente || p.turno_id === turnoCorrente));
     }, [presenze, turnoCorrente]);
 
     const allAss = useMemo(() => {
-        const today = new Date().toISOString().split("T")[0];
+        const today = getLocalDate(new Date());
         return assegnazioni.filter(a => a.data === today && (!turnoCorrente || a.turno_id === turnoCorrente));
     }, [assegnazioni, turnoCorrente]);
 

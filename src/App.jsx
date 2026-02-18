@@ -37,6 +37,18 @@ export default function App() {
     setToast({ message, type });
   }, []);
 
+  // Theme Management
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === "dark" ? "light" : "dark");
+  };
+
   // Fetch Data from Supabase
   useEffect(() => {
     const fetchData = async () => {
@@ -293,6 +305,32 @@ export default function App() {
         </nav>
 
         <div className="sidebar-footer">
+          <button
+            onClick={toggleTheme}
+            style={{
+              width: "100%",
+              marginBottom: 16,
+              padding: "10px",
+              background: "var(--bg-tertiary)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius)",
+              color: "var(--text-secondary)",
+              fontSize: 13,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              cursor: "pointer",
+              fontWeight: 600
+            }}
+          >
+            {theme === "dark" ? (
+              <><span style={{ fontSize: 16 }}>☀️</span> Light Mode</>
+            ) : (
+              <><span style={{ fontSize: 16 }}>🌙</span> Dark Mode</>
+            )}
+          </button>
+
           <div className="sidebar-user">
             <div className="sidebar-avatar">{reparto ? reparto.capoturno?.substring(0, 2).toUpperCase() : "PM"}</div>
             <div className="sidebar-user-info">
