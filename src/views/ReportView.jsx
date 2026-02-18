@@ -6,6 +6,9 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, AreaChart, Area
 } from 'recharts';
 
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+
 export default function ReportView({ dipendenti, presenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, zones, motivi }) {
     const [reportType, setReportType] = useState("turno");
 
@@ -80,25 +83,88 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
     ], [presentiCount, assentiCount, unplannedAbsencesCount]);
 
     // Data for Machine Coverage BarChart - Show by REPARTO instead of single machine if showing factory-wide?
-    // Actually, Bar chart with ALL machines might be too crowded. 
-    // Let's show coverage % per Reparto.
     const coverageByReparto = useMemo(() => {
         return REPARTI.map(r => {
+            // Machines in this reparto
             const mRep = allMacchine.filter(m => m.reparto_id === r.id);
-            const aRep = allAss.filter(a => mRep.some(m => m.id === a.macchina_id));
 
-            // Percentage of machines covered (at least 1 person or min personnel?)
-            // Let's stick to person count for the bar chart as requested before but grouped.
-            const totalRequired = mRep.reduce((sum, m) => sum + (m.personale_minimo || 1), 0);
-            const totalAssigned = aRep.length;
+            // 1. Direct assignments to machines
+            const assignedMachineIds = new Set(allAss.map(a => a.macchina_id));
+
+            // 2. Zone assignments (covering all machines in that zone)
+            // Identify zones belonging to this Reparto
+            const repZoneIds = new Set(zones.filter(z => (z.repart_id || z.reparto) === r.id).map(z => z.id));
+            // Find which of these zones have an assignment
+            const coveredZoneIds = new Set(allAss
+                .filter(a => repZoneIds.has(a.macchina_id) || repZoneIds.has(a.attivita_id)) // Check correct field (macchina_id used for everything mostly)
+                .map(a => a.macchina_id || a.attivita_id)
+            );
+
+            // Count machines that are EITHER directly assigned OR belong to a covered zone
+            const coveredMachinesCount = mRep.filter(m => {
+                const isDirectlyAssigned = assignedMachineIds.has(m.id);
+                const isZoneCovered = m.zona && coveredZoneIds.has(m.zona);
+                return isDirectlyAssigned || isZoneCovered;
+            }).length;
+
+            const totalRequired = mRep.length;
 
             return {
-                name: r.nome.replace("Team ", "T"),
+                name: r.nome.replace("Team ", "T"), // Shorten for X-Axis
                 richiesti: totalRequired,
-                assegnati: totalAssigned
+                assegnati: coveredMachinesCount
             };
         });
-    }, [allMacchine, allAss]);
+    }, [allMacchine, allAss, zones]);
+
+    // PDF Export Function
+    const exportPDF = async () => {
+        const input = document.getElementById('report-content');
+        if (!input) return;
+
+        try {
+            const canvas = await html2canvas(input, { scale: 2 });
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            const imgWidth = pdfWidth;
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+            let heightLeft = imgHeight;
+            let position = 0;
+
+            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pdfHeight;
+
+            while (heightLeft >= 0) {
+                position = heightLeft - imgHeight;
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pdfHeight;
+            }
+
+            pdf.save(`report_turno_${selectedDate}.pdf`);
+        } catch (err) {
+            console.error("PDF Export failed:", err);
+            alert("Errore durante l'esportazione del PDF.");
+        }
+    };
+
+    // Email Reporting Function
+    const sendReport = () => {
+        const subject = `Report Turno - ${selectedDate}`;
+        const body = `Report Turno del ${selectedDate}%0D%0A%0D%0A` +
+            `Totale Presenti: ${presentiCount}%0D%0A` +
+            `Totale Assenti: ${assentiCount}%0D%0A` +
+            `Assenze Impreviste: ${unplannedAbsencesCount}%0D%0A%0D%0A` +
+            `Visualizza il report completo in allegato o sulla dashboard.`;
+
+        // Placeholder mailing list - User can configure this or we can add a settings page later
+        const mailingList = "direzione@azienda.com, hr@azienda.com";
+
+        window.open(`mailto:${mailingList}?subject=${subject}&body=${body}`);
+    };
 
     return (
         <div className="fade-in" style={{ height: "100%", overflowY: "auto", paddingRight: 8, paddingBottom: 20 }}>
@@ -157,7 +223,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
             </div>
 
             {reportType === "turno" && (
-                <div>
+                <div id="report-content">
                     <div className="card" style={{ marginBottom: 16 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
                             <div>
@@ -166,17 +232,13 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                     Tutti i Reparti — {new Date(selectedDate).toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
                                 </div>
                             </div>
-                            <div style={{ display: "flex", gap: 8 }}>
-                                <button className="btn btn-secondary">{Icons.report} Esporta PDF</button>
-                                <button className="btn btn-primary">{Icons.send} Invia Direzione</button>
+                            <div data-html2canvas-ignore="true" style={{ display: "flex", gap: 8 }}>
+                                <button className="btn btn-secondary" onClick={exportPDF}>{Icons.report} Esporta PDF</button>
+                                <button className="btn btn-primary" onClick={sendReport}>{Icons.send} Invia Direzione</button>
                             </div>
                         </div>
 
-                        <div className="stats-grid" style={{ marginBottom: 0, gridTemplateColumns: "repeat(5, 1fr)" }}>
-                            <div style={{ padding: "12px 16px", background: "var(--bg-tertiary)", borderRadius: "var(--radius-sm)" }}>
-                                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, fontWeight: 600 }}>TOT PRESENTI</div>
-                                <div style={{ fontSize: 24, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "var(--success)" }}>{presentiCount}</div>
-                            </div>
+                        <div className="stats-grid" style={{ marginBottom: 0, gridTemplateColumns: "repeat(4, 1fr)" }}>
                             <div style={{ padding: "12px 16px", background: "var(--bg-tertiary)", borderRadius: "var(--radius-sm)" }}>
                                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, fontWeight: 600 }}>TOT ASSENTI</div>
                                 <div style={{ fontSize: 24, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "var(--danger)" }}>{assentiCount}</div>
@@ -186,7 +248,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                 <div style={{ fontSize: 24, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "var(--warning)" }}>{unplannedAbsencesCount}</div>
                             </div>
                             <div style={{ padding: "12px 16px", background: "var(--bg-tertiary)", borderRadius: "var(--radius-sm)" }}>
-                                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, fontWeight: 600 }}>FORZA LAVORO (PRES)</div>
+                                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, fontWeight: 600 }}>FORZA LAVORO</div>
                                 <div style={{ fontSize: 24, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "var(--info)" }}>
                                     {presentiCount} <span style={{ fontSize: 14, color: "var(--text-muted)", fontWeight: 500 }}>/ {allDip.length}</span>
                                 </div>
@@ -227,7 +289,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                         </div>
 
                         <div className="card" style={{ height: 320 }}>
-                            <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>Copertura per Reparto (Assegnati vs Minimo)</h3>
+                            <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>Copertura per Team (Macchine Assegnate vs Totali)</h3>
                             <ResponsiveContainer width="100%" height="85%">
                                 <BarChart data={coverageByReparto} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
                                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
@@ -242,8 +304,8 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                         cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                                         contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px' }}
                                     />
-                                    <Bar dataKey="richiesti" fill="var(--bg-tertiary)" radius={[4, 4, 0, 0]} name="Minimo Richiesto" />
-                                    <Bar dataKey="assegnati" fill="var(--accent)" radius={[4, 4, 0, 0]} name="Effettivi Assegnati" />
+                                    <Bar dataKey="richiesti" fill="var(--text-muted)" radius={[4, 4, 0, 0]} name="Totale Macchine" opacity={0.3} />
+                                    <Bar dataKey="assegnati" fill="var(--accent)" radius={[4, 4, 0, 0]} name="Assegnate" />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
