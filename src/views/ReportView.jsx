@@ -256,12 +256,10 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                             <table style={{ background: "var(--bg-card)", borderRadius: 6, overflow: "hidden" }}>
                                                                 <thead>
                                                                     <tr>
-                                                                        <tr>
-                                                                            <th style={{ padding: "8px 12px" }}>Macchina</th>
-                                                                            <th style={{ padding: "8px 12px" }}>ID</th>
-                                                                            <th style={{ padding: "8px 12px" }}>Operatori</th>
-                                                                            <th style={{ padding: "8px 12px", width: 80, textAlign: "center" }}>Stato</th>
-                                                                        </tr>
+                                                                        <th style={{ padding: "8px 12px" }}>Macchina</th>
+                                                                        <th style={{ padding: "8px 12px" }}>ID</th>
+                                                                        <th style={{ padding: "8px 12px" }}>Operatori</th>
+                                                                        <th style={{ padding: "8px 12px", width: 80, textAlign: "center" }}>Stato</th>
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody>
