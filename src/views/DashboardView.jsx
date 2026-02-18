@@ -265,15 +265,15 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
             */}
 
             <div className="table-container">
-                <table style={{ fontSize: 11, borderCollapse: "separate", borderSpacing: 0 }}>
+                <table style={{ borderCollapse: "separate", borderSpacing: 0 }}>
                     {/* ... (thead) ... */}
                     <thead>
                         <tr>
                             {/* COLONNA 1: Nominativo (Sticky Left) */}
-                            <th style={{ padding: "16px 14px", width: 180, position: "sticky", left: 0, background: "var(--bg-tertiary)", zIndex: 10, fontSize: 13, borderBottom: "2px solid var(--border)" }}>Nominativo</th>
+                            <th style={{ padding: "16px 14px", width: 180, position: "sticky", left: 0, background: "var(--bg-tertiary)", zIndex: 10, borderBottom: "2px solid var(--border)" }}>Nominativo</th>
 
                             {/* COLONNA 2: Team/Reparto (Sticky Left - Nuova Richiesta) */}
-                            <th style={{ padding: "16px 8px", width: 60, position: "sticky", left: 180, background: "var(--bg-tertiary)", zIndex: 10, fontSize: 13, borderBottom: "2px solid var(--border)", textAlign: 'center', borderRight: "2px solid var(--border)" }}>Team</th>
+                            <th style={{ padding: "16px 8px", width: 60, position: "sticky", left: 180, background: "var(--bg-tertiary)", zIndex: 10, borderBottom: "2px solid var(--border)", textAlign: 'center', borderRight: "2px solid var(--border)" }}>Team</th>
 
                             {/* COLONNE DATE */}
                             {visibleDays.map((day) => (
@@ -340,7 +340,6 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                         minWidth: 180, // Match header width
                                         maxWidth: 180,
                                         fontWeight: 500,
-                                        fontSize: 14,
                                         whiteSpace: "nowrap",
                                         position: "sticky",
                                         left: 0,
@@ -362,7 +361,6 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                         padding: "8px 4px",
                                         textAlign: "center",
                                         fontWeight: 700,
-                                        fontSize: 13,
                                         color: "var(--text-muted)",
                                         position: "sticky",
                                         left: 180,
@@ -400,7 +398,6 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                                         borderRadius: 4,
                                                         cursor: "pointer",
                                                         fontWeight: 700,
-                                                        fontSize: 11,
                                                         fontFamily: "'JetBrains Mono', monospace",
                                                         color: "white",
                                                         // Status Color Logic
@@ -431,7 +428,6 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                                     background: "var(--info-muted)",
                                                     color: "var(--info)",
                                                     borderRadius: 4,
-                                                    fontSize: 11,
                                                     fontWeight: 600,
                                                     marginRight: 4,
                                                 }}>

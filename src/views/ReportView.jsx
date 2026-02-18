@@ -256,10 +256,12 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                             <table style={{ background: "var(--bg-card)", borderRadius: 6, overflow: "hidden" }}>
                                                                 <thead>
                                                                     <tr>
-                                                                        <th style={{ fontSize: 11, padding: "8px 12px" }}>Macchina</th>
-                                                                        <th style={{ fontSize: 11, padding: "8px 12px" }}>ID</th>
-                                                                        <th style={{ fontSize: 11, padding: "8px 12px" }}>Operatori</th>
-                                                                        <th style={{ fontSize: 11, padding: "8px 12px", width: 80, textAlign: "center" }}>Stato</th>
+                                                                        <tr>
+                                                                            <th style={{ padding: "8px 12px" }}>Macchina</th>
+                                                                            <th style={{ padding: "8px 12px" }}>ID</th>
+                                                                            <th style={{ padding: "8px 12px" }}>Operatori</th>
+                                                                            <th style={{ padding: "8px 12px", width: 80, textAlign: "center" }}>Stato</th>
+                                                                        </tr>
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody>
@@ -274,12 +276,12 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                         return (
                                                                             <tr key={m.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
                                                                                 <td style={{ fontWeight: 600 }}>{m.nome}</td>
-                                                                                <td style={{ fontFamily: "monospace", fontSize: 11, color: "var(--text-muted)" }}>{m.id}</td>
+                                                                                <td style={{ fontFamily: "monospace", color: "var(--text-muted)" }}>{m.id}</td>
                                                                                 <td>
                                                                                     {names.length > 0 ? names.join(", ") : <span style={{ color: "var(--text-muted)" }}>—</span>}
                                                                                 </td>
                                                                                 <td style={{ textAlign: "center" }}>
-                                                                                    <span className={`tag ${ok ? "tag-green" : "tag-red"}`} style={{ fontSize: 10 }}>
+                                                                                    <span className={`tag ${ok ? "tag-green" : "tag-red"}`}>
                                                                                         {ok ? "OK" : "SOTTO"}
                                                                                     </span>
                                                                                 </td>
@@ -302,10 +304,12 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                     <table style={{ background: "var(--bg-card)", borderRadius: 6, overflow: "hidden" }}>
                                                         <thead>
                                                             <tr>
-                                                                <th style={{ fontSize: 11, padding: "8px 12px" }}>Macchina</th>
-                                                                <th style={{ fontSize: 11, padding: "8px 12px" }}>ID</th>
-                                                                <th style={{ fontSize: 11, padding: "8px 12px" }}>Operatori</th>
-                                                                <th style={{ fontSize: 11, padding: "8px 12px", width: 80, textAlign: "center" }}>Stato</th>
+                                                                <tr>
+                                                                    <th style={{ padding: "8px 12px" }}>Macchina</th>
+                                                                    <th style={{ padding: "8px 12px" }}>ID</th>
+                                                                    <th style={{ padding: "8px 12px" }}>Operatori</th>
+                                                                    <th style={{ padding: "8px 12px", width: 80, textAlign: "center" }}>Stato</th>
+                                                                </tr>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
@@ -319,12 +323,12 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                 return (
                                                                     <tr key={m.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
                                                                         <td style={{ fontWeight: 600 }}>{m.nome}</td>
-                                                                        <td style={{ fontFamily: "monospace", fontSize: 11, color: "var(--text-muted)" }}>{m.id}</td>
+                                                                        <td style={{ fontFamily: "monospace", color: "var(--text-muted)" }}>{m.id}</td>
                                                                         <td>
                                                                             {names.length > 0 ? names.join(", ") : <span style={{ color: "var(--text-muted)" }}>—</span>}
                                                                         </td>
                                                                         <td style={{ textAlign: "center" }}>
-                                                                            <span className={`tag ${ok ? "tag-green" : "tag-red"}`} style={{ fontSize: 10 }}>
+                                                                            <span className={`tag ${ok ? "tag-green" : "tag-red"}`}>
                                                                                 {ok ? "OK" : "SOTTO"}
                                                                             </span>
                                                                         </td>
