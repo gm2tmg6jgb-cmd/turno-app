@@ -18,11 +18,21 @@ import SkillsView from "./views/SkillsView";
 import MotiviView from "./views/MotiviView";
 import PlanningView from "./views/PlanningView";
 import ZoneView from "./views/ZoneView";
+import LimitazioniView from "./views/LimitazioniView";
 
 export default function App() {
   const [currentView, setCurrentView] = useState("dashboard");
-  const [repartoCorrente, setRepartoCorrente] = useState(null);
-  const [turnoCorrente, setTurnoCorrente] = useState("D");
+  const [repartoCorrente, setRepartoCorrente] = useState(() => localStorage.getItem("repartoCorrente") || null);
+  const [turnoCorrente, setTurnoCorrente] = useState(() => localStorage.getItem("turnoCorrente") || "D");
+
+  useEffect(() => {
+    if (repartoCorrente) localStorage.setItem("repartoCorrente", repartoCorrente);
+    else localStorage.removeItem("repartoCorrente");
+  }, [repartoCorrente]);
+
+  useEffect(() => {
+    localStorage.setItem("turnoCorrente", turnoCorrente);
+  }, [turnoCorrente]);
 
   // State from DB
   const [dipendenti, setDipendenti] = useState([]);
@@ -223,6 +233,7 @@ export default function App() {
     fermi: "Gestione Fermi Macchina",
     zones: "Anagrafica Zone",
     skills: "Matrice Competenze",
+    limitazioni: "Area Privacy Alta - Limitazioni",
   };
 
   const handleSendPlan = async () => {
@@ -303,6 +314,11 @@ export default function App() {
               {item.label}
             </div>
           ))}
+
+          <div className="nav-section-label" style={{ color: "var(--danger)", marginTop: 12 }}>Privacy Alta</div>
+          <div className={`nav-item ${currentView === 'limitazioni' ? "active" : ""}`} onClick={() => setCurrentView('limitazioni')} style={{ color: currentView === 'limitazioni' ? "var(--danger)" : "inherit" }}>
+            <span style={{ fontSize: 16, marginRight: 8 }}>🔒</span> Prescrizioni e Note
+          </div>
         </nav>
 
         <div className="sidebar-footer">
@@ -418,6 +434,9 @@ export default function App() {
           )}
           {currentView === "motivi" && (
             <MotiviView motivi={motivi} setMotivi={setMotivi} showToast={showToast} />
+          )}
+          {currentView === "limitazioni" && (
+            <LimitazioniView dipendenti={dipendenti} presenze={presenze} />
           )}
         </div>
       </div>

@@ -10,6 +10,8 @@ import {
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
+import { getSlotForGroup } from '../lib/shiftRotation';
+
 export default function ReportView({ dipendenti, presenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, zones, motivi }) {
     const [reportType, setReportType] = useState("turno");
 
@@ -71,15 +73,15 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
         return assegnazioni.filter(a => a.data === selectedDate && (!selectedTurno || a.turno_id === selectedTurno));
     }, [assegnazioni, selectedDate, selectedTurno]);
 
-    // Trend Data Calculation (Last 14 Days from Selected Date)
+    // Trend Data Calculation (Next 14 Days from Selected Date)
     const trendData = useMemo(() => {
         const data = [];
         const currentRefDate = new Date(selectedDate);
 
-        // Go back 14 days
-        for (let i = 13; i >= 0; i--) {
+        // Go forward 14 days
+        for (let i = 0; i < 14; i++) {
             const d = new Date(currentRefDate);
-            d.setDate(currentRefDate.getDate() - i);
+            d.setDate(currentRefDate.getDate() + i);
             const dateStr = getLocalDate(d); // Use helper to ensure "YYYY-MM-DD"
             const label = d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
 
@@ -100,6 +102,108 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
         }
         return data;
     }, [presenze, selectedDate, selectedTurno]);
+
+    // Anomalous Absences Detection (First/Last Night, Last Evening) from start of year
+    const anomalousAbsences = useMemo(() => {
+        const currentYear = new Date().getFullYear();
+        const startOfYear = new Date(`${currentYear}-01-01T00:00:00Z`);
+
+        return presenze.filter(p =>
+            !p.presente &&
+            p.motivo_assenza !== 'riposo_compensativo' &&
+            new Date(p.data) >= startOfYear
+        ).map(p => {
+            const dip = dipendenti.find(dip => dip.id === p.dipendente_id);
+            if (!dip) return null;
+
+            const group = dip.turno_default || "D";
+
+            return {
+                ...p,
+                dipendente: dip,
+                group: group
+            };
+        }).filter(Boolean);
+    }, [presenze, dipendenti]);
+
+    const resolvedAnomalies = useMemo(() => {
+        try {
+            return anomalousAbsences.map(p => {
+                const dateStr = p.data;
+                const d = new Date(dateStr);
+                const slotObj = getSlotForGroup(p.group, dateStr);
+                if (!slotObj) return null;
+
+                const prevD = new Date(d); prevD.setDate(d.getDate() - 1);
+                const nextD = new Date(d); nextD.setDate(d.getDate() + 1);
+
+                const getIso = (dateObj) => {
+                    const y = dateObj.getFullYear();
+                    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+                    const day = String(dateObj.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${day}`;
+                };
+
+                const prevSlot = getSlotForGroup(p.group, getIso(prevD));
+                const nextSlot = getSlotForGroup(p.group, getIso(nextD));
+
+                let isAnomalous = false;
+                let anomalyType = "";
+
+                if (slotObj.id === "N") {
+                    if (prevSlot?.id !== "N") { isAnomalous = true; anomalyType = "Prima Notte"; }
+                    else if (nextSlot?.id !== "N") { isAnomalous = true; anomalyType = "Ultima Notte"; }
+                } else if (slotObj.id === "S" && d.getDay() === 6) {
+                    isAnomalous = true; anomalyType = "Sabato 18-24";
+                }
+
+                if (isAnomalous) {
+                    return { ...p, slot: slotObj, type: anomalyType, dateFormatted: new Date(dateStr).toLocaleDateString() };
+                }
+                return null;
+            }).filter(Boolean).sort((a, b) => new Date(b.data) - new Date(a.data));
+        } catch (e) {
+            console.error(e);
+            return [];
+        }
+    }, [anomalousAbsences]);
+
+    // Planned Strategic Absences (Saturday Evening, Saturday Night, Monday)
+    const plannedAnomalies = useMemo(() => {
+        try {
+            const plannedReasons = ['ferie', 'rol', 'riposo_compensativo'];
+
+            return anomalousAbsences.filter(p => plannedReasons.includes(p.motivo_assenza)).map(p => {
+                const dateStr = p.data;
+                // Parse date carefully to avoid timezone shifts shifting the day
+                const [year, month, day] = dateStr.split('-');
+                const d = new Date(year, month - 1, day);
+                const dayOfWeek = d.getDay(); // 0 = Sunday, 1 = Monday, 6 = Saturday
+
+                const slotObj = getSlotForGroup(p.group, dateStr);
+                if (!slotObj) return null;
+
+                let isStrategic = false;
+                let strategyType = "";
+
+                if (dayOfWeek === 6 && slotObj.id === "S") {
+                    isStrategic = true; strategyType = "Sabato Sera";
+                } else if (dayOfWeek === 6 && slotObj.id === "N") {
+                    isStrategic = true; strategyType = "Sabato Notte";
+                } else if (dayOfWeek === 1) {
+                    isStrategic = true; strategyType = `Lunedì (${slotObj.nome})`;
+                }
+
+                if (isStrategic) {
+                    return { ...p, slot: slotObj, type: strategyType, dateFormatted: d.toLocaleDateString("it-IT") };
+                }
+                return null;
+            }).filter(Boolean).sort((a, b) => new Date(b.data) - new Date(a.data));
+        } catch (e) {
+            console.error(e);
+            return [];
+        }
+    }, [anomalousAbsences]);
 
     const allMacchine = macchine; // Machines might not strictly belong to a shift, but their operators do.
 
@@ -663,10 +767,10 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
             {reportType === "settimanale" && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                     <div className="card">
-                        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Analisi Trend Assenze (Ultimi 14 gg)</h3>
+                        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Analisi Trend Assenze (Prossimi 14 gg)</h3>
                         <div style={{ height: 400, width: '100%' }}>
                             <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 20 }}>
-                                Monitoraggio dell'andamento delle assenze totali e impreviste (Tutto eccetto Ferie/ROL).
+                                Previsione dell'andamento delle assenze totali e impreviste a partire da oggi.
                             </p>
                             <ResponsiveContainer width="100%" height={340}>
                                 <AreaChart data={trendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
@@ -693,51 +797,118 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                         </div>
                     </div>
 
-                    {/* LIMITAZIONI & PRESCRIZIONI TABLE */}
-                    <div className="card">
-                        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Personale con Limitazioni / Prescrizioni</h3>
+                    {/* ANOMALOUS ABSENCES TABLE */}
+                    <div className="card" style={{ marginBottom: 20 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                            <h3 style={{ fontSize: 16, fontWeight: 700 }}>Segnalazioni Assenze Anomalie</h3>
+                            <span className="tag tag-red" style={{ fontSize: 11, fontWeight: 700 }}>{resolvedAnomalies.length} Segnalazioni</span>
+                        </div>
+                        <p style={{ color: "var(--text-muted)", fontSize: 13, marginBottom: 16 }}>
+                            Questo pannello evidenzia automaticamente tutte le assenze impreviste che cadono in giorni "sospetti", come la prima o l'ultima notte del turno, o il sabato sera (18-24), rilevate dall'inizio dell'anno.
+                        </p>
                         <div className="table-container">
                             <table>
                                 <thead>
                                     <tr>
+                                        <th style={{ textAlign: "left" }}>Data Assenza</th>
                                         <th style={{ textAlign: "left" }}>Dipendente</th>
                                         <th style={{ textAlign: "center" }}>Turno</th>
-                                        <th style={{ textAlign: "left" }}>Limitazioni / Note</th>
-                                        <th style={{ textAlign: "center" }}>Team</th>
+                                        <th style={{ textAlign: "left" }}>Motivo</th>
+                                        <th style={{ textAlign: "center" }}>Anomalia Rilevata</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {dipendenti
-                                        .filter(d => d.l104 && d.l104.trim() !== "")
-                                        .sort((a, b) => (a.turno_default || "D").localeCompare(b.turno_default || "D"))
-                                        .map((d) => (
-                                            <tr key={d.id}>
-                                                <td style={{ fontWeight: 600, background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
-                                                    {d.cognome} {d.nome}
-                                                    {d.tipo === 'interinale' && <span style={{ fontSize: 10, marginLeft: 6, opacity: 0.7 }}> (Int.)</span>}
-                                                </td>
-                                                <td style={{ textAlign: "center", color: "var(--text-primary)", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
-                                                    {d.turno_default || d.turno || "D"}
-                                                </td>
-                                                <td style={{ color: "var(--text-primary)", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
-                                                    {d.l104.split(',').map((tag, idx) => (
-                                                        <span key={idx}>
-                                                            {tag.trim()}{idx < d.l104.split(',').length - 1 ? ", " : ""}
-                                                        </span>
-                                                    ))}
-                                                </td>
-                                                <td style={{ textAlign: "center", color: "var(--text-muted)", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
-                                                    {REPARTI.find(r => r.id === d.reparto_id)?.nome || d.reparto_id}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    {dipendenti.filter(d => d.l104 && d.l104.trim() !== "").length === 0 && (
-                                        <tr><td colSpan={4} style={{ textAlign: "center", padding: 20, color: "var(--text-muted)" }}>Nessuna limitazione registrata.</td></tr>
+                                    {resolvedAnomalies.map((a, idx) => (
+                                        <tr key={idx}>
+                                            <td style={{ fontWeight: 600, color: "var(--text-primary)" }}>{a.dateFormatted}</td>
+                                            <td style={{ fontWeight: 600 }}>{a.dipendente.cognome} {a.dipendente.nome}</td>
+                                            <td style={{ textAlign: "center", color: "var(--text-primary)" }}>{a.group}</td>
+                                            <td style={{ color: "var(--text-muted)" }}>
+                                                {motivi.find(m => m.id === a.motivo_assenza)?.label || a.motivo_assenza || "Assenza"}
+                                            </td>
+                                            <td style={{ textAlign: "center" }}>
+                                                <span style={{
+                                                    background: "rgba(220, 38, 38, 0.1)",
+                                                    color: "var(--danger)",
+                                                    padding: "4px 10px",
+                                                    borderRadius: 12,
+                                                    fontSize: 11,
+                                                    fontWeight: 700,
+                                                    display: "inline-block"
+                                                }}>
+                                                    ⚠️ {a.type}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {resolvedAnomalies.length === 0 && (
+                                        <tr>
+                                            <td colSpan={5} style={{ textAlign: "center", padding: 20, color: "var(--success)" }}>
+                                                ✅ Nessuna anomalia rilevata nei dati attualmente caricati.
+                                            </td>
+                                        </tr>
                                     )}
                                 </tbody>
                             </table>
                         </div>
                     </div>
+
+                    {/* STRATEGIC PLANNED ABSENCES TABLE */}
+                    <div className="card">
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                            <h3 style={{ fontSize: 16, fontWeight: 700 }}>Assenze Pianificate Strategiche (Sab/Lun)</h3>
+                            <span className="tag tag-blue" style={{ fontSize: 11, fontWeight: 700 }}>{plannedAnomalies.length} Segnalazioni</span>
+                        </div>
+                        <p style={{ color: "var(--text-muted)", fontSize: 13, marginBottom: 16 }}>
+                            Questo pannello evidenzia le assenze pianificate (Ferie, ROL, Riposo Compensativo) strategiche che cadono di Sabato Sera, Sabato Notte o Lunedì, dall'inizio dell'anno.
+                        </p>
+                        <div className="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th style={{ textAlign: "left" }}>Data Assenza</th>
+                                        <th style={{ textAlign: "left" }}>Dipendente</th>
+                                        <th style={{ textAlign: "center" }}>Turno Assegnato</th>
+                                        <th style={{ textAlign: "left" }}>Motivo Pianificato</th>
+                                        <th style={{ textAlign: "center" }}>Giornata Strategica</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {plannedAnomalies.map((a, idx) => (
+                                        <tr key={idx}>
+                                            <td style={{ fontWeight: 600, color: "var(--text-primary)" }}>{a.dateFormatted}</td>
+                                            <td style={{ fontWeight: 600 }}>{a.dipendente.cognome} {a.dipendente.nome}</td>
+                                            <td style={{ textAlign: "center", color: "var(--text-primary)" }}>{a.group}</td>
+                                            <td style={{ color: "var(--text-muted)" }}>
+                                                {motivi.find(m => m.id === a.motivo_assenza)?.label || a.motivo_assenza || "Assenza"}
+                                            </td>
+                                            <td style={{ textAlign: "center" }}>
+                                                <span style={{
+                                                    background: "rgba(59, 130, 246, 0.1)",
+                                                    color: "var(--primary)",
+                                                    padding: "4px 10px",
+                                                    borderRadius: 12,
+                                                    fontSize: 11,
+                                                    fontWeight: 700,
+                                                    display: "inline-block"
+                                                }}>
+                                                    📅 {a.type}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {plannedAnomalies.length === 0 && (
+                                        <tr>
+                                            <td colSpan={5} style={{ textAlign: "center", padding: 20, color: "var(--success)" }}>
+                                                ✅ Nessuna assenza pianificata strategica rilevata.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                 </div>
             )}
         </div>

@@ -197,20 +197,24 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
                                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
                                                     <div>
                                                         <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>{d.cognome} {d.nome}</div>
-                                                        <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
-                                                            {d.tipo === 'interinale' ? <span style={{ color: "#EC4899", fontWeight: 600 }}>INTERINALE</span> : "Indeterminato"}
-                                                        </div>
+                                                        {d.tipo === 'interinale' && (
+                                                            <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
+                                                                <span style={{ color: "#EC4899", fontWeight: 600 }}>INTERINALE</span>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    <div className="tag tag-blue" style={{ fontSize: 11, fontWeight: 700, padding: "2px 6px" }}>
-                                                        {d.turno_default || d.turno || "D"}
+                                                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--primary)" }}>
+                                                        Turno {d.turno_default || d.turno || "D"}
                                                     </div>
                                                 </div>
 
-                                                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                                                    {d.ruolo === "capoturno" && <span className="tag tag-purple" style={{ fontSize: 10 }}>Leader</span>}
-                                                    {d.l104 && d.l104.split(',').map((l, i) => (
-                                                        <span key={i} className="tag tag-red" style={{ fontSize: 10 }}>{l.trim()}</span>
-                                                    ))}
+                                                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginTop: 4 }}>
+                                                    {d.ruolo === "capoturno" && <span style={{ fontSize: 11, fontWeight: 700, color: "var(--purple)" }}>👑 Team Leader</span>}
+                                                    {d.l104 && (
+                                                        <span style={{ fontSize: 11, fontWeight: 600, color: "var(--danger)" }} title="Vedi dettaglio in Privacy Alta">
+                                                            ⚠️ Note Privacy
+                                                        </span>
+                                                    )}
                                                 </div>
 
                                                 {d.tipo === 'interinale' && d.scadenza && (
@@ -280,48 +284,10 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
                                 </select>
                             </div>
                             <div className="form-group" style={{ gridColumn: "span 2" }}>
-                                <label className="form-label">Limitazioni (Seleziona per aggiungere/rimuovere)</label>
-                                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-                                    {LIMITAZIONI.map(l => {
-                                        const currentLims = newDip.l104 ? newDip.l104.split(", ") : [];
-                                        const isActive = currentLims.includes(l.label);
-                                        return (
-                                            <span
-                                                key={l.id}
-                                                onClick={() => {
-                                                    let newLims = [...currentLims];
-                                                    if (isActive) {
-                                                        newLims = newLims.filter(item => item !== l.label);
-                                                    } else {
-                                                        newLims.push(l.label);
-                                                    }
-                                                    // Clean up empty strings
-                                                    newLims = newLims.filter(item => item.trim() !== "");
-                                                    setNewDip({ ...newDip, l104: newLims.join(", ") });
-                                                }}
-                                                style={{
-                                                    padding: "4px 10px",
-                                                    borderRadius: 12,
-                                                    fontSize: 11,
-                                                    cursor: "pointer",
-                                                    border: `1px solid ${l.color}`,
-                                                    background: isActive ? l.color : "transparent",
-                                                    color: isActive ? "white" : l.color,
-                                                    transition: "all 0.2s"
-                                                }}
-                                            >
-                                                {l.label}
-                                            </span>
-                                        );
-                                    })}
+                                <div className="alert alert-info" style={{ marginTop: 0, padding: "8px 12px" }}>
+                                    <span style={{ fontSize: 14, marginRight: 6 }}>🔒</span>
+                                    Le limitazioni fisiche e prescrizioni mediche sono gestite nell'area <strong>Privacy Alta</strong>.
                                 </div>
-                                <input
-                                    className="input"
-                                    placeholder="Altre limitazioni manuali..."
-                                    value={newDip.l104}
-                                    onChange={(e) => setNewDip({ ...newDip, l104: e.target.value })}
-                                    style={{ fontSize: 12 }}
-                                />
                             </div>
                         </div>
                         {newDip.tipo === "interinale" && (

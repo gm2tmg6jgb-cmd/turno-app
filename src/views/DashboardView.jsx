@@ -30,6 +30,48 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
         return getLocalDate(d);
     });
 
+    // Helper: Calcolo Pasqua (algoritmo di Gauss)
+    const getEaster = (year) => {
+        const f = Math.floor,
+            G = year % 19,
+            C = f(year / 100),
+            H = (C - f(C / 4) - f((8 * C + 13) / 25) + 19 * G + 15) % 30,
+            I = H - f(H / 28) * (1 - f(29 / (H + 1)) * f((21 - G) / 11)),
+            J = (year + f(year / 4) + I + 2 - C + f(C / 4)) % 7,
+            L = I - J,
+            month = 3 + f((L + 40) / 44),
+            day = L + 28 - 31 * f(month / 4);
+        return new Date(year, month - 1, day);
+    };
+
+    // Helper: Riconosce Festività Nazionali
+    const isItalianHoliday = (d) => {
+        const year = d.getFullYear();
+        const month = d.getMonth() + 1;
+        const day = d.getDate();
+
+        // Feste fisse
+        if (month === 1 && day === 1) return true; // Capodanno
+        if (month === 1 && day === 6) return true; // Epifania
+        if (month === 4 && day === 25) return true; // Liberazione
+        if (month === 5 && day === 1) return true; // Lavoratori
+        if (month === 6 && day === 2) return true; // Repubblica
+        if (month === 8 && day === 15) return true; // Ferragosto
+        if (month === 11 && day === 1) return true; // Tutti i Santi
+        if (month === 12 && day === 8) return true; // Immacolata  
+        if (month === 12 && day === 25) return true; // Natale
+        if (month === 12 && day === 26) return true; // S. Stefano
+
+        // Pasquetta (Lunedì dell'Angelo)
+        const easter = getEaster(year);
+        const pasquetta = new Date(easter);
+        pasquetta.setDate(pasquetta.getDate() + 1);
+
+        if (d.getTime() === pasquetta.getTime()) return true;
+
+        return false;
+    };
+
     const visibleDays = useMemo(() => {
         const days = [];
         const start = new Date(dateStart + "T00:00:00");
@@ -45,7 +87,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                 label: `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`,
                 dayName: d.toLocaleDateString("it-IT", { weekday: "short" }),
                 isToday: dateStr === today,
-                isSunday: d.getDay() === 0,
+                isSunday: d.getDay() === 0 || isItalianHoliday(d),
             });
             d.setDate(d.getDate() + 1);
             iterations++;
@@ -269,23 +311,26 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                     {/* ... (thead) ... */}
                     <thead>
                         <tr>
-                            {/* COLONNA 1: Nominativo (Sticky Left) */}
-                            <th style={{ padding: "16px 14px", width: 180, position: "sticky", left: 0, background: "var(--bg-tertiary)", zIndex: 10, borderBottom: "2px solid var(--border)" }}>Nominativo</th>
+                            {/* COLONNA 1: Nominativo (Sticky Top & Left) */}
+                            <th style={{ padding: "16px 14px", width: 180, position: "sticky", top: 0, left: 0, background: "var(--bg-tertiary)", zIndex: 20, borderBottom: "2px solid var(--border)" }}>Nominativo</th>
 
-                            {/* COLONNA 2: Team/Reparto (Sticky Left - Nuova Richiesta) */}
-                            <th style={{ padding: "16px 8px", width: 60, position: "sticky", left: 180, background: "var(--bg-tertiary)", zIndex: 10, borderBottom: "2px solid var(--border)", textAlign: 'center', borderRight: "2px solid var(--border)" }}>Team</th>
+                            {/* COLONNA 2: Team/Reparto (Sticky Top & Left) */}
+                            <th style={{ padding: "16px 8px", width: 60, position: "sticky", top: 0, left: 180, background: "var(--bg-tertiary)", zIndex: 20, borderBottom: "2px solid var(--border)", textAlign: 'center', borderRight: "2px solid var(--border)" }}>Team</th>
 
-                            {/* COLONNE DATE */}
+                            {/* COLONNE DATE (Sticky Top) */}
                             {visibleDays.map((day) => (
                                 <th
                                     key={day.date}
                                     style={{
+                                        position: "sticky",
+                                        top: 0,
+                                        zIndex: 10,
                                         textAlign: "center",
                                         padding: "10px 4px",
                                         width: 60,
-                                        background: day.isToday ? "rgba(249, 115, 22, 0.2)" : undefined,
+                                        background: day.isToday ? "rgba(249, 115, 22, 0.2)" : "var(--bg-card)",
                                         color: day.isToday ? "var(--accent)" : undefined,
-                                        borderBottom: "2px solid var(--border)"
+                                        borderBottom: "2px solid var(--border)",
                                     }}
                                 >
                                     <div style={{ fontSize: 12, textTransform: "uppercase", lineHeight: 1.2, marginBottom: 4 }}>{day.dayName}</div>
@@ -293,8 +338,11 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                 </th>
                             ))}
 
-                            {/* COLUMN: Assigned Machine */}
+                            {/* COLUMN: Assigned Machine (Sticky Top) */}
                             <th style={{
+                                position: "sticky",
+                                top: 0,
+                                zIndex: 10,
                                 padding: "16px 16px",
                                 minWidth: 200,
                                 borderLeft: "2px solid var(--border-light)",
@@ -355,7 +403,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                         whiteSpace: "nowrap",
                                         position: "sticky",
                                         left: 0,
-                                        background: "var(--bg-card)",
+                                        background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "var(--bg-card)",
                                         zIndex: 5,
                                         borderRight: "1px solid var(--border-light)",
                                         overflow: "hidden",
@@ -376,7 +424,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                         color: "var(--text-muted)",
                                         position: "sticky",
                                         left: 180,
-                                        background: "var(--bg-card)",
+                                        background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "var(--bg-card)",
                                         zIndex: 5,
                                         borderRight: "2px solid var(--border)", // Divisore tra colonne fisse e scrollabili
                                         ...rowStyle
@@ -396,7 +444,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                                 style={{
                                                     textAlign: "center",
                                                     padding: "4px 1px",
-                                                    background: day.isToday ? "rgba(249, 115, 22, 0.04)" : undefined,
+                                                    background: day.isToday ? "rgba(249, 115, 22, 0.04)" : (d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : undefined),
                                                     ...rowStyle
                                                 }}
                                             >
@@ -430,6 +478,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                         padding: "4px 10px",
                                         borderLeft: "2px solid var(--border-light)",
                                         whiteSpace: "nowrap",
+                                        background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : undefined,
                                         ...rowStyle
                                     }}>
                                         {macchineNames.length > 0 ? (
