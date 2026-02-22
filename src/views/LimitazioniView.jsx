@@ -78,43 +78,54 @@ export default function LimitazioniView({ dipendenti, presenze = [] }) {
         yesterday.setDate(yesterday.getDate() - 1);
         yesterday.setHours(23, 59, 59, 999);
 
-        // Calculate generic expected working days from start of year to yesterday
-        // A generic expected day is NOT a Sunday and NOT an Italian Holiday
-        let expectedWorkDays = 0;
-        let d = new Date(startOfYear);
-        while (d <= yesterday) {
-            const isSunday = d.getDay() === 0;
-            if (!isSunday && !isItalianHoliday(d)) {
-                expectedWorkDays++;
+        const plannedReasons = ['rol', 'ferie', 'riposo_compensativo'];
+        const plannedMap = {};
+        const unplannedMap = {};
+        const employeeWorkDays = {};
+        for (const dip of dipendenti) {
+            const group = dip.turno_default || dip.turno || "D";
+            let workDays = 0;
+            let dayIter = new Date(startOfYear);
+            while (dayIter <= yesterday) {
+                const isSunday = dayIter.getDay() === 0;
+                if (!isSunday && !isItalianHoliday(dayIter)) {
+                    const slot = getSlotForGroup(group, dayIter.toISOString().slice(0, 10));
+                    if (slot && slot.id !== "R") {
+                        workDays++;
+                    }
+                }
+                dayIter.setDate(dayIter.getDate() + 1);
             }
-            d.setDate(d.getDate() + 1);
+            employeeWorkDays[dip.id] = workDays;
         }
-
-        // Filter valid absence records (from Jan 1st until yesterday, !presente)
-        // Group by dipendente_id
-        const absenceMap = {};
         for (const p of presenze) {
             const pDate = new Date(p.data);
             if (pDate >= startOfYear && pDate <= yesterday && !p.presente) {
-                absenceMap[p.dipendente_id] = (absenceMap[p.dipendente_id] || 0) + 1;
+                if (plannedReasons.includes(p.motivo_assenza)) {
+                    plannedMap[p.dipendente_id] = (plannedMap[p.dipendente_id] || 0) + 1;
+                } else {
+                    unplannedMap[p.dipendente_id] = (unplannedMap[p.dipendente_id] || 0) + 1;
+                }
             }
         }
 
-        // Map over all dipendenti to calculate stats
         const stats = dipendenti.map(dip => {
-            const absCount = absenceMap[dip.id] || 0;
-            const percentage = expectedWorkDays > 0 ? ((absCount / expectedWorkDays) * 100).toFixed(1) : 0;
-
+            const planned = plannedMap[dip.id] || 0;
+            const unplanned = unplannedMap[dip.id] || 0;
+            const total = planned + unplanned;
+            const expectedDays = employeeWorkDays[dip.id] || 0;
+            const percentage = expectedDays > 0 ? ((total / expectedDays) * 100).toFixed(1) : 0;
             return {
                 ...dip,
                 persona: `${dip.cognome} ${dip.nome}`,
-                expectedDays: expectedWorkDays,
-                absences: absCount,
+                expectedDays: expectedDays,
+                plannedAbsences: planned,
+                unplannedAbsences: unplanned,
+                totalAbsences: total,
                 percentage: parseFloat(percentage)
             };
         });
 
-        // Sort by highest absence percentage descending
         return stats.sort((a, b) => b.percentage - a.percentage);
     }, [dipendenti, presenze]);
 
@@ -246,9 +257,13 @@ export default function LimitazioniView({ dipendenti, presenze = [] }) {
                                     <th style={{ textAlign: "left", background: "var(--bg-tertiary)" }}>Dipendente</th>
                                     <th style={{ textAlign: "center", background: "var(--bg-tertiary)" }}>Team</th>
                                     <th style={{ textAlign: "center", background: "var(--bg-tertiary)" }}>Giorni Lavorativi Previsti</th>
+                                    <th style={{ textAlign: "center", background: "var(--bg-tertiary)" }}>Assenze Pianificate</th>
+                                    <th style={{ textAlign: "center", background: "var(--bg-tertiary)" }}>Assenze Non Pianificate</th>
                                     <th style={{ textAlign: "center", background: "var(--bg-tertiary)" }}>Totale Assenze</th>
                                     <th style={{ textAlign: "center", background: "var(--bg-tertiary)" }}>Tasso di Assenza</th>
                                 </tr>
+                                ... // rows will be updated below
+
                             </thead>
                             <tbody>
                                 {absenceStats.map((d, i) => (
@@ -263,8 +278,14 @@ export default function LimitazioniView({ dipendenti, presenze = [] }) {
                                         <td style={{ textAlign: "center", fontFamily: "'JetBrains Mono', monospace", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
                                             {d.expectedDays}
                                         </td>
-                                        <td style={{ textAlign: "center", fontFamily: "'JetBrains Mono', monospace", fontWeight: d.absences > 0 ? 700 : 400, color: d.absences > 0 ? "var(--warning)" : "var(--text-muted)", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
-                                            {d.absences}
+                                        <td style={{ textAlign: "center", fontFamily: "'JetBrains Mono', monospace", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
+                                            {d.plannedAbsences}
+                                        </td>
+                                        <td style={{ textAlign: "center", fontFamily: "'JetBrains Mono', monospace", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
+                                            {d.unplannedAbsences}
+                                        </td>
+                                        <td style={{ textAlign: "center", fontFamily: "'JetBrains Mono', monospace", fontWeight: d.totalAbsences > 0 ? 700 : 400, color: d.totalAbsences > 0 ? "var(--warning)" : "var(--text-muted)", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
+                                            {d.totalAbsences}
                                         </td>
                                         <td style={{ textAlign: "center", fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: d.percentage > 10 ? "var(--danger)" : "var(--success)", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
                                             {d.percentage}%
