@@ -331,6 +331,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                         background: day.isToday ? "rgba(249, 115, 22, 0.2)" : "var(--bg-card)",
                                         color: day.isToday ? "var(--accent)" : undefined,
                                         borderBottom: "2px solid var(--border)",
+                                        borderLeft: "1px solid var(--border-light)" // Demarcation line
                                     }}
                                 >
                                     <div style={{ fontSize: 12, textTransform: "uppercase", lineHeight: 1.2, marginBottom: 4 }}>{day.dayName}</div>
@@ -445,6 +446,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                                     textAlign: "center",
                                                     padding: "4px 1px",
                                                     background: day.isToday ? "rgba(249, 115, 22, 0.04)" : (d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : undefined),
+                                                    borderLeft: "1px solid var(--border-light)", // Demarcation line
                                                     ...rowStyle
                                                 }}
                                             >
