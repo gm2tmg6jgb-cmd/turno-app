@@ -72,7 +72,7 @@ export default function SkillsView({ dipendenti, setDipendenti, macchine, showTo
         <div className="fade-in">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label className="form-label">Seleziona Reparto</label>
+                    <label className="form-label">Seleziona Team</label>
                     <select
                         className="select-input"
                         value={repartoCorrente}
@@ -88,15 +88,15 @@ export default function SkillsView({ dipendenti, setDipendenti, macchine, showTo
                         <div key={l.value} style={{
                             width: 28,
                             height: 28,
-                            borderRadius: "50%",
+                            borderRadius: 4,
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            background: l.value === 0 ? "var(--bg-tertiary)" : l.color,
-                            color: l.value === 0 ? "var(--text-muted)" : "white",
-                            fontSize: 12,
+                            background: "transparent",
+                            color: l.value === 0 ? "var(--text-muted)" : l.color,
+                            fontSize: 14,
                             fontWeight: 700,
-                            border: "1px solid var(--border)"
+                            border: "none"
                         }} title={l.label}>
                             {l.value}
                         </div>
@@ -157,17 +157,17 @@ export default function SkillsView({ dipendenti, setDipendenti, macchine, showTo
                                             <button
                                                 onClick={() => toggleSkill(d.id, m.id)}
                                                 style={{
-                                                    background: skillLevel === 0 ? "transparent" : skill.color,
-                                                    color: skillLevel === 0 ? "var(--text-muted)" : "white",
-                                                    border: "1px solid var(--border)",
-                                                    borderRadius: "50%",
+                                                    background: "transparent",
+                                                    color: skillLevel === 0 ? "var(--text-muted)" : skill.color,
+                                                    border: "none",
+                                                    borderRadius: 4,
                                                     width: 32,
                                                     height: 32,
                                                     cursor: "pointer",
                                                     display: "flex",
                                                     alignItems: "center",
                                                     justifyContent: "center",
-                                                    fontSize: 14,
+                                                    fontSize: 16,
                                                     fontWeight: 700,
                                                     margin: "0 auto",
                                                     transition: "all 0.1s"
