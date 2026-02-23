@@ -401,6 +401,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                         minWidth: 180, // Match header width
                                         maxWidth: 180,
                                         fontWeight: 500,
+                                        fontSize: 12, // Reduced font size by 2px (assume default is 14px)
                                         whiteSpace: "nowrap",
                                         position: "sticky",
                                         left: 0,
@@ -413,7 +414,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                     }}>
                                         {d.cognome} {(d.nome || "").charAt(0)}.
                                         {teamLeaders[d.reparto_id] && (d.cognome || "").includes(teamLeaders[d.reparto_id]) && (
-                                            <span style={{ marginLeft: 6, fontSize: 12 }} title="Team Leader">👑</span>
+                                            <span style={{ marginLeft: 6, fontSize: 10 }} title="Team Leader">👑</span>
                                         )}
                                     </td>
 
@@ -461,11 +462,10 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                                         cursor: "pointer",
                                                         fontWeight: 700,
                                                         fontFamily: "'JetBrains Mono', monospace",
-                                                        color: "white",
                                                         // Status Color Logic
-                                                        background: isPresent ? "#22C55E" : (sigla === "-" ? "var(--bg-tertiary)" : "#EF4444"),
-                                                        color: (sigla === "-" && !isPresent) ? "var(--text-muted)" : "white",
-                                                        boxShadow: isPresent ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+                                                        background: isPresent ? "transparent" : (sigla === "-" ? "var(--bg-tertiary)" : "#EF4444"),
+                                                        color: isPresent ? "var(--text-primary)" : ((sigla === "-" && !isPresent) ? "var(--text-muted)" : "white"),
+                                                        boxShadow: isPresent ? "none" : "none",
                                                         transition: "all 0.1s ease",
                                                     }}
                                                 >
