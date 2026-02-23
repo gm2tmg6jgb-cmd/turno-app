@@ -401,11 +401,11 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                         minWidth: 180, // Match header width
                                         maxWidth: 180,
                                         fontWeight: 500,
-                                        fontSize: 12, // Reduced font size by 2px (assume default is 14px)
+                                        fontSize: 15, // Same as day font size
                                         whiteSpace: "nowrap",
                                         position: "sticky",
                                         left: 0,
-                                        background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "var(--bg-card)",
+                                        background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "var(--bg-card)", // Only here for interinale
                                         zIndex: 5,
                                         borderRight: "1px solid var(--border-light)",
                                         overflow: "hidden",
@@ -426,12 +426,12 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                         color: "var(--text-muted)",
                                         position: "sticky",
                                         left: 180,
-                                        background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "var(--bg-card)",
+                                        background: "var(--bg-card)",
                                         zIndex: 5,
                                         borderRight: "2px solid var(--border)", // Divisore tra colonne fisse e scrollabili
                                         ...rowStyle
                                     }}>
-                                        {d.reparto_id}
+                                        {d.reparto_id ? d.reparto_id.replace(/^T/i, '') : ''}
                                     </td>
 
                                     {/* PRESENCE CELLS */}
@@ -439,6 +439,15 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                         const status = getPresenceStatus(d.id, day.date, day.isSunday);
                                         const isPresent = status === true;
                                         const sigla = (!isPresent && typeof status === "string") ? status : "-";
+                                        const isAbsence = !isPresent && sigla !== "-";
+
+                                        // Cell background logic
+                                        let cellBg = undefined;
+                                        if (isAbsence) {
+                                            cellBg = "rgba(249, 115, 22, 0.2)"; // Orange fill for absence
+                                        } else if (day.isToday) {
+                                            cellBg = "rgba(249, 115, 22, 0.04)";
+                                        }
 
                                         return (
                                             <td
@@ -446,7 +455,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                                 style={{
                                                     textAlign: "center",
                                                     padding: "4px 1px",
-                                                    background: day.isToday ? "rgba(249, 115, 22, 0.04)" : (d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : undefined),
+                                                    background: cellBg,
                                                     borderLeft: "1px solid var(--border-light)", // Demarcation line
                                                     ...rowStyle
                                                 }}
@@ -463,9 +472,9 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                                         fontWeight: 700,
                                                         fontFamily: "'JetBrains Mono', monospace",
                                                         // Status Color Logic
-                                                        background: isPresent ? "transparent" : (sigla === "-" ? "var(--bg-tertiary)" : "#EF4444"),
-                                                        color: isPresent ? "var(--text-primary)" : ((sigla === "-" && !isPresent) ? "var(--text-muted)" : "white"),
-                                                        boxShadow: isPresent ? "none" : "none",
+                                                        background: "transparent", // No background for buttons
+                                                        color: isAbsence ? "#EA580C" : (isPresent ? "var(--text-primary)" : "var(--text-muted)"), // Orange text for absence
+                                                        boxShadow: "none",
                                                         transition: "all 0.1s ease",
                                                     }}
                                                 >
@@ -480,7 +489,6 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                         padding: "4px 10px",
                                         borderLeft: "2px solid var(--border-light)",
                                         whiteSpace: "nowrap",
-                                        background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : undefined,
                                         ...rowStyle
                                     }}>
                                         {macchineNames.length > 0 ? (
