@@ -278,8 +278,7 @@ export default function App() {
             <label className="form-label">Turno</label>
             <select className="select-input" value={turnoCorrente} onChange={(e) => setTurnoCorrente(e.target.value)}>
               {TURNI.map((t) => {
-                const s = getSlotForGroup(t.id, todayDate);
-                return <option key={t.id} value={t.id}>{t.nome} — {s ? s.nome : ""} ({s ? s.orario : ""})</option>
+                return <option key={t.id} value={t.id}>{t.nome}</option>
               })}
             </select>
           </div>
