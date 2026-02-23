@@ -1,9 +1,9 @@
 // Groups (Squadre) - They rotate
 export const TURNI = [
-    { id: "A", nome: "Squadra A", colore: "#F59E0B" },
-    { id: "B", nome: "Squadra B", colore: "#3B82F6" },
-    { id: "C", nome: "Squadra C", colore: "#6366F1" },
-    { id: "D", nome: "Squadra D", colore: "#10B981" },
+    { id: "A", nome: "Turno A", colore: "#F59E0B" },
+    { id: "B", nome: "Turno B", colore: "#3B82F6" },
+    { id: "C", nome: "Turno C", colore: "#6366F1" },
+    { id: "D", nome: "Turno D", colore: "#10B981" },
 ];
 
 // Time Slots (Orari Fissi)
