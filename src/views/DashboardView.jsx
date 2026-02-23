@@ -423,6 +423,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                         padding: "4px 4px", // Reduced from 8px 4px
                                         textAlign: "center",
                                         fontWeight: 700,
+                                        fontSize: 15, // Same as nominativo font size
                                         color: "var(--text-muted)",
                                         position: "sticky",
                                         left: 180,
