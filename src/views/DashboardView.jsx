@@ -397,7 +397,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                 <tr key={d.id}>
                                     {/* CELLA 1: Nominativo (Sticky) */}
                                     <td style={{
-                                        padding: "8px 8px",
+                                        padding: "4px 8px", // Reduced from 8px 8px
                                         minWidth: 180, // Match header width
                                         maxWidth: 180,
                                         fontWeight: 500,
@@ -420,7 +420,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
 
                                     {/* CELLA 2: Team (Sticky - Richiesta Utente) */}
                                     <td style={{
-                                        padding: "8px 4px",
+                                        padding: "4px 4px", // Reduced from 8px 4px
                                         textAlign: "center",
                                         fontWeight: 700,
                                         color: "var(--text-muted)",
@@ -454,7 +454,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                                 key={day.date}
                                                 style={{
                                                     textAlign: "center",
-                                                    padding: "4px 1px",
+                                                    padding: "2px 1px", // Reduced from 4px 1px
                                                     background: cellBg,
                                                     borderLeft: "1px solid var(--border-light)", // Demarcation line
                                                     ...rowStyle
@@ -464,8 +464,8 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                                     onClick={(e) => toggleWeekPresenza(d.id, day.date, e)}
                                                     style={{
                                                         minWidth: 28,
-                                                        height: 22,
-                                                        padding: "0 2px",
+                                                        height: 20, // Reduced from 22
+                                                        padding: "0 1px", // Reduced from 0 2px
                                                         border: "none",
                                                         borderRadius: 4,
                                                         cursor: "pointer",
