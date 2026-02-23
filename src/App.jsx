@@ -275,7 +275,7 @@ export default function App() {
 
         <div style={{ padding: "0 12px" }}>
           <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Squadra / Turno</label>
+            <label className="form-label">Turno</label>
             <select className="select-input" value={turnoCorrente} onChange={(e) => setTurnoCorrente(e.target.value)}>
               {TURNI.map((t) => {
                 const s = getSlotForGroup(t.id, todayDate);
