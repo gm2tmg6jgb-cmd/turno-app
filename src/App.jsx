@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { REPARTI, TURNI } from "./data/constants"; // Keep static for UI structure or fetch if needed
 import { supabase } from "./lib/supabase";
-import { getSlotForGroup } from "./lib/shiftRotation";
+import { getSlotForGroup, getActiveGroup } from "./lib/shiftRotation";
 import { Icons } from "./components/ui/Icons";
 import { Toast } from "./components/ui/Toast";
 
@@ -22,8 +22,8 @@ import LimitazioniView from "./views/LimitazioniView";
 
 export default function App() {
   const [currentView, setCurrentView] = useState("dashboard");
-  const [repartoCorrente, setRepartoCorrente] = useState(() => localStorage.getItem("repartoCorrente") || null);
-  const [turnoCorrente, setTurnoCorrente] = useState(() => localStorage.getItem("turnoCorrente") || "D");
+  const [repartoCorrente, setRepartoCorrente] = useState(() => localStorage.getItem("repartoCorrente") || "T11");
+  const [turnoCorrente, setTurnoCorrente] = useState(() => localStorage.getItem("turnoCorrente") || getActiveGroup());
 
   useEffect(() => {
     if (repartoCorrente) localStorage.setItem("repartoCorrente", repartoCorrente);
@@ -218,7 +218,7 @@ export default function App() {
     { id: "report", label: "Report", icon: Icons.report },
     { id: "motivi", label: "Motivi Assenza", icon: Icons.filter }, // using filter icon as placeholder or similar
     { id: "import", label: "Import SAP", icon: Icons.upload },
-    { id: "fermi", label: "Gestione Fermi Macchina", icon: Icons.alert },
+    { id: "fermi", label: "Report Fermi", icon: Icons.alert },
   ];
 
   const viewTitles = {
@@ -230,7 +230,7 @@ export default function App() {
     motivi: "Gestione Motivi Assenza",
 
     import: "Import Dati SAP",
-    fermi: "Gestione Fermi Macchina",
+    fermi: "Report Fermi",
     zones: "Anagrafica Zone",
     skills: "Matrice Competenze",
     limitazioni: "Area Privacy Alta - Limitazioni",
@@ -278,7 +278,7 @@ export default function App() {
             <label className="form-label">Turno</label>
             <select className="select-input" value={turnoCorrente} onChange={(e) => setTurnoCorrente(e.target.value)}>
               {TURNI.map((t) => {
-                return <option key={t.id} value={t.id}>{t.nome}</option>
+                return <option key={t.id} value={t.id}>{t.nome}{t.coordinatore ? ` - ${t.coordinatore}` : ''}</option>
               })}
             </select>
           </div>
@@ -378,7 +378,7 @@ export default function App() {
             <DashboardView dipendenti={dipendenti} presenze={presenze} setPresenze={setPresenze} assegnazioni={assegnazioni} macchine={macchine} repartoCorrente={repartoCorrente} turnoCorrente={turnoCorrente} showToast={showToast} motivi={motivi} zones={zone} />
           )}
           {currentView === "planning" && (
-            <PlanningView dipendenti={dipendenti} setDipendenti={setDipendenti} />
+            <PlanningView dipendenti={dipendenti} setDipendenti={setDipendenti} presenze={presenze} />
           )}
           {currentView === "assegnazioni" && (
             <AssegnazioniView
@@ -426,10 +426,10 @@ export default function App() {
             <ImportView showToast={showToast} />
           )}
           {currentView === "fermi" && (
-            <FermiView />
+            <FermiView macchine={macchine} initialReparto={repartoCorrente} initialTurno={turnoCorrente} />
           )}
           {currentView === "skills" && (
-            <SkillsView dipendenti={dipendenti} setDipendenti={setDipendenti} macchine={macchine} showToast={showToast} />
+            <SkillsView dipendenti={dipendenti} setDipendenti={setDipendenti} macchine={macchine} showToast={showToast} turnoCorrente={turnoCorrente} />
           )}
           {currentView === "motivi" && (
             <MotiviView motivi={motivi} setMotivi={setMotivi} showToast={showToast} />

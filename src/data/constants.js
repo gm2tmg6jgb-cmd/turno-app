@@ -1,9 +1,8 @@
-// Groups (Squadre) - They rotate
 export const TURNI = [
-    { id: "A", nome: "Turno A", colore: "#F59E0B" },
-    { id: "B", nome: "Turno B", colore: "#3B82F6" },
-    { id: "C", nome: "Turno C", colore: "#6366F1" },
-    { id: "D", nome: "Turno D", colore: "#10B981" },
+    { id: "A", nome: "Turno A", colore: "#F59E0B", coordinatore: "Piperis" },
+    { id: "B", nome: "Turno B", colore: "#3B82F6", coordinatore: "Abatescianni" },
+    { id: "C", nome: "Turno C", colore: "#6366F1", coordinatore: "Sannicandro" },
+    { id: "D", nome: "Turno D", colore: "#10B981", coordinatore: "Fato" },
 ];
 
 // Time Slots (Orari Fissi)
@@ -132,7 +131,7 @@ export const MACCHINE = [
     { id: "DRA10058", nome: "DRA10058", reparto: "T13", zona: "Z27", personaleMinimo: 1 },
     { id: "DRA10059", nome: "DRA10059", reparto: "T13", zona: "Z27", personaleMinimo: 1 },
     { id: "FRW10109", nome: "FRW10109", reparto: "T13", zona: "Z27", personaleMinimo: 1 },
-    { id: "FRW10073_13", nome: "FRW10073 (T13)", reparto: "T13", zona: "Z27", personaleMinimo: 1 },
+    { id: "FRW10073_13", nome: "FRW10073", reparto: "T13", zona: "Z27", personaleMinimo: 1 },
     { id: "EGW11007", nome: "EGW11007", reparto: "T13", zona: "Z27", personaleMinimo: 1 },
     { id: "BOA10094", nome: "BOA10094", reparto: "T13", zona: "Z27", personaleMinimo: 1 },
     { id: "DRA4FRW15", nome: "Mini DPF", reparto: "T13", zona: "Z28", personaleMinimo: 1 },

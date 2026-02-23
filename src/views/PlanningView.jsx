@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { TURNI, REPARTI, MOTIVI_ASSENZA } from "../data/constants";
 import { Icons } from "../components/ui/Icons";
+import { getSlotForGroup } from "../lib/shiftRotation";
 
-export default function PlanningView({ dipendenti, setDipendenti }) {
+export default function PlanningView({ dipendenti, setDipendenti, presenze = [] }) {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [repartoCorrente, setRepartoCorrente] = useState("T11");
 
@@ -26,7 +27,7 @@ export default function PlanningView({ dipendenti, setDipendenti }) {
 
     const days = getDaysInMonth(currentDate);
     const monthName = currentDate.toLocaleDateString("it-IT", { month: "long", year: "numeric" });
-    const filteredDipendenti = dipendenti.filter(d => d.reparto === repartoCorrente);
+    const filteredDipendenti = dipendenti.filter(d => d.reparto_id === repartoCorrente);
 
     const changeMonth = (delta) => {
         const newDate = new Date(currentDate);
@@ -34,12 +35,14 @@ export default function PlanningView({ dipendenti, setDipendenti }) {
         setCurrentDate(newDate);
     };
 
-    // Simplified logic: simulate reading/writing shifts from a mock structure
-    // In a real app, this would query a backend or a larger state object
-    const getShift = (dip, date) => {
-        // Mock logic: default to employee's base turn, random absences
-        // In real imp, check 'presenze' array
-        return dip.turno || "D";
+    // Helper per trovare se c'è un'assenza registrata ed estrarre l'informazione
+    const getAssenzaInfo = (dipId, dateString) => {
+        const record = presenze.find(p => p.dipendente_id === dipId && p.data === dateString);
+        if (record && !record.presente && record.motivo_assenza) {
+            const motivo = MOTIVI_ASSENZA.find(m => m.id === record.motivo_assenza);
+            return motivo || { sigla: "?", colore: "var(--danger)" };
+        }
+        return null;
     };
 
     return (
@@ -99,9 +102,26 @@ export default function PlanningView({ dipendenti, setDipendenti }) {
                                     {d.cognome} {d.nome.charAt(0)}.
                                 </td>
                                 {days.map(day => {
-                                    // Mock shift visualization
-                                    const shift = d.turno || "D";
-                                    const turnColor = TURNI.find(t => t.id === shift)?.colore || "#666";
+                                    // Calculate dynamic shift based on rotation
+                                    const group = d.turno || d.turno_default || "D";
+                                    let shiftLabel = "";
+                                    let shiftColor = "transparent";
+                                    let bgOpacity = "20";
+
+                                    const assenza = getAssenzaInfo(d.id, day.date);
+
+                                    if (assenza) {
+                                        shiftLabel = assenza.sigla;
+                                        shiftColor = assenza.colore;
+                                        bgOpacity = "ff"; // solid color for absences
+                                    } else if (!day.isWeekend) {
+                                        const slot = getSlotForGroup(group, day.date);
+                                        if (slot) {
+                                            shiftLabel = slot.id; // M, P, S, N
+                                            const turnColor = TURNI.find(t => t.id === group)?.colore || "#666";
+                                            shiftColor = turnColor;
+                                        }
+                                    }
 
                                     return (
                                         <td key={day.date} style={{ padding: 2, textAlign: "center", borderRight: "1px solid var(--border-light)" }}>
@@ -109,13 +129,13 @@ export default function PlanningView({ dipendenti, setDipendenti }) {
                                                 width: "100%",
                                                 height: 24,
                                                 lineHeight: "24px",
-                                                background: day.isWeekend ? "transparent" : `${turnColor}20`,
-                                                color: day.isWeekend ? "var(--text-muted)" : turnColor,
+                                                background: day.isWeekend ? "transparent" : (assenza ? shiftColor : `${shiftColor}${bgOpacity}`),
+                                                color: day.isWeekend ? "var(--text-muted)" : (assenza ? "#fff" : shiftColor),
                                                 borderRadius: 2,
                                                 fontSize: 11,
                                                 fontWeight: 600
                                             }}>
-                                                {day.isWeekend ? "" : shift}
+                                                {shiftLabel}
                                             </div>
                                         </td>
                                     );
@@ -127,7 +147,7 @@ export default function PlanningView({ dipendenti, setDipendenti }) {
             </div>
 
             <div className="alert alert-info" style={{ marginTop: 20 }}>
-                {Icons.info} Questa è una vista di pianificazione a lungo termine. In questa versione demo i turni sono statici.
+                {Icons.info} I turni (M, P, S, N) sono generati automaticamente dalla matrice di rotazione. Le assenze sono mostrate con il colore del motivo corrispondente.
             </div>
         </div>
     );

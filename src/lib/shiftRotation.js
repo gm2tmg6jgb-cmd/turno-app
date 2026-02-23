@@ -68,3 +68,18 @@ export function getGroupForSlot(slotNameOrId, date) {
 
     return GROUPS.find(g => getSlotIndexForGroup(g, date) === targetSlot.order);
 }
+
+/**
+ * Detects which group is currently working based on the hour of the day.
+ * M: 06-12, P: 12-18, S: 18-00, N: 00-06
+ */
+export function getActiveGroup(date = new Date()) {
+    const hour = date.getHours();
+    let slotId = "N"; // Default 00-06
+
+    if (hour >= 6 && hour < 12) slotId = "M";
+    else if (hour >= 12 && hour < 18) slotId = "P";
+    else if (hour >= 18 && hour < 24) slotId = "S";
+
+    return getGroupForSlot(slotId, date);
+}

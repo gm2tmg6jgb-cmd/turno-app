@@ -46,12 +46,31 @@ export default function LimitazioniView({ dipendenti, presenze = [] }) {
     const [password, setPassword] = useState("");
     const [error, setError] = useState(false);
     const [activeTab, setActiveTab] = useState("limitazioni"); // "limitazioni" | "assenze"
+    const [userRole, setUserRole] = useState(null); // 'manager' | 'A' | 'B' | 'C' | 'D'
 
     const handleLogin = (e) => {
         e.preventDefault();
-        // Simple client-side password for demo purposes. 
-        if (password === "admin123") {
+        const pwd = password.trim();
+        // Simple client-side password for demo purposes.
+        if (pwd === "admin123") {
             setIsAuthenticated(true);
+            setUserRole("manager");
+            setError(false);
+        } else if (pwd.toLowerCase() === "piperis") {
+            setIsAuthenticated(true);
+            setUserRole("A");
+            setError(false);
+        } else if (pwd.toLowerCase() === "abatescianni") {
+            setIsAuthenticated(true);
+            setUserRole("B");
+            setError(false);
+        } else if (pwd.toLowerCase() === "sannicandro") {
+            setIsAuthenticated(true);
+            setUserRole("C");
+            setError(false);
+        } else if (pwd.toLowerCase() === "fato") {
+            setIsAuthenticated(true);
+            setUserRole("D");
             setError(false);
         } else {
             setError(true);
@@ -60,14 +79,21 @@ export default function LimitazioniView({ dipendenti, presenze = [] }) {
     };
 
     const limitazioniResults = useMemo(() => {
-        return dipendenti.filter(d => d.l104 && d.l104.trim() !== "").map(d => ({
-            persona: `${d.cognome} ${d.nome}`,
-            reparto: d.reparto_id,
-            tipo: d.tipo,
-            turno: d.turno || d.turno_default || "D",
-            limitazioni: d.l104
-        }));
-    }, [dipendenti]);
+        return dipendenti
+            .filter(d => {
+                if (!d.l104 || d.l104.trim() === "") return false;
+                if (userRole === "manager") return true;
+                const dsShift = d.turno || d.turno_default || "D";
+                return dsShift === userRole;
+            })
+            .map(d => ({
+                persona: `${d.cognome} ${d.nome}`,
+                reparto: d.reparto_id,
+                tipo: d.tipo,
+                turno: d.turno || d.turno_default || "D",
+                limitazioni: d.l104
+            }));
+    }, [dipendenti, userRole]);
 
     const absenceStats = useMemo(() => {
         if (!presenze || presenze.length === 0) return [];
@@ -82,7 +108,16 @@ export default function LimitazioniView({ dipendenti, presenze = [] }) {
         const plannedMap = {};
         const unplannedMap = {};
         const employeeWorkDays = {};
-        for (const dip of dipendenti) {
+
+        let filteredDipendenti = dipendenti;
+        if (userRole !== "manager") {
+            filteredDipendenti = dipendenti.filter(d => {
+                const dsShift = d.turno || d.turno_default || "D";
+                return dsShift === userRole;
+            });
+        }
+
+        for (const dip of filteredDipendenti) {
             const group = dip.turno_default || dip.turno || "D";
             let workDays = 0;
             let dayIter = new Date(startOfYear);
@@ -109,7 +144,7 @@ export default function LimitazioniView({ dipendenti, presenze = [] }) {
             }
         }
 
-        const stats = dipendenti.map(dip => {
+        const stats = filteredDipendenti.map(dip => {
             const planned = plannedMap[dip.id] || 0;
             const unplanned = unplannedMap[dip.id] || 0;
             const total = planned + unplanned;
@@ -127,7 +162,7 @@ export default function LimitazioniView({ dipendenti, presenze = [] }) {
         });
 
         return stats.sort((a, b) => b.percentage - a.percentage);
-    }, [dipendenti, presenze]);
+    }, [dipendenti, presenze, userRole]);
 
     if (!isAuthenticated) {
         return (
@@ -166,7 +201,7 @@ export default function LimitazioniView({ dipendenti, presenze = [] }) {
             <div className="card" style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div className="alert alert-info" style={{ marginTop: 0, borderLeftColor: "var(--danger)", flex: 1, marginBottom: 0 }}>
                     <span style={{ fontSize: 16, marginRight: 8 }}>🩺</span>
-                    <strong>AREA PRIVACY ALTA:</strong> Accesso a dati sensibili del personale (limitazioni mediche, L104, statistiche assenze).
+                    <strong>AREA PRIVACY ALTA {userRole !== "manager" ? `(Turno ${userRole})` : ""}:</strong> Accesso a dati sensibili del personale (limitazioni mediche, L104, statistiche assenze).
                 </div>
                 <button
                     className="btn btn-secondary"

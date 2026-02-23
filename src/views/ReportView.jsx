@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { REPARTI, TURNI } from "../data/constants";
+import { REPARTI, TURNI, MOTIVI_FERMO, LIVELLI_COMPETENZA } from "../data/constants";
 import { Icons } from "../components/ui/Icons";
 import {
     PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
@@ -29,7 +29,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
     // State for Machine Details (Fermi & Pezzi)
     const [fermiMacchina, setFermiMacchina] = useState([]);
     const [pezziProdotti, setPezziProdotti] = useState([]);
-    const [expandedMachine, setExpandedMachine] = useState(null); // ID of the machine currently expanded
+    const [absencesViewMode, setAbsencesViewMode] = useState("detail"); // "detail" or "aggregate"
 
     // Fetch Fermi & Pezzi when Date or Turno changes
     useEffect(() => {
@@ -56,8 +56,45 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
         fetchData();
     }, [selectedDate, selectedTurno]);
 
-    const toggleExpandMachine = (machineId) => {
-        setExpandedMachine(expandedMachine === machineId ? null : machineId);
+    const handlePostFermi = async (machineId, motivo) => {
+        if (!selectedDate) return;
+        try {
+            const newFermo = {
+                macchina_id: machineId,
+                data: selectedDate,
+                turno_id: selectedTurno || "A", // Default to A if not specified
+                motivo: motivo,
+                ora_inizio: new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
+                ora_fine: null
+            };
+
+            const { data, error } = await supabase
+                .from('fermi_macchina')
+                .insert([newFermo])
+                .select();
+
+            if (error) throw error;
+            if (data) setFermiMacchina(prev => [...prev, ...data]);
+        } catch (e) {
+            console.error(e);
+            alert("Errore nel salvataggio del fermo");
+        }
+    };
+
+    const handleDeleteFermi = async (fermoId) => {
+        if (!window.confirm("Sei sicuro di voler eliminare questo fermo?")) return;
+        try {
+            const { error } = await supabase
+                .from('fermi_macchina')
+                .delete()
+                .eq('id', fermoId);
+
+            if (error) throw error;
+            setFermiMacchina(prev => prev.filter(f => f.id !== fermoId));
+        } catch (e) {
+            console.error(e);
+            alert("Errore nell'eliminazione del fermo");
+        }
     };
 
     // Filter by Turno (Consistency with Dashboard)
@@ -204,6 +241,36 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
             return [];
         }
     }, [anomalousAbsences]);
+
+    const aggregatedAbsenceData = useMemo(() => {
+        const map = {};
+
+        // Merge both types
+        const allOutliers = [
+            ...resolvedAnomalies.map(a => ({ ...a, category: 'Anomala' })),
+            ...plannedAnomalies.map(a => ({ ...a, category: 'Strategica' }))
+        ];
+
+        allOutliers.forEach(a => {
+            const id = a.dipendente_id;
+            if (!map[id]) {
+                map[id] = {
+                    dip: a.dipendente,
+                    anomalies: 0,
+                    strategic: 0,
+                    total: 0,
+                    patterns: new Set()
+                };
+            }
+            if (a.category === 'Anomala') map[id].anomalies++;
+            else map[id].strategic++;
+
+            map[id].total++;
+            map[id].patterns.add(a.type);
+        });
+
+        return Object.values(map).sort((a, b) => b.total - a.total);
+    }, [resolvedAnomalies, plannedAnomalies]);
 
     const allMacchine = macchine; // Machines might not strictly belong to a shift, but their operators do.
 
@@ -417,30 +484,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                     </div>
 
                     {/* Visual Analysis Section */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 16, marginBottom: 16 }}>
-                        <div className="card" style={{ height: 320 }}>
-                            <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>Distribuzione Presenze</h3>
-                            <ResponsiveContainer width="100%" height="80%">
-                                <PieChart>
-                                    <Pie
-                                        data={presenceData}
-                                        innerRadius={60}
-                                        outerRadius={80}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                    >
-                                        {presenceData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip
-                                        contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px' }}
-                                        itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
-                                    />
-                                    <Legend verticalAlign="bottom" height={36} />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16, marginBottom: 16 }}>
 
                         <div className="card" style={{ height: 320 }}>
                             <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>Copertura per Team (Macchine Assegnate vs Totali)</h3>
@@ -496,9 +540,10 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                             <table style={{ background: "var(--bg-card)", borderRadius: 6, overflow: "hidden", marginBottom: 12 }}>
                                                 <thead>
                                                     <tr>
-                                                        <th style={{ padding: "8px 12px", width: "40%", textAlign: "left" }}>Macchina / Zona</th>
-                                                        <th style={{ padding: "8px 12px", width: "40%", textAlign: "left" }}>Operatore</th>
-                                                        <th style={{ padding: "8px 12px", width: "20%", textAlign: "center" }}>Stato</th>
+                                                        <th style={{ padding: "8px 12px", width: "30%", textAlign: "left" }}>Macchina / Zona</th>
+                                                        <th style={{ padding: "8px 12px", width: "25%", textAlign: "left" }}>Operatore</th>
+                                                        <th style={{ padding: "8px 12px", width: "20%", textAlign: "left" }}>Produzione</th>
+                                                        <th style={{ padding: "8px 12px", width: "25%", textAlign: "left" }}>Fermi</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -508,24 +553,36 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                             const zoneMachines = macchineDelReparto.filter(m => m.zona === zone.id);
                                                             // Find Zone Responsible
                                                             const zoneResponsibles = allAss.filter(a => (a.macchina_id === zone.id || a.attivita_id === zone.id));
-                                                            const zoneOpName = zoneResponsibles.map(z => {
-                                                                const d = allDip.find(dd => dd.id === z.dipendente_id);
-                                                                return d ? `${d.cognome} ${d.nome}` : "";
-                                                            }).filter(Boolean).join(", ");
+                                                            const zoneOpComponent = zoneResponsibles.map(z => {
+                                                                const d = dipendenti.find(dd => dd.id === z.dipendente_id);
+                                                                if (!d) return null;
+                                                                const level = d.competenze?.[zone.id] || 0;
+                                                                const skill = LIVELLI_COMPETENZA.find(l => l.value === level) || LIVELLI_COMPETENZA[0];
+                                                                return (
+                                                                    <div key={`${zone.id}-${d.id}`} style={{ display: "flex", flexDirection: "column" }}>
+                                                                        <span style={{ color: "var(--primary)", fontWeight: 500, fontSize: 15 }}>
+                                                                            {d.cognome} {d.nome}
+                                                                        </span>
+                                                                        <span style={{ fontSize: 11, color: skill.color, display: "flex", alignItems: "center", gap: 4 }}>
+                                                                            {skill.icon} {skill.label}
+                                                                        </span>
+                                                                    </div>
+                                                                );
+                                                            }).filter(Boolean);
 
                                                             const isZoneCovered = zoneResponsibles.length > 0;
 
                                                             return (
-                                                                <>
+                                                                <React.Fragment key={zone.id}>
                                                                     {/* ZONE HEADER ROW */}
                                                                     <tr key={`zone-${zone.id}`} style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border)", borderTop: "1px solid var(--border)" }}>
-                                                                        <td style={{ padding: "10px 12px", fontWeight: 700, color: "var(--text-primary)" }}>
+                                                                        <td style={{ padding: "10px 12px", fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>
                                                                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                                                                 {Icons.grid} {zone.label}
                                                                             </div>
                                                                         </td>
-                                                                        <td style={{ padding: "10px 12px", fontWeight: 600, color: "var(--primary)" }}>
-                                                                            {zoneOpName || <span style={{ color: "var(--text-muted)", fontWeight: 400, fontSize: 13, fontStyle: "italic" }}>— Nessun Responsabile —</span>}
+                                                                        <td style={{ padding: "10px 12px", fontWeight: 500, fontSize: 15, color: "var(--primary)" }}>
+                                                                             {zoneOpComponent.length > 0 ? zoneOpComponent : <span style={{ color: "var(--text-muted)", fontWeight: 400, fontSize: 13, fontStyle: "italic" }}>— Nessun Responsabile —</span>}
                                                                         </td>
                                                                         <td style={{ textAlign: "center" }}>
                                                                             {/* Optional: Zone Status if needed, currently empty as per request */}
@@ -536,7 +593,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                     {zoneMachines.map(m => {
                                                                         const machineOps = allAss.filter(a => a.macchina_id === m.id);
                                                                         const specificNames = machineOps.map(o => {
-                                                                            const d = allDip.find(dd => dd.id === o.dipendente_id);
+                                                                            const d = dipendenti.find(dd => dd.id === o.dipendente_id);
                                                                             return d ? `${d.cognome} ${d.nome.charAt(0)}.` : null;
                                                                         }).filter(Boolean);
 
@@ -545,71 +602,75 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
 
                                                                         return (
                                                                             <React.Fragment key={m.id}>
-                                                                                <tr style={{ borderBottom: expandedMachine === m.id ? "none" : "1px solid var(--border-light)", background: expandedMachine === m.id ? "var(--bg-secondary)" : "transparent" }}>
-                                                                                    <td style={{ padding: "8px 12px 8px 12px", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 12 }}>
-                                                                                        <div onClick={() => toggleExpandMachine(m.id)} style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, borderRadius: 4, transition: "background 0.2s" }} className="hover-bg">
-                                                                                            {expandedMachine === m.id ? Icons.chevronDown : Icons.chevronRight}
+                                                                                <tr style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                                                                    <td style={{ padding: "8px 12px", color: "var(--text-secondary)" }}>
+                                                                                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                                                                            <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text-primary)" }}>{m.nome}</div>
+                                                                                            <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{ok ? "✅ Operativa" : "⚠️ Sotto-organico"}</span>
                                                                                         </div>
-                                                                                        <div>{m.nome}</div>
                                                                                     </td>
                                                                                     <td style={{ padding: "8px 12px" }}>
-                                                                                        {specificNames.length > 0 ? (
-                                                                                            <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{specificNames.join(", ")}</span>
-                                                                                        ) : (
-                                                                                            <span style={{ color: "var(--text-lighter)", fontSize: 18, lineHeight: 0 }}>&middot;</span>
-                                                                                        )}
+                                                                                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                                                                            {machineOps.length > 0 ? (
+                                                                                                machineOps.map(o => {
+                                                                                                    const d = dipendenti.find(dd => dd.id === o.dipendente_id);
+                                                                                                    if (!d) return null;
+                                                                                                    const level = d.competenze?.[m.id] || 0;
+                                                                                                    const skill = LIVELLI_COMPETENZA.find(l => l.value === level) || LIVELLI_COMPETENZA[0];
+                                                                                                    return (
+                                                                                                        <div key={`${m.id}-${d.id}`} style={{ display: "flex", flexDirection: "column" }}>
+                                                                                                            <span style={{ color: "var(--text-primary)", fontWeight: 500, fontSize: 15 }}>
+                                                                                                                {d.cognome} {d.nome.charAt(0)}.
+                                                                                                            </span>
+                                                                                                            <span style={{ fontSize: 11, color: skill.color, display: "flex", alignItems: "center", gap: 4 }}>
+                                                                                                                {skill.icon} {skill.label}
+                                                                                                            </span>
+                                                                                                        </div>
+                                                                                                    );
+                                                                                                })
+                                                                                            ) : (
+                                                                                                <span style={{ color: "var(--text-lighter)", fontSize: 18, lineHeight: 0 }}>&middot;</span>
+                                                                                            )}
+                                                                                        </div>
                                                                                     </td>
-                                                                                    <td style={{ textAlign: "center", padding: "8px 12px" }}>
-                                                                                        <span className={`tag ${ok ? "tag-green" : "tag-red"}`} style={{ padding: "2px 8px", fontSize: 11, minWidth: 50, display: "inline-block", textAlign: "center" }}>
-                                                                                            {ok ? "OK" : "SOTTO"}
-                                                                                        </span>
+                                                                                    <td style={{ padding: "8px 12px" }}>
+                                                                                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                                                                            {pezziProdotti.filter(p => p.macchina_id === m.id).map(p => (
+                                                                                                <div key={p.id} style={{ fontSize: 13, color: "var(--success)", fontWeight: 600 }}>
+                                                                                                    📦 {p.quantita} pz {p.scarti > 0 && <span style={{ color: "var(--danger)", fontSize: 11 }}>(scarti: {p.scarti})</span>}
+                                                                                                </div>
+                                                                                            ))}
+                                                                                            {pezziProdotti.filter(p => p.macchina_id === m.id).length === 0 && (
+                                                                                                <span style={{ color: "var(--text-muted)", fontSize: 13 }}>—</span>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </td>
+                                                                                    <td style={{ padding: "8px 12px" }}>
+                                                                                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                                                                            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                                                                                {fermiMacchina.filter(f => f.macchina_id === m.id).map(f => (
+                                                                                                    <div key={f.id} className="tag tag-red" style={{ fontSize: 10, padding: "2px 6px", display: "flex", alignItems: "center", gap: 4 }}>
+                                                                                                        <span>⚠️ {f.motivo}</span>
+                                                                                                        <button onClick={() => handleDeleteFermi(f.id)} style={{ border: "none", background: "none", color: "inherit", cursor: "pointer", padding: 0, display: "flex", opacity: 0.7 }}>{Icons.x}</button>
+                                                                                                    </div>
+                                                                                                ))}
+                                                                                            </div>
+                                                                                            <select
+                                                                                                className="select-input"
+                                                                                                style={{ padding: "4px 8px", fontSize: 12, height: "auto", width: "100%" }}
+                                                                                                onChange={(e) => {
+                                                                                                    if (e.target.value) {
+                                                                                                        handlePostFermi(m.id, e.target.value);
+                                                                                                        e.target.value = "";
+                                                                                                    }
+                                                                                                }}
+                                                                                            >
+                                                                                                <option value="">+ Aggiungi fermo...</option>
+                                                                                                {MOTIVI_FERMO.map(mot => <option key={mot.id} value={mot.label}>{mot.icona} {mot.label}</option>)}
+                                                                                            </select>
+                                                                                        </div>
                                                                                     </td>
                                                                                 </tr>
-                                                                                {expandedMachine === m.id && (
-                                                                                    <tr style={{ borderBottom: "1px solid var(--border-light)", background: "var(--bg-secondary)" }}>
-                                                                                        <td colSpan={3} style={{ padding: "0 12px 16px 48px" }}>
-                                                                                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, paddingTop: 8 }}>
-                                                                                                {/* FERMI MACCHINA */}
-                                                                                                <div>
-                                                                                                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", marginBottom: 8, textTransform: "uppercase" }}>Fermi Macchina</div>
-                                                                                                    {fermiMacchina.filter(f => f.macchina_id === m.id).length > 0 ? (
-                                                                                                        <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
-                                                                                                            {fermiMacchina.filter(f => f.macchina_id === m.id).map(f => (
-                                                                                                                <li key={f.id} style={{ fontSize: 13, marginBottom: 4, display: "flex", gap: 8 }}>
-                                                                                                                    <span style={{ fontFamily: "monospace", color: "var(--danger)" }}>
-                                                                                                                        {f.ora_inizio?.slice(0, 5)} - {f.ora_fine?.slice(0, 5)}
-                                                                                                                    </span>
-                                                                                                                    <span>{f.motivo}</span>
-                                                                                                                    {f.durata_minuti && <span style={{ color: "var(--text-muted)" }}>({f.durata_minuti} min)</span>}
-                                                                                                                </li>
-                                                                                                            ))}
-                                                                                                        </ul>
-                                                                                                    ) : (
-                                                                                                        <div style={{ fontSize: 13, color: "var(--text-muted)", fontStyle: "italic" }}>Nessun fermo registrato</div>
-                                                                                                    )}
-                                                                                                </div>
-
-                                                                                                {/* PEZZI PRODOTTI */}
-                                                                                                <div>
-                                                                                                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", marginBottom: 8, textTransform: "uppercase" }}>Produzione</div>
-                                                                                                    {pezziProdotti.filter(p => p.macchina_id === m.id).length > 0 ? (
-                                                                                                        <div style={{ fontSize: 13 }}>
-                                                                                                            {pezziProdotti.filter(p => p.macchina_id === m.id).map(p => (
-                                                                                                                <div key={p.id}>
-                                                                                                                    <div>Quantità: <strong style={{ color: "var(--success)" }}>{p.quantita}</strong></div>
-                                                                                                                    {p.scarti > 0 && <div>Scarti: <span style={{ color: "var(--danger)" }}>{p.scarti}</span></div>}
-                                                                                                                    {p.note && <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Note: {p.note}</div>}
-                                                                                                                </div>
-                                                                                                            ))}
-                                                                                                        </div>
-                                                                                                    ) : (
-                                                                                                        <div style={{ fontSize: 13, color: "var(--text-muted)", fontStyle: "italic" }}>Nessun dato di produzione</div>
-                                                                                                    )}
-                                                                                                </div>
-                                                                                            </div>
-                                                                                        </td>
-                                                                                    </tr>
-                                                                                )}
                                                                             </React.Fragment>
                                                                         );
                                                                     })}
@@ -620,13 +681,13 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                             </td>
                                                                         </tr>
                                                                     )}
-                                                                </>
+                                                                </React.Fragment>
                                                             );
                                                         })}
 
                                                     {/* Machines without Zone */}
                                                     {machinesWithoutZone.length > 0 && (
-                                                        <>
+                                                        <React.Fragment key={`${repId}-others`}>
                                                             <tr style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border)", borderTop: "1px solid var(--border)" }}>
                                                                 <td colSpan={3} style={{ padding: "10px 12px", fontWeight: 700, color: "var(--text-muted)", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5 }}>
                                                                     Altre Macchine
@@ -635,82 +696,86 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                             {machinesWithoutZone.map(m => {
                                                                 const machineOps = allAss.filter(a => a.macchina_id === m.id);
                                                                 const specificNames = machineOps.map(o => {
-                                                                    const d = allDip.find(dd => dd.id === o.dipendente_id);
+                                                                    const d = dipendenti.find(dd => dd.id === o.dipendente_id);
                                                                     return d ? `${d.cognome} ${d.nome.charAt(0)}.` : null;
                                                                 }).filter(Boolean);
                                                                 const ok = machineOps.length >= (m.personale_minimo || 1);
 
                                                                 return (
                                                                     <React.Fragment key={m.id}>
-                                                                        <tr style={{ borderBottom: expandedMachine === m.id ? "none" : "1px solid var(--border-light)", background: expandedMachine === m.id ? "var(--bg-secondary)" : "transparent" }}>
-                                                                            <td style={{ padding: "8px 12px 8px 32px", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 12 }}>
-                                                                                <div onClick={() => toggleExpandMachine(m.id)} style={{ cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", width: 20, height: 20, borderRadius: 4, transition: "background 0.2s" }} className="hover-bg">
-                                                                                    {expandedMachine === m.id ? Icons.chevronDown : Icons.chevronRight}
+                                                                        <tr style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                                                            <td style={{ padding: "8px 12px 8px 32px", color: "var(--text-secondary)" }}>
+                                                                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                                                                    <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text-primary)" }}>{m.nome}</div>
+                                                                                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{ok ? "✅ Operativa" : "⚠️ Sotto-organico"}</span>
                                                                                 </div>
-                                                                                <div>{m.nome}</div>
                                                                             </td>
                                                                             <td style={{ padding: "8px 12px" }}>
-                                                                                {specificNames.length > 0 ? (
-                                                                                    <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{specificNames.join(", ")}</span>
-                                                                                ) : (
-                                                                                    <span style={{ color: "var(--text-muted)" }}>—</span>
-                                                                                )}
+                                                                                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                                                                    {machineOps.length > 0 ? (
+                                                                                        machineOps.map(o => {
+                                                                                            const d = dipendenti.find(dd => dd.id === o.dipendente_id);
+                                                                                            if (!d) return null;
+                                                                                            const level = d.competenze?.[m.id] || 0;
+                                                                                            const skill = LIVELLI_COMPETENZA.find(l => l.value === level) || LIVELLI_COMPETENZA[0];
+                                                                                            return (
+                                                                                                <div key={`${m.id}-${d.id}`} style={{ display: "flex", flexDirection: "column" }}>
+                                                                                                    <span style={{ color: "var(--text-primary)", fontWeight: 500, fontSize: 15 }}>
+                                                                                                        {d.cognome} {d.nome.charAt(0)}.
+                                                                                                    </span>
+                                                                                                    <span style={{ fontSize: 11, color: skill.color, display: "flex", alignItems: "center", gap: 4 }}>
+                                                                                                        {skill.icon} {skill.label}
+                                                                                                    </span>
+                                                                                                </div>
+                                                                                            );
+                                                                                        })
+                                                                                    ) : (
+                                                                                        <span style={{ color: "var(--text-muted)" }}>—</span>
+                                                                                    )}
+                                                                                </div>
                                                                             </td>
-                                                                            <td style={{ textAlign: "center", padding: "8px 12px" }}>
-                                                                                <span className={`tag ${ok ? "tag-green" : "tag-red"}`} style={{ padding: "2px 8px", fontSize: 11, minWidth: 50, display: "inline-block", textAlign: "center" }}>
-                                                                                    {ok ? "OK" : "SOTTO"}
-                                                                                </span>
+                                                                            <td style={{ padding: "8px 12px" }}>
+                                                                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                                                                    {pezziProdotti.filter(p => p.macchina_id === m.id).map(p => (
+                                                                                        <div key={p.id} style={{ fontSize: 13, color: "var(--success)", fontWeight: 600 }}>
+                                                                                            📦 {p.quantita} pz {p.scarti > 0 && <span style={{ color: "var(--danger)", fontSize: 11 }}>(scarti: {p.scarti})</span>}
+                                                                                        </div>
+                                                                                    ))}
+                                                                                    {pezziProdotti.filter(p => p.macchina_id === m.id).length === 0 && (
+                                                                                        <span style={{ color: "var(--text-muted)", fontSize: 13 }}>—</span>
+                                                                                    )}
+                                                                                </div>
+                                                                            </td>
+                                                                            <td style={{ padding: "8px 12px" }}>
+                                                                                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                                                                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                                                                        {fermiMacchina.filter(f => f.macchina_id === m.id).map(f => (
+                                                                                            <div key={f.id} className="tag tag-red" style={{ fontSize: 10, padding: "2px 6px", display: "flex", alignItems: "center", gap: 4 }}>
+                                                                                                <span>⚠️ {f.motivo}</span>
+                                                                                                <button onClick={() => handleDeleteFermi(f.id)} style={{ border: "none", background: "none", color: "inherit", cursor: "pointer", padding: 0, display: "flex", opacity: 0.7 }}>{Icons.x}</button>
+                                                                                            </div>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                    <select
+                                                                                        className="select-input"
+                                                                                        style={{ padding: "4px 8px", fontSize: 12, height: "auto", width: "100%" }}
+                                                                                        onChange={(e) => {
+                                                                                            if (e.target.value) {
+                                                                                                handlePostFermi(m.id, e.target.value);
+                                                                                                e.target.value = "";
+                                                                                            }
+                                                                                        }}
+                                                                                    >
+                                                                                        <option value="">+ Aggiungi fermo...</option>
+                                                                                        {MOTIVI_FERMO.map(mot => <option key={mot.id} value={mot.label}>{mot.icona} {mot.label}</option>)}
+                                                                                    </select>
+                                                                                </div>
                                                                             </td>
                                                                         </tr>
-                                                                        {expandedMachine === m.id && (
-                                                                            <tr style={{ borderBottom: "1px solid var(--border-light)", background: "var(--bg-secondary)" }}>
-                                                                                <td colSpan={3} style={{ padding: "0 12px 16px 48px" }}>
-                                                                                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, paddingTop: 8 }}>
-                                                                                        {/* FERMI MACCHINA */}
-                                                                                        <div>
-                                                                                            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", marginBottom: 8, textTransform: "uppercase" }}>Fermi Macchina</div>
-                                                                                            {fermiMacchina.filter(f => f.macchina_id === m.id).length > 0 ? (
-                                                                                                <ul style={{ margin: 0, padding: 0, listStyle: "none" }}>
-                                                                                                    {fermiMacchina.filter(f => f.macchina_id === m.id).map(f => (
-                                                                                                        <li key={f.id} style={{ fontSize: 13, marginBottom: 4, display: "flex", gap: 8 }}>
-                                                                                                            <span style={{ fontFamily: "monospace", color: "var(--danger)" }}>
-                                                                                                                {f.ora_inizio?.slice(0, 5)} - {f.ora_fine?.slice(0, 5)}
-                                                                                                            </span>
-                                                                                                            <span>{f.motivo}</span>
-                                                                                                            {f.durata_minuti && <span style={{ color: "var(--text-muted)" }}>({f.durata_minuti} min)</span>}
-                                                                                                        </li>
-                                                                                                    ))}
-                                                                                                </ul>
-                                                                                            ) : (
-                                                                                                <div style={{ fontSize: 13, color: "var(--text-muted)", fontStyle: "italic" }}>Nessun fermo registrato</div>
-                                                                                            )}
-                                                                                        </div>
-
-                                                                                        {/* PEZZI PRODOTTI */}
-                                                                                        <div>
-                                                                                            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", marginBottom: 8, textTransform: "uppercase" }}>Produzione</div>
-                                                                                            {pezziProdotti.filter(p => p.macchina_id === m.id).length > 0 ? (
-                                                                                                <div style={{ fontSize: 13 }}>
-                                                                                                    {pezziProdotti.filter(p => p.macchina_id === m.id).map(p => (
-                                                                                                        <div key={p.id}>
-                                                                                                            <div>Quantità: <strong style={{ color: "var(--success)" }}>{p.quantita}</strong></div>
-                                                                                                            {p.scarti > 0 && <div>Scarti: <span style={{ color: "var(--danger)" }}>{p.scarti}</span></div>}
-                                                                                                            {p.note && <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>Note: {p.note}</div>}
-                                                                                                        </div>
-                                                                                                    ))}
-                                                                                                </div>
-                                                                                            ) : (
-                                                                                                <div style={{ fontSize: 13, color: "var(--text-muted)", fontStyle: "italic" }}>Nessun dato di produzione</div>
-                                                                                            )}
-                                                                                        </div>
-                                                                                    </div>
-                                                                                </td>
-                                                                            </tr>
-                                                                        )}
                                                                     </React.Fragment>
                                                                 );
                                                             })}
-                                                        </>
+                                                        </React.Fragment>
                                                     )}
                                                 </tbody>
                                             </table>
@@ -734,11 +799,11 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                 </thead>
                                 <tbody>
                                     {allPres.filter((p) => !p.presente).map((p) => {
-                                        const d = allDip.find((dd) => dd.id === p.dipendente_id);
+                                        const d = dipendenti.find((dd) => dd.id === p.dipendente_id);
                                         const motivoObj = motivi.find((m) => m.id === p.motivo_assenza);
                                         return (
                                             <tr key={p.dipendente_id}>
-                                                <td style={{ fontWeight: 600 }}>{d?.cognome} {d?.nome}</td>
+                                                <td style={{ fontWeight: 500, fontSize: 15 }}>{d?.cognome} {d?.nome?.charAt(0)}.</td>
                                                 <td>{REPARTI.find((r) => r.id === d?.reparto_id)?.nome || "—"}</td>
                                                 <td>
                                                     {motivoObj ? (
@@ -797,118 +862,264 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                         </div>
                     </div>
 
-                    {/* ANOMALOUS ABSENCES TABLE */}
-                    <div className="card" style={{ marginBottom: 20 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                            <h3 style={{ fontSize: 16, fontWeight: 700 }}>Segnalazioni Assenze Anomalie</h3>
-                            <span className="tag tag-red" style={{ fontSize: 11, fontWeight: 700 }}>{resolvedAnomalies.length} Segnalazioni</span>
-                        </div>
-                        <p style={{ color: "var(--text-muted)", fontSize: 13, marginBottom: 16 }}>
-                            Questo pannello evidenzia automaticamente tutte le assenze impreviste che cadono in giorni "sospetti", come la prima o l'ultima notte del turno, o il sabato sera (18-24), rilevate dall'inizio dell'anno.
-                        </p>
-                        <div className="table-container">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th style={{ textAlign: "left" }}>Data Assenza</th>
-                                        <th style={{ textAlign: "left" }}>Dipendente</th>
-                                        <th style={{ textAlign: "center" }}>Turno</th>
-                                        <th style={{ textAlign: "left" }}>Motivo</th>
-                                        <th style={{ textAlign: "center" }}>Anomalia Rilevata</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {resolvedAnomalies.map((a, idx) => (
-                                        <tr key={idx}>
-                                            <td style={{ fontWeight: 600, color: "var(--text-primary)" }}>{a.dateFormatted}</td>
-                                            <td style={{ fontWeight: 600 }}>{a.dipendente.cognome} {a.dipendente.nome}</td>
-                                            <td style={{ textAlign: "center", color: "var(--text-primary)" }}>{a.group}</td>
-                                            <td style={{ color: "var(--text-muted)" }}>
-                                                {motivi.find(m => m.id === a.motivo_assenza)?.label || a.motivo_assenza || "Assenza"}
-                                            </td>
-                                            <td style={{ textAlign: "center" }}>
-                                                <span style={{
-                                                    background: "rgba(220, 38, 38, 0.1)",
-                                                    color: "var(--danger)",
-                                                    padding: "4px 10px",
-                                                    borderRadius: 12,
-                                                    fontSize: 11,
-                                                    fontWeight: 700,
-                                                    display: "inline-block"
-                                                }}>
-                                                    ⚠️ {a.type}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {resolvedAnomalies.length === 0 && (
-                                        <tr>
-                                            <td colSpan={5} style={{ textAlign: "center", padding: 20, color: "var(--success)" }}>
-                                                ✅ Nessuna anomalia rilevata nei dati attualmente caricati.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    {/* STRATEGIC PLANNED ABSENCES TABLE */}
                     <div className="card">
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                            <h3 style={{ fontSize: 16, fontWeight: 700 }}>Assenze Pianificate Strategiche (Sab/Lun)</h3>
-                            <span className="tag tag-blue" style={{ fontSize: 11, fontWeight: 700 }}>{plannedAnomalies.length} Segnalazioni</span>
+                            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Analisi Percorsi Assenze (Anomale e Strategiche)</h3>
+                                <div style={{ display: "flex", background: "var(--bg-secondary)", padding: 4, borderRadius: 8, gap: 4 }}>
+                                    <button
+                                        onClick={() => setAbsencesViewMode("detail")}
+                                        style={{
+                                            padding: "4px 12px", border: "none", borderRadius: 6, fontSize: 12, cursor: "pointer",
+                                            background: absencesViewMode === "detail" ? "var(--bg-card)" : "transparent",
+                                            boxShadow: absencesViewMode === "detail" ? "0 2px 4px rgba(0,0,0,0.1)" : "none",
+                                            fontWeight: absencesViewMode === "detail" ? 600 : 400,
+                                            color: "var(--text-primary)"
+                                        }}
+                                    >
+                                        Dettaglio Log
+                                    </button>
+                                    <button
+                                        onClick={() => setAbsencesViewMode("aggregate")}
+                                        style={{
+                                            padding: "4px 12px", border: "none", borderRadius: 6, fontSize: 12, cursor: "pointer",
+                                            background: absencesViewMode === "aggregate" ? "var(--bg-card)" : "transparent",
+                                            boxShadow: absencesViewMode === "aggregate" ? "0 2px 4px rgba(0,0,0,0.1)" : "none",
+                                            fontWeight: absencesViewMode === "aggregate" ? 600 : 400,
+                                            color: "var(--text-primary)"
+                                        }}
+                                    >
+                                        Agglomerato (Per Dipendente)
+                                    </button>
+                                </div>
+                            </div>
+                            <span className="tag tag-red" style={{ fontSize: 11, fontWeight: 700 }}>{resolvedAnomalies.length + plannedAnomalies.length} Segnalazioni Totali</span>
                         </div>
-                        <p style={{ color: "var(--text-muted)", fontSize: 13, marginBottom: 16 }}>
-                            Questo pannello evidenzia le assenze pianificate (Ferie, ROL, Riposo Compensativo) strategiche che cadono di Sabato Sera, Sabato Notte o Lunedì, dall'inizio dell'anno.
-                        </p>
+
+                        {absencesViewMode === "aggregate" ? (
+                            <div className="table-container">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Dipendente</th>
+                                            <th style={{ textAlign: "center" }}>Pattern Rilevati</th>
+                                            <th style={{ textAlign: "center" }}>Anomale</th>
+                                            <th style={{ textAlign: "center" }}>Strategiche</th>
+                                            <th style={{ textAlign: "center" }}>Punteggio Totale</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {aggregatedAbsenceData.map((item, idx) => (
+                                            <tr key={idx}>
+                                                <td style={{ fontWeight: 600, fontSize: 15 }}>{item.dip.cognome} {item.dip.nome.charAt(0)}.</td>
+                                                <td style={{ textAlign: "center", fontSize: 12 }}>
+                                                    {Array.from(item.patterns).map((p, pidx) => (
+                                                        <span key={pidx} style={{
+                                                            display: "inline-block",
+                                                            background: "var(--bg-secondary)",
+                                                            padding: "2px 6px",
+                                                            borderRadius: 4,
+                                                            margin: "2px",
+                                                            fontSize: 10,
+                                                            color: "var(--text-secondary)"
+                                                        }}>
+                                                            {p}
+                                                        </span>
+                                                    ))}
+                                                </td>
+                                                <td style={{ textAlign: "center", color: "var(--danger)", fontWeight: 700 }}>{item.anomalies || "—"}</td>
+                                                <td style={{ textAlign: "center", color: "var(--primary)", fontWeight: 700 }}>{item.strategic || "—"}</td>
+                                                <td style={{ textAlign: "center" }}>
+                                                    <span style={{
+                                                        background: item.total > 3 ? "rgba(239, 68, 68, 0.1)" : "rgba(16, 185, 129, 0.1)",
+                                                        color: item.total > 3 ? "var(--danger)" : "var(--success)",
+                                                        padding: "4px 12px",
+                                                        borderRadius: 12,
+                                                        fontWeight: 800,
+                                                        fontSize: 14
+                                                    }}>
+                                                        {item.total}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <>
+                                <p style={{ color: "var(--text-muted)", fontSize: 13, marginBottom: 16 }}>
+                                    Dettaglio delle assenze che avvengono in momenti critici (es. cambi turno notte o weekend lavorativi), calcolato su tutti i dati presenti nel sistema.
+                                </p>
+                                <div className="table-container">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th style={{ textAlign: "left" }}>Data Assenza</th>
+                                                <th style={{ textAlign: "left" }}>Dipendente</th>
+                                                <th style={{ textAlign: "center" }}>Turno</th>
+                                                <th style={{ textAlign: "left" }}>Motivo</th>
+                                                <th style={{ textAlign: "center" }}>Anomalia Rilevata</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {resolvedAnomalies.map((a, idx) => (
+                                                <tr key={idx}>
+                                                    <td style={{ fontWeight: 600, color: "var(--text-primary)" }}>{a.dateFormatted}</td>
+                                                    <td style={{ fontWeight: 600, fontSize: 15 }}>{a.dipendente.cognome} {a.dipendente.nome.charAt(0)}.</td>
+                                                    <td style={{ textAlign: "center", color: "var(--text-primary)" }}>{a.group}</td>
+                                                    <td style={{ color: "var(--text-muted)" }}>
+                                                        {motivi.find(m => m.id === a.motivo_assenza)?.label || a.motivo_assenza || "Assenza"}
+                                                    </td>
+                                                    <td style={{ textAlign: "center" }}>
+                                                        <span style={{
+                                                            background: "rgba(220, 38, 38, 0.1)",
+                                                            color: "var(--danger)",
+                                                            padding: "4px 10px",
+                                                            borderRadius: 12,
+                                                            fontSize: 11,
+                                                            fontWeight: 700,
+                                                            display: "inline-block"
+                                                        }}>
+                                                            ⚠️ {a.type}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </>
+                        )}
+                    </div>
+
+                    {absencesViewMode === "detail" && (
+                        <div className="card">
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                                <h3 style={{ fontSize: 16, fontWeight: 700 }}>Assenze Pianificate Strategiche (Sab/Lun)</h3>
+                                <span className="tag tag-blue" style={{ fontSize: 11, fontWeight: 700 }}>{plannedAnomalies.length} Segnalazioni</span>
+                            </div>
+                            <p style={{ color: "var(--text-muted)", fontSize: 13, marginBottom: 16 }}>
+                                Questo pannello evidenzia le assenze pianificate (Ferie, ROL, Riposo Compensativo) strategiche che cadono di Sabato Sera, Sabato Notte o Lunedì, dall'inizio dell'anno.
+                            </p>
+                            <div className="table-container">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th style={{ textAlign: "left" }}>Data Assenza</th>
+                                            <th style={{ textAlign: "left" }}>Dipendente</th>
+                                            <th style={{ textAlign: "center" }}>Turno Assegnato</th>
+                                            <th style={{ textAlign: "left" }}>Motivo Pianificato</th>
+                                            <th style={{ textAlign: "center" }}>Giornata Strategica</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {plannedAnomalies.map((a, idx) => (
+                                            <tr key={idx}>
+                                                <td style={{ fontWeight: 600, color: "var(--text-primary)" }}>{a.dateFormatted}</td>
+                                                <td style={{ fontWeight: 600, fontSize: 15 }}>{a.dipendente.cognome} {a.dipendente.nome.charAt(0)}.</td>
+                                                <td style={{ textAlign: "center", color: "var(--text-primary)" }}>{a.group}</td>
+                                                <td style={{ color: "var(--text-muted)" }}>
+                                                    {motivi.find(m => m.id === a.motivo_assenza)?.label || a.motivo_assenza || "Assenza"}
+                                                </td>
+                                                <td style={{ textAlign: "center" }}>
+                                                    <span style={{
+                                                        background: "rgba(59, 130, 246, 0.1)",
+                                                        color: "var(--primary)",
+                                                        padding: "4px 10px",
+                                                        borderRadius: 12,
+                                                        fontSize: 11,
+                                                        fontWeight: 700,
+                                                        display: "inline-block"
+                                                    }}>
+                                                        🎯 {a.type}
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="card">
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                            <h3 style={{ fontSize: 16, fontWeight: 700 }}>Report Fermi Macchina</h3>
+                            <span className="tag tag-red" style={{ fontSize: 11, fontWeight: 700 }}>{fermiMacchina.length} Fermi</span>
+                        </div>
                         <div className="table-container">
                             <table>
                                 <thead>
                                     <tr>
-                                        <th style={{ textAlign: "left" }}>Data Assenza</th>
-                                        <th style={{ textAlign: "left" }}>Dipendente</th>
-                                        <th style={{ textAlign: "center" }}>Turno Assegnato</th>
-                                        <th style={{ textAlign: "left" }}>Motivo Pianificato</th>
-                                        <th style={{ textAlign: "center" }}>Giornata Strategica</th>
+                                        <th>Macchina</th>
+                                        <th>Orario</th>
+                                        <th>Motivo</th>
+                                        <th style={{ textAlign: "center" }}>Azioni</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {plannedAnomalies.map((a, idx) => (
-                                        <tr key={idx}>
-                                            <td style={{ fontWeight: 600, color: "var(--text-primary)" }}>{a.dateFormatted}</td>
-                                            <td style={{ fontWeight: 600 }}>{a.dipendente.cognome} {a.dipendente.nome}</td>
-                                            <td style={{ textAlign: "center", color: "var(--text-primary)" }}>{a.group}</td>
-                                            <td style={{ color: "var(--text-muted)" }}>
-                                                {motivi.find(m => m.id === a.motivo_assenza)?.label || a.motivo_assenza || "Assenza"}
-                                            </td>
-                                            <td style={{ textAlign: "center" }}>
-                                                <span style={{
-                                                    background: "rgba(59, 130, 246, 0.1)",
-                                                    color: "var(--primary)",
-                                                    padding: "4px 10px",
-                                                    borderRadius: 12,
-                                                    fontSize: 11,
-                                                    fontWeight: 700,
-                                                    display: "inline-block"
-                                                }}>
-                                                    📅 {a.type}
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {plannedAnomalies.length === 0 && (
-                                        <tr>
-                                            <td colSpan={5} style={{ textAlign: "center", padding: 20, color: "var(--success)" }}>
-                                                ✅ Nessuna assenza pianificata strategica rilevata.
-                                            </td>
-                                        </tr>
+                                    {fermiMacchina.map((f, idx) => {
+                                        const mName = macchine.find(m => m.id === f.macchina_id)?.nome || f.macchina_id;
+                                        return (
+                                            <tr key={idx}>
+                                                <td style={{ fontWeight: 600 }}>{mName}</td>
+                                                <td>{f.ora_inizio?.slice(0, 5)} - {f.ora_fine?.slice(0, 5)}</td>
+                                                <td>{f.motivo}</td>
+                                                <td style={{ textAlign: "center" }}>
+                                                    <button
+                                                        onClick={() => handleDeleteFermi(f.id)}
+                                                        className="btn btn-ghost"
+                                                        style={{ color: "var(--danger)", padding: 4 }}
+                                                    >
+                                                        {Icons.trash}
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                    {fermiMacchina.length === 0 && (
+                                        <tr><td colSpan={4} style={{ textAlign: "center", padding: 20, color: "var(--text-muted)" }}>Nessun fermo registrato</td></tr>
                                     )}
                                 </tbody>
                             </table>
                         </div>
                     </div>
 
+                    <div className="card">
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                            <h3 style={{ fontSize: 16, fontWeight: 700 }}>Produzione (Pezzi e Scarti)</h3>
+                            <span className="tag tag-green" style={{ fontSize: 11, fontWeight: 700 }}>{pezziProdotti.length} Record</span>
+                        </div>
+                        <div className="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Macchina</th>
+                                        <th style={{ textAlign: "center" }}>Quantità</th>
+                                        <th style={{ textAlign: "center" }}>Scarti</th>
+                                        <th>Note</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {pezziProdotti.map((p, idx) => {
+                                        const mName = macchine.find(m => m.id === p.macchina_id)?.nome || p.macchina_id;
+                                        return (
+                                            <tr key={idx}>
+                                                <td style={{ fontWeight: 600 }}>{mName}</td>
+                                                <td style={{ textAlign: "center", fontWeight: 700, color: "var(--success)" }}>{p.quantita}</td>
+                                                <td style={{ textAlign: "center", color: "var(--danger)" }}>{p.scarti || 0}</td>
+                                                <td style={{ fontSize: 12, color: "var(--text-muted)" }}>{p.note || "—"}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                    {pezziProdotti.length === 0 && (
+                                        <tr><td colSpan={4} style={{ textAlign: "center", padding: 20, color: "var(--text-muted)" }}>Nessun dato di produzione</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>

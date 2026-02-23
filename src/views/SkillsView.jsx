@@ -2,11 +2,17 @@ import { useState, useCallback } from "react";
 import { MACCHINE, REPARTI, LIVELLI_COMPETENZA } from "../data/constants";
 import { supabase } from "../lib/supabase";
 
-export default function SkillsView({ dipendenti, setDipendenti, macchine, showToast }) {
+export default function SkillsView({ dipendenti, setDipendenti, macchine, showToast, turnoCorrente }) {
     const [repartoCorrente, setRepartoCorrente] = useState("T11");
 
-    const filteredDipendenti = dipendenti.filter(d => d.reparto === repartoCorrente);
-    const macchineReparto = macchine.filter(m => m.reparto === repartoCorrente);
+    // Filter by both reparto and turnoCorrente if provided
+    const filteredDipendenti = dipendenti.filter(d =>
+        d.reparto_id === repartoCorrente &&
+        (!turnoCorrente || d.turno === turnoCorrente || d.turno_default === turnoCorrente)
+    );
+    const macchineReparto = macchine
+        .filter(m => m.reparto_id === repartoCorrente)
+        .sort((a, b) => a.nome.localeCompare(b.nome));
     const reparto = REPARTI.find(r => r.id === repartoCorrente);
 
     const toggleSkill = async (dipId, macchineId) => {
@@ -128,15 +134,21 @@ export default function SkillsView({ dipendenti, setDipendenti, macchine, showTo
                         {filteredDipendenti.map(d => (
                             <tr key={d.id}>
                                 <td style={{
-                                    padding: "12px 16px",
+                                    padding: "4px 8px",
+                                    minWidth: 180,
+                                    maxWidth: 180,
                                     fontWeight: 500,
+                                    fontSize: 15,
+                                    whiteSpace: "nowrap",
                                     position: "sticky",
                                     left: 0,
-                                    background: "var(--bg-card)",
-                                    zIndex: 1,
-                                    borderRight: "1px solid var(--border)"
+                                    background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "var(--bg-card)",
+                                    zIndex: 2,
+                                    borderRight: "1px solid var(--border-light)",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis"
                                 }}>
-                                    {d.cognome} {d.nome}
+                                    {d.cognome} {(d.nome || "").charAt(0)}.
                                     {d.ruolo === 'capoturno' && (
                                         <span style={{
                                             marginLeft: 8,

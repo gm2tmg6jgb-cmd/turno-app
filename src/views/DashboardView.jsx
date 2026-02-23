@@ -312,7 +312,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                     <thead>
                         <tr>
                             {/* COLONNA 1: Nominativo (Sticky Top & Left) */}
-                            <th style={{ padding: "16px 14px", width: 180, position: "sticky", top: 0, left: 0, background: "var(--bg-tertiary)", zIndex: 20, borderBottom: "2px solid var(--border)" }}>Nominativo</th>
+                            <th style={{ padding: "16px 14px", width: 180, position: "sticky", top: 0, left: 0, background: "var(--bg-tertiary)", zIndex: 20, borderBottom: "2px solid var(--border)" }}>Dipendente</th>
 
                             {/* COLONNA 2: Team/Reparto (Sticky Top & Left) */}
                             <th style={{ padding: "16px 8px", width: 60, position: "sticky", top: 0, left: 180, background: "var(--bg-tertiary)", zIndex: 20, borderBottom: "2px solid var(--border)", textAlign: 'center', borderRight: "2px solid var(--border)" }}>Team</th>
