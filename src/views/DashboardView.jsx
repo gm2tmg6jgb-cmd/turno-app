@@ -505,6 +505,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                                         color: "var(--info)",
                                                         borderRadius: 4,
                                                         fontWeight: 600,
+                                                        fontSize: 15, // Same as nominativo font size
                                                         marginRight: 4,
                                                         cursor: isZone ? "pointer" : "default"
                                                     }}>
