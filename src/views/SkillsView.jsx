@@ -27,46 +27,6 @@ export default function SkillsView({ dipendenti, setDipendenti, macchine, showTo
         });
     });
 
-    const toggleSkill = async (dipId, macchineId) => {
-        const dip = dipendenti.find(d => d.id === dipId);
-        if (!dip) return;
-
-        const currentLevel = dip.competenze?.[macchineId] ?? 0;
-        // Cicla su tutti i valori di LIVELLI_COMPETENZA per indice
-        const currentIndex = LIVELLI_COMPETENZA.findIndex(l => String(l.value) === String(currentLevel));
-        const nextIndex = (currentIndex + 1) % LIVELLI_COMPETENZA.length;
-        const nextLevel = LIVELLI_COMPETENZA[nextIndex].value;
-
-        const newCompetenze = {
-            ...dip.competenze,
-            [macchineId]: nextLevel
-        };
-
-        // Optimistic Update
-        setDipendenti(prev => prev.map(d => {
-            if (d.id !== dipId) return d;
-            return {
-                ...d,
-                competenze: newCompetenze
-            };
-        }));
-
-        // DB Update
-        try {
-            const { error } = await supabase
-                .from('dipendenti')
-                .update({ competenze: newCompetenze })
-                .eq('id', dipId);
-
-            if (error) {
-                throw error;
-            }
-        } catch (error) {
-            console.error("Error updating skill:", error);
-            showToast("Errore aggiornamento competenza", "error");
-        }
-    };
-
     const getSkillInfo = (level) => {
         return LIVELLI_COMPETENZA.find(l => l.value === (level || 0)) || LIVELLI_COMPETENZA[0];
     };
@@ -361,40 +321,16 @@ export default function SkillsView({ dipendenti, setDipendenti, macchine, showTo
 
                                     return (
                                         <td key={m.id} style={{ textAlign: "center", padding: "4px 2px", borderRight: "1px solid var(--border-light)" }}>
-                                            <select
-                                                value={String(skillLevel)}
-                                                onChange={async (e) => {
-                                                    const val = e.target.value;
-                                                    const parsed = isNaN(Number(val)) ? val : Number(val);
-                                                    const newCompetenze = { ...d.competenze, [m.id]: parsed };
-                                                    setDipendenti(prev => prev.map(dep => dep.id === d.id ? { ...dep, competenze: newCompetenze } : dep));
-                                                    try {
-                                                        await supabase.from('dipendenti').update({ competenze: newCompetenze }).eq('id', d.id);
-                                                    } catch (err) { showToast("Errore salvataggio", "error"); }
-                                                }}
-                                                style={{
-                                                    background: "transparent",
-                                                    border: "none",
-                                                    color: skillLevel === 0 ? "var(--text-muted)" : skill.color,
-                                                    fontWeight: 700,
-                                                    fontSize: 13,
-                                                    cursor: "pointer",
-                                                    width: 54,
-                                                    textAlign: "center",
-                                                    padding: "2px 0"
-                                                }}
-                                            >
-                                                <optgroup label="Livelli">
-                                                    {LIVELLI_COMPETENZA.filter(l => typeof l.value === 'number').map(l => (
-                                                        <option key={l.value} value={l.value}>{l.value} – {l.label}</option>
-                                                    ))}
-                                                </optgroup>
-                                                <optgroup label="In Formazione">
-                                                    {LIVELLI_COMPETENZA.filter(l => typeof l.value === 'string').map(l => (
-                                                        <option key={l.value} value={l.value}>{l.value}</option>
-                                                    ))}
-                                                </optgroup>
-                                            </select>
+                                            <div style={{
+                                                color: skillLevel === 0 ? "var(--text-muted)" : (String(skillLevel).includes('=>') ? "#8B5CF6" : skill.color),
+                                                fontWeight: 700,
+                                                fontSize: 13,
+                                                width: 44,
+                                                margin: "0 auto",
+                                                textAlign: "center"
+                                            }}>
+                                                {String(skillLevel).includes('=>') ? '⇒' : (skillLevel === 0 ? '—' : skillLevel)}
+                                            </div>
                                         </td>
                                     );
                                 })}
