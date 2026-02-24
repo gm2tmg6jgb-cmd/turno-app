@@ -288,40 +288,43 @@ export default function App() {
         </div>
 
         <nav className="sidebar-nav">
-          <div className="nav-section-label">Gestione Dipendenti</div>
-          {navItems.slice(0, 3).map((item) => (
-            <div key={item.id} className={`nav-item ${currentView === item.id ? "active" : ""}`} onClick={() => setCurrentView(item.id)}>
-              {item.icon}
-              {item.label}
-              {item.badge && <span className="badge">{item.badge}</span>}
-            </div>
-          ))}
+          {/* Helper locale per renderizzare ogni voce */}
+          {(() => {
+            const ni = (id) => navItems.find(i => i.id === id);
+            const renderItem = (item) => item ? (
+              <div key={item.id} className={`nav-item ${currentView === item.id ? "active" : ""}`} onClick={() => setCurrentView(item.id)}>
+                {item.icon}{item.label}
+                {item.badge && <span className="badge">{item.badge}</span>}
+              </div>
+            ) : null;
+            return (
+              <>
+                <div className="nav-section-label">Gestione Dipendenti</div>
+                {renderItem(ni("dashboard"))}
+                {renderItem(ni("planning"))}
+                {renderItem(ni("anagrafica"))}
+                {renderItem(ni("motivi"))}
 
-          <div className="nav-section-label">Gestione Formazione</div>
-          {navItems.slice(3, 4).map((item) => (
-            <div key={item.id} className={`nav-item ${currentView === item.id ? "active" : ""}`} onClick={() => setCurrentView(item.id)}>
-              {item.icon}
-              {item.label}
-              {item.badge && <span className="badge">{item.badge}</span>}
-            </div>
-          ))}
-          <div className={`nav-item ${currentView === 'zones' ? "active" : ""}`} onClick={() => setCurrentView('zones')}>
-            {Icons.settings}
-            Anagrafica Zone
-          </div>
+                <div className="nav-section-label">Gestione Formazione</div>
+                {renderItem(ni("skills"))}
+                {renderItem(ni("formazione"))}
 
-          <div className="nav-section-label">Produzione</div>
-          {navItems.slice(4).map((item) => (
-            <div key={item.id} className={`nav-item ${currentView === item.id ? "active" : ""}`} onClick={() => setCurrentView(item.id)}>
-              {item.icon}
-              {item.label}
-            </div>
-          ))}
+                <div className="nav-section-label">Produzione</div>
+                {renderItem(ni("assegnazioni"))}
+                <div className={`nav-item ${currentView === 'zones' ? "active" : ""}`} onClick={() => setCurrentView('zones')}>
+                  {Icons.settings}Anagrafica Zone
+                </div>
+                {renderItem(ni("report"))}
+                {renderItem(ni("import"))}
+                {renderItem(ni("fermi"))}
 
-          <div className="nav-section-label" style={{ color: "var(--danger)", marginTop: 12 }}>Privacy Alta</div>
-          <div className={`nav-item ${currentView === 'limitazioni' ? "active" : ""}`} onClick={() => setCurrentView('limitazioni')} style={{ color: currentView === 'limitazioni' ? "var(--danger)" : "inherit" }}>
-            <span style={{ fontSize: 16, marginRight: 8 }}>🔒</span> Prescrizioni e Note
-          </div>
+                <div className="nav-section-label" style={{ color: "var(--danger)", marginTop: 12 }}>Privacy Alta</div>
+                <div className={`nav-item ${currentView === 'limitazioni' ? "active" : ""}`} onClick={() => setCurrentView('limitazioni')} style={{ color: currentView === 'limitazioni' ? "var(--danger)" : "inherit" }}>
+                  <span style={{ fontSize: 16, marginRight: 8 }}>🔒</span> Prescrizioni e Note
+                </div>
+              </>
+            );
+          })()}
         </nav>
 
         <div className="sidebar-footer">

@@ -36,7 +36,6 @@ export default function FormazioneView({ dipendenti, assegnazioni, macchine, pre
                             <th>Operatore</th>
                             <th>Reparto</th>
                             <th>Macchine in Formazione</th>
-                            <th style={{ textAlign: "center" }}>Stato Oggi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -93,11 +92,7 @@ export default function FormazioneView({ dipendenti, assegnazioni, macchine, pre
                                                 })}
                                             </div>
                                         </td>
-                                        <td style={{ textAlign: "center" }}>
-                                            <span className={`tag ${isPresent ? "tag-green" : "tag-red"}`}>
-                                                {isPresent ? "PRESENTE" : "ASSENTE"}
-                                            </span>
-                                        </td>
+
                                     </tr>
                                 );
                             })
