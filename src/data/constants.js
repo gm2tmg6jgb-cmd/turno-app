@@ -5,14 +5,6 @@ export const TURNI = [
     { id: "D", nome: "Turno D", colore: "#10B981", coordinatore: "Fato" },
 ];
 
-// Time Slots (Orari Fissi)
-export const ORARI_TURNI = [
-    { id: "M", nome: "Mattina", label: "Mattina", orario: "06:00 – 12:00", order: 0 },
-    { id: "P", nome: "Pomeriggio", label: "Pomeriggio", orario: "12:00 – 18:00", order: 1 },
-    { id: "S", nome: "Sera", label: "Sera", orario: "18:00 – 24:00", order: 2 },
-    { id: "N", nome: "Notte", label: "Notte", orario: "00:00 – 06:00", order: 3 },
-];
-
 export const REPARTI = [
     { id: "T11", nome: "Team 11 SOFT", tipo: "produzione", colore: "#3B82F6", capoturno: "Cianci" },
     { id: "T12", nome: "Team 12 HARD", tipo: "produzione", colore: "#3B82F6", capoturno: "Cappelluti" },
