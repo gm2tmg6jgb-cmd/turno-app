@@ -19,6 +19,7 @@ import MotiviView from "./views/MotiviView";
 import PlanningView from "./views/PlanningView";
 import ZoneView from "./views/ZoneView";
 import LimitazioniView from "./views/LimitazioniView";
+import AbsenzeStoricoView from "./views/AbsenzeStoricoView";
 
 export default function App() {
   const [currentView, setCurrentView] = useState("dashboard");
@@ -228,6 +229,7 @@ export default function App() {
     anagrafica: "Anagrafica Personale",
     report: "Report & Esportazioni",
     motivi: "Gestione Motivi Assenza",
+    assenze: "Storico & Analisi Assenze",
 
     import: "Import Dati SAP",
     fermi: "Report Fermi",
@@ -313,6 +315,11 @@ export default function App() {
               {item.label}
             </div>
           ))}
+
+          <div className="nav-section-label" style={{ marginTop: 12 }}>HR Analytics</div>
+          <div className={`nav-item ${currentView === 'assenze' ? "active" : ""}`} onClick={() => setCurrentView('assenze')}>
+            <span style={{ fontSize: 16, marginRight: 8 }}>📊</span> Storico Assenze
+          </div>
 
           <div className="nav-section-label" style={{ color: "var(--danger)", marginTop: 12 }}>Privacy Alta</div>
           <div className={`nav-item ${currentView === 'limitazioni' ? "active" : ""}`} onClick={() => setCurrentView('limitazioni')} style={{ color: currentView === 'limitazioni' ? "var(--danger)" : "inherit" }}>
@@ -433,6 +440,9 @@ export default function App() {
           )}
           {currentView === "motivi" && (
             <MotiviView motivi={motivi} setMotivi={setMotivi} showToast={showToast} />
+          )}
+          {currentView === "assenze" && (
+            <AbsenzeStoricoView dipendenti={dipendenti} presenze={presenze} showToast={showToast} />
           )}
           {currentView === "limitazioni" && (
             <LimitazioniView dipendenti={dipendenti} presenze={presenze} />
