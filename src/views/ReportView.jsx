@@ -11,6 +11,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
 import { getSlotForGroup } from '../lib/shiftRotation';
+import SkillCoverageAnalytics from '../components/SkillCoverageAnalytics';
 
 export default function ReportView({ dipendenti, presenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, zones, motivi }) {
     const [reportType, setReportType] = useState("turno");
@@ -394,6 +395,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                 <div className="tabs" style={{ display: "inline-flex", margin: 0 }}>
                     <button className={`tab ${reportType === "turno" ? "active" : ""}`} onClick={() => setReportType("turno")}>Report Fine Turno</button>
                     <button className={`tab ${reportType === "settimanale" ? "active" : ""}`} onClick={() => setReportType("settimanale")}>Analisi Avanzata</button>
+                    <button className={`tab ${reportType === "skills" ? "active" : ""}`} onClick={() => setReportType("skills")}>Copertura Skills</button>
                 </div>
 
                 <div style={{ display: "flex", gap: 12, alignItems: "center", background: "var(--bg-card)", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)" }}>
@@ -1121,6 +1123,15 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                         </div>
                     </div>
                 </div>
+            )}
+
+            {reportType === "skills" && (
+                <SkillCoverageAnalytics
+                    dipendenti={dipendenti}
+                    macchine={macchine}
+                    zones={zones}
+                    repartoCorrente={repartoCorrente}
+                />
             )}
         </div>
     );
