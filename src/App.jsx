@@ -288,8 +288,8 @@ export default function App() {
         </div>
 
         <nav className="sidebar-nav">
-          <div className="nav-section-label">Gestione dipendenti</div>
-          {navItems.slice(0, 2).map((item) => (
+          <div className="nav-section-label">Gestione Dipendenti</div>
+          {navItems.slice(0, 3).map((item) => (
             <div key={item.id} className={`nav-item ${currentView === item.id ? "active" : ""}`} onClick={() => setCurrentView(item.id)}>
               {item.icon}
               {item.label}
@@ -297,11 +297,12 @@ export default function App() {
             </div>
           ))}
 
-          <div className="nav-section-label">Gestione</div>
-          {navItems.slice(2, 4).map((item) => (
+          <div className="nav-section-label">Gestione Formazione</div>
+          {navItems.slice(3, 4).map((item) => (
             <div key={item.id} className={`nav-item ${currentView === item.id ? "active" : ""}`} onClick={() => setCurrentView(item.id)}>
               {item.icon}
               {item.label}
+              {item.badge && <span className="badge">{item.badge}</span>}
             </div>
           ))}
           <div className={`nav-item ${currentView === 'zones' ? "active" : ""}`} onClick={() => setCurrentView('zones')}>
@@ -309,7 +310,7 @@ export default function App() {
             Anagrafica Zone
           </div>
 
-          <div className="nav-section-label">Dati</div>
+          <div className="nav-section-label">Produzione</div>
           {navItems.slice(4).map((item) => (
             <div key={item.id} className={`nav-item ${currentView === item.id ? "active" : ""}`} onClick={() => setCurrentView(item.id)}>
               {item.icon}

@@ -52,8 +52,8 @@ export default function FormazioneView({ dipendenti, assegnazioni, macchine, pre
                                 // Trova tutte le macchine per cui ha competenza 0=>2
                                 const macchineFormazione = Object.entries(d.competenze || {})
                                     .filter(([_, val]) => String(val).includes("=>"))
-                                    .map(([mId, val]) => ({ mId, m: macchine.find(m => m.id === mId), val }))
-                                    .filter(item => item.m);
+                                    .map(([mId, val]) => ({ mId, m: macchine.find(m => m.id === mId), val }));
+                                // NON filtriamo per item.m: mostriamo sempre il mId anche se la macchina non è in DB
 
                                 return (
                                     <tr key={d.id}>
@@ -82,11 +82,11 @@ export default function FormazioneView({ dipendenti, assegnazioni, macchine, pre
                                                         }}>
                                                             <span style={{ fontSize: 13, fontWeight: 500 }}>{mId}</span>
                                                             <span style={{
-                                                                color: skill?.color || "var(--accent)",
+                                                                color: skill?.color || "#8B5CF6",
                                                                 fontSize: 13,
                                                                 fontWeight: 700
                                                             }}>
-                                                                ⇒
+                                                                ({val})
                                                             </span>
                                                         </div>
                                                     );

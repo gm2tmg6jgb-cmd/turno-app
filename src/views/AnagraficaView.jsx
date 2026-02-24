@@ -39,12 +39,12 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
                     nome: newDip.nome,
                     cognome: newDip.cognome,
                     turno_default: newDip.turno,
-                    reparto_id: newDip.reparto_id,
+                    reparto_id: newDip.reparto_id || newDip.reparto || "T11",
                     tipo: newDip.tipo,
                     ruolo: newDip.ruolo,
-                    agenzia: newDip.agenzia,
-                    scadenza: newDip.scadenza,
-                    l104: newDip.l104
+                    agenzia: newDip.tipo === 'interinale' ? (newDip.agenzia || null) : null,
+                    scadenza: newDip.tipo === 'interinale' ? (newDip.scadenza || null) : null,
+                    l104: newDip.l104 || null
                 };
 
                 const { error } = await supabase
@@ -68,9 +68,9 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
                     tipo: newDip.tipo,
                     ruolo: newDip.ruolo,
                     // Optional fields
-                    agenzia: newDip.tipo === 'interinale' ? newDip.agenzia : null,
-                    scadenza: newDip.tipo === 'interinale' ? newDip.scadenza : null,
-                    l104: newDip.l104
+                    agenzia: newDip.tipo === 'interinale' ? (newDip.agenzia || null) : null,
+                    scadenza: newDip.tipo === 'interinale' ? (newDip.scadenza || null) : null,
+                    l104: newDip.l104 || null
                 };
 
                 const { data, error } = await supabase

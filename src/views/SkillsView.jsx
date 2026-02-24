@@ -108,19 +108,13 @@ export default function SkillsView({ dipendenti, setDipendenti, macchine, showTo
 
                     Object.keys(machineMap).forEach(index => {
                         const machineId = machineMap[index];
-                        let rawVal = values[index];
+                        let rawVal = values[index]?.trim() || "";
 
-                        // Handle special value "0=>2" (In formazione)
-                        if (rawVal === "0=>2") {
-                            newCompetenze[machineId] = "0=>2";
+                        if (rawVal.includes("=>")) {
+                            // Qualsiasi valore X=>Y viene salvato integralmente come formazione
+                            newCompetenze[machineId] = rawVal;
                             changed = true;
                         } else {
-                            // Handle transition notation like "0=>3" or "4=>5"
-                            if (rawVal.includes("=>")) {
-                                const parts = rawVal.split("=>");
-                                rawVal = parts[parts.length - 1].trim();
-                            }
-
                             const val = parseInt(rawVal);
                             if (!isNaN(val) && val >= 0 && val <= 6) {
                                 newCompetenze[machineId] = val;
@@ -206,7 +200,7 @@ export default function SkillsView({ dipendenti, setDipendenti, macchine, showTo
                 </div>
 
                 <div style={{ display: "flex", gap: "8px 16px", flexWrap: "wrap", justifyContent: "flex-end" }}>
-                    {LIVELLI_COMPETENZA.map(l => (
+                    {LIVELLI_COMPETENZA.filter(l => typeof l.value === 'number').map(l => (
                         <div key={l.value} style={{
                             width: 28,
                             height: 28,
