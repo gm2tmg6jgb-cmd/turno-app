@@ -279,17 +279,17 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                 {/* COUNTER: Present Employees */}
                 <div style={{ padding: "8px 16px", background: "var(--success-muted)", borderRadius: "var(--radius-sm)", border: "1px solid rgba(34,197,94,0.2)" }}>
                     <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>PRESENTI</span>
-                    <span style={{ fontSize: 18, fontWeight: 700, color: "var(--success)", marginLeft: 8, fontFamily: "'JetBrains Mono', monospace" }}>{presenti}</span>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: "var(--success)", marginLeft: 8 }}>{presenti}</span>
                 </div>
                 {/* COUNTER: Absent Employees */}
                 <div style={{ padding: "8px 16px", background: "var(--danger-muted)", borderRadius: "var(--radius-sm)", border: "1px solid rgba(239,68,68,0.2)" }}>
                     <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>ASSENTI</span>
-                    <span style={{ fontSize: 18, fontWeight: 700, color: "var(--danger)", marginLeft: 8, fontFamily: "'JetBrains Mono', monospace" }}>{assenti}</span>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: "var(--danger)", marginLeft: 8 }}>{assenti}</span>
                 </div>
                 {/* COUNTER: Total */}
                 <div style={{ padding: "8px 16px", background: "var(--info-muted)", borderRadius: "var(--radius-sm)", border: "1px solid rgba(59,130,246,0.2)" }}>
                     <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>TOTALE</span>
-                    <span style={{ fontSize: 18, fontWeight: 700, color: "var(--info)", marginLeft: 8, fontFamily: "'JetBrains Mono', monospace" }}>{filteredDipendenti.length}</span>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: "var(--info)", marginLeft: 8 }}>{filteredDipendenti.length}</span>
                 </div>
                 {/* DATE RANGE FILTER */}
                 <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
@@ -471,7 +471,6 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                                         borderRadius: 4,
                                                         cursor: "pointer",
                                                         fontWeight: 700,
-                                                        fontFamily: "'JetBrains Mono', monospace",
                                                         // Status Color Logic
                                                         background: "transparent", // No background for buttons
                                                         color: isAbsence ? "#EA580C" : (isPresent ? "var(--text-primary)" : "var(--text-muted)"), // Orange text for absence

@@ -69,7 +69,7 @@ export default function ImportView({ showToast }) {
                                     ["UNKNOWN1", "—", 8, false],
                                 ].map(([sap, webapp, righe, ok], i) => (
                                     <tr key={i}>
-                                        <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>{sap}</td>
+                                        <td style={{ fontSize: 12 }}>{sap}</td>
                                         <td style={{ fontWeight: ok ? 600 : 400, color: ok ? "var(--text-primary)" : "var(--text-muted)" }}>{webapp}</td>
                                         <td>{righe}</td>
                                         <td><span className={`tag ${ok ? "tag-green" : "tag-red"}`}>{ok ? "Mappato" : "Non mappato"}</span></td>

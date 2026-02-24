@@ -462,21 +462,21 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                         <div className="stats-grid" style={{ marginBottom: 0, gridTemplateColumns: "repeat(4, 1fr)" }}>
                             <div style={{ padding: "12px 16px", background: "var(--bg-tertiary)", borderRadius: "var(--radius-sm)" }}>
                                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, fontWeight: 600 }}>FORZA LAVORO</div>
-                                <div style={{ fontSize: 24, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "var(--info)" }}>
+                                <div style={{ fontSize: 24, fontWeight: 700, color: "var(--info)" }}>
                                     {presentiCount} <span style={{ fontSize: 14, color: "var(--text-muted)", fontWeight: 500 }}>/ {allDip.length}</span>
                                 </div>
                             </div>
                             <div style={{ padding: "12px 16px", background: "var(--bg-tertiary)", borderRadius: "var(--radius-sm)" }}>
                                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, fontWeight: 600 }}>TOT ASSENTI</div>
-                                <div style={{ fontSize: 24, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "var(--danger)" }}>{assentiCount}</div>
+                                <div style={{ fontSize: 24, fontWeight: 700, color: "var(--danger)" }}>{assentiCount}</div>
                             </div>
                             <div style={{ padding: "12px 16px", background: "rgba(220, 38, 38, 0.1)", borderRadius: "var(--radius-sm)", border: "1px solid rgba(220, 38, 38, 0.2)" }}>
                                 <div style={{ fontSize: 11, color: "var(--danger)", marginBottom: 4, fontWeight: 600 }}>NON PIANIFICATE</div>
-                                <div style={{ fontSize: 24, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "var(--danger)" }}>{unplannedAbsencesCount}</div>
+                                <div style={{ fontSize: 24, fontWeight: 700, color: "var(--danger)" }}>{unplannedAbsencesCount}</div>
                             </div>
                             <div style={{ padding: "12px 16px", background: "var(--bg-tertiary)", borderRadius: "var(--radius-sm)" }}>
                                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4, fontWeight: 600 }}>% COPERTURA TOT</div>
-                                <div style={{ fontSize: 24, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: "var(--accent)" }}>
+                                <div style={{ fontSize: 24, fontWeight: 700, color: "var(--accent)" }}>
                                     {totalCoveragePercent}%
                                 </div>
                             </div>
@@ -556,17 +556,10 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                             const zoneOpComponent = zoneResponsibles.map(z => {
                                                                 const d = dipendenti.find(dd => dd.id === z.dipendente_id);
                                                                 if (!d) return null;
-                                                                const level = d.competenze?.[zone.id] || 0;
-                                                                const skill = LIVELLI_COMPETENZA.find(l => l.value === level) || LIVELLI_COMPETENZA[0];
                                                                 return (
-                                                                    <div key={`${zone.id}-${d.id}`} style={{ display: "flex", flexDirection: "column" }}>
-                                                                        <span style={{ color: "var(--primary)", fontWeight: 500, fontSize: 15 }}>
-                                                                            {d.cognome} {d.nome}
-                                                                        </span>
-                                                                        <span style={{ fontSize: 11, color: skill.color, display: "flex", alignItems: "center", gap: 4 }}>
-                                                                            {skill.icon} {skill.label}
-                                                                        </span>
-                                                                    </div>
+                                                                    <span key={`${zone.id}-${d.id}`} style={{ color: "var(--primary)", fontWeight: 500, fontSize: 15 }}>
+                                                                        {d.cognome} {d.nome}
+                                                                    </span>
                                                                 );
                                                             }).filter(Boolean);
 
@@ -582,7 +575,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                             </div>
                                                                         </td>
                                                                         <td style={{ padding: "10px 12px", fontWeight: 500, fontSize: 15, color: "var(--primary)" }}>
-                                                                             {zoneOpComponent.length > 0 ? zoneOpComponent : <span style={{ color: "var(--text-muted)", fontWeight: 400, fontSize: 13, fontStyle: "italic" }}>— Nessun Responsabile —</span>}
+                                                                            {zoneOpComponent.length > 0 ? zoneOpComponent : <span style={{ color: "var(--text-muted)", fontWeight: 400, fontSize: 13, fontStyle: "italic" }}>— Nessun Responsabile —</span>}
                                                                         </td>
                                                                         <td style={{ textAlign: "center" }}>
                                                                             {/* Optional: Zone Status if needed, currently empty as per request */}
@@ -615,21 +608,50 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                                 machineOps.map(o => {
                                                                                                     const d = dipendenti.find(dd => dd.id === o.dipendente_id);
                                                                                                     if (!d) return null;
-                                                                                                    const level = d.competenze?.[m.id] || 0;
+                                                                                                    const rawLevel = d.competenze?.[m.id];
+                                                                                                    const isFormazione = String(rawLevel || '').includes('=>');
+                                                                                                    const level = isFormazione ? 0 : (rawLevel || 0);
                                                                                                     const skill = LIVELLI_COMPETENZA.find(l => l.value === level) || LIVELLI_COMPETENZA[0];
                                                                                                     return (
-                                                                                                        <div key={`${m.id}-${d.id}`} style={{ display: "flex", flexDirection: "column" }}>
-                                                                                                            <span style={{ color: "var(--text-primary)", fontWeight: 500, fontSize: 15 }}>
+                                                                                                        <span key={`${m.id}-${d.id}`} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                                                                                                            <span style={{ fontWeight: 500, fontSize: 15 }}>
                                                                                                                 {d.cognome} {d.nome.charAt(0)}.
                                                                                                             </span>
-                                                                                                            <span style={{ fontSize: 11, color: skill.color, display: "flex", alignItems: "center", gap: 4 }}>
-                                                                                                                {skill.icon} {skill.label}
-                                                                                                            </span>
-                                                                                                        </div>
+                                                                                                            {isFormazione ? (
+                                                                                                                <span style={{ color: "var(--warning)", fontWeight: 700, fontSize: 15 }}>⇒</span>
+                                                                                                            ) : level > 0 ? (
+                                                                                                                <span style={{ color: skill.color, fontWeight: 700, fontSize: 15 }}>
+                                                                                                                    Liv. {level}
+                                                                                                                </span>
+                                                                                                            ) : (
+                                                                                                                <span style={{ color: "var(--danger)", fontWeight: 600, fontSize: 12 }}>Nessuna Formazione</span>
+                                                                                                            )}
+                                                                                                        </span>
                                                                                                     );
                                                                                                 })
                                                                                             ) : (
-                                                                                                <span style={{ color: "var(--text-lighter)", fontSize: 18, lineHeight: 0 }}>&middot;</span>
+                                                                                                // Coperta dalla zona: mostra Liv. del responsabile per questa macchina
+                                                                                                zoneResponsibles.length > 0 ? (
+                                                                                                    zoneResponsibles.map(za => {
+                                                                                                        const zd = dipendenti.find(dd => dd.id === za.dipendente_id);
+                                                                                                        if (!zd) return null;
+                                                                                                        const rawZLevel = zd.competenze?.[m.id];
+                                                                                                        const isZFormazione = String(rawZLevel || '').includes('=>');
+                                                                                                        const zLevel = isZFormazione ? 0 : (rawZLevel || 0);
+                                                                                                        const zSkill = LIVELLI_COMPETENZA.find(l => l.value === zLevel) || LIVELLI_COMPETENZA[0];
+                                                                                                        return isZFormazione ? (
+                                                                                                            <span key={`zs-${za.dipendente_id}`} style={{ color: "var(--warning)", fontWeight: 700, fontSize: 15 }}>⇒</span>
+                                                                                                        ) : zLevel > 0 ? (
+                                                                                                            <span key={`zs-${za.dipendente_id}`} style={{ color: zSkill.color, fontWeight: 700, fontSize: 15 }}>
+                                                                                                                Liv. {zLevel}
+                                                                                                            </span>
+                                                                                                        ) : (
+                                                                                                            <span key={`zs-${za.dipendente_id}`} style={{ color: "var(--danger)", fontWeight: 600, fontSize: 12 }}>Nessuna Formazione</span>
+                                                                                                        );
+                                                                                                    }).filter(Boolean)
+                                                                                                ) : (
+                                                                                                    <span style={{ color: "var(--text-lighter)", fontSize: 18, lineHeight: 0 }}>&middot;</span>
+                                                                                                )
                                                                                             )}
                                                                                         </div>
                                                                                     </td>
@@ -716,17 +738,25 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                         machineOps.map(o => {
                                                                                             const d = dipendenti.find(dd => dd.id === o.dipendente_id);
                                                                                             if (!d) return null;
-                                                                                            const level = d.competenze?.[m.id] || 0;
+                                                                                            const rawLevel = d.competenze?.[m.id];
+                                                                                            const isFormazione = String(rawLevel || '').includes('=>');
+                                                                                            const level = isFormazione ? 0 : (rawLevel || 0);
                                                                                             const skill = LIVELLI_COMPETENZA.find(l => l.value === level) || LIVELLI_COMPETENZA[0];
                                                                                             return (
-                                                                                                <div key={`${m.id}-${d.id}`} style={{ display: "flex", flexDirection: "column" }}>
-                                                                                                    <span style={{ color: "var(--text-primary)", fontWeight: 500, fontSize: 15 }}>
+                                                                                                <span key={`${m.id}-${d.id}`} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                                                                                                    <span style={{ fontWeight: 500, fontSize: 15 }}>
                                                                                                         {d.cognome} {d.nome.charAt(0)}.
                                                                                                     </span>
-                                                                                                    <span style={{ fontSize: 11, color: skill.color, display: "flex", alignItems: "center", gap: 4 }}>
-                                                                                                        {skill.icon} {skill.label}
-                                                                                                    </span>
-                                                                                                </div>
+                                                                                                    {isFormazione ? (
+                                                                                                        <span style={{ color: "var(--warning)", fontWeight: 700, fontSize: 15 }}>⇒</span>
+                                                                                                    ) : level > 0 ? (
+                                                                                                        <span style={{ color: skill.color, fontWeight: 700, fontSize: 15 }}>
+                                                                                                            Liv. {level}
+                                                                                                        </span>
+                                                                                                    ) : (
+                                                                                                        <span style={{ color: "var(--danger)", fontWeight: 600, fontSize: 12 }}>Nessuna Formazione</span>
+                                                                                                    )}
+                                                                                                </span>
                                                                                             );
                                                                                         })
                                                                                     ) : (

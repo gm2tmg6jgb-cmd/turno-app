@@ -270,6 +270,8 @@ export default function AssegnazioniView({
                                                                         // Check Presence
                                                                         const isPresent = getIsPresent(a.dipendente_id);
 
+                                                                        const skill = getSelectedDipSkill(a.dipendente_id, zoneId);
+
                                                                         return d ? (
                                                                             // Increased fontSize to 15px to match Report legibility
                                                                             <span key={a.id} className="operator-chip"
@@ -278,9 +280,17 @@ export default function AssegnazioniView({
                                                                                     border: isPresent ? "1px solid var(--info)" : "1px solid var(--danger)",
                                                                                     fontSize: 15,
                                                                                     textDecoration: isPresent ? "none" : "line-through",
-                                                                                    color: isPresent ? "inherit" : "var(--danger)"
+                                                                                    color: isPresent ? "inherit" : "var(--danger)",
+                                                                                    display: "inline-flex",
+                                                                                    alignItems: "center",
+                                                                                    gap: 6
                                                                                 }}>
-                                                                                {d.cognome} {d.nome.charAt(0)}.
+                                                                                <span style={{ fontWeight: 500 }}>{d.cognome} {d.nome.charAt(0)}. </span>
+                                                                                {skill && (skill.value !== 0 || String(skill.value).includes('=>')) && (
+                                                                                    <span style={{ color: skill.color, fontWeight: 700, fontSize: 20 }}>
+                                                                                        Liv. {skill.value}
+                                                                                    </span>
+                                                                                )}
                                                                                 <span className="remove" onClick={() => removeAssegnazione(a.id)}>✕</span>
                                                                             </span>
                                                                         ) : null;
@@ -322,7 +332,6 @@ export default function AssegnazioniView({
                                                             <tr key={m.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
                                                                 <td style={{ padding: "8px 12px 8px 32px", color: "var(--text-secondary)", fontWeight: 500 }}>
                                                                     {m.nome}
-                                                                    <div style={{ fontSize: 10, color: "var(--text-muted)" }}>Min: {m.personale_minimo || 1}</div>
                                                                 </td>
                                                                 <td style={{ padding: "8px 12px" }}>
                                                                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -331,6 +340,8 @@ export default function AssegnazioniView({
                                                                             // Check Presence
                                                                             const isPresent = getIsPresent(o.dipendente_id);
 
+                                                                            const skill = getSelectedDipSkill(o.dipendente_id, m.id);
+
                                                                             return d ? (
                                                                                 <span key={o.id} className={`operator-chip ${d.tipo === "interinale" ? "interinale" : ""} `}
                                                                                     style={{
@@ -338,22 +349,40 @@ export default function AssegnazioniView({
                                                                                         textDecoration: isPresent ? "none" : "line-through",
                                                                                         color: isPresent ? "inherit" : "var(--danger)",
                                                                                         background: isPresent ? "" : "rgba(220, 38, 38, 0.1)",
-                                                                                        border: isPresent ? "" : "1px solid var(--danger)"
+                                                                                        border: isPresent ? "" : "1px solid var(--danger)",
+                                                                                        display: "inline-flex",
+                                                                                        alignItems: "center",
+                                                                                        gap: 6
                                                                                     }}>
-                                                                                    {d.cognome} {d.nome.charAt(0)}.
+                                                                                    <span style={{ fontWeight: 500 }}>{d.cognome} {d.nome.charAt(0)}. </span>
+                                                                                    {skill && (skill.value !== 0 || String(skill.value).includes('=>')) && (
+                                                                                        <span style={{ color: skill.color, fontWeight: 700, fontSize: 20 }}>
+                                                                                            Liv. {skill.value}
+                                                                                        </span>
+                                                                                    )}
                                                                                     {d.tipo === "interinale" && <span style={{ fontSize: 10, color: "var(--warning)" }}>INT</span>}
                                                                                     <span className="remove" onClick={() => removeAssegnazione(o.id)}>✕</span>
                                                                                 </span>
                                                                             ) : null;
                                                                         })}
-                                                                        <button
-                                                                            className="btn-icon-small"
-                                                                            onClick={() => setShowModal({ id: m.id, type: 'machine', name: m.nome })}
-                                                                            title="Assegna Operatore"
-                                                                            style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 4, width: 24, height: 24, padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "var(--text-secondary)" }}
-                                                                        >
-                                                                            {Icons.plus}
-                                                                        </button>
+                                                                        {/* If no specific ops, show Zone Responsibles skills */}
+                                                                        {ops.length === 0 && zoneAss.map(za => {
+                                                                            const zd = dipendenti.find(dd => dd.id === za.dipendente_id);
+                                                                            const zSkill = getSelectedDipSkill(za.dipendente_id, m.id);
+                                                                            if (!zd) return null;
+                                                                            return (
+                                                                                <React.Fragment key={`zop-${za.id}`}>
+                                                                                    {/* Removed name, show only badge */}
+                                                                                    {(zSkill && (zSkill.value !== 0 || String(zSkill.value).includes('=>'))) && (
+                                                                                        <span style={{ color: zSkill.color, fontWeight: 700, fontSize: 20 }}>
+                                                                                            Liv. {zSkill.value}
+                                                                                        </span>
+                                                                                    )}
+                                                                                </React.Fragment>
+                                                                            );
+                                                                        })}
+
+                                                                        {/* Removed the + button for zone machines as requested */}
                                                                     </div>
                                                                 </td>
                                                                 <td style={{ textAlign: "center", padding: "8px 12px" }}>
@@ -387,7 +416,6 @@ export default function AssegnazioniView({
                                                         <tr key={m.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
                                                             <td style={{ padding: "8px 12px 8px 32px", color: "var(--text-secondary)", fontWeight: 500 }}>
                                                                 {m.nome}
-                                                                <div style={{ fontSize: 10, color: "var(--text-muted)" }}>Min: {m.personale_minimo || 1}</div>
                                                             </td>
                                                             <td style={{ padding: "8px 12px" }}>
                                                                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
@@ -396,15 +424,25 @@ export default function AssegnazioniView({
                                                                         // Check Presence
                                                                         const isPresent = getIsPresent(o.dipendente_id);
 
+                                                                        const skill = getSelectedDipSkill(o.dipendente_id, m.id);
+
                                                                         return d ? (
                                                                             <span key={o.id} className={`operator-chip ${d.tipo === "interinale" ? "interinale" : ""} `}
                                                                                 style={{
                                                                                     textDecoration: isPresent ? "none" : "line-through",
                                                                                     color: isPresent ? "inherit" : "var(--danger)",
                                                                                     background: isPresent ? "" : "rgba(220, 38, 38, 0.1)",
-                                                                                    border: isPresent ? "" : "1px solid var(--danger)"
+                                                                                    border: isPresent ? "" : "1px solid var(--danger)",
+                                                                                    display: "inline-flex",
+                                                                                    alignItems: "center",
+                                                                                    gap: 6
                                                                                 }}>
-                                                                                {d.cognome} {d.nome.charAt(0)}.
+                                                                                <span style={{ fontWeight: 500 }}>{d.cognome} {d.nome.charAt(0)}. </span>
+                                                                                {skill && (skill.value !== 0 || String(skill.value).includes('=>')) && (
+                                                                                    <span style={{ color: skill.color, fontWeight: 700, fontSize: 20 }}>
+                                                                                        Liv. {skill.value}
+                                                                                    </span>
+                                                                                )}
                                                                                 {d.tipo === "interinale" && <span style={{ fontSize: 9, color: "var(--warning)" }}>INT</span>}
                                                                                 <span className="remove" onClick={() => removeAssegnazione(o.id)}>✕</span>
                                                                             </span>
@@ -478,7 +516,7 @@ export default function AssegnazioniView({
                                                     textDecoration: isPresent ? "none" : "line-through",
                                                     color: isPresent ? "inherit" : "var(--danger)"
                                                 }}>
-                                                {d.cognome} {d.nome.charAt(0)}.
+                                                <span style={{ fontWeight: 500 }}>{d.cognome} {d.nome.charAt(0)}. </span>
                                                 <span className="remove" onClick={() => removeAssegnazione(o.id)}>✕</span>
                                             </span>
                                         );

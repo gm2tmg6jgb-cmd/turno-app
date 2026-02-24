@@ -310,19 +310,19 @@ export default function LimitazioniView({ dipendenti, presenze = [] }) {
                                         <td style={{ textAlign: "center", color: "var(--text-muted)", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
                                             {d.reparto_id || "-"}
                                         </td>
-                                        <td style={{ textAlign: "center", fontFamily: "'JetBrains Mono', monospace", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
+                                        <td style={{ textAlign: "center", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
                                             {d.expectedDays}
                                         </td>
-                                        <td style={{ textAlign: "center", fontFamily: "'JetBrains Mono', monospace", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
+                                        <td style={{ textAlign: "center", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
                                             {d.plannedAbsences}
                                         </td>
-                                        <td style={{ textAlign: "center", fontFamily: "'JetBrains Mono', monospace", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
+                                        <td style={{ textAlign: "center", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
                                             {d.unplannedAbsences}
                                         </td>
-                                        <td style={{ textAlign: "center", fontFamily: "'JetBrains Mono', monospace", fontWeight: d.totalAbsences > 0 ? 700 : 400, color: d.totalAbsences > 0 ? "var(--warning)" : "var(--text-muted)", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
+                                        <td style={{ textAlign: "center", fontWeight: d.totalAbsences > 0 ? 700 : 400, color: d.totalAbsences > 0 ? "var(--warning)" : "var(--text-muted)", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
                                             {d.totalAbsences}
                                         </td>
-                                        <td style={{ textAlign: "center", fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: d.percentage > 10 ? "var(--danger)" : "var(--success)", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
+                                        <td style={{ textAlign: "center", fontWeight: 700, color: d.percentage > 10 ? "var(--danger)" : "var(--success)", background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "transparent" }}>
                                             {d.percentage}%
                                         </td>
                                     </tr>

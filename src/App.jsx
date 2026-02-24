@@ -12,6 +12,7 @@ import AnagraficaView from "./views/AnagraficaView";
 import ReportView from "./views/ReportView";
 import RicercaView from "./views/RicercaView";
 import FermiView from "./views/FermiView";
+import FormazioneView from "./views/FormazioneView";
 
 import ImportView from "./views/ImportView";
 import SkillsView from "./views/SkillsView";
@@ -212,27 +213,29 @@ export default function App() {
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: Icons.dashboard },
     { id: "planning", label: "Pianificazione", icon: Icons.calendar },
+    { id: "anagrafica", label: "Anagrafica", icon: Icons.users },
     { id: "assegnazioni", label: "Assegnazioni", icon: Icons.machine, badge: alertCount || null },
     { id: "skills", label: "Competenze", icon: Icons.brain },
-    { id: "anagrafica", label: "Anagrafica", icon: Icons.users },
-    { id: "report", label: "Report", icon: Icons.report },
-    { id: "motivi", label: "Motivi Assenza", icon: Icons.filter }, // using filter icon as placeholder or similar
+    { id: "formazione", label: "Formazione", icon: Icons.academic },
+    { id: "report", label: "Report Fine Turno", icon: Icons.report },
+    { id: "motivi", label: "Motivi Assenza", icon: Icons.filter },
     { id: "import", label: "Import SAP", icon: Icons.upload },
     { id: "fermi", label: "Report Fermi", icon: Icons.alert },
   ];
 
   const viewTitles = {
-    dashboard: "Dashboard Turno",
+    dashboard: "Gestione dipendenti",
     planning: "Pianificazione Mensile",
     assegnazioni: "Assegnazione Macchine",
     anagrafica: "Anagrafica Personale",
-    report: "Report & Esportazioni",
+    report: "Report Fine Turno",
     motivi: "Gestione Motivi Assenza",
 
     import: "Import Dati SAP",
     fermi: "Report Fermi",
     zones: "Anagrafica Zone",
     skills: "Matrice Competenze",
+    formazione: "Gestione Formazione Operatori",
     limitazioni: "Area Privacy Alta - Limitazioni",
   };
 
@@ -285,7 +288,7 @@ export default function App() {
         </div>
 
         <nav className="sidebar-nav">
-          <div className="nav-section-label">Operatività</div>
+          <div className="nav-section-label">Gestione dipendenti</div>
           {navItems.slice(0, 2).map((item) => (
             <div key={item.id} className={`nav-item ${currentView === item.id ? "active" : ""}`} onClick={() => setCurrentView(item.id)}>
               {item.icon}
@@ -378,7 +381,7 @@ export default function App() {
             <DashboardView dipendenti={dipendenti} presenze={presenze} setPresenze={setPresenze} assegnazioni={assegnazioni} macchine={macchine} repartoCorrente={repartoCorrente} turnoCorrente={turnoCorrente} showToast={showToast} motivi={motivi} zones={zone} />
           )}
           {currentView === "planning" && (
-            <PlanningView dipendenti={dipendenti} setDipendenti={setDipendenti} presenze={presenze} />
+            <PlanningView dipendenti={dipendenti} setDipendenti={setDipendenti} presenze={presenze} turnoCorrente={turnoCorrente} />
           )}
           {currentView === "assegnazioni" && (
             <AssegnazioniView
@@ -433,6 +436,15 @@ export default function App() {
           )}
           {currentView === "motivi" && (
             <MotiviView motivi={motivi} setMotivi={setMotivi} showToast={showToast} />
+          )}
+          {currentView === "formazione" && (
+            <FormazioneView
+              dipendenti={dipendenti}
+              assegnazioni={assegnazioni}
+              macchine={macchine}
+              presenze={presenze}
+              turnoCorrente={turnoCorrente}
+            />
           )}
           {currentView === "limitazioni" && (
             <LimitazioniView dipendenti={dipendenti} presenze={presenze} />
