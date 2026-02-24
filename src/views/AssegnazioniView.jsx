@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { LIVELLI_COMPETENZA, ATTIVITA } from "../data/constants";
 import { Icons } from "../components/ui/Icons";
 import { Modal } from "../components/ui/Modal";
+import { validateAssignment, getLimitationDetails } from "../lib/limitationValidator";
 
 export default function AssegnazioniView({
     dipendenti, presenze, assegnazioni, setAssegnazioni,
@@ -12,6 +13,8 @@ export default function AssegnazioniView({
     const [showModal, setShowModal] = useState(null); // { id, type: 'machine' | 'activity' }
     const [selectedDip, setSelectedDip] = useState("");
     const [newActivityName, setNewActivityName] = useState("");
+    const [limitationAlert, setLimitationAlert] = useState(null); // { dipendente, message, pendingAssignment }
+    const [confirmingAssignment, setConfirmingAssignment] = useState(false);
 
     // Fix: Use local date to avoid UTC mismatch (same as Dashboard/App)
     const getLocalDate = (d) => {
@@ -142,11 +145,35 @@ export default function AssegnazioniView({
     const assRep = assegnazioni.filter((a) => dipRep.some((d) => d.id === a.dipendente_id) && a.data === today);
 
 
-    const addAssegnazione = async (targetId, dipendenteId, type) => {
+    const addAssegnazione = async (targetId, dipendenteId, type, bypassLimitation = false) => {
         if (!dipendenteId) return;
+
+        const dipendente = dipendenti.find(d => d.id === dipendenteId);
+        if (!dipendente) return;
 
         const exists = assegnazioni.find((a) => a.macchina_id === targetId && a.dipendente_id === dipendenteId && a.data === today);
         if (exists) return;
+
+        // Validate assignment for limitations
+        if (!bypassLimitation) {
+            const validation = validateAssignment(dipendente, turnoCorrente, today, targetId);
+
+            // If there's an error (hard block), show alert and don't proceed
+            if (!validation.isValid) {
+                showToast(`⚠️ ${validation.error}`, "error");
+                return;
+            }
+
+            // If there's a warning, show confirmation dialog
+            if (validation.warning) {
+                setLimitationAlert({
+                    dipendente: dipendente,
+                    message: validation.warning,
+                    pendingAssignment: { targetId, dipendenteId, type }
+                });
+                return; // Don't proceed until confirmed
+            }
+        }
 
         const dbPayload = {
             dipendente_id: dipendenteId,
@@ -165,7 +192,7 @@ export default function AssegnazioniView({
             const savedAss = data[0];
             const localAss = {
                 ...savedAss,
-                macchina_id: savedAss.macchina_id || savedAss.attivita_id, // Polyfill for UI
+                macchina_id: savedAss.macchina_id || savedAss.attivita_id,
                 isActivity: !!savedAss.attivita_id
             };
 
@@ -173,6 +200,8 @@ export default function AssegnazioniView({
             showToast("Operatore assegnato", "success");
             setShowModal(null);
             setSelectedDip("");
+            setLimitationAlert(null);
+            setConfirmingAssignment(false);
         } catch (error) {
             console.error("❌ Error saving assignment:", error);
             showToast("Errore salvataggio: " + error.message, "error");
@@ -270,16 +299,24 @@ export default function AssegnazioniView({
                                                                         // Check Presence
                                                                         const isPresent = getIsPresent(a.dipendente_id);
 
+                                                                        const hasLimitations = getLimitationDetails(d).length > 0;
+
                                                                         return d ? (
                                                                             // Increased fontSize to 15px to match Report legibility
                                                                             <span key={a.id} className="operator-chip"
                                                                                 style={{
                                                                                     background: isPresent ? "var(--bg-card)" : "rgba(220, 38, 38, 0.1)",
-                                                                                    border: isPresent ? "1px solid var(--info)" : "1px solid var(--danger)",
+                                                                                    border: isPresent
+                                                                                        ? (hasLimitations ? "2px solid #F59E0B" : "1px solid var(--info)")
+                                                                                        : "1px solid var(--danger)",
                                                                                     fontSize: 15,
                                                                                     textDecoration: isPresent ? "none" : "line-through",
-                                                                                    color: isPresent ? "inherit" : "var(--danger)"
-                                                                                }}>
+                                                                                    color: isPresent ? "inherit" : "var(--danger)",
+                                                                                    position: "relative"
+                                                                                }}
+                                                                                title={hasLimitations ? `Limitazioni: ${getLimitationDetails(d).map(l => l.label).join(", ")}` : undefined}
+                                                                            >
+                                                                                {hasLimitations && <span style={{ marginRight: 4, color: "#F59E0B" }}>⚠️</span>}
                                                                                 {d.cognome} {d.nome.charAt(0)}.
                                                                                 <span className="remove" onClick={() => removeAssegnazione(a.id)}>✕</span>
                                                                             </span>
@@ -492,6 +529,48 @@ export default function AssegnazioniView({
                     })}
                 </div>
             </div>
+
+            {limitationAlert && (
+                <Modal
+                    title="⚠️ Avviso Limitazioni"
+                    onClose={() => setLimitationAlert(null)}
+                    footer={
+                        <>
+                            <button className="btn btn-secondary" onClick={() => setLimitationAlert(null)}>Annulla</button>
+                            <button className="btn btn-danger" onClick={() => {
+                                const pending = limitationAlert.pendingAssignment;
+                                addAssegnazione(pending.targetId, pending.dipendenteId, pending.type, true);
+                            }}>Procedi comunque</button>
+                        </>
+                    }
+                >
+                    <div className="alert alert-warning" style={{ marginBottom: 16 }}>
+                        <div style={{ fontWeight: 700, marginBottom: 8 }}>
+                            {limitationAlert.dipendente.cognome} {limitationAlert.dipendente.nome}
+                        </div>
+                        <div>{limitationAlert.message}</div>
+                    </div>
+                    {getLimitationDetails(limitationAlert.dipendente).length > 0 && (
+                        <div style={{ marginTop: 12 }}>
+                            <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 8 }}>Limitazioni registrate:</p>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                {getLimitationDetails(limitationAlert.dipendente).map(lim => (
+                                    <span key={lim.id} style={{
+                                        background: lim.color + "20",
+                                        color: lim.color,
+                                        padding: "4px 8px",
+                                        borderRadius: 4,
+                                        fontSize: 12,
+                                        fontWeight: 600
+                                    }}>
+                                        {lim.label}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </Modal>
+            )}
 
             {showModal && (
                 <Modal
