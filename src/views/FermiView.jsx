@@ -348,7 +348,7 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
                                                 <div style={{ width: 12, height: 12, borderRadius: "50%", background: tec.colore, flexShrink: 0 }} />
                                                 <span style={{ fontWeight: 700, fontSize: 15 }}>{tec.label}</span>
                                                 <span style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace" }}>
-                                                    {tec.prefissi.length ? tec.prefissi.join(', ') + '*' : '—'}
+                                                    {tec.prefissiArr?.length ? tec.prefissiArr.join(', ') + '*' : '—'}
                                                 </span>
                                             </div>
                                             <span style={{
