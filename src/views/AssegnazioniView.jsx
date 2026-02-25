@@ -353,10 +353,14 @@ export default function AssegnazioniView({
                                                                                         gap: 6
                                                                                     }}>
                                                                                     <span style={{ fontWeight: 500 }}>{d.cognome} {d.nome.charAt(0)}. </span>
-                                                                                    {skill && (skill.value !== 0 || String(skill.value).includes('=>')) && (
-                                                                                        <span style={{ color: skill.color, fontWeight: 700, fontSize: 13 }}>
-                                                                                            {String(skill.value).includes('=>') ? skill.value : `Liv. ${skill.value}`}
-                                                                                        </span>
+                                                                                    {skill && (
+                                                                                        String(skill.value).includes('=>') ? (
+                                                                                            <span style={{ color: "#8B5CF6", fontWeight: 700, fontSize: 13 }}>{skill.value}</span>
+                                                                                        ) : skill.value === 0 ? (
+                                                                                            <span style={{ color: "var(--danger)", fontWeight: 700, fontSize: 11 }}>Nessuna form.</span>
+                                                                                        ) : (
+                                                                                            <span style={{ color: skill.color, fontWeight: 700, fontSize: 13 }}>Liv. {skill.value}</span>
+                                                                                        )
                                                                                     )}
                                                                                     {d.tipo === "interinale" && <span style={{ fontSize: 10, color: "var(--warning)" }}>INT</span>}
                                                                                     <span className="remove" onClick={() => removeAssegnazione(o.id)}>✕</span>
@@ -371,10 +375,14 @@ export default function AssegnazioniView({
                                                                             return (
                                                                                 <React.Fragment key={`zop-${za.id}`}>
                                                                                     {/* Removed name, show only badge */}
-                                                                                    {(zSkill && (zSkill.value !== 0 || String(zSkill.value).includes('=>'))) && (
-                                                                                        <span style={{ color: zSkill.color, fontWeight: 700, fontSize: 13 }}>
-                                                                                            {String(zSkill.value).includes('=>') ? zSkill.value : `Liv. ${zSkill.value}`}
-                                                                                        </span>
+                                                                                    {zSkill && (
+                                                                                        String(zSkill.value).includes('=>') ? (
+                                                                                            <span style={{ color: "#8B5CF6", fontWeight: 700, fontSize: 13 }}>{zSkill.value}</span>
+                                                                                        ) : zSkill.value === 0 ? (
+                                                                                            <span style={{ color: "var(--danger)", fontWeight: 700, fontSize: 11 }}>Nessuna form.</span>
+                                                                                        ) : (
+                                                                                            <span style={{ color: zSkill.color, fontWeight: 700, fontSize: 13 }}>Liv. {zSkill.value}</span>
+                                                                                        )
                                                                                     )}
                                                                                 </React.Fragment>
                                                                             );
