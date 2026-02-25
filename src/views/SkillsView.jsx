@@ -316,12 +316,9 @@ export default function SkillsView({ dipendenti, setDipendenti, macchine, showTo
                                     return (
                                         <td key={m.id} style={{ textAlign: "center", padding: "4px 2px", borderRight: "1px solid var(--border-light)" }}>
                                             {String(skillLevel).includes('=>') ? (
-                                                <div style={{ color: "#8B5CF6", fontWeight: 700, fontSize: 13, textAlign: "center" }}>⇒</div>
+                                                <div style={{ color: "#8B5CF6", fontWeight: 700, fontSize: 12, textAlign: "center", whiteSpace: "nowrap" }}>{skillLevel}</div>
                                             ) : skillLevel === 0 ? (
-                                                <div style={{ color: "var(--danger)", fontWeight: 600, fontSize: 9, textAlign: "center", lineHeight: 1.2 }}>
-                                                    <div>Nessuna</div>
-                                                    <div>Formazione</div>
-                                                </div>
+                                                <div style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: 13, textAlign: "center" }}>—</div>
                                             ) : (
                                                 <div style={{ color: skill.color, fontWeight: 700, fontSize: 13, textAlign: "center" }}>{skillLevel}</div>
                                             )}

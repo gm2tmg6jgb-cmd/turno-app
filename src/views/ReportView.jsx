@@ -11,17 +11,10 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
 import { getSlotForGroup } from '../lib/shiftRotation';
+import { getLocalDate } from '../lib/dateUtils';
 
 export default function ReportView({ dipendenti, presenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, zones, motivi }) {
     const [reportType, setReportType] = useState("turno");
-
-    // Manage Date and Turno Selection explicitly
-    const getLocalDate = (d) => {
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
 
     const [selectedDate, setSelectedDate] = useState(getLocalDate(new Date()));
     const [selectedTurno, setSelectedTurno] = useState(""); // Default to Daily View (All Shifts) as requested
@@ -618,7 +611,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                                                 {d.cognome} {d.nome.charAt(0)}.
                                                                                                             </span>
                                                                                                             {isFormazione ? (
-                                                                                                                <span style={{ color: "var(--warning)", fontWeight: 700, fontSize: 15 }}>⇒</span>
+                                                                                                                <span style={{ color: "#8B5CF6", fontWeight: 700, fontSize: 13 }}>{rawLevel}</span>
                                                                                                             ) : level > 0 ? (
                                                                                                                 <span style={{ color: skill.color, fontWeight: 700, fontSize: 15 }}>
                                                                                                                     Liv. {level}
@@ -640,7 +633,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                                         const zLevel = isZFormazione ? 0 : (rawZLevel || 0);
                                                                                                         const zSkill = LIVELLI_COMPETENZA.find(l => l.value === zLevel) || LIVELLI_COMPETENZA[0];
                                                                                                         return isZFormazione ? (
-                                                                                                            <span key={`zs-${za.dipendente_id}`} style={{ color: "var(--warning)", fontWeight: 700, fontSize: 15 }}>⇒</span>
+                                                                                                            <span key={`zs-${za.dipendente_id}`} style={{ color: "#8B5CF6", fontWeight: 700, fontSize: 13 }}>{rawZLevel}</span>
                                                                                                         ) : zLevel > 0 ? (
                                                                                                             <span key={`zs-${za.dipendente_id}`} style={{ color: zSkill.color, fontWeight: 700, fontSize: 15 }}>
                                                                                                                 Liv. {zLevel}
@@ -748,7 +741,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                                         {d.cognome} {d.nome.charAt(0)}.
                                                                                                     </span>
                                                                                                     {isFormazione ? (
-                                                                                                        <span style={{ color: "var(--warning)", fontWeight: 700, fontSize: 15 }}>⇒</span>
+                                                                                                        <span style={{ color: "#8B5CF6", fontWeight: 700, fontSize: 13 }}>{rawLevel}</span>
                                                                                                     ) : level > 0 ? (
                                                                                                         <span style={{ color: skill.color, fontWeight: 700, fontSize: 15 }}>
                                                                                                             Liv. {level}

@@ -10,7 +10,7 @@ import DashboardView from "./views/DashboardView";
 import AssegnazioniView from "./views/AssegnazioniView";
 import AnagraficaView from "./views/AnagraficaView";
 import ReportView from "./views/ReportView";
-import RicercaView from "./views/RicercaView";
+import { getLocalDate } from "./lib/dateUtils";
 import FermiView from "./views/FermiView";
 import FormazioneView from "./views/FormazioneView";
 
@@ -20,6 +20,7 @@ import MotiviView from "./views/MotiviView";
 import PlanningView from "./views/PlanningView";
 import ZoneView from "./views/ZoneView";
 import LimitazioniView from "./views/LimitazioniView";
+import Op10View from "./views/Op10View";
 
 export default function App() {
   const [currentView, setCurrentView] = useState("dashboard");
@@ -103,12 +104,6 @@ export default function App() {
 
         // --- AUTO-GENERATE PRESENCE FOR TODAY IF MISSING ---
         // Use local date for consistency
-        const getLocalDate = (d) => {
-          const year = d.getFullYear();
-          const month = String(d.getMonth() + 1).padStart(2, '0');
-          const day = String(d.getDate()).padStart(2, '0');
-          return `${year}-${month}-${day}`;
-        };
         const today = getLocalDate(new Date());
 
         const presenzeOggi = presHelper ? presHelper.filter(p => p.data === today) : [];
@@ -170,26 +165,9 @@ export default function App() {
     };
 
     fetchData();
-    fetchData();
   }, [showToast]);
 
-  // --- ONE-TIME CLEANUP FOR SUNDAY 15/02 ---
-  useEffect(() => {
-    const cleanupSunday = async () => {
-      const today = new Date().toISOString().split('T')[0];
-      const isSunday = new Date().getDay() === 0;
-      if (isSunday) {
-        console.log("🧹 Running Sunday cleanup...");
-        const { error } = await supabase.from('presenze').delete().eq('data', today);
-        if (!error) {
-          console.log("✅ Sunday records cleaned up.");
-          // Force reload of data after cleanup (simple way: reload page or re-fetch, but user will likely reload anyway)
-        }
-      }
-    };
-    cleanupSunday();
-  }, []);
-  // ------------------------------------------
+
 
 
 
@@ -215,6 +193,7 @@ export default function App() {
     { id: "planning", label: "Pianificazione", icon: Icons.calendar },
     { id: "anagrafica", label: "Anagrafica", icon: Icons.users },
     { id: "assegnazioni", label: "Assegnazioni", icon: Icons.machine, badge: alertCount || null },
+    { id: "op10", label: "Gestione OP10", icon: Icons.check },
     { id: "skills", label: "Competenze", icon: Icons.brain },
     { id: "formazione", label: "Formazione", icon: Icons.academic },
     { id: "report", label: "Report Fine Turno", icon: Icons.report },
@@ -228,9 +207,9 @@ export default function App() {
     planning: "Pianificazione Mensile",
     assegnazioni: "Assegnazione Macchine",
     anagrafica: "Anagrafica Personale",
+    op10: "Gestione OP10 — Accettatori",
     report: "Report Fine Turno",
     motivi: "Gestione Motivi Assenza",
-
     import: "Import Dati SAP",
     fermi: "Report Fermi",
     zones: "Anagrafica Zone",
@@ -276,13 +255,22 @@ export default function App() {
           </div>
         </div>
 
-        <div style={{ padding: "0 12px" }}>
+        <div style={{ padding: "0 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div className="form-group" style={{ marginBottom: 0 }}>
+            <label className="form-label">Team</label>
+            <select className="select-input" value={repartoCorrente} onChange={(e) => setRepartoCorrente(e.target.value)}>
+              <option value="">Tutti i team</option>
+              {REPARTI.map((r) => (
+                <option key={r.id} value={r.id}>{r.nome}</option>
+              ))}
+            </select>
+          </div>
           <div className="form-group" style={{ marginBottom: 0 }}>
             <label className="form-label">Turno</label>
             <select className="select-input" value={turnoCorrente} onChange={(e) => setTurnoCorrente(e.target.value)}>
-              {TURNI.map((t) => {
-                return <option key={t.id} value={t.id}>{t.nome}{t.coordinatore ? ` - ${t.coordinatore}` : ''}</option>
-              })}
+              {TURNI.map((t) => (
+                <option key={t.id} value={t.id}>{t.nome}{t.coordinatore ? ` - ${t.coordinatore}` : ''}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -311,6 +299,7 @@ export default function App() {
 
                 <div className="nav-section-label">Produzione</div>
                 {renderItem(ni("assegnazioni"))}
+                {renderItem(ni("op10"))}
                 <div className={`nav-item ${currentView === 'zones' ? "active" : ""}`} onClick={() => setCurrentView('zones')}>
                   {Icons.settings}Anagrafica Zone
                 </div>
@@ -426,15 +415,14 @@ export default function App() {
               motivi={motivi}
             />
           )}
-          {currentView === "ricerca" && (
-            <RicercaView dipendenti={dipendenti} assegnazioni={assegnazioni} macchine={macchine} />
-          )}
+
           {currentView === "import" && (
             <ImportView showToast={showToast} />
           )}
           {currentView === "fermi" && (
             <FermiView macchine={macchine} initialReparto={repartoCorrente} initialTurno={turnoCorrente} />
           )}
+          {currentView === "op10" && <Op10View />}
           {currentView === "skills" && (
             <SkillsView dipendenti={dipendenti} setDipendenti={setDipendenti} macchine={macchine} showToast={showToast} turnoCorrente={turnoCorrente} />
           )}

@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabase";
 import { LIVELLI_COMPETENZA, ATTIVITA } from "../data/constants";
 import { Icons } from "../components/ui/Icons";
 import { Modal } from "../components/ui/Modal";
+import { getLocalDate } from "../lib/dateUtils";
 
 export default function AssegnazioniView({
     dipendenti, presenze, assegnazioni, setAssegnazioni,
@@ -13,13 +14,6 @@ export default function AssegnazioniView({
     const [selectedDip, setSelectedDip] = useState("");
     const [newActivityName, setNewActivityName] = useState("");
 
-    // Fix: Use local date to avoid UTC mismatch (same as Dashboard/App)
-    const getLocalDate = (d) => {
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
     const today = getLocalDate(new Date());
 
     // --- PRESENCE LOGIC HELPER ---
@@ -290,13 +284,9 @@ export default function AssegnazioniView({
                                                                                     gap: 6
                                                                                 }}>
                                                                                 <span style={{ fontWeight: 500 }}>{d.cognome} {d.nome.charAt(0)}. </span>
-                                                                                {skill && (skill.value !== 0 || String(skill.value).includes('=>')) ? (
+                                                                                {skill && (skill.value !== 0 || String(skill.value).includes('=>')) && (
                                                                                     <span style={{ color: skill.color, fontWeight: 700, fontSize: 20 }}>
-                                                                                        {String(skill.value).includes('=>') ? `⇒` : `Liv. ${skill.value}`}
-                                                                                    </span>
-                                                                                ) : (
-                                                                                    <span style={{ color: "var(--danger)", fontWeight: 600, fontSize: 11, background: "rgba(220, 38, 38, 0.1)", padding: "2px 6px", borderRadius: 4, display: "inline-flex", lineHeight: 1.1, textAlign: "center" }}>
-                                                                                        Nessuna<br />Formazione
+                                                                                        {String(skill.value).includes('=>') ? skill.value : `Liv. ${skill.value}`}
                                                                                     </span>
                                                                                 )}
                                                                                 <span className="remove" onClick={() => removeAssegnazione(a.id)}>✕</span>
@@ -363,13 +353,9 @@ export default function AssegnazioniView({
                                                                                         gap: 6
                                                                                     }}>
                                                                                     <span style={{ fontWeight: 500 }}>{d.cognome} {d.nome.charAt(0)}. </span>
-                                                                                    {skill && (skill.value !== 0 || String(skill.value).includes('=>')) ? (
-                                                                                        <span style={{ color: skill.color, fontWeight: 700, fontSize: 20 }}>
-                                                                                            {String(skill.value).includes('=>') ? `⇒` : `Liv. ${skill.value}`}
-                                                                                        </span>
-                                                                                    ) : (
-                                                                                        <span style={{ color: "var(--danger)", fontWeight: 600, fontSize: 11, background: "rgba(220, 38, 38, 0.1)", padding: "2px 6px", borderRadius: 4, display: "inline-flex", lineHeight: 1.1, textAlign: "center" }}>
-                                                                                            Nessuna<br />Formazione
+                                                                                    {skill && (skill.value !== 0 || String(skill.value).includes('=>')) && (
+                                                                                        <span style={{ color: skill.color, fontWeight: 700, fontSize: 13 }}>
+                                                                                            {String(skill.value).includes('=>') ? skill.value : `Liv. ${skill.value}`}
                                                                                         </span>
                                                                                     )}
                                                                                     {d.tipo === "interinale" && <span style={{ fontSize: 10, color: "var(--warning)" }}>INT</span>}
@@ -385,20 +371,11 @@ export default function AssegnazioniView({
                                                                             return (
                                                                                 <React.Fragment key={`zop-${za.id}`}>
                                                                                     {/* Removed name, show only badge */}
-                                                                                    {(() => {
-                                                                                        if (zSkill && (zSkill.value !== 0 || String(zSkill.value).includes('=>'))) {
-                                                                                            return (
-                                                                                                <span style={{ color: zSkill.color, fontWeight: 700, fontSize: 20 }}>
-                                                                                                    {String(zSkill.value).includes('=>') ? `⇒` : `Liv. ${zSkill.value}`}
-                                                                                                </span>
-                                                                                            );
-                                                                                        }
-                                                                                        return (
-                                                                                            <span style={{ color: "var(--danger)", fontWeight: 600, fontSize: 11, background: "rgba(220, 38, 38, 0.1)", padding: "2px 6px", borderRadius: 4, display: "inline-flex", lineHeight: 1.1, textAlign: "center" }}>
-                                                                                                Nessuna<br />Formazione
-                                                                                            </span>
-                                                                                        );
-                                                                                    })()}
+                                                                                    {(zSkill && (zSkill.value !== 0 || String(zSkill.value).includes('=>'))) && (
+                                                                                        <span style={{ color: zSkill.color, fontWeight: 700, fontSize: 13 }}>
+                                                                                            {String(zSkill.value).includes('=>') ? zSkill.value : `Liv. ${zSkill.value}`}
+                                                                                        </span>
+                                                                                    )}
                                                                                 </React.Fragment>
                                                                             );
                                                                         })}
@@ -459,13 +436,9 @@ export default function AssegnazioniView({
                                                                                     gap: 6
                                                                                 }}>
                                                                                 <span style={{ fontWeight: 500 }}>{d.cognome} {d.nome.charAt(0)}. </span>
-                                                                                {skill && (skill.value !== 0 || String(skill.value).includes('=>')) ? (
+                                                                                {skill && (skill.value !== 0 || String(skill.value).includes('=>')) && (
                                                                                     <span style={{ color: skill.color, fontWeight: 700, fontSize: 20 }}>
-                                                                                        {String(skill.value).includes('=>') ? `⇒` : `Liv. ${skill.value}`}
-                                                                                    </span>
-                                                                                ) : (
-                                                                                    <span style={{ color: "var(--danger)", fontWeight: 600, fontSize: 11, background: "rgba(220, 38, 38, 0.1)", padding: "2px 6px", borderRadius: 4, display: "inline-flex", lineHeight: 1.1, textAlign: "center" }}>
-                                                                                        Nessuna<br />Formazione
+                                                                                        {String(skill.value).includes('=>') ? skill.value : `Liv. ${skill.value}`}
                                                                                     </span>
                                                                                 )}
                                                                                 {d.tipo === "interinale" && <span style={{ fontSize: 9, color: "var(--warning)" }}>INT</span>}

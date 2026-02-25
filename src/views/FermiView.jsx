@@ -2,17 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Icons } from '../components/ui/Icons';
 import { MOTIVI_FERMO, REPARTI, TURNI } from '../data/constants';
+import { getLocalDate } from '../lib/dateUtils';
 
 export default function FermiView({ macchine = [], initialReparto, initialTurno }) {
-    // Determine Local Date for default
-    const getLocalDate = (d) => {
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
 
-    // --- STATE ---
     const [date, setDate] = useState(getLocalDate(new Date()));
     const [turno, setTurno] = useState(initialTurno || "A");
 

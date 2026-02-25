@@ -2,17 +2,10 @@ import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { REPARTI } from "../data/constants";
 import { supabase } from "../lib/supabase";
+import { getLocalDate } from "../lib/dateUtils";
 
 export default function DashboardView({ dipendenti, presenze, setPresenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, showToast, motivi, zones }) {
     if (!dipendenti) return <div className="p-4 text-center">Caricamento dipendenti...</div>;
-
-    // Fix: Use local date to avoid UTC mismatch
-    const getLocalDate = (d) => {
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
 
     const today = getLocalDate(new Date());
 
