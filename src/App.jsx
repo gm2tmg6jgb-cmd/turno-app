@@ -21,6 +21,7 @@ import PlanningView from "./views/PlanningView";
 import ZoneView from "./views/ZoneView";
 import LimitazioniView from "./views/LimitazioniView";
 import Op10View from "./views/Op10View";
+import MotiviFermoView from "./views/MotiviFermoView";
 
 export default function App() {
   const [currentView, setCurrentView] = useState("dashboard");
@@ -44,6 +45,8 @@ export default function App() {
   const [assegnazioni, setAssegnazioni] = useState([]);
   const [presenze, setPresenze] = useState([]);
   const [motivi, setMotivi] = useState([]);
+  const [motiviFermo, setMotiviFermo] = useState([]);
+  const [tecnologie, setTecnologie] = useState([]);
   const [toast, setToast] = useState(null);
 
   const showToast = useCallback((message, type) => {
@@ -99,6 +102,8 @@ export default function App() {
         if (errPres) throw errPres;
 
         const { data: motiviHelper, error: errMotivi } = await supabase.from('motivi_assenza').select('*');
+        const { data: motiviFermoHelper } = await supabase.from('motivi_fermo').select('*').order('label');
+        const { data: tecnologieHelper } = await supabase.from('tecnologie_fermo').select('*').order('ordine');
         // If error or empty, we might want to use defaults, but better to just use what we get.
         // For migration stability, if empty, we might use default constants, but user should run SQL.
 
@@ -156,6 +161,8 @@ export default function App() {
         setAssegnazioni(assHelper || []);
         setPresenze(finalPresenze);
         setMotivi(motiviHelper || []);
+        setMotiviFermo(motiviFermoHelper || []);
+        setTecnologie(tecnologieHelper || []);
 
         console.log("✅ Data fetched successfully");
       } catch (error) {
@@ -193,13 +200,14 @@ export default function App() {
     { id: "planning", label: "Pianificazione", icon: Icons.calendar },
     { id: "anagrafica", label: "Anagrafica", icon: Icons.users },
     { id: "assegnazioni", label: "Assegnazioni", icon: Icons.machine, badge: alertCount || null },
-    { id: "op10", label: "Gestione OP10", icon: Icons.check },
+    { id: "op10", label: "Asservimento OP10", icon: Icons.check },
     { id: "skills", label: "Competenze", icon: Icons.brain },
     { id: "formazione", label: "Formazione", icon: Icons.academic },
     { id: "report", label: "Report Fine Turno", icon: Icons.report },
     { id: "motivi", label: "Motivi Assenza", icon: Icons.filter },
     { id: "import", label: "Import SAP", icon: Icons.upload },
     { id: "fermi", label: "Report Fermi", icon: Icons.alert },
+    { id: "motiviFermo", label: "Motivi Fermo", icon: Icons.filter },
   ];
 
   const viewTitles = {
@@ -207,11 +215,12 @@ export default function App() {
     planning: "Pianificazione Mensile",
     assegnazioni: "Assegnazione Macchine",
     anagrafica: "Anagrafica Personale",
-    op10: "Gestione OP10 — Accettatori",
+    op10: "Asservimento OP10",
     report: "Report Fine Turno",
     motivi: "Gestione Motivi Assenza",
     import: "Import Dati SAP",
     fermi: "Report Fermi",
+    motiviFermo: "Anagrafica Motivi Fermo",
     zones: "Anagrafica Zone",
     skills: "Matrice Competenze",
     formazione: "Gestione Formazione Operatori",
@@ -413,6 +422,7 @@ export default function App() {
               turnoCorrente={turnoCorrente}
               zones={zone}
               motivi={motivi}
+              motiviFermo={motiviFermo}
             />
           )}
 
@@ -420,7 +430,10 @@ export default function App() {
             <ImportView showToast={showToast} />
           )}
           {currentView === "fermi" && (
-            <FermiView macchine={macchine} initialReparto={repartoCorrente} initialTurno={turnoCorrente} />
+            <FermiView macchine={macchine} initialReparto={repartoCorrente} initialTurno={turnoCorrente} motiviFermo={motiviFermo} tecnologie={tecnologie} />
+          )}
+          {currentView === "motiviFermo" && (
+            <MotiviFermoView motiviFermo={motiviFermo} setMotiviFermo={setMotiviFermo} tecnologie={tecnologie} setTecnologie={setTecnologie} showToast={showToast} />
           )}
           {currentView === "op10" && <Op10View />}
           {currentView === "skills" && (

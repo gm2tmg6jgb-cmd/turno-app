@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import { REPARTI, TURNI, MOTIVI_FERMO, LIVELLI_COMPETENZA } from "../data/constants";
+import { REPARTI, TURNI, MOTIVI_FERMO as MOTIVI_FERMO_DEFAULT, LIVELLI_COMPETENZA } from "../data/constants";
 import { Icons } from "../components/ui/Icons";
 import {
     PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
@@ -13,7 +13,8 @@ import html2canvas from 'html2canvas';
 import { getSlotForGroup } from '../lib/shiftRotation';
 import { getLocalDate } from '../lib/dateUtils';
 
-export default function ReportView({ dipendenti, presenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, zones, motivi }) {
+export default function ReportView({ dipendenti, presenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, zones, motivi, motiviFermo: motiviFermoProp }) {
+    const motiviFermo = motiviFermoProp?.length ? motiviFermoProp : MOTIVI_FERMO_DEFAULT;
     const [reportType, setReportType] = useState("turno");
 
     const [selectedDate, setSelectedDate] = useState(getLocalDate(new Date()));
@@ -681,7 +682,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                                 }}
                                                                                             >
                                                                                                 <option value="">+ Aggiungi fermo...</option>
-                                                                                                {MOTIVI_FERMO.map(mot => <option key={mot.id} value={mot.label}>{mot.icona} {mot.label}</option>)}
+                                                                                                {motiviFermo.map(mot => <option key={mot.id} value={mot.label}>{mot.icona} {mot.label}</option>)}
                                                                                             </select>
                                                                                         </div>
                                                                                     </td>
@@ -790,7 +791,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                         }}
                                                                                     >
                                                                                         <option value="">+ Aggiungi fermo...</option>
-                                                                                        {MOTIVI_FERMO.map(mot => <option key={mot.id} value={mot.label}>{mot.icona} {mot.label}</option>)}
+                                                                                        {motiviFermo.map(mot => <option key={mot.id} value={mot.label}>{mot.icona} {mot.label}</option>)}
                                                                                     </select>
                                                                                 </div>
                                                                             </td>
