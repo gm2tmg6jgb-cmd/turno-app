@@ -95,6 +95,47 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
     const [fermi, setFermi] = useState([]);
     const [loading, setLoading] = useState(false);
 
+    /* ── FORM INSERIMENTO ── */
+    const EMPTY_FORM = { macchina_id: "", ora_inizio: "", ora_fine: "", motivo: "", durata_minuti: "", note: "" };
+    const [showForm, setShowForm] = useState(false);
+    const [formData, setFormData] = useState(EMPTY_FORM);
+    const [saving, setSaving] = useState(false);
+
+    const resetForm = () => { setFormData(EMPTY_FORM); setShowForm(false); };
+
+    /* ── calcola durata da ora_inizio/ora_fine ── */
+    const calcDurata = (inizio, fine) => {
+        if (!inizio || !fine) return "";
+        const [ih, im] = inizio.split(":").map(Number);
+        const [fh, fm] = fine.split(":").map(Number);
+        const diff = (fh * 60 + fm) - (ih * 60 + im);
+        return diff > 0 ? String(diff) : "";
+    };
+
+    const handleSaveFermo = async () => {
+        if (!formData.macchina_id || !formData.motivo) {
+            showNotification("Seleziona macchina e motivo", "error"); return;
+        }
+        setSaving(true);
+        const durata = formData.durata_minuti || calcDurata(formData.ora_inizio, formData.ora_fine) || null;
+        const payload = {
+            data: date,
+            turno_id: turno || null,
+            macchina_id: formData.macchina_id,
+            ora_inizio: formData.ora_inizio || null,
+            ora_fine: formData.ora_fine || null,
+            motivo: formData.motivo,
+            durata_minuti: durata ? parseInt(durata) : null,
+            note: formData.note || null,
+        };
+        const { data, error } = await supabase.from('fermi_macchina').insert([payload]).select();
+        setSaving(false);
+        if (error) { showNotification("Errore salvataggio: " + error.message, "error"); return; }
+        setFermi(prev => [data[0], ...prev]);
+        showNotification("Fermo registrato", "success");
+        resetForm();
+    };
+
     /* ── PER TECNOLOGIA state ── */
     const [tecFrom, setTecFrom] = useState(defaultFrom());
     const [tecTo, setTecTo] = useState(getLocalDate(new Date()));
@@ -227,7 +268,7 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
             {activeTab === 'lista' && (
                 <>
                     {/* Filtri */}
-                    <div style={{ display: "flex", gap: 12, background: "var(--bg-card)", padding: 12, borderRadius: 8, border: "1px solid var(--border)", marginBottom: 20 }}>
+                    <div style={{ display: "flex", gap: 12, background: "var(--bg-card)", padding: 12, borderRadius: 8, border: "1px solid var(--border)", marginBottom: 20, alignItems: "flex-end" }}>
                         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                             <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Data</label>
                             <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input" style={{ width: 140 }} />
@@ -239,73 +280,216 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
                                 {TURNI.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
                             </select>
                         </div>
+                        <div style={{ marginLeft: "auto" }}>
+                            <button
+                                className={showForm ? "btn btn-secondary" : "btn btn-primary"}
+                                onClick={() => { setShowForm(v => !v); setFormData(EMPTY_FORM); }}
+                            >
+                                {showForm ? "Chiudi" : <>{Icons.plus} Aggiungi Fermo</>}
+                            </button>
+                        </div>
                     </div>
 
-                    <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-                        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(0,0,0,0.02)" }}>
-                            <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Elenco Fermi Registrati</h3>
-                            <div style={{ fontSize: 13, color: "var(--text-muted)" }}>Totale: <strong>{fermi.length}</strong></div>
-                        </div>
-                        {loading ? (
-                            <div style={{ padding: 60, textAlign: "center", color: "var(--text-muted)" }}>Caricamento...</div>
-                        ) : fermi.length === 0 ? (
-                            <div style={{ padding: 80, textAlign: "center", fontStyle: "italic", color: "var(--text-muted)" }}>
-                                <div style={{ fontSize: 40, marginBottom: 16, opacity: 0.3 }}>{Icons.report}</div>
-                                Nessun fermo registrato per i criteri selezionati.
+                    <div style={{ display: "grid", gridTemplateColumns: showForm ? "1fr 340px" : "1fr", gap: 20, alignItems: "start" }}>
+                        {/* Lista */}
+                        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+                            <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", background: "rgba(0,0,0,0.02)" }}>
+                                <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Fermi Registrati</h3>
+                                <div style={{ fontSize: 13, color: "var(--text-muted)" }}>Totale: <strong>{fermi.length}</strong></div>
                             </div>
-                        ) : (
-                            <div className="table-container">
-                                <table style={{ width: "100%" }}>
-                                    <thead>
-                                        <tr style={{ background: "var(--bg-tertiary)" }}>
-                                            <th style={{ textAlign: "left", padding: "12px 20px" }}>Macchina</th>
-                                            <th style={{ textAlign: "center", padding: "12px" }}>Orario</th>
-                                            <th style={{ textAlign: "left", padding: "12px" }}>Motivo / Note</th>
-                                            <th style={{ textAlign: "center", padding: "12px" }}>Durata (min)</th>
-                                            <th style={{ width: 60, padding: "12px 20px" }}></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {fermi.map(f => {
-                                            const motivoObj = motiviFermo.find(m => m.label === f.motivo) || motiviFermo.find(m => m.id === f.motivo);
-                                            const machineObj = macchine.find(m => m.id === f.macchina_id);
-                                            const machineName = machineObj?.nome || f.macchina_id;
-                                            const repartoName = REPARTI.find(r => r.id === machineObj?.reparto_id)?.nome || "";
+                            {loading ? (
+                                <div style={{ padding: 60, textAlign: "center", color: "var(--text-muted)" }}>Caricamento...</div>
+                            ) : fermi.length === 0 ? (
+                                <div style={{ padding: 60, textAlign: "center", fontStyle: "italic", color: "var(--text-muted)" }}>
+                                    Nessun fermo registrato per i criteri selezionati.
+                                </div>
+                            ) : (
+                                <div className="table-container">
+                                    <table style={{ width: "100%" }}>
+                                        <thead>
+                                            <tr style={{ background: "var(--bg-tertiary)" }}>
+                                                <th style={{ textAlign: "left", padding: "12px 20px" }}>Macchina</th>
+                                                <th style={{ textAlign: "center", padding: "12px" }}>Orario</th>
+                                                <th style={{ textAlign: "left", padding: "12px" }}>Motivo / Note</th>
+                                                <th style={{ textAlign: "center", padding: "12px" }}>Durata (min)</th>
+                                                <th style={{ width: 60, padding: "12px 20px" }}></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {fermi.map(f => {
+                                                const motivoObj = motiviFermo.find(m => m.label === f.motivo) || motiviFermo.find(m => m.id === f.motivo);
+                                                const machineObj = macchine.find(m => m.id === f.macchina_id);
+                                                const machineName = machineObj?.nome || f.macchina_id;
+                                                const repartoName = REPARTI.find(r => r.id === machineObj?.reparto_id)?.nome || "";
+                                                return (
+                                                    <tr key={f.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                                        <td style={{ padding: "12px 20px", fontWeight: 600 }}>
+                                                            {machineName}
+                                                            <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 400 }}>{repartoName}</div>
+                                                        </td>
+                                                        <td style={{ textAlign: "center", padding: "12px", fontFamily: "monospace", fontSize: 13 }}>
+                                                            {f.ora_inizio ? f.ora_inizio.slice(0, 5) : "—"} – {f.ora_fine ? f.ora_fine.slice(0, 5) : "—"}
+                                                        </td>
+                                                        <td style={{ padding: "12px" }}>
+                                                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                                                {motivoObj && <span style={{ fontSize: 18 }}>{motivoObj.icona}</span>}
+                                                                <span style={{ fontWeight: 500 }}>{f.motivo}</span>
+                                                            </div>
+                                                            {f.note && <div style={{ fontSize: 12, color: "var(--text-muted)", fontStyle: "italic", marginTop: 4, background: "rgba(0,0,0,0.03)", padding: "4px 8px", borderRadius: 4 }}>{f.note}</div>}
+                                                        </td>
+                                                        <td style={{ textAlign: "center", padding: "12px", fontWeight: 700, color: f.durata_minuti > 30 ? "var(--danger)" : "inherit" }}>
+                                                            {f.durata_minuti || "—"}
+                                                        </td>
+                                                        <td style={{ textAlign: "right", padding: "12px 20px" }}>
+                                                            <button onClick={() => handleDelete(f.id)} className="btn-icon-small" style={{ color: "var(--text-muted)" }} title="Elimina">
+                                                                {Icons.trash}
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Form inserimento fermo */}
+                        {showForm && (
+                            <div className="card" style={{ position: "sticky", top: 20 }}>
+                                <div className="card-header" style={{ marginBottom: 16 }}>
+                                    <div className="card-title">Nuovo Fermo</div>
+                                    <button className="btn-ghost btn-sm" onClick={resetForm}>{Icons.x}</button>
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Macchina *</label>
+                                    <select
+                                        className="select-input"
+                                        value={formData.macchina_id}
+                                        onChange={e => setFormData(p => ({ ...p, macchina_id: e.target.value }))}
+                                    >
+                                        <option value="">— Seleziona —</option>
+                                        {tecnologie.map(tec => {
+                                            const macchineGruppo = macchine.filter(m =>
+                                                tec.prefissiArr?.length > 0
+                                                    ? tec.prefissiArr.some(p => (m.id || "").toUpperCase().startsWith(p))
+                                                    : false
+                                            );
+                                            if (macchineGruppo.length === 0) return null;
                                             return (
-                                                <tr key={f.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
-                                                    <td style={{ padding: "12px 20px", fontWeight: 600 }}>
-                                                        {machineName}
-                                                        <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 400 }}>{repartoName}</div>
-                                                    </td>
-                                                    <td style={{ textAlign: "center", padding: "12px", fontFamily: "monospace", fontSize: 13 }}>
-                                                        {f.ora_inizio ? f.ora_inizio.slice(0, 5) : "—"} – {f.ora_fine ? f.ora_fine.slice(0, 5) : "—"}
-                                                    </td>
-                                                    <td style={{ padding: "12px" }}>
-                                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                                            {motivoObj && <span style={{ fontSize: 18 }}>{motivoObj.icona}</span>}
-                                                            <span style={{ fontWeight: 500 }}>{f.motivo}</span>
-                                                        </div>
-                                                        {f.note && <div style={{ fontSize: 12, color: "var(--text-muted)", fontStyle: "italic", marginTop: 4, background: "rgba(0,0,0,0.03)", padding: "4px 8px", borderRadius: 4 }}>{f.note}</div>}
-                                                    </td>
-                                                    <td style={{ textAlign: "center", padding: "12px", fontWeight: 700, color: f.durata_minuti > 30 ? "var(--danger)" : "inherit" }}>
-                                                        {f.durata_minuti || "—"}
-                                                    </td>
-                                                    <td style={{ textAlign: "right", padding: "12px 20px" }}>
-                                                        <button onClick={() => handleDelete(f.id)} className="btn-icon-small" style={{ color: "var(--text-muted)" }} title="Elimina">
-                                                            {Icons.trash}
-                                                        </button>
-                                                    </td>
-                                                </tr>
+                                                <optgroup key={tec.id} label={tec.label}>
+                                                    {macchineGruppo.map(m => (
+                                                        <option key={m.id} value={m.id}>{m.nome || m.id}</option>
+                                                    ))}
+                                                </optgroup>
                                             );
                                         })}
-                                    </tbody>
-                                </table>
+                                        {/* macchine non classificate */}
+                                        {(() => {
+                                            const classificate = new Set(
+                                                macchine
+                                                    .filter(m => tecnologie.some(tec =>
+                                                        tec.prefissiArr?.length > 0 &&
+                                                        tec.prefissiArr.some(p => (m.id || "").toUpperCase().startsWith(p))
+                                                    ))
+                                                    .map(m => m.id)
+                                            );
+                                            const altre = macchine.filter(m => !classificate.has(m.id));
+                                            if (!altre.length) return null;
+                                            return (
+                                                <optgroup label="Altro">
+                                                    {altre.map(m => <option key={m.id} value={m.id}>{m.nome || m.id}</option>)}
+                                                </optgroup>
+                                            );
+                                        })()}
+                                    </select>
+                                </div>
+
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                                    <div className="form-group">
+                                        <label className="form-label">Ora inizio</label>
+                                        <input
+                                            type="time"
+                                            className="input"
+                                            value={formData.ora_inizio}
+                                            onChange={e => {
+                                                const ora_inizio = e.target.value;
+                                                setFormData(p => ({
+                                                    ...p,
+                                                    ora_inizio,
+                                                    durata_minuti: calcDurata(ora_inizio, p.ora_fine),
+                                                }));
+                                            }}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Ora fine</label>
+                                        <input
+                                            type="time"
+                                            className="input"
+                                            value={formData.ora_fine}
+                                            onChange={e => {
+                                                const ora_fine = e.target.value;
+                                                setFormData(p => ({
+                                                    ...p,
+                                                    ora_fine,
+                                                    durata_minuti: calcDurata(p.ora_inizio, ora_fine),
+                                                }));
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Durata (min)</label>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        className="input"
+                                        placeholder="auto da orari"
+                                        value={formData.durata_minuti}
+                                        onChange={e => setFormData(p => ({ ...p, durata_minuti: e.target.value }))}
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Motivo *</label>
+                                    <select
+                                        className="select-input"
+                                        value={formData.motivo}
+                                        onChange={e => setFormData(p => ({ ...p, motivo: e.target.value }))}
+                                    >
+                                        <option value="">— Seleziona —</option>
+                                        {motiviFermo.map(m => (
+                                            <option key={m.id} value={m.label}>{m.icona} {m.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div className="form-group">
+                                    <label className="form-label">Note</label>
+                                    <input
+                                        className="input"
+                                        placeholder="Opzionale"
+                                        value={formData.note}
+                                        onChange={e => setFormData(p => ({ ...p, note: e.target.value }))}
+                                    />
+                                </div>
+
+                                <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+                                    <button
+                                        className="btn btn-primary"
+                                        style={{ flex: 1 }}
+                                        onClick={handleSaveFermo}
+                                        disabled={saving}
+                                    >
+                                        {saving ? "Salvataggio..." : "Salva Fermo"}
+                                    </button>
+                                    <button className="btn btn-secondary" onClick={resetForm}>Annulla</button>
+                                </div>
                             </div>
                         )}
-                    </div>
-
-                    <div className="alert alert-info" style={{ marginTop: 24 }}>
-                        {Icons.info} I fermi vengono registrati dalla pagina <strong>Report</strong>.
                     </div>
                 </>
             )}
