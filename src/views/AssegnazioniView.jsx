@@ -216,7 +216,11 @@ export default function AssegnazioniView({
         const dip = dipendenti.find(d => d.id === dipId);
         if (!dip) return null;
         const levelVal = dip.competenze?.[machineId] || 0;
-        return LIVELLI_COMPETENZA.find(l => l.value === levelVal);
+
+        if (typeof levelVal === 'string' && levelVal.includes('=>')) {
+            return { value: levelVal, label: 'In Formazione', color: '#8B5CF6' };
+        }
+        return LIVELLI_COMPETENZA.find(l => l.value === levelVal) || LIVELLI_COMPETENZA.find(l => l.value === 0);
     };
 
     return (
@@ -286,9 +290,13 @@ export default function AssegnazioniView({
                                                                                     gap: 6
                                                                                 }}>
                                                                                 <span style={{ fontWeight: 500 }}>{d.cognome} {d.nome.charAt(0)}. </span>
-                                                                                {skill && (skill.value !== 0 || String(skill.value).includes('=>')) && (
+                                                                                {skill && (skill.value !== 0 || String(skill.value).includes('=>')) ? (
                                                                                     <span style={{ color: skill.color, fontWeight: 700, fontSize: 20 }}>
-                                                                                        Liv. {skill.value}
+                                                                                        {String(skill.value).includes('=>') ? `⇒` : `Liv. ${skill.value}`}
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <span style={{ color: "var(--danger)", fontWeight: 600, fontSize: 11, background: "rgba(220, 38, 38, 0.1)", padding: "2px 6px", borderRadius: 4, display: "inline-flex", lineHeight: 1.1, textAlign: "center" }}>
+                                                                                        Nessuna<br />Formazione
                                                                                     </span>
                                                                                 )}
                                                                                 <span className="remove" onClick={() => removeAssegnazione(a.id)}>✕</span>
@@ -355,9 +363,13 @@ export default function AssegnazioniView({
                                                                                         gap: 6
                                                                                     }}>
                                                                                     <span style={{ fontWeight: 500 }}>{d.cognome} {d.nome.charAt(0)}. </span>
-                                                                                    {skill && (skill.value !== 0 || String(skill.value).includes('=>')) && (
+                                                                                    {skill && (skill.value !== 0 || String(skill.value).includes('=>')) ? (
                                                                                         <span style={{ color: skill.color, fontWeight: 700, fontSize: 20 }}>
-                                                                                            Liv. {skill.value}
+                                                                                            {String(skill.value).includes('=>') ? `⇒` : `Liv. ${skill.value}`}
+                                                                                        </span>
+                                                                                    ) : (
+                                                                                        <span style={{ color: "var(--danger)", fontWeight: 600, fontSize: 11, background: "rgba(220, 38, 38, 0.1)", padding: "2px 6px", borderRadius: 4, display: "inline-flex", lineHeight: 1.1, textAlign: "center" }}>
+                                                                                            Nessuna<br />Formazione
                                                                                         </span>
                                                                                     )}
                                                                                     {d.tipo === "interinale" && <span style={{ fontSize: 10, color: "var(--warning)" }}>INT</span>}
@@ -373,11 +385,20 @@ export default function AssegnazioniView({
                                                                             return (
                                                                                 <React.Fragment key={`zop-${za.id}`}>
                                                                                     {/* Removed name, show only badge */}
-                                                                                    {(zSkill && (zSkill.value !== 0 || String(zSkill.value).includes('=>'))) && (
-                                                                                        <span style={{ color: zSkill.color, fontWeight: 700, fontSize: 20 }}>
-                                                                                            Liv. {zSkill.value}
-                                                                                        </span>
-                                                                                    )}
+                                                                                    {(() => {
+                                                                                        if (zSkill && (zSkill.value !== 0 || String(zSkill.value).includes('=>'))) {
+                                                                                            return (
+                                                                                                <span style={{ color: zSkill.color, fontWeight: 700, fontSize: 20 }}>
+                                                                                                    {String(zSkill.value).includes('=>') ? `⇒` : `Liv. ${zSkill.value}`}
+                                                                                                </span>
+                                                                                            );
+                                                                                        }
+                                                                                        return (
+                                                                                            <span style={{ color: "var(--danger)", fontWeight: 600, fontSize: 11, background: "rgba(220, 38, 38, 0.1)", padding: "2px 6px", borderRadius: 4, display: "inline-flex", lineHeight: 1.1, textAlign: "center" }}>
+                                                                                                Nessuna<br />Formazione
+                                                                                            </span>
+                                                                                        );
+                                                                                    })()}
                                                                                 </React.Fragment>
                                                                             );
                                                                         })}
@@ -438,9 +459,13 @@ export default function AssegnazioniView({
                                                                                     gap: 6
                                                                                 }}>
                                                                                 <span style={{ fontWeight: 500 }}>{d.cognome} {d.nome.charAt(0)}. </span>
-                                                                                {skill && (skill.value !== 0 || String(skill.value).includes('=>')) && (
+                                                                                {skill && (skill.value !== 0 || String(skill.value).includes('=>')) ? (
                                                                                     <span style={{ color: skill.color, fontWeight: 700, fontSize: 20 }}>
-                                                                                        Liv. {skill.value}
+                                                                                        {String(skill.value).includes('=>') ? `⇒` : `Liv. ${skill.value}`}
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <span style={{ color: "var(--danger)", fontWeight: 600, fontSize: 11, background: "rgba(220, 38, 38, 0.1)", padding: "2px 6px", borderRadius: 4, display: "inline-flex", lineHeight: 1.1, textAlign: "center" }}>
+                                                                                        Nessuna<br />Formazione
                                                                                     </span>
                                                                                 )}
                                                                                 {d.tipo === "interinale" && <span style={{ fontSize: 9, color: "var(--warning)" }}>INT</span>}
