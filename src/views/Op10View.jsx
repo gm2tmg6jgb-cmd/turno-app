@@ -6,6 +6,14 @@ const WEISSER_MACCHINE = [
     "DRA87/88", "DRA9970", "DRA71", "DRA72", "DRA42",
     "DRA56", "DRA29", "DRA44",
 ];
+// componente → macchina reale
+const ECO_MAP = {
+    SG2: "SCA11006",
+    SGR: "SCA11006",
+    SG3: "SCA10078",
+    SG4: "SCA10078",
+    SG5: "FRW10082",
+};
 const ECO_MACCHINE = ["SG2", "SG3", "SG4", "SG5", "SGR"];
 
 const PROGETTI = ["", "DCT 300", "8Fe", "DCT Eco"];
@@ -190,7 +198,7 @@ export default function Op10View() {
                                 <tr key={idx}>
                                     {/* macchina fissa */}
                                     <td style={{ ...TD(), padding: "5px 10px", fontWeight: 600, color: "var(--text-primary)", textAlign: "left", whiteSpace: "nowrap" }}>
-                                        {row.macchina}
+                                        {row.tipo === "eco" ? ECO_MAP[row.macchina] || row.macchina : row.macchina}
                                     </td>
                                     {/* progetto */}
                                     <td style={TD()}>
