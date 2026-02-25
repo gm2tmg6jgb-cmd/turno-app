@@ -16,7 +16,8 @@ const ECO_MAP = {
 };
 const ECO_MACCHINE = ["SG2", "SG3", "SG4", "SG5", "SGR"];
 
-const PROGETTI = ["", "DCT 300", "8Fe", "DCT Eco"];
+const PROGETTI_WEISSER = ["", "DCT 300", "8Fe"];       // tutti i Weisser
+const PROGETTI_DRA44   = ["", "DCT 300", "8Fe", "DCT Eco"]; // solo DRA44
 const COMPONENTI = ["", "SG2", "SG3", "SG4", "SG5", "SGR"];
 
 /* ── formula ────────────────────────────────────────────── */
@@ -200,12 +201,17 @@ export default function Op10View() {
                                     <td style={{ ...TD(), padding: "5px 10px", fontWeight: 600, color: "var(--text-primary)", textAlign: "left", whiteSpace: "nowrap" }}>
                                         {row.tipo === "eco" ? ECO_MAP[row.macchina] || row.macchina : row.macchina}
                                     </td>
-                                    {/* progetto */}
+                                    {/* progetto — fisso per ECO, dropdown per Weisser */}
                                     <td style={TD()}>
-                                        <select style={SELECT_STYLE} value={row.progetto}
-                                            onChange={e => update(idx, "progetto", e.target.value)}>
-                                            {PROGETTI.map(p => <option key={p} value={p}>{p || "—"}</option>)}
-                                        </select>
+                                        {row.tipo === "eco" ? (
+                                            <div style={{ ...INPUT(), padding: "5px 8px", fontWeight: 600 }}>DCT Eco</div>
+                                        ) : (
+                                            <select style={SELECT_STYLE} value={row.progetto}
+                                                onChange={e => update(idx, "progetto", e.target.value)}>
+                                                {(row.macchina === "DRA44" ? PROGETTI_DRA44 : PROGETTI_WEISSER)
+                                                    .map(p => <option key={p} value={p}>{p || "—"}</option>)}
+                                            </select>
+                                        )}
                                     </td>
                                     {/* componente — fisso per ECO, dropdown per Weisser */}
                                     <td style={TD()}>
