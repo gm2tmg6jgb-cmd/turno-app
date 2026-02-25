@@ -16,7 +16,6 @@ export const ORARI_TURNI = [
 export const REPARTI = [
     { id: "T11", nome: "Team 11 SOFT", tipo: "produzione", colore: "#3B82F6", capoturno: "Cianci" },
     { id: "T12", nome: "Team 12 HARD", tipo: "produzione", colore: "#3B82F6", capoturno: "Cappelluti" },
-    { id: "T13", nome: "Team 13 RG + DH", tipo: "produzione", colore: "#3B82F6", capoturno: "Ferrandes" },
 ];
 
 export const ZONE = [

@@ -241,7 +241,6 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
     const teamLeaders = {
         'T11': 'Cianci',
         'T12': 'Cappelluti',
-        'T13': 'Ferrandes'
     };
 
     const sortedDip = [...filteredDipendenti].sort((a, b) => {

@@ -1,14 +1,6 @@
 import { MACCHINE } from './constants';
 
 export const generateDipendenti = () => [
-    // Team 13 - SOFT (Ferrandes)
-    { id: "D001", nome: "Michele", cognome: "Addabbo", turno: "D", reparto: "T13", tipo: "indeterminato", competenze: [], ruolo: "operatore", l104: "" },
-    { id: "D014", nome: "Fabio", cognome: "Ferrandes", turno: "D", reparto: "T13", tipo: "indeterminato", competenze: [], ruolo: "capoturno", l104: "" },
-    { id: "D015", nome: "Nicola", cognome: "Fortunato", turno: "D", reparto: "T13", tipo: "indeterminato", competenze: [], ruolo: "operatore", l104: "" },
-    { id: "D020", nome: "Nicholas Vincenzo", cognome: "Laghezza", turno: "D", reparto: "T13", tipo: "indeterminato", competenze: [], ruolo: "operatore", l104: "" },
-    { id: "D025", nome: "Alessio", cognome: "Montrone", turno: "D", reparto: "T13", tipo: "indeterminato", competenze: [], ruolo: "operatore", l104: "" },
-    { id: "D028", nome: "Flavio", cognome: "Nanocchio", turno: "D", reparto: "T13", tipo: "indeterminato", competenze: [], ruolo: "operatore", l104: "" },
-    { id: "D035", nome: "Vincenzo", cognome: "Tesoriere", turno: "D", reparto: "T13", tipo: "indeterminato", competenze: [], ruolo: "operatore", l104: "" },
 
     // Team 11 - SOFT (Cianci)
     { id: "D002", nome: "Gianluca", cognome: "Andronico", turno: "D", reparto: "T11", tipo: "indeterminato", competenze: [], ruolo: "operatore", l104: "" },
