@@ -2,9 +2,9 @@ import { useState } from "react";
 
 /* ── macchine fisse ─────────────────────────────────────── */
 const WEISSER_MACCHINE = [
-    "DRA80", "DRA61", "DRA62", "DRA83/84", "DRA95/96",
-    "DRA87/88", "DRA9970", "DRA71", "DRA72", "DRA42",
-    "DRA56", "DRA29", "DRA44",
+    "DRA10060", "DRA10061", "DRA10062", "DRA10063/64", "DRA10065/66",
+    "DRA10067/68", "DRA10069/70", "DRA10071", "DRA10072", "DRA11042",
+    "DRA11058", "DRA10059", "DRA11044",
 ];
 // componente → macchina reale
 const ECO_MAP = {
@@ -208,7 +208,7 @@ export default function Op10View() {
                                         ) : (
                                             <select style={SELECT_STYLE} value={row.progetto}
                                                 onChange={e => update(idx, "progetto", e.target.value)}>
-                                                {(row.macchina === "DRA44" ? PROGETTI_DRA44 : PROGETTI_WEISSER)
+                                                {(row.macchina === "DRA11044" ? PROGETTI_DRA44 : PROGETTI_WEISSER)
                                                     .map(p => <option key={p} value={p}>{p || "—"}</option>)}
                                             </select>
                                         )}
