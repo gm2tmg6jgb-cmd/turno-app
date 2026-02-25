@@ -199,12 +199,16 @@ export default function Op10View() {
                                             {PROGETTI.map(p => <option key={p} value={p}>{p || "—"}</option>)}
                                         </select>
                                     </td>
-                                    {/* componente */}
+                                    {/* componente — fisso per ECO, dropdown per Weisser */}
                                     <td style={TD()}>
-                                        <select style={SELECT_STYLE} value={row.componente}
-                                            onChange={e => update(idx, "componente", e.target.value)}>
-                                            {COMPONENTI.map(c => <option key={c} value={c}>{c || "—"}</option>)}
-                                        </select>
+                                        {row.tipo === "eco" ? (
+                                            <div style={{ ...INPUT(), padding: "5px 8px", fontWeight: 600 }}>{row.macchina}</div>
+                                        ) : (
+                                            <select style={SELECT_STYLE} value={row.componente}
+                                                onChange={e => update(idx, "componente", e.target.value)}>
+                                                {COMPONENTI.map(c => <option key={c} value={c}>{c || "—"}</option>)}
+                                            </select>
+                                        )}
                                     </td>
                                     {/* n. rack */}
                                     <td style={TD(alert0)}>
