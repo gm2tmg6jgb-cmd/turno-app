@@ -112,6 +112,19 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
         return diff > 0 ? String(diff) : "";
     };
 
+    /* ── motivi filtrati per macchina selezionata ── */
+    const motiviFiltrati = useMemo(() => {
+        if (!formData.macchina_id) return motiviFermo;
+        const tec = tecnologie.find(t =>
+            t.prefissiArr?.length > 0 &&
+            t.prefissiArr.some(p => formData.macchina_id.toUpperCase().startsWith(p))
+        );
+        if (!tec || !tec.motivi_ids) return motiviFermo;
+        const ids = tec.motivi_ids.split(',').map(s => s.trim()).filter(Boolean);
+        if (!ids.length) return motiviFermo;
+        return motiviFermo.filter(m => ids.includes(m.id));
+    }, [formData.macchina_id, motiviFermo, tecnologie]);
+
     const handleSaveFermo = async () => {
         if (!formData.macchina_id || !formData.motivo) {
             showNotification("Seleziona macchina e motivo", "error"); return;
@@ -461,7 +474,7 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
                                         onChange={e => setFormData(p => ({ ...p, motivo: e.target.value }))}
                                     >
                                         <option value="">— Seleziona —</option>
-                                        {motiviFermo.map(m => (
+                                        {motiviFiltrati.map(m => (
                                             <option key={m.id} value={m.label}>{m.icona} {m.label}</option>
                                         ))}
                                     </select>

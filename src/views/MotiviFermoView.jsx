@@ -7,7 +7,7 @@ const ICONE_PRESET = ["🔧", "⚡", "📦", "⚙️", "🧹", "☕", "📝", "�
 const EMPTY_MOTIVO = { id: "", label: "", colore: "#6B7280", icona: "📝" };
 
 /* ── Tecnologie ──────────────────────────────────────────── */
-const EMPTY_TEC = { id: "", label: "", prefissi: "", colore: "#6B7280", ordine: 0 };
+const EMPTY_TEC = { id: "", label: "", prefissi: "", colore: "#6B7280", ordine: 0, motivi_ids: "" };
 
 /* ── Stile tab ───────────────────────────────────────────── */
 function TabBtn({ active, onClick, children }) {
@@ -159,7 +159,7 @@ function MotiviSection({ motiviFermo, setMotiviFermo, showToast }) {
 /* ══════════════════════════════════════════════════════════
    FAMIGLIE TECNOLOGIA — sezione
 ══════════════════════════════════════════════════════════ */
-function TecnologieSection({ tecnologie, setTecnologie, showToast }) {
+function TecnologieSection({ tecnologie, setTecnologie, motiviFermo, showToast }) {
     const [editingId, setEditingId] = useState(null);
     const [isCreating, setIsCreating] = useState(false);
     const [formData, setFormData] = useState(EMPTY_TEC);
@@ -167,10 +167,18 @@ function TecnologieSection({ tecnologie, setTecnologie, showToast }) {
     const resetForm = () => { setFormData(EMPTY_TEC); setEditingId(null); setIsCreating(false); };
 
     const handleEdit = (t) => {
-        setFormData({ id: t.id, label: t.label, prefissi: t.prefissi || "", colore: t.colore, ordine: t.ordine ?? 0 });
+        setFormData({ id: t.id, label: t.label, prefissi: t.prefissi || "", colore: t.colore, ordine: t.ordine ?? 0, motivi_ids: t.motivi_ids || "" });
         setEditingId(t.id);
         setIsCreating(false);
     };
+
+    const toggleMotivo = (id) => {
+        const current = formData.motivi_ids ? formData.motivi_ids.split(',').map(s => s.trim()).filter(Boolean) : [];
+        const next = current.includes(id) ? current.filter(x => x !== id) : [...current, id];
+        setFormData(p => ({ ...p, motivi_ids: next.join(',') }));
+    };
+
+    const selectedMotivi = formData.motivi_ids ? formData.motivi_ids.split(',').map(s => s.trim()).filter(Boolean) : [];
 
     const handleCreate = () => { setFormData(EMPTY_TEC); setEditingId(null); setIsCreating(true); };
 
@@ -179,13 +187,13 @@ function TecnologieSection({ tecnologie, setTecnologie, showToast }) {
         try {
             if (isCreating) {
                 const id = formData.label.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_');
-                const payload = { id, label: formData.label.trim(), prefissi: formData.prefissi.trim(), colore: formData.colore, ordine: parseInt(formData.ordine) || 0 };
+                const payload = { id, label: formData.label.trim(), prefissi: formData.prefissi.trim(), colore: formData.colore, ordine: parseInt(formData.ordine) || 0, motivi_ids: formData.motivi_ids };
                 const { data, error } = await supabase.from('tecnologie_fermo').insert([payload]).select();
                 if (error) throw error;
                 setTecnologie(prev => [...prev, data[0]].sort((a, b) => a.ordine - b.ordine));
                 showToast(`Tecnologia creata: ${formData.label}`, "success");
             } else {
-                const payload = { label: formData.label.trim(), prefissi: formData.prefissi.trim(), colore: formData.colore, ordine: parseInt(formData.ordine) || 0 };
+                const payload = { label: formData.label.trim(), prefissi: formData.prefissi.trim(), colore: formData.colore, ordine: parseInt(formData.ordine) || 0, motivi_ids: formData.motivi_ids };
                 const { error } = await supabase.from('tecnologie_fermo').update(payload).eq('id', editingId);
                 if (error) throw error;
                 setTecnologie(prev => prev.map(t => t.id === editingId ? { ...t, ...payload } : t).sort((a, b) => a.ordine - b.ordine));
@@ -319,6 +327,38 @@ function TecnologieSection({ tecnologie, setTecnologie, showToast }) {
                             <input className="input" type="number" min="0" value={formData.ordine} onChange={e => setFormData(p => ({ ...p, ordine: e.target.value }))} placeholder="0" style={{ width: 80 }} />
                         </div>
 
+                        <div className="form-group">
+                            <label className="form-label">Motivi disponibili</label>
+                            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>
+                                Nessuna selezione = tutti i motivi. Seleziona per limitare.
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                {motiviFermo.map(m => {
+                                    const checked = selectedMotivi.includes(m.id);
+                                    return (
+                                        <label key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", padding: "6px 10px", borderRadius: 6, background: checked ? (formData.colore + "15") : "var(--bg-secondary)", border: `1px solid ${checked ? formData.colore + "55" : "var(--border)"}`, transition: "all .12s" }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                onChange={() => toggleMotivo(m.id)}
+                                                style={{ accentColor: formData.colore, width: 15, height: 15, cursor: "pointer" }}
+                                            />
+                                            <span style={{ fontSize: 16 }}>{m.icona}</span>
+                                            <span style={{ fontSize: 13, fontWeight: checked ? 600 : 400 }}>{m.label}</span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                            {selectedMotivi.length > 0 && (
+                                <div style={{ marginTop: 8, fontSize: 11, color: "var(--text-muted)" }}>
+                                    {selectedMotivi.length} motivo/i selezionato/i
+                                    <button onClick={() => setFormData(p => ({ ...p, motivi_ids: "" }))} style={{ marginLeft: 8, fontSize: 11, color: "var(--danger)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                                        Reset (tutti)
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
                         {/* Anteprima badge */}
                         <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 8, background: "var(--bg-secondary)", border: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
                             <div style={{ width: 12, height: 12, borderRadius: "50%", background: formData.colore }} />
@@ -366,7 +406,7 @@ export default function MotiviFermoView({ motiviFermo, setMotiviFermo, tecnologi
                 <MotiviSection motiviFermo={motiviFermo} setMotiviFermo={setMotiviFermo} showToast={showToast} />
             )}
             {activeTab === 'tecnologie' && (
-                <TecnologieSection tecnologie={tecnologie} setTecnologie={setTecnologie} showToast={showToast} />
+                <TecnologieSection tecnologie={tecnologie} setTecnologie={setTecnologie} motiviFermo={motiviFermo} showToast={showToast} />
             )}
         </div>
     );
