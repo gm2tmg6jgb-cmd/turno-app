@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 
 /* ── macchine fisse ─────────────────────────────────────── */
 const WEISSER_MACCHINE = [
@@ -16,12 +18,11 @@ const ECO_MAP = {
 };
 const ECO_MACCHINE = ["SG2", "SG3", "SG4", "SG5", "SGR"];
 
-const PROGETTI_WEISSER = ["", "DCT 300", "8Fe"];       // tutti i Weisser
-const PROGETTI_DRA44   = ["", "DCT 300", "8Fe", "DCT Eco"]; // solo DRA44
+const PROGETTI_WEISSER = ["", "DCT 300", "8Fe"];
+const PROGETTI_DRA44   = ["", "DCT 300", "8Fe", "DCT Eco"];
 const COMPONENTI = ["", "SG2", "SG3", "SG4", "SG5", "SGR"];
 
 /* ── formula ────────────────────────────────────────────── */
-// ore_copertura = (pezzi_rack × n_rack × tempo_ciclo_min) / 60
 function calcOre(pezziRack, nRack, tempoCiclo) {
     const p = parseFloat(pezziRack);
     const n = parseFloat(nRack);
@@ -116,146 +117,196 @@ export default function Op10View() {
     const [giorno, setGiorno] = useState(ggMese);
     const [ore, setOre] = useState(oreNow);
     const [rows, setRows] = useState(() => ALL_ROWS_INIT);
+    const [sending, setSending] = useState(false);
+
+    const tableRef = useRef(null);
 
     const update = (idx, field, val) =>
         setRows(prev => prev.map((r, i) => i === idx ? { ...r, [field]: val } : r));
 
-    const COLS = 8; // numero colonne totali
+    const handleSendPDF = async () => {
+        if (!tableRef.current) return;
+        setSending(true);
+        try {
+            const canvas = await html2canvas(tableRef.current, {
+                scale: 2,
+                backgroundColor: "#ffffff",
+                useCORS: true,
+            });
+            const imgData = canvas.toDataURL("image/png");
+            const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+            const pageW = pdf.internal.pageSize.getWidth();
+            const pageH = pdf.internal.pageSize.getHeight();
+            const ratio = canvas.width / canvas.height;
+            let w = pageW - 20;
+            let h = w / ratio;
+            if (h > pageH - 20) { h = pageH - 20; w = h * ratio; }
+            const x = (pageW - w) / 2;
+            pdf.addImage(imgData, "PNG", x, 10, w, h);
+            const fileName = `asservimento_${giorno.replace("/", "-")}_ore${ore.replace(":", "")}.pdf`;
+            pdf.save(fileName);
+
+            // Apri mailto dopo il download
+            const subject = `Asservimento ${giorno} — Ore ${ore}`;
+            const body = `Situazione Asservimento WEISSER / Pretornito ECO\nData: ${giorno}  Ore: ${ore}\n\nVedi PDF allegato.`;
+            window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+        } finally {
+            setSending(false);
+        }
+    };
+
+    const COLS = 8;
 
     return (
         <div className="fade-in">
-            <table style={tableShadow}>
-                <thead>
-                    {/* Titolo */}
-                    <tr>
-                        <td colSpan={COLS} style={titleStyle}>
-                            Situazione Asservimento WEISSER / Pretornito ECO
-                        </td>
-                    </tr>
-                    {/* Giorno / Ore */}
-                    <tr style={{ borderBottom: "1px solid #ccc", background: "var(--bg-secondary)" }}>
-                        <td style={{ padding: "5px 8px", fontWeight: 700, fontSize: 12, borderRight: "1px solid #ccc", whiteSpace: "nowrap" }}>
-                            Giorno
-                        </td>
-                        <td colSpan={2} style={{ padding: 0, borderRight: "1px solid #ccc" }}>
-                            <input style={INPUT()} value={giorno}
-                                onChange={e => setGiorno(e.target.value)} placeholder="25-feb" />
-                        </td>
-                        <td style={{ padding: "5px 8px", fontWeight: 700, fontSize: 12, borderRight: "1px solid #ccc", whiteSpace: "nowrap" }}>
-                            Ore
-                        </td>
-                        <td colSpan={COLS - 4} style={{ padding: 0 }}>
-                            <input style={INPUT()} value={ore}
-                                onChange={e => setOre(e.target.value)} placeholder="08:30" />
-                        </td>
-                    </tr>
-                    {/* Intestazioni colonne */}
-                    <tr style={{ background: "#e8e8e8" }}>
-                        <th style={{ ...TH, textAlign: "left", minWidth: 90 }}>Macchina</th>
-                        <th style={{ ...TH, minWidth: 110 }}>Progetto</th>
-                        <th style={{ ...TH, minWidth: 100 }}>Componente</th>
-                        <th style={{ ...TH, minWidth: 80 }}>N. Rack</th>
-                        <th style={{ ...TH, minWidth: 80 }}>Pz / Rack</th>
-                        <th style={{ ...TH, minWidth: 90 }}>
-                            Ciclo<br />
-                            <span style={{ fontWeight: 400, fontSize: 9, textTransform: "none" }}>(min/pz)</span>
-                        </th>
-                        <th style={{ ...TH, minWidth: 90, background: "#dbe8d0", color: "#2a5e1e" }}>
-                            Ore cop.<br />
-                            <span style={{ fontWeight: 400, fontSize: 9, textTransform: "none" }}>(auto)</span>
-                        </th>
-                        <th style={{ ...TH, textAlign: "left", minWidth: 100, borderRight: "none" }}>Note</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows.map((row, idx) => {
-                        const isFirstEco = row.tipo === "eco" && (idx === 0 || rows[idx - 1].tipo === "weisser");
-                        const oreCop = calcOre(row.pezziRack, row.nRack, row.tempoCiclo);
-                        const oreNum = parseFloat(oreCop);
-                        const alert0 = row.nRack !== "" && parseFloat(row.nRack) === 0;
-                        const alertBassa = oreCop !== "" && oreNum > 0 && oreNum < 2;
+            {/* ── Toolbar ── */}
+            <div style={{
+                display: "flex", alignItems: "center", gap: 16,
+                background: "var(--bg-card)", border: "1px solid var(--border)",
+                borderRadius: 8, padding: "10px 16px", marginBottom: 16,
+            }}>
+                <span style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>
+                    Asservimento WEISSER / Pretornito ECO
+                </span>
 
-                        return (
-                            <>
-                                {/* riga separatore prima del primo ECO */}
-                                {isFirstEco && (
-                                    <tr key={`sep-eco`}>
-                                        <td colSpan={COLS} style={{
-                                            padding: "5px 12px",
-                                            fontWeight: 700,
-                                            fontSize: 11,
-                                            textTransform: "uppercase",
-                                            letterSpacing: 0.5,
-                                            background: "#c8ddf5",
-                                            color: "#1a3a5c",
-                                            borderTop: "2px solid #888",
-                                            borderBottom: "2px solid #888",
-                                        }}>
-                                            Pretornito ECO
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", whiteSpace: "nowrap" }}>
+                        Giorno
+                    </label>
+                    <input
+                        className="input"
+                        value={giorno}
+                        onChange={e => setGiorno(e.target.value)}
+                        placeholder="25-feb"
+                        style={{ width: 90, textAlign: "center" }}
+                    />
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", whiteSpace: "nowrap" }}>
+                        Ore
+                    </label>
+                    <input
+                        className="input"
+                        value={ore}
+                        onChange={e => setOre(e.target.value)}
+                        placeholder="08:00"
+                        style={{ width: 80, textAlign: "center" }}
+                    />
+                </div>
+
+                <button
+                    className="btn btn-primary btn-sm"
+                    onClick={handleSendPDF}
+                    disabled={sending}
+                    style={{ whiteSpace: "nowrap" }}
+                >
+                    {sending ? "Generazione..." : "📧 Invia PDF"}
+                </button>
+            </div>
+
+            {/* ── Tabella ── */}
+            <div ref={tableRef}>
+                <table style={tableShadow}>
+                    <thead>
+                        <tr>
+                            <td colSpan={COLS} style={titleStyle}>
+                                Situazione Asservimento WEISSER / Pretornito ECO &nbsp;·&nbsp; {giorno} &nbsp;·&nbsp; Ore {ore}
+                            </td>
+                        </tr>
+                        <tr style={{ background: "#e8e8e8" }}>
+                            <th style={{ ...TH, textAlign: "left", minWidth: 90 }}>Macchina</th>
+                            <th style={{ ...TH, minWidth: 110 }}>Progetto</th>
+                            <th style={{ ...TH, minWidth: 100 }}>Componente</th>
+                            <th style={{ ...TH, minWidth: 80 }}>N. Rack</th>
+                            <th style={{ ...TH, minWidth: 80 }}>Pz / Rack</th>
+                            <th style={{ ...TH, minWidth: 90 }}>
+                                Ciclo<br />
+                                <span style={{ fontWeight: 400, fontSize: 9, textTransform: "none" }}>(min/pz)</span>
+                            </th>
+                            <th style={{ ...TH, minWidth: 90, background: "#dbe8d0", color: "#2a5e1e" }}>
+                                Ore cop.<br />
+                                <span style={{ fontWeight: 400, fontSize: 9, textTransform: "none" }}>(auto)</span>
+                            </th>
+                            <th style={{ ...TH, textAlign: "left", minWidth: 100, borderRight: "none" }}>Note</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {rows.map((row, idx) => {
+                            const isFirstEco = row.tipo === "eco" && (idx === 0 || rows[idx - 1].tipo === "weisser");
+                            const oreCop = calcOre(row.pezziRack, row.nRack, row.tempoCiclo);
+                            const oreNum = parseFloat(oreCop);
+                            const alert0 = row.nRack !== "" && parseFloat(row.nRack) === 0;
+                            const alertBassa = oreCop !== "" && oreNum > 0 && oreNum < 2;
+
+                            return (
+                                <>
+                                    {isFirstEco && (
+                                        <tr key="sep-eco">
+                                            <td colSpan={COLS} style={{
+                                                padding: "5px 12px", fontWeight: 700, fontSize: 11,
+                                                textTransform: "uppercase", letterSpacing: 0.5,
+                                                background: "#c8ddf5", color: "#1a3a5c",
+                                                borderTop: "2px solid #888", borderBottom: "2px solid #888",
+                                            }}>
+                                                Pretornito ECO
+                                            </td>
+                                        </tr>
+                                    )}
+
+                                    <tr key={idx}>
+                                        <td style={{ ...TD(), padding: "5px 10px", fontWeight: 600, color: "var(--text-primary)", textAlign: "left", whiteSpace: "nowrap" }}>
+                                            {row.tipo === "eco" ? ECO_MAP[row.macchina] || row.macchina : row.macchina}
+                                        </td>
+                                        <td style={TD()}>
+                                            {row.tipo === "eco" ? (
+                                                <div style={{ ...INPUT(), padding: "5px 8px", fontWeight: 600 }}>DCT Eco</div>
+                                            ) : (
+                                                <select style={SELECT_STYLE} value={row.progetto}
+                                                    onChange={e => update(idx, "progetto", e.target.value)}>
+                                                    {(row.macchina === "DRA11044" ? PROGETTI_DRA44 : PROGETTI_WEISSER)
+                                                        .map(p => <option key={p} value={p}>{p || "—"}</option>)}
+                                                </select>
+                                            )}
+                                        </td>
+                                        <td style={TD()}>
+                                            {row.tipo === "eco" ? (
+                                                <div style={{ ...INPUT(), padding: "5px 8px", fontWeight: 600 }}>{row.macchina}</div>
+                                            ) : (
+                                                <select style={SELECT_STYLE} value={row.componente}
+                                                    onChange={e => update(idx, "componente", e.target.value)}>
+                                                    {COMPONENTI.map(c => <option key={c} value={c}>{c || "—"}</option>)}
+                                                </select>
+                                            )}
+                                        </td>
+                                        <td style={TD(alert0)}>
+                                            <input style={INPUT(alert0)} value={row.nRack} type="number" min="0"
+                                                onChange={e => update(idx, "nRack", e.target.value)} placeholder="—" />
+                                        </td>
+                                        <td style={TD()}>
+                                            <input style={INPUT()} value={row.pezziRack} type="number" min="0"
+                                                onChange={e => update(idx, "pezziRack", e.target.value)} placeholder="—" />
+                                        </td>
+                                        <td style={TD()}>
+                                            <input style={INPUT()} value={row.tempoCiclo} type="number" min="0" step="0.1"
+                                                onChange={e => update(idx, "tempoCiclo", e.target.value)} placeholder="—" />
+                                        </td>
+                                        <td style={{ ...TD(alertBassa), background: oreCop === "" ? "transparent" : alertBassa ? "#FFD700" : "#edf5e8" }}>
+                                            <div style={{ ...INPUT(alertBassa), padding: "5px 8px", fontWeight: 700, color: oreCop === "" ? "var(--text-muted)" : alertBassa ? "#7a4a00" : "#2a5e1e" }}>
+                                                {oreCop === "" ? "—" : `${oreCop} h`}
+                                            </div>
+                                        </td>
+                                        <td style={{ ...TD(), borderRight: "none" }}>
+                                            <input style={INPUT(false, "left")} value={row.note}
+                                                onChange={e => update(idx, "note", e.target.value)} placeholder="—" />
                                         </td>
                                     </tr>
-                                )}
-
-                                <tr key={idx}>
-                                    {/* macchina fissa */}
-                                    <td style={{ ...TD(), padding: "5px 10px", fontWeight: 600, color: "var(--text-primary)", textAlign: "left", whiteSpace: "nowrap" }}>
-                                        {row.tipo === "eco" ? ECO_MAP[row.macchina] || row.macchina : row.macchina}
-                                    </td>
-                                    {/* progetto — fisso per ECO, dropdown per Weisser */}
-                                    <td style={TD()}>
-                                        {row.tipo === "eco" ? (
-                                            <div style={{ ...INPUT(), padding: "5px 8px", fontWeight: 600 }}>DCT Eco</div>
-                                        ) : (
-                                            <select style={SELECT_STYLE} value={row.progetto}
-                                                onChange={e => update(idx, "progetto", e.target.value)}>
-                                                {(row.macchina === "DRA11044" ? PROGETTI_DRA44 : PROGETTI_WEISSER)
-                                                    .map(p => <option key={p} value={p}>{p || "—"}</option>)}
-                                            </select>
-                                        )}
-                                    </td>
-                                    {/* componente — fisso per ECO, dropdown per Weisser */}
-                                    <td style={TD()}>
-                                        {row.tipo === "eco" ? (
-                                            <div style={{ ...INPUT(), padding: "5px 8px", fontWeight: 600 }}>{row.macchina}</div>
-                                        ) : (
-                                            <select style={SELECT_STYLE} value={row.componente}
-                                                onChange={e => update(idx, "componente", e.target.value)}>
-                                                {COMPONENTI.map(c => <option key={c} value={c}>{c || "—"}</option>)}
-                                            </select>
-                                        )}
-                                    </td>
-                                    {/* n. rack */}
-                                    <td style={TD(alert0)}>
-                                        <input style={INPUT(alert0)} value={row.nRack} type="number" min="0"
-                                            onChange={e => update(idx, "nRack", e.target.value)} placeholder="—" />
-                                    </td>
-                                    {/* pezzi / rack */}
-                                    <td style={TD()}>
-                                        <input style={INPUT()} value={row.pezziRack} type="number" min="0"
-                                            onChange={e => update(idx, "pezziRack", e.target.value)} placeholder="—" />
-                                    </td>
-                                    {/* tempo ciclo */}
-                                    <td style={TD()}>
-                                        <input style={INPUT()} value={row.tempoCiclo} type="number" min="0" step="0.1"
-                                            onChange={e => update(idx, "tempoCiclo", e.target.value)} placeholder="—" />
-                                    </td>
-                                    {/* ore copertura calcolate */}
-                                    <td style={{ ...TD(alertBassa), background: oreCop === "" ? "transparent" : alertBassa ? "#FFD700" : "#edf5e8" }}>
-                                        <div style={{ ...INPUT(alertBassa), padding: "5px 8px", fontWeight: 700, color: oreCop === "" ? "var(--text-muted)" : alertBassa ? "#7a4a00" : "#2a5e1e" }}>
-                                            {oreCop === "" ? "—" : `${oreCop} h`}
-                                        </div>
-                                    </td>
-                                    {/* note */}
-                                    <td style={{ ...TD(), borderRight: "none" }}>
-                                        <input style={INPUT(false, "left")} value={row.note}
-                                            onChange={e => update(idx, "note", e.target.value)} placeholder="—" />
-                                    </td>
-                                </tr>
-                            </>
-                        );
-                    })}
-                </tbody>
-            </table>
+                                </>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
         </div>
     );
 }
