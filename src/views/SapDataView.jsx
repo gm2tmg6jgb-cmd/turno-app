@@ -29,9 +29,17 @@ export default function SapDataView({ macchine = [] }) {
     };
 
     const filtered = data.filter(r => {
+        const m = macchine.find(m =>
+            m.id === r.macchina_id ||
+            (r.work_center_sap && (m.codice_sap || "").toUpperCase() === r.work_center_sap.toUpperCase())
+        );
+        const machineMatches = m && m.nome.toLowerCase().includes(search.toLowerCase());
+
         const matchesSearch = !search ||
             (r.materiale || "").toLowerCase().includes(search.toLowerCase()) ||
-            (r.work_center_sap || "").toLowerCase().includes(search.toLowerCase());
+            (r.work_center_sap || "").toLowerCase().includes(search.toLowerCase()) ||
+            machineMatches;
+
         const matchesDate = !dateFilter || r.data === dateFilter;
         return matchesSearch && matchesDate;
     });
@@ -128,7 +136,12 @@ export default function SapDataView({ macchine = [] }) {
                                                     (r.work_center_sap && (m.codice_sap || "").toUpperCase() === r.work_center_sap.toUpperCase())
                                                 );
                                                 return m ? (
-                                                    <span style={{ color: "var(--success)", fontWeight: 500 }}>{m.nome}</span>
+                                                    <div style={{ display: "flex", flexDirection: "column" }}>
+                                                        <span style={{ color: "var(--success)", fontWeight: 600 }}>{m.nome}</span>
+                                                        {m.codice_sap && m.codice_sap.toUpperCase() !== m.nome.toUpperCase() && (
+                                                            <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>SAP: {m.codice_sap}</span>
+                                                        )}
+                                                    </div>
                                                 ) : (
                                                     <span style={{ color: "var(--text-lighter)", fontStyle: "italic" }}>Non collegata</span>
                                                 );

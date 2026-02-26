@@ -375,9 +375,16 @@ export default function ImportView({ showToast, macchine = [] }) {
                                             <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", whiteSpace: "nowrap" }}>{r.data || "—"}</td>
                                             <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", fontWeight: 600 }}>{r.work_center_sap}</td>
                                             <td style={{ padding: "7px 12px", fontSize: 12 }}>
-                                                {r.matched
-                                                    ? <span style={{ color: "var(--success)", fontWeight: 600 }}>{r.macchina_nome}</span>
-                                                    : <span style={{ color: "var(--danger)", fontSize: 11 }}>Non trovata</span>}
+                                                {r.matched ? (
+                                                    <div style={{ display: "flex", flexDirection: "column" }}>
+                                                        <span style={{ color: "var(--success)", fontWeight: 600 }}>{r.macchina_nome}</span>
+                                                        {r.work_center_sap && r.work_center_sap.toUpperCase() !== String(r.macchina_nome).toUpperCase() && (
+                                                            <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>SAP: {r.work_center_sap}</span>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <span style={{ color: "var(--danger)", fontSize: 11 }}>Non trovata</span>
+                                                )}
                                             </td>
                                             <td style={{ padding: "7px 12px", fontSize: 12 }}>{r.materiale || "—"}</td>
                                             <td style={{ padding: "7px 12px", fontSize: 12, textAlign: "right", fontWeight: r.qta_ottenuta ? 600 : 400 }}>

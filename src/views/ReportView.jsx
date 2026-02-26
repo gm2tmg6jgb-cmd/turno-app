@@ -598,7 +598,12 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                 <tr style={{ borderBottom: "1px solid var(--border-light)" }}>
                                                                                     <td style={{ padding: "8px 12px", color: "var(--text-secondary)" }}>
                                                                                         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                                                                            <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text-primary)" }}>{m.nome}</div>
+                                                                                            <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text-primary)" }}>
+                                                                                                {m.nome}
+                                                                                                {m.codice_sap && m.codice_sap.toUpperCase() !== m.nome.toUpperCase() && (
+                                                                                                    <span style={{ fontSize: 11, color: "var(--accent)", marginLeft: 6, opacity: 0.8 }}>({m.codice_sap})</span>
+                                                                                                )}
+                                                                                            </div>
                                                                                             <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{ok ? "✅ Operativa" : "⚠️ Sotto-organico"}</span>
                                                                                         </div>
                                                                                     </td>

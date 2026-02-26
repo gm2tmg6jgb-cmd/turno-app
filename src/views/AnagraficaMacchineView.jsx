@@ -27,7 +27,10 @@ export default function AnagraficaMacchineView({ macchine, setMacchine, tecnolog
         const q = search.toLowerCase();
         return macchine
             .filter(m => {
-                const matchQ = !q || (m.id || "").toLowerCase().includes(q) || (m.nome || "").toLowerCase().includes(q);
+                const matchQ = !q ||
+                    (m.id || "").toLowerCase().includes(q) ||
+                    (m.nome || "").toLowerCase().includes(q) ||
+                    (m.codice_sap || "").toLowerCase().includes(q);
                 const matchRep = !filterReparto || m.reparto_id === filterReparto;
                 const matchTec = !filterTec || m.tecnologia_id === filterTec;
                 return matchQ && matchRep && matchTec;
