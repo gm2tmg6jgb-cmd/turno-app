@@ -185,9 +185,6 @@ export default function SapDataView({ macchine = [] }) {
                                                 return m ? (
                                                     <div style={{ display: "flex", flexDirection: "column" }}>
                                                         <span style={{ color: "var(--success)", fontWeight: 600 }}>{m.nome}</span>
-                                                        {m.codice_sap && m.codice_sap.toUpperCase() !== m.nome.toUpperCase() && (
-                                                            <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>SAP: {m.codice_sap}</span>
-                                                        )}
                                                     </div>
                                                 ) : (
                                                     <span style={{ color: "var(--text-lighter)", fontStyle: "italic" }}>Non collegata</span>

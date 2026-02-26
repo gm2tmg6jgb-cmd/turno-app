@@ -196,9 +196,6 @@ export default function SapSummaryView({ macchine = [] }) {
                                                 <td colSpan={1} style={{ padding: "12px 16px", fontWeight: 700, color: "var(--text-secondary)" }}>
                                                     <div style={{ display: "flex", flexDirection: "column" }}>
                                                         <span style={{ fontSize: 14, color: "var(--text-primary)" }}>{group.nome}</span>
-                                                        {group.codiceSap && group.codiceSap !== group.id && (
-                                                            <span style={{ fontSize: 10, opacity: 0.7 }}>Centro SAP: {group.codiceSap}</span>
-                                                        )}
                                                     </div>
                                                 </td>
                                                 <td style={{ textAlign: "right", padding: "12px 12px", fontWeight: 800, fontSize: 14, color: "var(--success)" }}>{machineTotalOk.toLocaleString("it-IT")}</td>

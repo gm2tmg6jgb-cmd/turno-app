@@ -427,9 +427,6 @@ export default function ImportView({ showToast, macchine = [] }) {
                                                 {r.matched ? (
                                                     <div style={{ display: "flex", flexDirection: "column" }}>
                                                         <span style={{ color: "var(--success)", fontWeight: 600 }}>{r.macchina_nome}</span>
-                                                        {r.work_center_sap && r.work_center_sap.toUpperCase() !== String(r.macchina_nome).toUpperCase() && (
-                                                            <span style={{ fontSize: 10, color: "var(--text-secondary)" }}>SAP: {r.work_center_sap}</span>
-                                                        )}
                                                     </div>
                                                 ) : (
                                                     <span style={{ color: "var(--danger)", fontSize: 11 }}>Non trovata</span>
