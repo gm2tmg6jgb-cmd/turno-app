@@ -51,6 +51,7 @@ export default function App() {
   const [motivi, setMotivi] = useState([]);
   const [motiviFermo, setMotiviFermo] = useState([]);
   const [tecnologie, setTecnologie] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState(null);
 
   const showToast = useCallback((message, type) => {
@@ -73,64 +74,50 @@ export default function App() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        console.log("🔄 Fetching data from Supabase...");
+        // Run all independent queries in parallel
+        const [
+          { data: dipHelper, error: errDip },
+          { data: macHelper, error: errMac },
+          { data: zoneHelper, error: errZone },
+          { data: attHelper, error: errAtt },
+          { data: assHelper, error: errAss },
+          { data: presHelper, error: errPres },
+          { data: motiviHelper },
+          { data: motiviFermoHelper },
+          { data: tecnologieHelper },
+        ] = await Promise.all([
+          supabase.from('dipendenti').select('*'),
+          supabase.from('macchine').select('*'),
+          supabase.from('zone').select('*'),
+          supabase.from('attivita').select('*'),
+          supabase.from('assegnazioni').select('*'),
+          supabase.from('presenze').select('*'),
+          supabase.from('motivi_assenza').select('*'),
+          supabase.from('motivi_fermo').select('*').order('label'),
+          supabase.from('tecnologie_fermo').select('*').order('ordine'),
+        ]);
 
-        // Debug Connection
-        const sbUrl = import.meta.env.VITE_SUPABASE_URL;
-        if (!sbUrl) {
-          showToast("⚠️ ERRORE CONFIGURAZIONE: URL Supabase mancante!", "error");
-        } else {
-          // Show first 8 chars of URL to confirm environment
-          const shortUrl = sbUrl.substring(8, 20) + "...";
-          console.log("🔗 Connected to:", shortUrl);
-          // Verify simple existence (optional, maybe too noisy for prod, but good for debug now)
-        }
-
-        const { data: dipHelper, error: errDip } = await supabase.from('dipendenti').select('*');
         if (errDip) throw errDip;
-        // Parse competenze from JSONB if needed, Supabase returns object automatically for jsonb
-
-        const { data: macHelper, error: errMac } = await supabase.from('macchine').select('*');
         if (errMac) throw errMac;
-
-        const { data: zoneHelper, error: errZone } = await supabase.from('zone').select('*');
         if (errZone) throw errZone;
-
-        const { data: attHelper, error: errAtt } = await supabase.from('attivita').select('*');
         if (errAtt) throw errAtt;
-
-        const { data: assHelper, error: errAss } = await supabase.from('assegnazioni').select('*');
         if (errAss) throw errAss;
-
-        const { data: presHelper, error: errPres } = await supabase.from('presenze').select('*');
         if (errPres) throw errPres;
 
-        const { data: motiviHelper } = await supabase.from('motivi_assenza').select('*');
-        const { data: motiviFermoHelper } = await supabase.from('motivi_fermo').select('*').order('label');
-        const { data: tecnologieHelper } = await supabase.from('tecnologie_fermo').select('*').order('ordine');
-        // If error or empty, we might want to use defaults, but better to just use what we get.
-        // For migration stability, if empty, we might use default constants, but user should run SQL.
-
         // --- AUTO-GENERATE PRESENCE FOR TODAY IF MISSING ---
-        // Use local date for consistency
         const today = getLocalDate(new Date());
-
+        const isSunday = new Date(today).getDay() === 0;
         const presenzeOggi = presHelper ? presHelper.filter(p => p.data === today) : [];
-
         let finalPresenze = presHelper || [];
 
-        // Strict Verify: Only generate if ABSOLUTELY 0 records for today AND NOT SUNDAY
-        const isSunday = new Date(today).getDay() === 0;
-
-        if (!isSunday && presenzeOggi.length === 0 && dipendenti.length > 0) { // Check state dipendenti? No, use dipHelper
-          // Double check with DB again to avoid race condition in React StrictMode
+        if (!isSunday && presenzeOggi.length === 0 && dipHelper && dipHelper.length > 0) {
+          // Double-check DB to avoid race condition in React StrictMode
           const { count } = await supabase
             .from('presenze')
             .select('*', { count: 'exact', head: true })
             .eq('data', today);
 
-          if (count === 0 && dipHelper && dipHelper.length > 0) {
-            console.log("📅 No presence records for today. Generating defaults...");
+          if (count === 0) {
             const newPresenze = dipHelper.map(d => ({
               dipendente_id: d.id,
               data: today,
@@ -148,12 +135,9 @@ export default function App() {
               console.error("❌ Error generating daily presence:", errInsert);
               showToast("Errore generazione presenze: " + errInsert.message, "error");
             } else {
-              console.log("✅ Generated daily presence records");
               finalPresenze = [...finalPresenze, ...insertedPres];
               showToast("Presenze giornaliere generate", "success");
             }
-          } else {
-            console.log("📅 Presenze already exist on DB (race condition handled).");
           }
         }
         // ---------------------------------------------------
@@ -167,11 +151,11 @@ export default function App() {
         setMotivi(motiviHelper || []);
         setMotiviFermo(motiviFermoHelper || []);
         setTecnologie(tecnologieHelper || []);
-
-        console.log("✅ Data fetched successfully");
       } catch (error) {
         console.error("❌ Error fetching data:", error);
         showToast("Errore caricamento dati: " + error.message, "error");
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -256,6 +240,15 @@ export default function App() {
 
     showToast(`Piano turno del ${new Date().toLocaleDateString()} inviato correttamente a CP / HR!`, "success"); // Simulated recipient
   };
+
+  if (isLoading) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", flexDirection: "column", gap: 16, background: "var(--bg-primary)", color: "var(--text-secondary)" }}>
+        <div style={{ fontSize: 32 }}>⚙️</div>
+        <div style={{ fontSize: 15, fontWeight: 600 }}>Caricamento dati...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
