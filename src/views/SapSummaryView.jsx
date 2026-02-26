@@ -56,6 +56,15 @@ export default function SapSummaryView({ macchine = [] }) {
         }
     };
 
+    const getProjectFromCode = (code) => {
+        if (!code) return null;
+        const c = code.toUpperCase();
+        if (c.startsWith("251")) return "DCT 300";
+        if (c.startsWith("M015")) return "8Fe";
+        if (c.startsWith("M016")) return "DCT Eco";
+        return null;
+    };
+
     const aggregatedData = useMemo(() => {
         const groups = {};
 
@@ -85,15 +94,17 @@ export default function SapSummaryView({ macchine = [] }) {
             // Definiamo una chiave di aggregazione basata su Progetto + Componente se presenti, 
             // altrimenti usiamo il codice SAP puro.
             let groupKey = matCode;
+            let currentProj = info?.progetto || getProjectFromCode(matCode);
+
             if (info && info.componente) {
-                const proj = info.progetto || "Senza Progetto";
+                const proj = currentProj || "Senza Progetto";
                 groupKey = `${proj}:::${info.componente}`;
             }
 
             if (!groups[machineKey].materiali[groupKey]) {
                 groups[machineKey].materiali[groupKey] = {
                     nome: info ? info.componente : matCode,
-                    progetto: info ? info.progetto : null,
+                    progetto: currentProj,
                     isMapped: !!info,
                     materialiInclusi: new Set([matCode]),
                     qtaOttenuta: 0,

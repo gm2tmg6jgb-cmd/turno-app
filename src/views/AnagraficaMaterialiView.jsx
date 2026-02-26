@@ -78,6 +78,20 @@ export default function AnagraficaMaterialiView({ showToast }) {
         }
     };
 
+    const handleCodiceChange = (val) => {
+        const uppercaseVal = val.toUpperCase();
+        let autoProj = "";
+        if (uppercaseVal.startsWith("251")) autoProj = "DCT 300";
+        else if (uppercaseVal.startsWith("M015")) autoProj = "8Fe";
+        else if (uppercaseVal.startsWith("M016")) autoProj = "DCT Eco";
+
+        setNewItem(prev => ({
+            ...prev,
+            codice: val,
+            progetto: autoProj || prev.progetto
+        }));
+    };
+
     const filtered = materiali.filter(m =>
         m.codice.toLowerCase().includes(search.toLowerCase()) ||
         m.componente.toLowerCase().includes(search.toLowerCase()) ||
@@ -98,7 +112,7 @@ export default function AnagraficaMaterialiView({ showToast }) {
                         <input
                             className="input"
                             value={newItem.codice}
-                            onChange={e => setNewItem(prev => ({ ...prev, codice: e.target.value }))}
+                            onChange={e => handleCodiceChange(e.target.value)}
                             placeholder="es. SCA14025"
                             style={{ width: "100%" }}
                         />
