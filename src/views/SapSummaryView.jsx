@@ -60,7 +60,7 @@ export default function SapSummaryView({ macchine = [] }) {
         if (!code) return null;
         const c = code.toUpperCase();
         if (c.startsWith("251")) return "DCT 300";
-        if (c.startsWith("M015")) return "8Fe";
+        if (c.startsWith("M015") || c.startsWith("M017")) return "8Fe";
         if (c.startsWith("M016")) return "DCT Eco";
         return null;
     };

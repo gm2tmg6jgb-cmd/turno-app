@@ -82,7 +82,7 @@ export default function AnagraficaMaterialiView({ showToast }) {
         const uppercaseVal = val.toUpperCase();
         let autoProj = "";
         if (uppercaseVal.startsWith("251")) autoProj = "DCT 300";
-        else if (uppercaseVal.startsWith("M015")) autoProj = "8Fe";
+        else if (uppercaseVal.startsWith("M015") || uppercaseVal.startsWith("M017")) autoProj = "8Fe";
         else if (uppercaseVal.startsWith("M016")) autoProj = "DCT Eco";
 
         setNewItem(prev => ({
