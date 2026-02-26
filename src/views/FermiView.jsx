@@ -119,10 +119,9 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
             t.prefissiArr?.length > 0 &&
             t.prefissiArr.some(p => formData.macchina_id.toUpperCase().startsWith(p))
         );
-        if (!tec || !tec.motivi_ids) return motiviFermo;
-        const ids = tec.motivi_ids.split(',').map(s => s.trim()).filter(Boolean);
-        if (!ids.length) return motiviFermo;
-        return motiviFermo.filter(m => ids.includes(m.id));
+        if (!tec) return motiviFermo;
+        const perTec = motiviFermo.filter(m => m.tecnologia_id === tec.id);
+        return perTec.length > 0 ? perTec : motiviFermo;
     }, [formData.macchina_id, motiviFermo, tecnologie]);
 
     const handleSaveFermo = async () => {
