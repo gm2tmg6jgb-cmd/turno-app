@@ -228,9 +228,6 @@ export default function SapSummaryView({ macchine = [] }) {
                                                                         {m.nome}
                                                                     </span>
                                                                 </div>
-                                                                <div style={{ fontSize: 10, color: "var(--text-muted)", opacity: 0.8 }}>
-                                                                    Codici SAP: {m.materialiInclusi.join(", ")}
-                                                                </div>
                                                             </div>
                                                         </td>
                                                         <td style={{ textAlign: "right", padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>{m.qtaOttenuta.toLocaleString("it-IT")}</td>
