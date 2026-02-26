@@ -23,6 +23,7 @@ import LimitazioniView from "./views/LimitazioniView";
 import Op10View from "./views/Op10View";
 import AnagraficaFermiView from "./views/AnagraficaFermiView";
 import AnagraficaMacchineView from "./views/AnagraficaMacchineView";
+import SapDataView from "./views/SapDataView";
 
 export default function App() {
   const [currentView, setCurrentView] = useState("dashboard");
@@ -102,7 +103,7 @@ export default function App() {
         const { data: presHelper, error: errPres } = await supabase.from('presenze').select('*');
         if (errPres) throw errPres;
 
-        const { data: motiviHelper, error: errMotivi } = await supabase.from('motivi_assenza').select('*');
+        const { data: motiviHelper } = await supabase.from('motivi_assenza').select('*');
         const { data: motiviFermoHelper } = await supabase.from('motivi_fermo').select('*').order('label');
         const { data: tecnologieHelper } = await supabase.from('tecnologie_fermo').select('*').order('ordine');
         // If error or empty, we might want to use defaults, but better to just use what we get.
@@ -207,6 +208,7 @@ export default function App() {
     { id: "report", label: "Report Fine Turno", icon: Icons.report },
     { id: "motivi", label: "Motivi Assenza", icon: Icons.filter },
     { id: "import", label: "Import SAP", icon: Icons.upload },
+    { id: "sapData", label: "Dati SAP Importati", icon: Icons.report },
     { id: "fermi", label: "Report Fermi", icon: Icons.alert },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings },
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine },
@@ -221,6 +223,7 @@ export default function App() {
     report: "Report Fine Turno",
     motivi: "Gestione Motivi Assenza",
     import: "Import Dati SAP",
+    sapData: "Storico Dati SAP",
     fermi: "Report Fermi",
     anagraficaFermi: "Anagrafica Fermi Macchine",
     anagraficaMacchine: "Anagrafica Macchine",
@@ -317,6 +320,7 @@ export default function App() {
                 </div>
                 {renderItem(ni("report"))}
                 {renderItem(ni("import"))}
+                {renderItem(ni("sapData"))}
                 {renderItem(ni("fermi"))}
                 {renderItem(ni("anagraficaFermi"))}
                 {renderItem(ni("anagraficaMacchine"))}
@@ -432,7 +436,10 @@ export default function App() {
           )}
 
           {currentView === "import" && (
-            <ImportView showToast={showToast} />
+            <ImportView showToast={showToast} macchine={macchine} />
+          )}
+          {currentView === "sapData" && (
+            <SapDataView macchine={macchine} />
           )}
           {currentView === "fermi" && (
             <FermiView macchine={macchine} initialReparto={repartoCorrente} initialTurno={turnoCorrente} motiviFermo={motiviFermo} tecnologie={tecnologie} />

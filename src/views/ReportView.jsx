@@ -23,6 +23,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
     // State for Machine Details (Fermi & Pezzi)
     const [fermiMacchina, setFermiMacchina] = useState([]);
     const [pezziProdotti, setPezziProdotti] = useState([]);
+    const [confermeSap, setConfermeSap] = useState([]);
     const [absencesViewMode, setAbsencesViewMode] = useState("detail"); // "detail" or "aggregate"
 
     // Fetch Fermi & Pezzi when Date or Turno changes
@@ -32,19 +33,24 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
 
             let queryFermi = supabase.from('fermi_macchina').select('*').eq('data', selectedDate);
             let queryPezzi = supabase.from('pezzi_prodotti').select('*').eq('data', selectedDate);
+            let querySap = supabase.from('conferme_sap').select('*').eq('data', selectedDate);
 
             if (selectedTurno) {
                 queryFermi = queryFermi.eq('turno_id', selectedTurno);
                 queryPezzi = queryPezzi.eq('turno_id', selectedTurno);
+                querySap = querySap.eq('turno_id', selectedTurno);
             }
 
-            const [fermiRes, pezziRes] = await Promise.all([queryFermi, queryPezzi]);
+            const [fermiRes, pezziRes, sapRes] = await Promise.all([queryFermi, queryPezzi, querySap]);
 
             if (fermiRes.error) console.error("Error fetching fermi:", fermiRes.error);
             else setFermiMacchina(fermiRes.data || []);
 
             if (pezziRes.error) console.error("Error fetching pezzi:", pezziRes.error);
             else setPezziProdotti(pezziRes.data || []);
+
+            if (sapRes.error) console.error("Error fetching SAP data:", sapRes.error);
+            else setConfermeSap(sapRes.data || []);
         };
 
         fetchData();
@@ -651,12 +657,20 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                     </td>
                                                                                     <td style={{ padding: "8px 12px" }}>
                                                                                         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                                                                            {/* Pezzi inseriti manualmente */}
                                                                                             {pezziProdotti.filter(p => p.macchina_id === m.id).map(p => (
                                                                                                 <div key={p.id} style={{ fontSize: 13, color: "var(--success)", fontWeight: 600 }}>
                                                                                                     📦 {p.quantita} pz {p.scarti > 0 && <span style={{ color: "var(--danger)", fontSize: 11 }}>(scarti: {p.scarti})</span>}
                                                                                                 </div>
                                                                                             ))}
-                                                                                            {pezziProdotti.filter(p => p.macchina_id === m.id).length === 0 && (
+                                                                                            {/* Dati da SAP */}
+                                                                                            {confermeSap.filter(s => s.macchina_id === m.id).map(s => (
+                                                                                                <div key={s.id} style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, background: "rgba(99,102,241,0.08)", padding: "2px 6px", borderRadius: 4, marginTop: 2 }}>
+                                                                                                    <div style={{ fontSize: 10, textTransform: "uppercase", opacity: 0.8 }}>Dati SAP</div>
+                                                                                                    📦 {s.qta_ottenuta} pz {s.qta_scarto > 0 && <span style={{ color: "var(--danger)", fontSize: 11 }}>(scarti: {s.qta_scarto})</span>}
+                                                                                                </div>
+                                                                                            ))}
+                                                                                            {pezziProdotti.filter(p => p.macchina_id === m.id).length === 0 && confermeSap.filter(s => s.macchina_id === m.id).length === 0 && (
                                                                                                 <span style={{ color: "var(--text-muted)", fontSize: 13 }}>—</span>
                                                                                             )}
                                                                                         </div>
@@ -760,12 +774,20 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                             </td>
                                                                             <td style={{ padding: "8px 12px" }}>
                                                                                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                                                                    {/* Pezzi inseriti manualmente */}
                                                                                     {pezziProdotti.filter(p => p.macchina_id === m.id).map(p => (
                                                                                         <div key={p.id} style={{ fontSize: 13, color: "var(--success)", fontWeight: 600 }}>
                                                                                             📦 {p.quantita} pz {p.scarti > 0 && <span style={{ color: "var(--danger)", fontSize: 11 }}>(scarti: {p.scarti})</span>}
                                                                                         </div>
                                                                                     ))}
-                                                                                    {pezziProdotti.filter(p => p.macchina_id === m.id).length === 0 && (
+                                                                                    {/* Dati da SAP */}
+                                                                                    {confermeSap.filter(s => s.macchina_id === m.id).map(s => (
+                                                                                        <div key={s.id} style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, background: "rgba(99,102,241,0.08)", padding: "2px 6px", borderRadius: 4, marginTop: 2 }}>
+                                                                                            <div style={{ fontSize: 10, textTransform: "uppercase", opacity: 0.8 }}>Dati SAP</div>
+                                                                                            📦 {s.qta_ottenuta} pz {s.qta_scarto > 0 && <span style={{ color: "var(--danger)", fontSize: 11 }}>(scarti: {s.qta_scarto})</span>}
+                                                                                        </div>
+                                                                                    ))}
+                                                                                    {pezziProdotti.filter(p => p.macchina_id === m.id).length === 0 && confermeSap.filter(s => s.macchina_id === m.id).length === 0 && (
                                                                                         <span style={{ color: "var(--text-muted)", fontSize: 13 }}>—</span>
                                                                                     )}
                                                                                 </div>

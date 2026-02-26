@@ -10,6 +10,7 @@ const EMPTY = {
     zona: "",
     tecnologia_id: "",
     personale_minimo: 1,
+    codice_sap: "",
 };
 
 export default function AnagraficaMacchineView({ macchine, setMacchine, tecnologie = [], zone = [], showToast }) {
@@ -52,6 +53,7 @@ export default function AnagraficaMacchineView({ macchine, setMacchine, tecnolog
             zona: m.zona || "",
             tecnologia_id: m.tecnologia_id || "",
             personale_minimo: m.personale_minimo ?? 1,
+            codice_sap: m.codice_sap || "",
         };
         setForm(f);
         setOriginalId(m.id);
@@ -79,6 +81,7 @@ export default function AnagraficaMacchineView({ macchine, setMacchine, tecnolog
             zona: form.zona || null,
             tecnologia_id: form.tecnologia_id || null,
             personale_minimo: parseInt(form.personale_minimo) || 1,
+            codice_sap: form.codice_sap.trim().toUpperCase() || null,
         };
 
         const idChanged = editingId !== "new" && originalId && originalId !== newId;
@@ -179,6 +182,7 @@ export default function AnagraficaMacchineView({ macchine, setMacchine, tecnolog
                                         <th style={{ textAlign: "left", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Reparto</th>
                                         <th style={{ textAlign: "left", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Zona</th>
                                         <th style={{ textAlign: "left", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Tecnologia Fermi</th>
+                                        <th style={{ textAlign: "left", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Codice SAP</th>
                                         <th style={{ textAlign: "center", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Min</th>
                                         <th style={{ width: 80, padding: "10px 16px" }}></th>
                                     </tr>
@@ -222,6 +226,9 @@ export default function AnagraficaMacchineView({ macchine, setMacchine, tecnolog
                                                     ) : (
                                                         <span style={{ fontSize: 12, color: "var(--text-muted)" }}>—</span>
                                                     )}
+                                                </td>
+                                                <td style={{ padding: "10px 12px", fontSize: 13, fontFamily: "monospace", color: "var(--accent)" }}>
+                                                    {m.codice_sap || <span style={{ color: "var(--text-lighter)", fontStyle: "italic", fontSize: 11 }}>—</span>}
                                                 </td>
                                                 <td style={{ textAlign: "center", padding: "10px 12px", fontSize: 13, color: "var(--text-secondary)" }}>
                                                     {m.personale_minimo ?? 1}
@@ -313,6 +320,20 @@ export default function AnagraficaMacchineView({ macchine, setMacchine, tecnolog
                                 <option value="">— Non assegnata —</option>
                                 {tecnologie.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
                             </select>
+                        </div>
+
+                        <div className="form-group">
+                            <label className="form-label">Codice SAP (per Import)</label>
+                            <input
+                                className="input"
+                                placeholder="Es. FRW14020"
+                                value={form.codice_sap}
+                                onChange={e => setForm(p => ({ ...p, codice_sap: e.target.value.toUpperCase() }))}
+                                style={{ fontFamily: "monospace", color: "var(--accent)", fontWeight: 600 }}
+                            />
+                            <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                                Usato per abbinare i dati dei file Excel esportati da SAP.
+                            </div>
                         </div>
 
                         <div className="form-group">
