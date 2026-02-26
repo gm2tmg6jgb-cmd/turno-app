@@ -25,6 +25,7 @@ import AnagraficaFermiView from "./views/AnagraficaFermiView";
 import AnagraficaMacchineView from "./views/AnagraficaMacchineView";
 import SapDataView from "./views/SapDataView";
 import SapSummaryView from "./views/SapSummaryView";
+import AnagraficaMaterialiView from "./views/AnagraficaMaterialiView";
 
 export default function App() {
   const [currentView, setCurrentView] = useState("dashboard");
@@ -214,6 +215,7 @@ export default function App() {
     { id: "fermi", label: "Report Fermi", icon: Icons.alert },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings },
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine },
+    { id: "anagraficaMateriali", label: "Anagrafica Materiali", icon: Icons.filter },
     { id: "zones", label: "Anagrafica Zone", icon: Icons.settings },
   ];
 
@@ -231,6 +233,7 @@ export default function App() {
     fermi: "Report Fermi",
     anagraficaFermi: "Anagrafica Fermi Macchine",
     anagraficaMacchine: "Anagrafica Macchine",
+    anagraficaMateriali: "Anagrafica Materiali",
     zones: "Anagrafica Zone",
     skills: "Matrice Competenze",
     formazione: "Gestione Formazione Operatori",
@@ -326,6 +329,7 @@ export default function App() {
                 <div className="nav-section-label">Anagrafiche</div>
                 {renderItem(ni("anagrafica"))}
                 {renderItem(ni("anagraficaMacchine"))}
+                {renderItem(ni("anagraficaMateriali"))}
                 {renderItem(ni("zones"))}
                 {renderItem(ni("anagraficaFermi"))}
                 {renderItem(ni("motivi"))}
@@ -457,6 +461,9 @@ export default function App() {
           )}
           {currentView === "anagraficaMacchine" && (
             <AnagraficaMacchineView macchine={macchine} setMacchine={setMacchine} tecnologie={tecnologie} zone={zone} showToast={showToast} />
+          )}
+          {currentView === "anagraficaMateriali" && (
+            <AnagraficaMaterialiView showToast={showToast} />
           )}
           {currentView === "op10" && <Op10View />}
           {currentView === "skills" && (

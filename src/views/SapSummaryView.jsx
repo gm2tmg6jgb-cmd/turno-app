@@ -5,6 +5,7 @@ import { Icons } from "../components/ui/Icons";
 export default function SapSummaryView({ macchine = [] }) {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [anagrafica, setAnagrafica] = useState({});
     const [startDate, setStartDate] = useState(() => {
         const d = new Date();
         d.setDate(d.getDate() - 30); // 30 days back by default
@@ -18,6 +19,7 @@ export default function SapSummaryView({ macchine = [] }) {
 
     useEffect(() => {
         fetchData();
+        fetchAnagrafica();
     }, [startDate, endDate]);
 
     const fetchData = async () => {
@@ -35,6 +37,20 @@ export default function SapSummaryView({ macchine = [] }) {
             setData(res || []);
         }
         setLoading(false);
+    };
+
+    const fetchAnagrafica = async () => {
+        const { data: res, error } = await supabase
+            .from("anagrafica_materiali")
+            .select("*");
+
+        if (!error && res) {
+            const map = {};
+            res.forEach(item => {
+                map[item.codice.toUpperCase()] = item.componente;
+            });
+            setAnagrafica(map);
+        }
     };
 
     const aggregatedData = useMemo(() => {
@@ -62,8 +78,11 @@ export default function SapSummaryView({ macchine = [] }) {
 
             const mat = r.materiale || "Senza Materiale";
             if (!groups[machineKey].materiali[mat]) {
+                const componente = anagrafica[mat.toUpperCase()];
                 groups[machineKey].materiali[mat] = {
                     nome: mat,
+                    componente: componente,
+                    displayNome: componente ? `${mat} (${componente})` : mat,
                     qtaOttenuta: 0,
                     qtaScarto: 0,
                     count: 0
@@ -76,7 +95,7 @@ export default function SapSummaryView({ macchine = [] }) {
         });
 
         return Object.values(groups).sort((a, b) => a.nome.localeCompare(b.nome));
-    }, [data, macchine]);
+    }, [data, macchine, anagrafica]);
 
     return (
         <div className="fade-in" style={{ height: "100%", overflowY: "auto", paddingBottom: 20 }}>
@@ -124,7 +143,6 @@ export default function SapSummaryView({ macchine = [] }) {
                             <thead>
                                 <tr style={{ background: "var(--bg-tertiary)" }}>
                                     <th style={{ textAlign: "left", padding: "10px 16px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Macchina / Materiale</th>
-                                    <th style={{ textAlign: "right", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Msg</th>
                                     <th style={{ textAlign: "right", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Pezzi Buoni</th>
                                     <th style={{ textAlign: "right", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Scarti</th>
                                     <th style={{ textAlign: "right", padding: "10px 16px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>% Scarto</th>
@@ -135,7 +153,6 @@ export default function SapSummaryView({ macchine = [] }) {
                                     const materiali = Object.values(group.materiali).sort((a, b) => b.qtaOttenuta - a.qtaOttenuta);
                                     const machineTotalOk = materiali.reduce((acc, current) => acc + current.qtaOttenuta, 0);
                                     const machineTotalScrap = materiali.reduce((acc, current) => acc + current.qtaScarto, 0);
-                                    const machineTotalMsgs = materiali.reduce((acc, current) => acc + current.count, 0);
                                     const scrapRate = machineTotalOk + machineTotalScrap > 0 ? (machineTotalScrap / (machineTotalOk + machineTotalScrap) * 100).toFixed(1) : 0;
 
                                     return (
@@ -149,7 +166,6 @@ export default function SapSummaryView({ macchine = [] }) {
                                                         )}
                                                     </div>
                                                 </td>
-                                                <td style={{ textAlign: "right", padding: "12px 12px", fontWeight: 700, fontSize: 13, color: "var(--text-muted)" }}>{machineTotalMsgs}</td>
                                                 <td style={{ textAlign: "right", padding: "12px 12px", fontWeight: 800, fontSize: 14, color: "var(--success)" }}>{machineTotalOk.toLocaleString("it-IT")}</td>
                                                 <td style={{ textAlign: "right", padding: "12px 12px", fontWeight: 700, fontSize: 13, color: "var(--danger)" }}>{machineTotalScrap > 0 ? machineTotalScrap.toLocaleString("it-IT") : "—"}</td>
                                                 <td style={{ textAlign: "right", padding: "12px 16px", fontWeight: 700, fontSize: 13, color: scrapRate > 5 ? "var(--danger)" : "var(--text-secondary)" }}>
@@ -161,9 +177,15 @@ export default function SapSummaryView({ macchine = [] }) {
                                                 return (
                                                     <tr key={m.nome} style={{ borderBottom: "1px solid var(--border-light)" }}>
                                                         <td style={{ padding: "8px 12px 8px 40px", fontSize: 13, color: "var(--text-primary)" }}>
-                                                            {m.nome}
+                                                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                                                <span>{m.nome}</span>
+                                                                {m.componente && (
+                                                                    <span style={{ fontSize: 10, padding: "2px 6px", background: "var(--bg-tertiary)", borderRadius: 4, fontWeight: 700, color: "var(--accent)" }}>
+                                                                        {m.componente}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         </td>
-                                                        <td style={{ textAlign: "right", padding: "8px 12px", fontSize: 12, color: "var(--text-muted)" }}>{m.count}</td>
                                                         <td style={{ textAlign: "right", padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>{m.qtaOttenuta.toLocaleString("it-IT")}</td>
                                                         <td style={{ textAlign: "right", padding: "8px 12px", fontSize: 12, color: m.qtaScarto > 0 ? "var(--danger)" : "var(--text-muted)" }}>
                                                             {m.qtaScarto > 0 ? m.qtaScarto.toLocaleString("it-IT") : "—"}
