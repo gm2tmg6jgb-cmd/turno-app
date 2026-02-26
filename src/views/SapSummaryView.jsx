@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "../lib/supabase";
 import { Icons } from "../components/ui/Icons";
-import { getCurrentWeekRange } from "../lib/dateUtils";
+import { getCurrentWeekRange, getLocalDate } from "../lib/dateUtils";
 import {
     AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
     ResponsiveContainer, CartesianGrid
@@ -42,7 +42,36 @@ function ChartTooltip({ active, payload, label }) {
     );
 }
 
+const WEEK_LABELS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
+const HIGHLIGHT_COMPONENTS = new Set(["GEAR", "SHAFTS", "BAP"]);
+
+// Mapping work_center_sap → stage
+// FRW* = end_soft (es. FRW14020 per SG1)
+// SLW* = end_hard (es. SLW14050 per SG1)
+// TODO: aggiungere start_soft, ht, start_hard, washing quando l'utente fornisce i codici
+function getStageFromWC(workCenter) {
+    if (!workCenter) return null;
+    const wc = workCenter.toUpperCase();
+    if (wc.startsWith("FRW") || wc.startsWith("FRD") || wc.startsWith("STW")) return "end_soft";
+    if (wc.startsWith("SLW") || wc.startsWith("SLA"))                          return "end_hard";
+    return null;
+}
+
+function getWeekDays(mondayStr) {
+    const days = [];
+    const base = new Date(mondayStr + "T12:00:00");
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(base);
+        d.setDate(d.getDate() + i);
+        days.push(d.toISOString().split("T")[0]);
+    }
+    return days;
+}
+
 export default function SapSummaryView({ macchine = [] }) {
+    const [activeTab, setActiveTab] = useState("riepilogo");
+
+    // ── Riepilogo state ──
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [anagrafica, setAnagrafica] = useState({});
@@ -55,6 +84,96 @@ export default function SapSummaryView({ macchine = [] }) {
         fetchData();
         fetchAnagrafica();
     }, [startDate, endDate]);
+
+    // ── Giornaliero state ──
+    const [gDate, setGDate] = useState(getLocalDate(new Date()));
+    const [gData, setGData] = useState({});   // { ["projId::componente"]: { start_soft, ... } }
+    const [gLoading, setGLoading] = useState(false);
+    const [gTargets, setGTargets] = useState({}); // { [proj.id]: string }
+    const [gDays, setGDays] = useState({});       // { [proj.id]: string }
+
+    // ── Settimanale state ──
+    const [wWeek, setWWeek] = useState(getCurrentWeekRange().monday);
+    const [wData, setWData] = useState({});  // { ["projId::componente"]: { "2026-02-24": qty, ... } }
+    const [wLoading, setWLoading] = useState(false);
+
+    // Progetti e componenti (hardcoded, WC mapping da aggiungere)
+    const PROGETTI_GIORNALIERO = [
+        {
+            id: "DCT 300", nome: "DCT300",
+            componenti: ["GEAR", "SG1", "DG", "SG3", "SG4", "SG5", "SG6", "SG7", "SGR", "RG", "SHAFTS", "IS1", "IS2", "OS1", "OS2", "DGFIX", "BAP"]
+        },
+        {
+            id: "8Fe", nome: "8Fedct",
+            componenti: ["GEAR", "SG2", "SG3", "SG4", "SG5", "SG6", "SG7", "SG8", "SGRev", "Pinion", "Fix 5/7", "RG", "SHAFTS", "IS1", "IS2", "OS1", "OS2", "BAP"]
+        },
+        {
+            id: "DCT Eco", nome: "DCTECO",
+            componenti: ["SG2", "SG3", "SG4", "SG5", "SGRW", "RG", "SHAFTS", "IS1", "IS2", "OS1", "OS2", "BAP"]
+        },
+    ];
+
+    useEffect(() => {
+        if (activeTab !== "giornaliero") return;
+        loadGiornaliero();
+    }, [gDate, activeTab, anagrafica]);
+
+    const loadGiornaliero = async () => {
+        setGLoading(true);
+        const { data: rows } = await supabase
+            .from("conferme_sap")
+            .select("materiale, work_center_sap, qta_ottenuta")
+            .eq("data", gDate);
+
+        if (rows) {
+            const map = {};
+            rows.forEach(r => {
+                const info = anagrafica[(r.materiale || "").toUpperCase()];
+                if (!info?.componente || !info?.progetto) return;
+                const key = `${info.progetto}::${info.componente}`;
+                if (!map[key]) map[key] = { start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0 };
+                // TODO: mappatura work_center_sap → stage (da definire con utente)
+            });
+            setGData(map);
+        }
+        setGLoading(false);
+    };
+
+    const getProduzione = (row) => {
+        if (!row) return null;
+        const soft = Math.max(0, (row.end_soft || 0) - (row.start_soft || 0));
+        const hard = Math.max(0, (row.end_hard || 0) - (row.start_hard || 0));
+        return soft + hard || null;
+    };
+
+    useEffect(() => {
+        if (activeTab !== "settimanale") return;
+        loadSettimanale();
+    }, [wWeek, activeTab, anagrafica]);
+
+    const loadSettimanale = async () => {
+        setWLoading(true);
+        const days = getWeekDays(wWeek);
+        const sunday = days[6];
+        const { data: rows } = await supabase
+            .from("conferme_sap")
+            .select("data, materiale, qta_ottenuta")
+            .gte("data", wWeek)
+            .lte("data", sunday);
+
+        if (rows) {
+            const map = {};
+            rows.forEach(r => {
+                const info = anagrafica[(r.materiale || "").toUpperCase()];
+                if (!info?.componente || !info?.progetto) return;
+                const key = `${info.progetto}::${info.componente}`;
+                if (!map[key]) map[key] = {};
+                map[key][r.data] = (map[key][r.data] || 0) + (r.qta_ottenuta || 0);
+            });
+            setWData(map);
+        }
+        setWLoading(false);
+    };
 
     const fetchData = async () => {
         setLoading(true);
@@ -192,16 +311,277 @@ export default function SapSummaryView({ macchine = [] }) {
     }, [data, macchine, anagrafica]);
 
     /* ── Render ── */
+    const thStyle = { padding: "10px 12px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", textAlign: "left", whiteSpace: "nowrap" };
+
     return (
         <div className="fade-in" style={{ height: "100%", overflowY: "auto", paddingBottom: 32 }}>
 
-            {/* Filtri data */}
+            {/* Header con tab */}
             <div className="card" style={{ marginBottom: 16, padding: "14px 20px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
                     <div>
                         <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 2 }}>Analisi Produzione SAP</h2>
-                        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>KPI e trend produzione per il periodo selezionato</p>
+                        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
+                            {activeTab === "riepilogo" ? "KPI e trend produzione per il periodo selezionato" : activeTab === "giornaliero" ? "Produzione giornaliera per progetto e componente" : "Riepilogo settimana per progetto e componente"}
+                        </p>
                     </div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <button className={activeTab === "riepilogo" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("riepilogo")}>📊 Riepilogo</button>
+                        <button className={activeTab === "giornaliero" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("giornaliero")}>📋 Giornaliero</button>
+                        <button className={activeTab === "settimanale" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("settimanale")}>📅 Settimanale</button>
+                    </div>
+                </div>
+            </div>
+
+            {/* ══════════════════════════════════════
+                TAB GIORNALIERO
+            ══════════════════════════════════════ */}
+            {activeTab === "giornaliero" && (
+                <div>
+                    {/* Selettore data */}
+                    <div style={{ display: "flex", gap: 12, marginBottom: 20, alignItems: "center", flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Data</label>
+                            <input type="date" value={gDate} onChange={e => setGDate(e.target.value)} className="input" style={{ width: 160 }} />
+                        </div>
+                        <div style={{ paddingTop: 20 }}>
+                            <button className="btn btn-secondary btn-sm" onClick={loadGiornaliero} disabled={gLoading}>
+                                {Icons.history} Aggiorna
+                            </button>
+                        </div>
+                        <div style={{ marginLeft: "auto", paddingTop: 20, fontSize: 13, color: "var(--text-muted)" }}>
+                            {Object.keys(gData).length > 0
+                                ? `${Object.keys(gData).length} macchine con dati`
+                                : "Nessun dato inserito per questa data"}
+                        </div>
+                    </div>
+
+                    {gLoading ? (
+                        <div style={{ padding: 60, textAlign: "center", color: "var(--text-muted)" }}>Caricamento...</div>
+                    ) : (
+                        PROGETTI_GIORNALIERO.map(proj => {
+                            const totale = proj.componenti.reduce((s, comp) => s + (getProduzione(gData[`${proj.id}::${comp}`]) || 0), 0);
+                            const target = parseInt(gTargets[proj.id] || 0);
+                            const pctTarget = target > 0 ? Math.round(totale / target * 100) : null;
+                            const dateLabel = new Date(gDate + "T12:00:00")
+                                .toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" })
+                                .replace(/\//g, ".");
+
+                            return (
+                                <div key={proj.id} style={{ marginBottom: 32, display: "flex", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
+
+                                    {/* Label progetto verticale */}
+                                    <div style={{
+                                        writingMode: "vertical-rl",
+                                        transform: "rotate(180deg)",
+                                        display: "flex", alignItems: "center", justifyContent: "center",
+                                        padding: "24px 10px",
+                                        background: "var(--bg-tertiary)",
+                                        borderRight: "2px solid var(--border)",
+                                        fontWeight: 900, fontSize: 16, letterSpacing: 3,
+                                        color: "var(--text-primary)", userSelect: "none",
+                                        minWidth: 46, flexShrink: 0,
+                                    }}>
+                                        {proj.nome}
+                                    </div>
+
+                                    {/* Tabella */}
+                                    <div style={{ flex: 1, overflowX: "auto" }}>
+                                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                                            <thead>
+                                                {/* Riga Daily Target + Days */}
+                                                <tr style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border-light)" }}>
+                                                    <td colSpan={8} style={{ padding: "8px 16px" }}>
+                                                        <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
+                                                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                                                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Daily Target</span>
+                                                                <input
+                                                                    type="number" min="0"
+                                                                    value={gTargets[proj.id] || ""}
+                                                                    onChange={e => setGTargets(prev => ({ ...prev, [proj.id]: e.target.value }))}
+                                                                    placeholder="0"
+                                                                    style={{ width: 90, padding: "4px 10px", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-primary)", fontSize: 15, fontWeight: 700, textAlign: "right" }}
+                                                                />
+                                                            </div>
+                                                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                                                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Days</span>
+                                                                <input
+                                                                    type="number" min="0"
+                                                                    value={gDays[proj.id] || ""}
+                                                                    onChange={e => setGDays(prev => ({ ...prev, [proj.id]: e.target.value }))}
+                                                                    placeholder="0"
+                                                                    style={{ width: 70, padding: "4px 10px", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-primary)", fontSize: 15, fontWeight: 700, textAlign: "right" }}
+                                                                />
+                                                            </div>
+                                                            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+                                                                <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
+                                                                    Produzione: <strong style={{ fontSize: 16, color: totale > 0 ? "var(--success)" : "var(--text-muted)" }}>{totale > 0 ? totale.toLocaleString("it-IT") : "—"}</strong>
+                                                                </span>
+                                                                {pctTarget !== null && (
+                                                                    <span style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg-tertiary)", color: pctTarget >= 100 ? "var(--success)" : pctTarget >= 80 ? "#F59E0B" : "var(--danger)" }}>
+                                                                        {pctTarget}% target
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+
+                                                {/* Riga data */}
+                                                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                                                    <td colSpan={8} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
+                                                        {dateLabel}
+                                                    </td>
+                                                </tr>
+
+                                                {/* Intestazioni colonne */}
+                                                <tr style={{ background: "var(--bg-tertiary)", borderBottom: "1px solid var(--border)" }}>
+                                                    <th style={thStyle}>Component</th>
+                                                    <th style={{ ...thStyle, textAlign: "center" }}>Start Soft</th>
+                                                    <th style={{ ...thStyle, textAlign: "center" }}>End Soft</th>
+                                                    <th style={{ ...thStyle, textAlign: "center" }}>HT</th>
+                                                    <th style={{ ...thStyle, textAlign: "center" }}>Start Hard</th>
+                                                    <th style={{ ...thStyle, textAlign: "center" }}>End Hard</th>
+                                                    <th style={{ ...thStyle, textAlign: "center" }}>Washing</th>
+                                                    <th style={{ ...thStyle, minWidth: 180 }}>Daily Remarks</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {proj.componenti.map((componente, idx) => {
+                                                    const row = gData[`${proj.id}::${componente}`] || {};
+                                                    const isEven = idx % 2 === 0;
+                                                    return (
+                                                        <tr key={componente} style={{ background: isEven ? "var(--bg-card)" : "rgba(0,0,0,0.015)", borderBottom: "1px solid var(--border-light)" }}>
+                                                            <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
+                                                                {componente}
+                                                            </td>
+                                                            {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => (
+                                                                <td key={field} style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: row[field] > 0 ? 700 : 400, color: row[field] > 0 ? "#D97706" : "var(--text-secondary)" }}>
+                                                                    {row[field] > 0 ? row[field].toLocaleString("it-IT") : "—"}
+                                                                </td>
+                                                            ))}
+                                                            <td style={{ padding: "7px 12px", fontSize: 12, color: "var(--text-muted)" }}>—</td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+            )}
+
+            {/* ══════════════════════════════════════
+                TAB SETTIMANALE
+            ══════════════════════════════════════ */}
+            {activeTab === "settimanale" && (
+                <div>
+                    {/* Navigazione settimana */}
+                    <div style={{ display: "flex", gap: 10, marginBottom: 20, alignItems: "center", flexWrap: "wrap" }}>
+                        <button className="btn btn-secondary btn-sm" onClick={() => {
+                            const d = new Date(wWeek + "T12:00:00");
+                            d.setDate(d.getDate() - 7);
+                            setWWeek(d.toISOString().split("T")[0]);
+                        }}>← Prec.</button>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>
+                            {new Date(wWeek + "T12:00:00").toLocaleDateString("it-IT", { day: "2-digit", month: "short" })}
+                            {" — "}
+                            {new Date(getWeekDays(wWeek)[6] + "T12:00:00").toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric" })}
+                        </span>
+                        <button className="btn btn-secondary btn-sm" onClick={() => {
+                            const d = new Date(wWeek + "T12:00:00");
+                            d.setDate(d.getDate() + 7);
+                            setWWeek(d.toISOString().split("T")[0]);
+                        }}>Succ. →</button>
+                        <button className="btn btn-secondary btn-sm" onClick={() => setWWeek(getCurrentWeekRange().monday)}>Questa settimana</button>
+                        <button className="btn btn-secondary btn-sm" onClick={loadSettimanale} disabled={wLoading} style={{ marginLeft: "auto" }}>
+                            {Icons.history} Aggiorna
+                        </button>
+                    </div>
+
+                    {wLoading ? (
+                        <div style={{ padding: 60, textAlign: "center", color: "var(--text-muted)" }}>Caricamento...</div>
+                    ) : (
+                        PROGETTI_GIORNALIERO.map(proj => {
+                            const weekDays = getWeekDays(wWeek);
+                            return (
+                                <div key={proj.id} style={{ marginBottom: 32, display: "flex", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
+
+                                    {/* Label progetto verticale */}
+                                    <div style={{
+                                        writingMode: "vertical-rl", transform: "rotate(180deg)",
+                                        display: "flex", alignItems: "center", justifyContent: "center",
+                                        padding: "24px 10px", background: "var(--bg-tertiary)",
+                                        borderRight: "2px solid var(--border)",
+                                        fontWeight: 900, fontSize: 16, letterSpacing: 3,
+                                        color: "var(--text-primary)", userSelect: "none",
+                                        minWidth: 46, flexShrink: 0,
+                                    }}>
+                                        {proj.nome}
+                                    </div>
+
+                                    <div style={{ flex: 1, overflowX: "auto" }}>
+                                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                                            <thead>
+                                                <tr style={{ background: "var(--bg-tertiary)", borderBottom: "1px solid var(--border)" }}>
+                                                    <th style={thStyle}>Component</th>
+                                                    {weekDays.map((day, i) => (
+                                                        <th key={day} style={{ ...thStyle, textAlign: "center" }}>
+                                                            {WEEK_LABELS[i]}
+                                                            <div style={{ fontSize: 10, fontWeight: 400, color: "var(--text-muted)" }}>{day.slice(5).replace("-", "/")}</div>
+                                                        </th>
+                                                    ))}
+                                                    <th style={{ ...thStyle, textAlign: "center", color: "var(--success)" }}>Totale</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {proj.componenti.map((componente, idx) => {
+                                                    const isHL = HIGHLIGHT_COMPONENTS.has(componente);
+                                                    const key = `${proj.id}::${componente}`;
+                                                    const dayVals = weekDays.map(day => wData[key]?.[day] || 0);
+                                                    const totale = dayVals.reduce((s, v) => s + v, 0);
+                                                    const isEven = idx % 2 === 0;
+                                                    const rowBg = isHL
+                                                        ? "rgba(59,130,246,0.10)"
+                                                        : isEven ? "var(--bg-card)" : "rgba(0,0,0,0.015)";
+                                                    return (
+                                                        <tr key={componente} style={{ background: rowBg, borderBottom: "1px solid var(--border-light)", ...(isHL ? { borderLeft: "3px solid #3B82F6" } : {}) }}>
+                                                            <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: isHL ? 800 : 700, whiteSpace: "nowrap", color: isHL ? "#3B82F6" : "inherit" }}>
+                                                                {componente}
+                                                            </td>
+                                                            {dayVals.map((val, i) => (
+                                                                <td key={weekDays[i]} style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: val > 0 ? 700 : 400, color: val > 0 ? "#D97706" : "var(--text-secondary)" }}>
+                                                                    {val > 0 ? val.toLocaleString("it-IT") : "—"}
+                                                                </td>
+                                                            ))}
+                                                            <td style={{ padding: "7px 14px", textAlign: "center", fontSize: 13, fontWeight: totale > 0 ? 800 : 400, color: totale > 0 ? "var(--success)" : "var(--text-secondary)" }}>
+                                                                {totale > 0 ? totale.toLocaleString("it-IT") : "—"}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+            )}
+
+            {/* ══════════════════════════════════════
+                TAB RIEPILOGO (contenuto esistente)
+            ══════════════════════════════════════ */}
+            {activeTab === "riepilogo" && (
+            <div>
+
+            {/* Filtri data riepilogo */}
+            <div className="card" style={{ marginBottom: 16, padding: "14px 20px" }}>
+                <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--bg-tertiary)", padding: "6px 14px", borderRadius: 8, border: "1px solid var(--border)" }}>
                             <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Dal</label>
@@ -413,6 +793,9 @@ export default function SapSummaryView({ macchine = [] }) {
                     </div>
                 </>
             )}
+        </div>
+        )}
+
         </div>
     );
 }
