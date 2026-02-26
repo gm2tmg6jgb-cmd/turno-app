@@ -9,7 +9,7 @@ export default function AnagraficaMaterialiView({ showToast }) {
     const [search, setSearch] = useState("");
 
     // Form state
-    const [newItem, setNewItem] = useState({ codice: "", componente: "" });
+    const [newItem, setNewItem] = useState({ codice: "", componente: "", progetto: "" });
     const [editingId, setEditingId] = useState(null);
 
     useEffect(() => {
@@ -34,7 +34,7 @@ export default function AnagraficaMaterialiView({ showToast }) {
 
     const handleSave = async () => {
         if (!newItem.codice || !newItem.componente) {
-            showToast("Entrambi i campi sono obbligatori", "warning");
+            showToast("Codice e Componente sono obbligatori", "warning");
             return;
         }
 
@@ -42,6 +42,7 @@ export default function AnagraficaMaterialiView({ showToast }) {
         const payload = {
             codice: newItem.codice.trim().toUpperCase(),
             componente: newItem.componente.trim().toUpperCase(),
+            progetto: newItem.progetto ? newItem.progetto.trim() : null,
             updated_at: new Date().toISOString()
         };
 
@@ -56,7 +57,7 @@ export default function AnagraficaMaterialiView({ showToast }) {
             showToast("Errore salvataggio: " + error.message, "error");
         } else {
             showToast("Materiale salvato correttamente", "success");
-            setNewItem({ codice: "", componente: "" });
+            setNewItem({ codice: "", componente: "", progetto: "" });
             fetchData();
         }
     };
@@ -79,7 +80,8 @@ export default function AnagraficaMaterialiView({ showToast }) {
 
     const filtered = materiali.filter(m =>
         m.codice.toLowerCase().includes(search.toLowerCase()) ||
-        m.componente.toLowerCase().includes(search.toLowerCase())
+        m.componente.toLowerCase().includes(search.toLowerCase()) ||
+        (m.progetto && m.progetto.toLowerCase().includes(search.toLowerCase()))
     );
 
     return (
@@ -87,11 +89,11 @@ export default function AnagraficaMaterialiView({ showToast }) {
             <div className="card" style={{ marginBottom: 16 }}>
                 <div style={{ marginBottom: 20 }}>
                     <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Anagrafica Materiali</h2>
-                    <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>Associa i codici SAP ai nomi dei componenti (es. SCA14025 → SG2)</p>
+                    <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>Associa i codici SAP a componenti e progetti (es. SCA14025 → SG2 · DCT Eco)</p>
                 </div>
 
-                <div style={{ display: "flex", gap: 12, marginBottom: 24, padding: "16px", background: "var(--bg-tertiary)", borderRadius: 8, border: "1px solid var(--border)", alignItems: "flex-end" }}>
-                    <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", gap: 12, marginBottom: 24, padding: "16px", background: "var(--bg-tertiary)", borderRadius: 8, border: "1px solid var(--border)", alignItems: "flex-end", flexWrap: "wrap" }}>
+                    <div style={{ flex: "1 1 200px" }}>
                         <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 6, display: "block" }}>Codice SAP</label>
                         <input
                             className="input"
@@ -101,7 +103,7 @@ export default function AnagraficaMaterialiView({ showToast }) {
                             style={{ width: "100%" }}
                         />
                     </div>
-                    <div style={{ flex: 1 }}>
+                    <div style={{ flex: "1 1 150px" }}>
                         <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 6, display: "block" }}>Componente</label>
                         <input
                             className="input"
@@ -111,7 +113,17 @@ export default function AnagraficaMaterialiView({ showToast }) {
                             style={{ width: "100%" }}
                         />
                     </div>
-                    <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ height: 42 }}>
+                    <div style={{ flex: "1 1 150px" }}>
+                        <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 6, display: "block" }}>Progetto</label>
+                        <input
+                            className="input"
+                            value={newItem.progetto}
+                            onChange={e => setNewItem(prev => ({ ...prev, progetto: e.target.value }))}
+                            placeholder="es. DCT Eco"
+                            style={{ width: "100%" }}
+                        />
+                    </div>
+                    <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ height: 42, minWidth: 160 }}>
                         {saving ? "Salvataggio..." : "Aggiungi / Aggiorna"}
                     </button>
                 </div>
@@ -119,7 +131,7 @@ export default function AnagraficaMaterialiView({ showToast }) {
                 <div style={{ marginBottom: 12 }}>
                     <input
                         className="input"
-                        placeholder="Cerca per codice o componente..."
+                        placeholder="Cerca per codice, componente o progetto..."
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         style={{ width: "100%", maxWidth: 400 }}
@@ -131,7 +143,7 @@ export default function AnagraficaMaterialiView({ showToast }) {
                         <thead>
                             <tr style={{ background: "var(--bg-tertiary)" }}>
                                 <th style={{ textAlign: "left", padding: "10px 16px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Codice SAP</th>
-                                <th style={{ textAlign: "left", padding: "10px 16px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Componente</th>
+                                <th style={{ textAlign: "left", padding: "10px 16px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Progetto / Componente</th>
                                 <th style={{ textAlign: "right", padding: "10px 16px", width: 80 }}></th>
                             </tr>
                         </thead>
@@ -145,9 +157,17 @@ export default function AnagraficaMaterialiView({ showToast }) {
                                     <tr key={m.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
                                         <td style={{ padding: "12px 16px", fontWeight: 700, fontSize: 14 }}>{m.codice}</td>
                                         <td style={{ padding: "12px 16px" }}>
-                                            <span style={{ padding: "4px 8px", background: "var(--bg-tertiary)", borderRadius: 4, fontWeight: 600, color: "var(--accent)" }}>
-                                                {m.componente}
-                                            </span>
+                                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                                {m.progetto && (
+                                                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
+                                                        {m.progetto}
+                                                    </span>
+                                                )}
+                                                {m.progetto && <span style={{ opacity: 0.3 }}>•</span>}
+                                                <span style={{ padding: "4px 8px", background: "var(--bg-tertiary)", borderRadius: 4, fontWeight: 700, color: "var(--accent)", fontSize: 12 }}>
+                                                    {m.componente}
+                                                </span>
+                                            </div>
                                         </td>
                                         <td style={{ padding: "12px 16px", textAlign: "right" }}>
                                             <button

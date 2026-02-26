@@ -42,12 +42,15 @@ export default function SapSummaryView({ macchine = [] }) {
     const fetchAnagrafica = async () => {
         const { data: res, error } = await supabase
             .from("anagrafica_materiali")
-            .select("*");
+            .select("codice, componente, progetto");
 
         if (!error && res) {
             const map = {};
             res.forEach(item => {
-                map[item.codice.toUpperCase()] = item.componente;
+                map[item.codice.toUpperCase()] = {
+                    componente: item.componente,
+                    progetto: item.progetto
+                };
             });
             setAnagrafica(map);
         }
@@ -78,11 +81,11 @@ export default function SapSummaryView({ macchine = [] }) {
 
             const mat = r.materiale || "Senza Materiale";
             if (!groups[machineKey].materiali[mat]) {
-                const componente = anagrafica[mat.toUpperCase()];
+                const info = anagrafica[mat.toUpperCase()];
                 groups[machineKey].materiali[mat] = {
                     nome: mat,
-                    componente: componente,
-                    displayNome: componente ? `${mat} (${componente})` : mat,
+                    componente: info?.componente,
+                    progetto: info?.progetto,
                     qtaOttenuta: 0,
                     qtaScarto: 0,
                     count: 0
@@ -178,7 +181,13 @@ export default function SapSummaryView({ macchine = [] }) {
                                                     <tr key={m.nome} style={{ borderBottom: "1px solid var(--border-light)" }}>
                                                         <td style={{ padding: "8px 12px 8px 40px", fontSize: 13, color: "var(--text-primary)" }}>
                                                             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                                                                <span>{m.nome}</span>
+                                                                <span style={{ fontWeight: 500 }}>{m.nome}</span>
+                                                                {m.progetto && (
+                                                                    <span style={{ fontSize: 10, color: "var(--text-secondary)", fontWeight: 600 }}>
+                                                                        {m.progetto}
+                                                                    </span>
+                                                                )}
+                                                                {m.progetto && m.componente && <span style={{ fontSize: 10, opacity: 0.3 }}>•</span>}
                                                                 {m.componente && (
                                                                     <span style={{ fontSize: 10, padding: "2px 6px", background: "var(--bg-tertiary)", borderRadius: 4, fontWeight: 700, color: "var(--accent)" }}>
                                                                         {m.componente}
