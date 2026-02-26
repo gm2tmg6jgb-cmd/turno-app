@@ -212,6 +212,7 @@ export default function App() {
     { id: "fermi", label: "Report Fermi", icon: Icons.alert },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings },
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine },
+    { id: "zones", label: "Anagrafica Zone", icon: Icons.settings },
   ];
 
   const viewTitles = {
@@ -302,28 +303,28 @@ export default function App() {
             ) : null;
             return (
               <>
-                <div className="nav-section-label">Gestione Dipendenti</div>
-                {renderItem(ni("dashboard"))}
-                {renderItem(ni("planning"))}
-                {renderItem(ni("anagrafica"))}
-                {renderItem(ni("motivi"))}
-
-                <div className="nav-section-label">Gestione Formazione</div>
+                <div className="nav-section-label">Sviluppo HR</div>
                 {renderItem(ni("skills"))}
                 {renderItem(ni("formazione"))}
 
-                <div className="nav-section-label">Produzione</div>
+                <div className="nav-section-label">Operatività</div>
+                {renderItem(ni("dashboard"))}
+                {renderItem(ni("planning"))}
                 {renderItem(ni("assegnazioni"))}
-                {renderItem(ni("op10"))}
-                <div className={`nav-item ${currentView === 'zones' ? "active" : ""}`} onClick={() => setCurrentView('zones')}>
-                  {Icons.settings}Anagrafica Zone
-                </div>
+
+                <div className="nav-section-label">Report & Dati</div>
                 {renderItem(ni("report"))}
+                {renderItem(ni("op10"))}
+                {renderItem(ni("fermi"))}
                 {renderItem(ni("import"))}
                 {renderItem(ni("sapData"))}
-                {renderItem(ni("fermi"))}
-                {renderItem(ni("anagraficaFermi"))}
+
+                <div className="nav-section-label">Anagrafiche</div>
+                {renderItem(ni("anagrafica"))}
                 {renderItem(ni("anagraficaMacchine"))}
+                {renderItem(ni("zones"))}
+                {renderItem(ni("anagraficaFermi"))}
+                {renderItem(ni("motivi"))}
 
                 <div className="nav-section-label" style={{ color: "var(--danger)", marginTop: 12 }}>Privacy Alta</div>
                 <div className={`nav-item ${currentView === 'limitazioni' ? "active" : ""}`} onClick={() => setCurrentView('limitazioni')} style={{ color: currentView === 'limitazioni' ? "var(--danger)" : "inherit" }}>
