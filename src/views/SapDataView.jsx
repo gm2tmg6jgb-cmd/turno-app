@@ -7,18 +7,29 @@ export default function SapDataView({ macchine = [] }) {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [dateFilter, setDateFilter] = useState("");
+    const [limit, setLimit] = useState(500);
+    const [totalCount, setTotalCount] = useState(0);
 
     useEffect(() => {
         fetchSapData();
-    }, []);
+    }, [limit]);
 
     const fetchSapData = async () => {
         setLoading(true);
+
+        // Recupera il conteggio totale
+        const { count, error: countErr } = await supabase
+            .from("conferme_sap")
+            .select("*", { count: "exact", head: true });
+
+        if (!countErr) setTotalCount(count || 0);
+
+        // Recupera i dati con il limite attuale
         const { data: res, error } = await supabase
             .from("conferme_sap")
             .select("*")
             .order("data", { ascending: false })
-            .limit(500);
+            .limit(limit);
 
         if (error) {
             console.error("Errore recupero dati SAP:", error);
@@ -26,6 +37,10 @@ export default function SapDataView({ macchine = [] }) {
             setData(res || []);
         }
         setLoading(false);
+    };
+
+    const loadMore = () => {
+        setLimit(prev => prev + 500);
     };
 
     const filtered = data.filter(r => {
@@ -164,8 +179,20 @@ export default function SapDataView({ macchine = [] }) {
                         </tbody>
                     </table>
                 </div>
-                <div style={{ marginTop: 12, fontSize: 12, color: "var(--text-muted)" }}>
-                    Mostrando {filtered.length} di {data.length} record caricati.
+                <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
+                        Mostrando <strong>{filtered.length}</strong> record {search ? "(filtrati)" : ""} di <strong>{data.length}</strong> caricati (su <strong>{totalCount.toLocaleString("it-IT")}</strong> totali nel DB).
+                    </div>
+                    {data.length < totalCount && (
+                        <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={loadMore}
+                            disabled={loading}
+                            style={{ display: "flex", alignItems: "center", gap: 8 }}
+                        >
+                            {loading ? "Caricamento..." : <>{Icons.plus} Carica Altri 500</>}
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
