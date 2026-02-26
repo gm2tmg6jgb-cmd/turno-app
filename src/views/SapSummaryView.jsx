@@ -1,0 +1,183 @@
+import { useState, useEffect, useMemo } from "react";
+import { supabase } from "../lib/supabase";
+import { Icons } from "../components/ui/Icons";
+
+export default function SapSummaryView({ macchine = [] }) {
+    const [data, setData] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [startDate, setStartDate] = useState(() => {
+        const d = new Date();
+        d.setDate(d.getDate() - 7);
+        return d.toISOString().split('T')[0];
+    });
+    const [endDate, setEndDate] = useState(() => new Date().toISOString().split('T')[0]);
+
+    useEffect(() => {
+        fetchData();
+    }, [startDate, endDate]);
+
+    const fetchData = async () => {
+        setLoading(true);
+        const { data: res, error } = await supabase
+            .from("conferme_sap")
+            .select("*")
+            .gte("data", startDate)
+            .lte("data", endDate)
+            .order("data", { ascending: false });
+
+        if (error) {
+            console.error("Errore recupero dati aggregati:", error);
+        } else {
+            setData(res || []);
+        }
+        setLoading(false);
+    };
+
+    const aggregatedData = useMemo(() => {
+        const groups = {};
+
+        data.forEach(r => {
+            // Matching macchina (dinamico)
+            const m = macchine.find(m =>
+                m.id === r.macchina_id ||
+                (r.work_center_sap && (m.codice_sap || "").toUpperCase() === r.work_center_sap.toUpperCase())
+            );
+
+            const machineKey = m ? m.id : (r.work_center_sap || "NON_COLLEGATA");
+            const machineName = m ? m.nome : (r.work_center_sap || "Non collegata");
+            const sapCode = m ? m.codice_sap : r.work_center_sap;
+
+            if (!groups[machineKey]) {
+                groups[machineKey] = {
+                    id: machineKey,
+                    nome: machineName,
+                    codiceSap: sapCode,
+                    materiali: {}
+                };
+            }
+
+            const mat = r.materiale || "Senza Materiale";
+            if (!groups[machineKey].materiali[mat]) {
+                groups[machineKey].materiali[mat] = {
+                    nome: mat,
+                    qtaOttenuta: 0,
+                    qtaScarto: 0,
+                    count: 0
+                };
+            }
+
+            groups[machineKey].materiali[mat].qtaOttenuta += (r.qta_ottenuta || 0);
+            groups[machineKey].materiali[mat].qtaScarto += (r.qta_scarto || 0);
+            groups[machineKey].materiali[mat].count += 1;
+        });
+
+        return Object.values(groups).sort((a, b) => a.nome.localeCompare(b.nome));
+    }, [data, macchine]);
+
+    return (
+        <div className="fade-in" style={{ height: "100%", overflowY: "auto", paddingBottom: 20 }}>
+            <div className="card" style={{ marginBottom: 16 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+                    <div>
+                        <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Analisi Produzione SAP</h2>
+                        <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>Riepilogo produzione aggregato per macchina e materiale</p>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--bg-tertiary)", padding: "4px 12px", borderRadius: 8, border: "1px solid var(--border)" }}>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Dal</label>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={e => setStartDate(e.target.value)}
+                                style={{ background: "none", border: "none", color: "var(--text-primary)", fontSize: 13, outline: "none" }}
+                            />
+                            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginLeft: 8 }}>Al</label>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={e => setEndDate(e.target.value)}
+                                style={{ background: "none", border: "none", color: "var(--text-primary)", fontSize: 13, outline: "none" }}
+                            />
+                        </div>
+                        <button className="btn btn-secondary btn-sm" onClick={fetchData} disabled={loading}>
+                            {Icons.history} Aggiorna
+                        </button>
+                    </div>
+                </div>
+
+                {loading ? (
+                    <div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>
+                        <div className="spinner" style={{ marginBottom: 12 }}></div>
+                        Caricamento dati...
+                    </div>
+                ) : aggregatedData.length === 0 ? (
+                    <div style={{ padding: 60, textAlign: "center", color: "var(--text-muted)", fontStyle: "italic" }}>
+                        Nessun dato trovato per l'intervallo selezionato.
+                    </div>
+                ) : (
+                    <div className="table-container">
+                        <table style={{ width: "100%" }}>
+                            <thead>
+                                <tr style={{ background: "var(--bg-tertiary)" }}>
+                                    <th style={{ textAlign: "left", padding: "10px 16px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Macchina / Materiale</th>
+                                    <th style={{ textAlign: "right", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Msg</th>
+                                    <th style={{ textAlign: "right", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Pezzi Buoni</th>
+                                    <th style={{ textAlign: "right", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Scarti</th>
+                                    <th style={{ textAlign: "right", padding: "10px 16px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>% Scarto</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {aggregatedData.map(group => {
+                                    const materiali = Object.values(group.materiali).sort((a, b) => b.qtaOttenuta - a.qtaOttenuta);
+                                    const machineTotalOk = materiali.reduce((acc, current) => acc + current.qtaOttenuta, 0);
+                                    const machineTotalScrap = materiali.reduce((acc, current) => acc + current.qtaScarto, 0);
+                                    const machineTotalMsgs = materiali.reduce((acc, current) => acc + current.count, 0);
+                                    const scrapRate = machineTotalOk + machineTotalScrap > 0 ? (machineTotalScrap / (machineTotalOk + machineTotalScrap) * 100).toFixed(1) : 0;
+
+                                    return (
+                                        <React.Fragment key={group.id}>
+                                            <tr style={{ background: "rgba(99,102,241,0.05)", borderBottom: "1px solid var(--border)" }}>
+                                                <td colSpan={1} style={{ padding: "12px 16px", fontWeight: 700, color: "var(--text-secondary)" }}>
+                                                    <div style={{ display: "flex", flexDirection: "column" }}>
+                                                        <span style={{ fontSize: 14, color: "var(--text-primary)" }}>{group.nome}</span>
+                                                        {group.codiceSap && group.codiceSap !== group.id && (
+                                                            <span style={{ fontSize: 10, opacity: 0.7 }}>Centro SAP: {group.codiceSap}</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td style={{ textAlign: "right", padding: "12px 12px", fontWeight: 700, fontSize: 13, color: "var(--text-muted)" }}>{machineTotalMsgs}</td>
+                                                <td style={{ textAlign: "right", padding: "12px 12px", fontWeight: 800, fontSize: 14, color: "var(--success)" }}>{machineTotalOk.toLocaleString("it-IT")}</td>
+                                                <td style={{ textAlign: "right", padding: "12px 12px", fontWeight: 700, fontSize: 13, color: "var(--danger)" }}>{machineTotalScrap > 0 ? machineTotalScrap.toLocaleString("it-IT") : "—"}</td>
+                                                <td style={{ textAlign: "right", padding: "12px 16px", fontWeight: 700, fontSize: 13, color: scrapRate > 5 ? "var(--danger)" : "var(--text-secondary)" }}>
+                                                    {scrapRate > 0 ? `${scrapRate}%` : "0%"}
+                                                </td>
+                                            </tr>
+                                            {materiali.map(m => {
+                                                const mScrapRate = m.qtaOttenuta + m.qtaScarto > 0 ? (m.qtaScarto / (m.qtaOttenuta + m.qtaScarto) * 100).toFixed(1) : 0;
+                                                return (
+                                                    <tr key={m.nome} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                                        <td style={{ padding: "8px 12px 8px 40px", fontSize: 13, color: "var(--text-primary)" }}>
+                                                            {m.nome}
+                                                        </td>
+                                                        <td style={{ textAlign: "right", padding: "8px 12px", fontSize: 12, color: "var(--text-muted)" }}>{m.count}</td>
+                                                        <td style={{ textAlign: "right", padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>{m.qtaOttenuta.toLocaleString("it-IT")}</td>
+                                                        <td style={{ textAlign: "right", padding: "8px 12px", fontSize: 12, color: m.qtaScarto > 0 ? "var(--danger)" : "var(--text-muted)" }}>
+                                                            {m.qtaScarto > 0 ? m.qtaScarto.toLocaleString("it-IT") : "—"}
+                                                        </td>
+                                                        <td style={{ textAlign: "right", padding: "8px 16px", fontSize: 12, color: "var(--text-muted)" }}>
+                                                            {mScrapRate > 0 ? `${mScrapRate}%` : "—"}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </React.Fragment>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}

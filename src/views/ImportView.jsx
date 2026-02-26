@@ -33,7 +33,12 @@ function autoDetect(headers) {
 
 function formatDate(val) {
     if (!val) return null;
-    if (val instanceof Date) return val.toISOString().slice(0, 10);
+    if (val instanceof Date) {
+        const y = val.getFullYear();
+        const m = String(val.getMonth() + 1).padStart(2, '0');
+        const d = String(val.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    }
     if (typeof val === "number") {
         try {
             const d = XLSX.SSF.parse_date_code(val);
@@ -41,12 +46,33 @@ function formatDate(val) {
         } catch { /* ignore */ }
     }
     const s = String(val).trim();
-    // dd.mm.yyyy
-    const m1 = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
-    if (m1) return `${m1[3]}-${m1[2].padStart(2, "0")}-${m1[1].padStart(2, "0")}`;
-    // dd/mm/yyyy
-    const m2 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (m2) return `${m2[3]}-${m2[2].padStart(2, "0")}-${m2[1].padStart(2, "0")}`;
+
+    // Pattern dd.mm.yyyy or dd/mm/yyyy or dd-mm-yyyy
+    const m = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
+    if (m) {
+        let day = m[1].padStart(2, "0");
+        let month = m[2].padStart(2, "0");
+        let year = m[3];
+        if (year.length === 2) year = "20" + year;
+
+        // Italian context: usually DD/MM/YYYY. 
+        // If first part > 12, it MUST be the day (unless it's MM/DD/YYYY, but that's rare here)
+        // If second part > 12, it MUST be the day (so it was MM/DD/YYYY)
+        if (parseInt(month) > 12 && parseInt(day) <= 12) {
+            // Probably MM/DD/YYYY -> convert to DD/MM/YYYY for our purposes or just swap
+            [day, month] = [month, day];
+        }
+
+        return `${year}-${month}-${day}`;
+    }
+
+    // Pattern yyyy-mm-dd
+    const mIso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (mIso) {
+        const parts = s.split(/[-/]/);
+        return `${parts[0]}-${parts[1].padStart(2, "0")}-${parts[2].padStart(2, "0")}`;
+    }
+
     return s.slice(0, 10) || null;
 }
 
@@ -174,7 +200,19 @@ export default function ImportView({ showToast, macchine = [] }) {
 
         const matched = parsed.filter(r => r.matched).length;
         const wcsUnmatched = [...new Set(parsed.filter(r => !r.matched).map(r => r.work_center_sap))];
-        setResult({ rows: parsed, matched, unmatched: wcsUnmatched });
+
+        // Date Check
+        const today = new Date().toISOString().slice(0, 10);
+        const hasFutureDates = parsed.some(r => r.data && r.data > today);
+        const distinctDates = [...new Set(parsed.map(r => r.data).filter(Boolean))].sort();
+
+        setResult({
+            rows: parsed,
+            matched,
+            unmatched: wcsUnmatched,
+            hasFutureDates,
+            dateRange: { start: distinctDates[0], end: distinctDates[distinctDates.length - 1] }
+        });
         setStep("preview");
     };
 
@@ -350,6 +388,17 @@ export default function ImportView({ showToast, macchine = [] }) {
                             </span>
                             <span style={{ marginLeft: 8, color: "var(--text-muted)" }}>
                                 → Aggiungili o correggi l'ID in Anagrafica Macchine.
+                            </span>
+                        </div>
+                    )}
+
+                    {/* Avviso Date Future */}
+                    {result.hasFutureDates && (
+                        <div style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 12 }}>
+                            <strong style={{ color: "var(--warning)" }}>⚠️ Rilevate date nel futuro:</strong>
+                            <span style={{ marginLeft: 8, color: "var(--text-secondary)" }}>
+                                Le date nel file vanno dal <b>{result.dateRange.start}</b> al <b>{result.dateRange.end}</b>.
+                                Controlla che il formato della data sia corretto (es. Gennaio vs Luglio).
                             </span>
                         </div>
                     )}

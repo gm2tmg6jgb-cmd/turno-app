@@ -24,6 +24,7 @@ import Op10View from "./views/Op10View";
 import AnagraficaFermiView from "./views/AnagraficaFermiView";
 import AnagraficaMacchineView from "./views/AnagraficaMacchineView";
 import SapDataView from "./views/SapDataView";
+import SapSummaryView from "./views/SapSummaryView";
 
 export default function App() {
   const [currentView, setCurrentView] = useState("dashboard");
@@ -208,7 +209,8 @@ export default function App() {
     { id: "report", label: "Report Fine Turno", icon: Icons.report },
     { id: "motivi", label: "Motivi Assenza", icon: Icons.filter },
     { id: "import", label: "Import SAP", icon: Icons.upload },
-    { id: "sapData", label: "Dati SAP Importati", icon: Icons.report },
+    { id: "sapData", label: "Storico Dati SAP", icon: Icons.report },
+    { id: "sapSummary", label: "Analisi Produzione SAP", icon: Icons.dashboard },
     { id: "fermi", label: "Report Fermi", icon: Icons.alert },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings },
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine },
@@ -225,6 +227,7 @@ export default function App() {
     motivi: "Gestione Motivi Assenza",
     import: "Import Dati SAP",
     sapData: "Storico Dati SAP",
+    sapSummary: "Analisi Produzione SAP",
     fermi: "Report Fermi",
     anagraficaFermi: "Anagrafica Fermi Macchine",
     anagraficaMacchine: "Anagrafica Macchine",
@@ -316,6 +319,7 @@ export default function App() {
                 {renderItem(ni("report"))}
                 {renderItem(ni("op10"))}
                 {renderItem(ni("fermi"))}
+                {renderItem(ni("sapSummary"))}
                 {renderItem(ni("import"))}
                 {renderItem(ni("sapData"))}
 
@@ -441,6 +445,9 @@ export default function App() {
           )}
           {currentView === "sapData" && (
             <SapDataView macchine={macchine} />
+          )}
+          {currentView === "sapSummary" && (
+            <SapSummaryView macchine={macchine} />
           )}
           {currentView === "fermi" && (
             <FermiView macchine={macchine} initialReparto={repartoCorrente} initialTurno={turnoCorrente} motiviFermo={motiviFermo} tecnologie={tecnologie} />

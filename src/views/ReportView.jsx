@@ -25,6 +25,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
     const [pezziProdotti, setPezziProdotti] = useState([]);
     const [confermeSap, setConfermeSap] = useState([]);
     const [absencesViewMode, setAbsencesViewMode] = useState("detail"); // "detail" or "aggregate"
+    const [pezziInputs, setPezziInputs] = useState({}); // { [machineId]: { qta: '', scarti: '' } }
 
     // Fetch Fermi & Pezzi when Date or Turno changes
     useEffect(() => {
@@ -94,6 +95,54 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
         } catch (e) {
             console.error(e);
             alert("Errore nell'eliminazione del fermo");
+        }
+    };
+
+    const handlePostPezzi = async (machineId, qta, scarti) => {
+        if (!selectedDate || !selectedTurno) {
+            alert("Seleziona una data e un turno per inserire i pezzi");
+            return;
+        }
+        try {
+            const payload = {
+                macchina_id: machineId,
+                data: selectedDate,
+                turno_id: selectedTurno,
+                quantita: parseInt(qta) || 0,
+                scarti: parseInt(scarti) || 0
+            };
+
+            const { data, error } = await supabase
+                .from('pezzi_prodotti')
+                .upsert(payload, { onConflict: 'macchina_id, data, turno_id' })
+                .select();
+
+            if (error) throw error;
+            if (data) {
+                setPezziProdotti(prev => {
+                    const filtered = prev.filter(p => p.id !== data[0].id);
+                    return [...filtered, ...data];
+                });
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Errore nel salvataggio dei pezzi");
+        }
+    };
+
+    const handleDeletePezzi = async (pezziId) => {
+        if (!window.confirm("Sei sicuro di voler eliminare questo dato di produzione?")) return;
+        try {
+            const { error } = await supabase
+                .from('pezzi_prodotti')
+                .delete()
+                .eq('id', pezziId);
+
+            if (error) throw error;
+            setPezziProdotti(prev => prev.filter(p => p.id !== pezziId));
+        } catch (e) {
+            console.error(e);
+            alert("Errore nell'eliminazione dei pezzi");
         }
     };
 
@@ -675,9 +724,40 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                                     📦 {s.qta_ottenuta} pz {s.qta_scarto > 0 && <span style={{ color: "var(--danger)", fontSize: 11 }}>(scarti: {s.qta_scarto})</span>}
                                                                                                 </div>
                                                                                             ))}
-                                                                                            {pezziProdotti.filter(p => p.macchina_id === m.id).length === 0 && confermeSap.filter(s => s.macchina_id === m.id).length === 0 && (
-                                                                                                <span style={{ color: "var(--text-muted)", fontSize: 13 }}>—</span>
-                                                                                            )}
+                                                                                            {pezziProdotti.filter(p => p.macchina_id === m.id).length === 0 && confermeSap.filter(s =>
+                                                                                                s.macchina_id === m.id ||
+                                                                                                (s.work_center_sap && m.codice_sap && s.work_center_sap.toUpperCase() === m.codice_sap.toUpperCase())
+                                                                                            ).length === 0 && (
+                                                                                                    <span style={{ color: "var(--text-muted)", fontSize: 13 }}>—</span>
+                                                                                                )}
+                                                                                            <div style={{ marginTop: 8, display: "flex", gap: 4, alignItems: "center" }}>
+                                                                                                <input
+                                                                                                    type="number"
+                                                                                                    placeholder="Pezzi"
+                                                                                                    className="input"
+                                                                                                    style={{ width: 60, height: 26, fontSize: 11, padding: "2px 6px" }}
+                                                                                                    value={pezziInputs[m.id]?.qta || ""}
+                                                                                                    onChange={e => setPezziInputs(prev => ({ ...prev, [m.id]: { ...(prev[m.id] || {}), qta: e.target.value } }))}
+                                                                                                />
+                                                                                                <input
+                                                                                                    type="number"
+                                                                                                    placeholder="Scarti"
+                                                                                                    className="input"
+                                                                                                    style={{ width: 60, height: 26, fontSize: 11, padding: "2px 6px" }}
+                                                                                                    value={pezziInputs[m.id]?.scarti || ""}
+                                                                                                    onChange={e => setPezziInputs(prev => ({ ...prev, [m.id]: { ...(prev[m.id] || {}), scarti: e.target.value } }))}
+                                                                                                />
+                                                                                                <button
+                                                                                                    className="btn btn-primary"
+                                                                                                    style={{ padding: "0 6px", height: 26, fontSize: 12 }}
+                                                                                                    onClick={() => {
+                                                                                                        handlePostPezzi(m.id, pezziInputs[m.id]?.qta, pezziInputs[m.id]?.scarti);
+                                                                                                        setPezziInputs(prev => ({ ...prev, [m.id]: { qta: "", scarti: "" } }));
+                                                                                                    }}
+                                                                                                >
+                                                                                                    {Icons.check}
+                                                                                                </button>
+                                                                                            </div>
                                                                                         </div>
                                                                                     </td>
                                                                                     <td style={{ padding: "8px 12px" }}>
@@ -802,6 +882,34 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                         ).length === 0 && (
                                                                                             <span style={{ color: "var(--text-muted)", fontSize: 13 }}>—</span>
                                                                                         )}
+                                                                                    <div style={{ marginTop: 8, display: "flex", gap: 4, alignItems: "center" }}>
+                                                                                        <input
+                                                                                            type="number"
+                                                                                            placeholder="Pezzi"
+                                                                                            className="input"
+                                                                                            style={{ width: 60, height: 26, fontSize: 11, padding: "2px 6px" }}
+                                                                                            value={pezziInputs[m.id]?.qta || ""}
+                                                                                            onChange={e => setPezziInputs(prev => ({ ...prev, [m.id]: { ...(prev[m.id] || {}), qta: e.target.value } }))}
+                                                                                        />
+                                                                                        <input
+                                                                                            type="number"
+                                                                                            placeholder="Scarti"
+                                                                                            className="input"
+                                                                                            style={{ width: 60, height: 26, fontSize: 11, padding: "2px 6px" }}
+                                                                                            value={pezziInputs[m.id]?.scarti || ""}
+                                                                                            onChange={e => setPezziInputs(prev => ({ ...prev, [m.id]: { ...(prev[m.id] || {}), scarti: e.target.value } }))}
+                                                                                        />
+                                                                                        <button
+                                                                                            className="btn btn-primary"
+                                                                                            style={{ padding: "0 6px", height: 26, fontSize: 12 }}
+                                                                                            onClick={() => {
+                                                                                                handlePostPezzi(m.id, pezziInputs[m.id]?.qta, pezziInputs[m.id]?.scarti);
+                                                                                                setPezziInputs(prev => ({ ...prev, [m.id]: { qta: "", scarti: "" } }));
+                                                                                            }}
+                                                                                        >
+                                                                                            {Icons.check}
+                                                                                        </button>
+                                                                                    </div>
                                                                                 </div>
                                                                             </td>
                                                                             <td style={{ padding: "8px 12px" }}>
