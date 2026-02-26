@@ -75,21 +75,24 @@ export default function SapDataView({ macchine = [] }) {
     const fetchSapData = async () => {
         setLoading(true);
 
-        // Recupera il conteggio totale
+        // Recupera il conteggio totale (senza filtri)
         const { count, error: countErr } = await supabase
             .from("conferme_sap")
             .select("*", { count: "exact", head: true });
 
         if (!countErr) setTotalCount(count || 0);
 
-        // Recupera i dati con il limite attuale
-        const { data: res, error } = await supabase
+        // Applica il filtro date solo se entrambi i campi sono valorizzati
+        let query = supabase
             .from("conferme_sap")
             .select("*")
-            .gte("data", startDate)
-            .lte("data", endDate)
             .order("data", { ascending: false })
             .limit(limit);
+
+        if (startDate) query = query.gte("data", startDate);
+        if (endDate) query = query.lte("data", endDate);
+
+        const { data: res, error } = await query;
 
         if (error) {
             console.error("Errore recupero dati SAP:", error);
@@ -140,11 +143,36 @@ export default function SapDataView({ macchine = [] }) {
                         <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>Visualizza i dati importati dai file Excel di SAP</p>
                     </div>
                     <div style={{ display: "flex", gap: 8 }}>
+                        <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => { setStartDate(""); setEndDate(""); }}
+                            title="Rimuovi filtro date e mostra tutti i record"
+                        >
+                            Tutti i dati
+                        </button>
                         <button className="btn btn-secondary btn-sm" onClick={fetchSapData} disabled={loading}>
                             {Icons.history} Aggiorna
                         </button>
                     </div>
                 </div>
+
+                {/* Avviso: filtro date non trova dati ma il DB ne ha */}
+                {!loading && data.length === 0 && totalCount > 0 && (
+                    <div style={{ marginBottom: 16, padding: "14px 18px", background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 8, fontSize: 13, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+                        <div>
+                            <strong style={{ color: "var(--accent)" }}>ℹ️ Nessun dato nel periodo selezionato</strong><br />
+                            Il DB contiene <strong>{totalCount.toLocaleString("it-IT")}</strong> record, ma nessuno ricade tra <strong>{startDate || "—"}</strong> e <strong>{endDate || "—"}</strong>.
+                            I dati potrebbero avere date diverse (es. future o passate).
+                        </div>
+                        <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => { setStartDate(""); setEndDate(""); }}
+                            style={{ whiteSpace: "nowrap", flexShrink: 0 }}
+                        >
+                            Mostra tutti i dati
+                        </button>
+                    </div>
+                )}
 
                 {data.length > 0 && (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>

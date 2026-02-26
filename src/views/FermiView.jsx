@@ -4,7 +4,8 @@ import { Icons } from '../components/ui/Icons';
 import { REPARTI, TURNI } from '../data/constants';
 import { getLocalDate } from '../lib/dateUtils';
 import {
-    BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
+    BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+    ComposedChart, Line
 } from 'recharts';
 
 /* ── tecnologie fallback (se DB non ancora popolato) ────── */
@@ -250,6 +251,43 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
         return { chartData: charts, stats: statsMap };
     }, [fermiTec, dateRange, tecnologie, macchine]);
 
+    /* ── Pareto per motivo ── */
+    const paretoMotivoData = useMemo(() => {
+        const counts = {};
+        for (const f of fermiTec) {
+            const key = f.motivo || 'Non specificato';
+            if (!counts[key]) counts[key] = { label: key, count: 0, minuti: 0 };
+            counts[key].count += 1;
+            counts[key].minuti += f.durata_minuti || 0;
+        }
+        const sorted = Object.values(counts).sort((a, b) => b.count - a.count);
+        const total = sorted.reduce((s, x) => s + x.count, 0);
+        let cum = 0;
+        return sorted.map(x => {
+            cum += total > 0 ? (x.count / total * 100) : 0;
+            return { ...x, cumPct: parseFloat(cum.toFixed(1)) };
+        });
+    }, [fermiTec]);
+
+    /* ── Pareto per macchina (top 15) ── */
+    const paretoMacchinaData = useMemo(() => {
+        const counts = {};
+        for (const f of fermiTec) {
+            const mac = macchine.find(m => m.id === f.macchina_id);
+            const key = mac ? (mac.nome || mac.id) : (f.macchina_id || 'Sconosciuta');
+            if (!counts[key]) counts[key] = { label: key, count: 0, minuti: 0 };
+            counts[key].count += 1;
+            counts[key].minuti += f.durata_minuti || 0;
+        }
+        const sorted = Object.values(counts).sort((a, b) => b.count - a.count).slice(0, 15);
+        const total = sorted.reduce((s, x) => s + x.count, 0);
+        let cum = 0;
+        return sorted.map(x => {
+            cum += total > 0 ? (x.count / total * 100) : 0;
+            return { ...x, cumPct: parseFloat(cum.toFixed(1)) };
+        });
+    }, [fermiTec, macchine]);
+
     /* ═══ RENDER ══════════════════════════════════════════ */
     return (
         <div className="fade-in" style={{ height: "100%", overflowY: "auto", paddingRight: 8, paddingBottom: 20 }}>
@@ -271,22 +309,13 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
                 <div>
                     <h2 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Fermi Macchina</h2>
                     <p style={{ color: "var(--text-secondary)", marginTop: 4, margin: 0 }}>
-                        {activeTab === 'lista' ? 'Riepilogo fermi registrati per turno.' : 'Trend fermi per tecnologia nel periodo selezionato.'}
+                        {activeTab === 'lista' ? 'Riepilogo fermi registrati per turno.' : activeTab === 'tecnologia' ? 'Trend fermi per tecnologia nel periodo selezionato.' : 'Analisi Pareto — il 20% delle cause genera l\'80% dei fermi.'}
                     </p>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                        className={activeTab === 'lista' ? 'btn btn-primary' : 'btn btn-secondary'}
-                        onClick={() => setActiveTab('lista')}
-                    >
-                        Lista Fermi
-                    </button>
-                    <button
-                        className={activeTab === 'tecnologia' ? 'btn btn-primary' : 'btn btn-secondary'}
-                        onClick={() => setActiveTab('tecnologia')}
-                    >
-                        Per Tecnologia
-                    </button>
+                    <button className={activeTab === 'lista' ? 'btn btn-primary' : 'btn btn-secondary'} onClick={() => setActiveTab('lista')}>Lista Fermi</button>
+                    <button className={activeTab === 'tecnologia' ? 'btn btn-primary' : 'btn btn-secondary'} onClick={() => setActiveTab('tecnologia')}>Per Tecnologia</button>
+                    <button className={activeTab === 'pareto' ? 'btn btn-primary' : 'btn btn-secondary'} onClick={() => setActiveTab('pareto')}>📊 Pareto</button>
                 </div>
             </div>
 
@@ -660,6 +689,153 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
                                     </div>
                                 );
                             })}
+                        </div>
+                    )}
+                </>
+            )}
+
+            {/* ════════════════════════════════════════════
+                TAB 3 — PARETO
+            ════════════════════════════════════════════ */}
+            {activeTab === 'pareto' && (
+                <>
+                    {/* Stessa barra date del tab tecnologia */}
+                    <div style={{ display: "flex", gap: 12, background: "var(--bg-card)", padding: 12, borderRadius: 8, border: "1px solid var(--border)", marginBottom: 24, alignItems: "flex-end" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Dal</label>
+                            <input type="date" value={tecFrom} onChange={e => setTecFrom(e.target.value)} className="input" style={{ width: 140 }} />
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Al</label>
+                            <input type="date" value={tecTo} onChange={e => setTecTo(e.target.value)} className="input" style={{ width: 140 }} />
+                        </div>
+                        <div style={{ fontSize: 13, color: "var(--text-muted)", paddingBottom: 6 }}>
+                            {fermiTec.length} fermi nel periodo
+                        </div>
+                    </div>
+
+                    {loadingTec ? (
+                        <div style={{ padding: 60, textAlign: "center", color: "var(--text-muted)" }}>Caricamento...</div>
+                    ) : fermiTec.length === 0 ? (
+                        <div className="card" style={{ padding: 60, textAlign: "center", color: "var(--text-muted)", fontStyle: "italic" }}>
+                            Nessun fermo registrato nel periodo selezionato.
+                        </div>
+                    ) : (
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+
+                            {/* Pareto per Motivo */}
+                            <div className="card">
+                                <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>Pareto per Motivo</div>
+                                <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 20 }}>
+                                    Frequenza fermi ordinata per causa — <strong>{paretoMotivoData.length}</strong> cause distinte
+                                </div>
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <ComposedChart data={paretoMotivoData} margin={{ top: 4, right: 40, left: 0, bottom: 60 }}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                                        <XAxis
+                                            dataKey="label"
+                                            tick={{ fontSize: 11, fill: "var(--text-muted)" }}
+                                            angle={-35}
+                                            textAnchor="end"
+                                            interval={0}
+                                        />
+                                        <YAxis yAxisId="left" allowDecimals={false} tick={{ fontSize: 11, fill: "var(--text-muted)" }} width={30} />
+                                        <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 11, fill: "var(--text-muted)" }} width={40} />
+                                        <Tooltip
+                                            content={({ active, payload, label }) => {
+                                                if (!active || !payload?.length) return null;
+                                                return (
+                                                    <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px", fontSize: 12 }}>
+                                                        <div style={{ fontWeight: 700, marginBottom: 6 }}>{label}</div>
+                                                        <div>Fermi: <strong>{payload[0]?.value}</strong></div>
+                                                        {payload[1] && <div style={{ color: "#F59E0B" }}>Cumulativo: <strong>{payload[1]?.value}%</strong></div>}
+                                                        <div style={{ color: "var(--text-muted)" }}>Minuti: {payload[0]?.payload?.minuti || 0}</div>
+                                                    </div>
+                                                );
+                                            }}
+                                        />
+                                        <Bar yAxisId="left" dataKey="count" name="N. Fermi" fill="#EF4444" fillOpacity={0.8} radius={[3, 3, 0, 0]} />
+                                        <Line yAxisId="right" type="monotone" dataKey="cumPct" name="% Cumulativo" stroke="#F59E0B" strokeWidth={2} dot={{ r: 3, fill: "#F59E0B" }} />
+                                    </ComposedChart>
+                                </ResponsiveContainer>
+
+                                {/* Tabella riepilogo motivi */}
+                                <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+                                    {paretoMotivoData.map((x, i) => {
+                                        const motivoObj = motiviFermo.find(m => m.label === x.label) || motiviFermo.find(m => m.id === x.label);
+                                        const pct = fermiTec.length > 0 ? (x.count / fermiTec.length * 100).toFixed(0) : 0;
+                                        return (
+                                            <div key={x.label} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: "1px solid var(--border-light)" }}>
+                                                <span style={{ width: 20, fontSize: 11, fontWeight: 700, color: "var(--text-muted)" }}>#{i + 1}</span>
+                                                <span style={{ fontSize: 16 }}>{motivoObj?.icona || "🔴"}</span>
+                                                <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{x.label}</span>
+                                                <div style={{ width: 80, height: 6, background: "var(--bg-tertiary)", borderRadius: 3, overflow: "hidden" }}>
+                                                    <div style={{ height: "100%", width: `${pct}%`, background: "#EF4444", borderRadius: 3 }} />
+                                                </div>
+                                                <span style={{ width: 50, textAlign: "right", fontSize: 13, fontWeight: 700 }}>{x.count}</span>
+                                                <span style={{ width: 40, textAlign: "right", fontSize: 11, color: "var(--text-muted)" }}>{pct}%</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Pareto per Macchina */}
+                            <div className="card">
+                                <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>Pareto per Macchina</div>
+                                <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 20 }}>
+                                    Macchine con più fermi — top <strong>{paretoMacchinaData.length}</strong>
+                                </div>
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <ComposedChart data={paretoMacchinaData} margin={{ top: 4, right: 40, left: 0, bottom: 60 }}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                                        <XAxis
+                                            dataKey="label"
+                                            tick={{ fontSize: 11, fill: "var(--text-muted)" }}
+                                            angle={-35}
+                                            textAnchor="end"
+                                            interval={0}
+                                        />
+                                        <YAxis yAxisId="left" allowDecimals={false} tick={{ fontSize: 11, fill: "var(--text-muted)" }} width={30} />
+                                        <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 11, fill: "var(--text-muted)" }} width={40} />
+                                        <Tooltip
+                                            content={({ active, payload, label }) => {
+                                                if (!active || !payload?.length) return null;
+                                                return (
+                                                    <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px", fontSize: 12 }}>
+                                                        <div style={{ fontWeight: 700, marginBottom: 6 }}>{label}</div>
+                                                        <div>Fermi: <strong>{payload[0]?.value}</strong></div>
+                                                        {payload[1] && <div style={{ color: "#F59E0B" }}>Cumulativo: <strong>{payload[1]?.value}%</strong></div>}
+                                                        <div style={{ color: "var(--text-muted)" }}>Minuti totali: {payload[0]?.payload?.minuti || 0}</div>
+                                                    </div>
+                                                );
+                                            }}
+                                        />
+                                        <Bar yAxisId="left" dataKey="count" name="N. Fermi" fill="#6366F1" fillOpacity={0.8} radius={[3, 3, 0, 0]} />
+                                        <Line yAxisId="right" type="monotone" dataKey="cumPct" name="% Cumulativo" stroke="#F59E0B" strokeWidth={2} dot={{ r: 3, fill: "#F59E0B" }} />
+                                    </ComposedChart>
+                                </ResponsiveContainer>
+
+                                {/* Tabella riepilogo macchine */}
+                                <div style={{ marginTop: 16, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+                                    {paretoMacchinaData.map((x, i) => {
+                                        const pct = fermiTec.length > 0 ? (x.count / fermiTec.length * 100).toFixed(0) : 0;
+                                        const isTop3 = i < 3;
+                                        return (
+                                            <div key={x.label} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: "1px solid var(--border-light)" }}>
+                                                <span style={{ width: 20, fontSize: 11, fontWeight: 700, color: isTop3 ? "var(--danger)" : "var(--text-muted)" }}>#{i + 1}</span>
+                                                <span style={{ flex: 1, fontSize: 13, fontWeight: isTop3 ? 700 : 500, color: isTop3 ? "var(--text-primary)" : "var(--text-secondary)" }}>{x.label}</span>
+                                                <div style={{ width: 80, height: 6, background: "var(--bg-tertiary)", borderRadius: 3, overflow: "hidden" }}>
+                                                    <div style={{ height: "100%", width: `${pct}%`, background: isTop3 ? "#EF4444" : "#6366F1", borderRadius: 3 }} />
+                                                </div>
+                                                <span style={{ width: 50, textAlign: "right", fontSize: 13, fontWeight: 700 }}>{x.count}</span>
+                                                <span style={{ width: 55, textAlign: "right", fontSize: 11, color: "var(--text-muted)" }}>{x.minuti > 0 ? `${x.minuti} min` : "—"}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
                         </div>
                     )}
                 </>
