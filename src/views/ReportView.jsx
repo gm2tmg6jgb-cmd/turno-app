@@ -781,15 +781,22 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                         </div>
                                                                                     ))}
                                                                                     {/* Dati da SAP */}
-                                                                                    {confermeSap.filter(s => s.macchina_id === m.id).map(s => (
+                                                                                    {confermeSap.filter(s =>
+                                                                                        s.macchina_id === m.id ||
+                                                                                        (s.work_center_sap && m.codice_sap && s.work_center_sap.toUpperCase() === m.codice_sap.toUpperCase())
+                                                                                    ).map(s => (
                                                                                         <div key={s.id} style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, background: "rgba(99,102,241,0.08)", padding: "2px 6px", borderRadius: 4, marginTop: 2 }}>
                                                                                             <div style={{ fontSize: 10, textTransform: "uppercase", opacity: 0.8 }}>Dati SAP</div>
                                                                                             📦 {s.qta_ottenuta} pz {s.qta_scarto > 0 && <span style={{ color: "var(--danger)", fontSize: 11 }}>(scarti: {s.qta_scarto})</span>}
                                                                                         </div>
                                                                                     ))}
-                                                                                    {pezziProdotti.filter(p => p.macchina_id === m.id).length === 0 && confermeSap.filter(s => s.macchina_id === m.id).length === 0 && (
-                                                                                        <span style={{ color: "var(--text-muted)", fontSize: 13 }}>—</span>
-                                                                                    )}
+                                                                                    {pezziProdotti.filter(p => p.macchina_id === m.id).length === 0 &&
+                                                                                        confermeSap.filter(s =>
+                                                                                            s.macchina_id === m.id ||
+                                                                                            (s.work_center_sap && m.codice_sap && s.work_center_sap.toUpperCase() === m.codice_sap.toUpperCase())
+                                                                                        ).length === 0 && (
+                                                                                            <span style={{ color: "var(--text-muted)", fontSize: 13 }}>—</span>
+                                                                                        )}
                                                                                 </div>
                                                                             </td>
                                                                             <td style={{ padding: "8px 12px" }}>

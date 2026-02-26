@@ -36,9 +36,16 @@ export default function SapDataView({ macchine = [] }) {
         return matchesSearch && matchesDate;
     });
 
-    const getMacchinaNome = (id) => {
-        const m = macchine.find(m => m.id === id);
-        return m ? m.nome : id;
+    const getMacchinaNome = (macchinaId, workCenterSap) => {
+        // 1. Cerca per ID (se presente)
+        let m = macchine.find(m => m.id === macchinaId);
+
+        // 2. Se non trovato per ID, cerca per Codice SAP
+        if (!m && workCenterSap) {
+            m = macchine.find(m => (m.codice_sap || "").toUpperCase() === workCenterSap.toUpperCase());
+        }
+
+        return m ? m.nome : (workCenterSap || "—");
     };
 
     return (
@@ -115,11 +122,17 @@ export default function SapDataView({ macchine = [] }) {
                                         <td style={{ padding: "8px 12px", fontSize: 13, fontFamily: "monospace" }}>{r.data}</td>
                                         <td style={{ padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>{r.work_center_sap}</td>
                                         <td style={{ padding: "8px 12px", fontSize: 13 }}>
-                                            {r.macchina_id ? (
-                                                <span style={{ color: "var(--success)", fontWeight: 500 }}>{getMacchinaNome(r.macchina_id)}</span>
-                                            ) : (
-                                                <span style={{ color: "var(--text-lighter)", fontStyle: "italic" }}>Non collegata</span>
-                                            )}
+                                            {(() => {
+                                                const m = macchine.find(m =>
+                                                    m.id === r.macchina_id ||
+                                                    (r.work_center_sap && (m.codice_sap || "").toUpperCase() === r.work_center_sap.toUpperCase())
+                                                );
+                                                return m ? (
+                                                    <span style={{ color: "var(--success)", fontWeight: 500 }}>{m.nome}</span>
+                                                ) : (
+                                                    <span style={{ color: "var(--text-lighter)", fontStyle: "italic" }}>Non collegata</span>
+                                                );
+                                            })()}
                                         </td>
                                         <td style={{ padding: "8px 12px", fontSize: 13 }}>{r.materiale}</td>
                                         <td style={{ padding: "8px 12px", fontSize: 13, fontWeight: 700 }}>{r.qta_ottenuta?.toLocaleString("it-IT")}</td>

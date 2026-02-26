@@ -273,9 +273,23 @@ export default function ImportView({ showToast, macchine = [] }) {
                         <div className="card-title">Verifica colonne</div>
                         <button className="btn btn-secondary btn-sm" onClick={reset}>← Nuovo file</button>
                     </div>
-                    <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 20 }}>
+                    <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>
                         <strong>{fileName}</strong> — {rawRows.length} righe. Correggi se qualche colonna non è stata rilevata correttamente.
                     </p>
+
+                    {/* Debug: mostra codici SAP caricati */}
+                    <div style={{ marginBottom: 20, padding: 10, background: "var(--bg-tertiary)", borderRadius: 6, fontSize: 11, border: "1px solid var(--border-light)" }}>
+                        <div style={{ fontWeight: 700, marginBottom: 4, textTransform: "uppercase", color: "var(--text-secondary)" }}>Codici SAP configurati nell'anagrafica:</div>
+                        <div style={{ color: "var(--accent)", fontFamily: "monospace", display: "flex", flexWrap: "wrap", gap: 8 }}>
+                            {macchine.filter(m => m.codice_sap).length > 0 ? (
+                                macchine.filter(m => m.codice_sap).map(m => (
+                                    <span key={m.id} title={m.nome}>{m.codice_sap}</span>
+                                ))
+                            ) : (
+                                <span style={{ color: "var(--danger)", fontStyle: "italic" }}>Nessun codice SAP configurato nelle macchine!</span>
+                            )}
+                        </div>
+                    </div>
 
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12, marginBottom: 24 }}>
                         {COL_DEFS.map(({ key, label }) => {
