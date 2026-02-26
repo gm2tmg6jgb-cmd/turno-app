@@ -79,25 +79,46 @@ export default function SapSummaryView({ macchine = [] }) {
                 };
             }
 
-            const mat = r.materiale || "Senza Materiale";
-            if (!groups[machineKey].materiali[mat]) {
-                const info = anagrafica[mat.toUpperCase()];
-                groups[machineKey].materiali[mat] = {
-                    nome: mat,
-                    componente: info?.componente,
-                    progetto: info?.progetto,
+            const matCode = r.materiale || "Senza Materiale";
+            const info = anagrafica[matCode.toUpperCase()];
+
+            // Definiamo una chiave di aggregazione basata su Progetto + Componente se presenti, 
+            // altrimenti usiamo il codice SAP puro.
+            let groupKey = matCode;
+            if (info && info.componente) {
+                const proj = info.progetto || "Senza Progetto";
+                groupKey = `${proj}:::${info.componente}`;
+            }
+
+            if (!groups[machineKey].materiali[groupKey]) {
+                groups[machineKey].materiali[groupKey] = {
+                    nome: info ? info.componente : matCode,
+                    progetto: info ? info.progetto : null,
+                    isMapped: !!info,
+                    materialiInclusi: new Set([matCode]),
                     qtaOttenuta: 0,
                     qtaScarto: 0,
                     count: 0
                 };
+            } else {
+                groups[machineKey].materiali[groupKey].materialiInclusi.add(matCode);
             }
 
-            groups[machineKey].materiali[mat].qtaOttenuta += (r.qta_ottenuta || 0);
-            groups[machineKey].materiali[mat].qtaScarto += (r.qta_scarto || 0);
-            groups[machineKey].materiali[mat].count += 1;
+            groups[machineKey].materiali[groupKey].qtaOttenuta += (r.qta_ottenuta || 0);
+            groups[machineKey].materiali[groupKey].qtaScarto += (r.qta_scarto || 0);
+            groups[machineKey].materiali[groupKey].count += 1;
         });
 
-        return Object.values(groups).sort((a, b) => a.nome.localeCompare(b.nome));
+        // Convertiamo Set in Array prima di tornare i dati
+        const final = Object.values(groups).map(g => ({
+            ...g,
+            materiali: Object.values(g.materiali).map(m => ({
+                ...m,
+                materialiInclusi: Array.from(m.materialiInclusi)
+            }))
+        }));
+
+        return final.sort((a, b) => a.nome.localeCompare(b.nome));
     }, [data, macchine, anagrafica]);
 
     return (
@@ -177,22 +198,28 @@ export default function SapSummaryView({ macchine = [] }) {
                                             </tr>
                                             {materiali.map(m => {
                                                 const mScrapRate = m.qtaOttenuta + m.qtaScarto > 0 ? (m.qtaScarto / (m.qtaOttenuta + m.qtaScarto) * 100).toFixed(1) : 0;
+                                                const rowKey = `${m.progetto || ''}-${m.nome}`;
+
                                                 return (
-                                                    <tr key={m.nome} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                                    <tr key={rowKey} style={{ borderBottom: "1px solid var(--border-light)" }}>
                                                         <td style={{ padding: "8px 12px 8px 40px", fontSize: 13, color: "var(--text-primary)" }}>
-                                                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                                                                <span style={{ fontWeight: 500 }}>{m.nome}</span>
-                                                                {m.progetto && (
-                                                                    <span style={{ fontSize: 10, color: "var(--text-secondary)", fontWeight: 600 }}>
-                                                                        {m.progetto}
+                                                            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                                                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                                                    {m.progetto ? (
+                                                                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase" }}>
+                                                                            {m.progetto}
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span style={{ fontSize: 10, color: "var(--text-muted)", fontStyle: "italic" }}>Senza progetto</span>
+                                                                    )}
+                                                                    <span style={{ opacity: 0.3 }}>•</span>
+                                                                    <span style={{ padding: "2px 8px", background: "var(--bg-tertiary)", borderRadius: 4, fontWeight: 800, color: "var(--accent)", fontSize: 12 }}>
+                                                                        {m.nome}
                                                                     </span>
-                                                                )}
-                                                                {m.progetto && m.componente && <span style={{ fontSize: 10, opacity: 0.3 }}>•</span>}
-                                                                {m.componente && (
-                                                                    <span style={{ fontSize: 10, padding: "2px 6px", background: "var(--bg-tertiary)", borderRadius: 4, fontWeight: 700, color: "var(--accent)" }}>
-                                                                        {m.componente}
-                                                                    </span>
-                                                                )}
+                                                                </div>
+                                                                <div style={{ fontSize: 10, color: "var(--text-muted)", opacity: 0.8 }}>
+                                                                    Codici SAP: {m.materialiInclusi.join(", ")}
+                                                                </div>
                                                             </div>
                                                         </td>
                                                         <td style={{ textAlign: "right", padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>{m.qtaOttenuta.toLocaleString("it-IT")}</td>
