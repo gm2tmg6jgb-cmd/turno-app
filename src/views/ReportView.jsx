@@ -448,7 +448,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                 <div style={{ display: "flex", gap: 12, alignItems: "center", background: "var(--bg-card)", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)" }}>
                     {/* Date Picker */}
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 500 }}>Data:</span>
+                        <span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 500 }}>Data Prod.:</span>
                         <input
                             type="date"
                             value={selectedDate}

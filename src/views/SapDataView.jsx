@@ -10,9 +10,41 @@ export default function SapDataView({ macchine = [] }) {
     const [limit, setLimit] = useState(500);
     const [totalCount, setTotalCount] = useState(0);
 
+    const [anagrafica, setAnagrafica] = useState({});
+    const [loadingAnagrafica, setLoadingAnagrafica] = useState(false);
+
     useEffect(() => {
         fetchSapData();
+        fetchAnagrafica();
     }, [limit]);
+
+    const fetchAnagrafica = async () => {
+        setLoadingAnagrafica(true);
+        const { data, error } = await supabase
+            .from("anagrafica_materiali")
+            .select("codice, componente, progetto");
+
+        if (!error && data) {
+            const map = {};
+            data.forEach(item => {
+                map[item.codice.toUpperCase()] = {
+                    componente: item.componente,
+                    progetto: item.progetto
+                };
+            });
+            setAnagrafica(map);
+        }
+        setLoadingAnagrafica(false);
+    };
+
+    const getProjectFromCode = (code) => {
+        if (!code) return null;
+        const c = code.toUpperCase();
+        if (c.startsWith("251")) return "DCT 300";
+        if (c.startsWith("M015") || c.startsWith("M017")) return "8Fe";
+        if (c.startsWith("M016")) return "DCT Eco";
+        return null;
+    };
 
     const fetchSapData = async () => {
         setLoading(true);
@@ -162,7 +194,41 @@ export default function SapDataView({ macchine = [] }) {
                                                 );
                                             })()}
                                         </td>
-                                        <td style={{ padding: "8px 12px", fontSize: 13 }}>{r.materiale}</td>
+                                        <td style={{ padding: "8px 12px", fontSize: 13 }}>
+                                            {(() => {
+                                                const info = anagrafica[r.materiale?.toUpperCase()];
+                                                const proj = info?.progetto || getProjectFromCode(r.materiale);
+
+                                                if (info && info.componente) {
+                                                    return (
+                                                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                                            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                                                {proj && (
+                                                                    <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase" }}>
+                                                                        {proj}
+                                                                    </span>
+                                                                )}
+                                                                {proj && <span style={{ opacity: 0.3 }}>•</span>}
+                                                                <span style={{ padding: "2px 6px", background: "var(--bg-tertiary)", borderRadius: 4, fontWeight: 700, color: "var(--accent)", fontSize: 12 }}>
+                                                                    {info.componente}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                                        {proj && (
+                                                            <span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase" }}>
+                                                                {proj}
+                                                            </span>
+                                                        )}
+                                                        <span style={{ fontFamily: "monospace", fontSize: 12 }}>{r.materiale}</span>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </td>
                                         <td style={{ padding: "8px 12px", fontSize: 13, fontWeight: 700 }}>{r.qta_ottenuta?.toLocaleString("it-IT")}</td>
                                         <td style={{ padding: "8px 12px", fontSize: 13, color: r.qta_scarto > 0 ? "var(--danger)" : "inherit" }}>{r.qta_scarto ? r.qta_scarto.toLocaleString("it-IT") : "—"}</td>
                                         <td style={{ padding: "8px 12px", textAlign: "center" }}>

@@ -13,7 +13,7 @@ import { supabase } from "../lib/supabase";
 */
 
 const COL_DEFS = [
-    { key: "acquisito", label: "Acquisito", patterns: ["acquisito", "data conf", "posting date", "data posting", "data"] },
+    { key: "acquisito", label: "Acquisito", patterns: ["acquisito", "data conf", "posting date", "data posting", "data", "data prod"] },
     { key: "work_center", label: "Centro di lavoro", patterns: ["centro di lavoro", "ctrlav", "work center", "workcenter", "centro lav"] },
     { key: "materiale", label: "Materiale", patterns: ["materiale", "matr.", "material", "articolo", "art."] },
     { key: "qta_ottenuta", label: "Quantità ottenuta", patterns: ["quantità ottenuta", "qtà ottenuta", "qta ottenuta", "yield", "qtà conf", "qta conf"] },

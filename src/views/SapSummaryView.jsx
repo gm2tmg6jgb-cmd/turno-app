@@ -142,7 +142,7 @@ export default function SapSummaryView({ macchine = [] }) {
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--bg-tertiary)", padding: "4px 12px", borderRadius: 8, border: "1px solid var(--border)" }}>
-                            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Dal</label>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Data Prod. Dal</label>
                             <input
                                 type="date"
                                 value={startDate}
