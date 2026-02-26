@@ -1,21 +1,17 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { supabase } from "../lib/supabase";
 import { Icons } from "../components/ui/Icons";
+import { getCurrentWeekRange } from "../lib/dateUtils";
 
 export default function SapSummaryView({ macchine = [] }) {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [anagrafica, setAnagrafica] = useState({});
-    const [startDate, setStartDate] = useState(() => {
-        const d = new Date();
-        d.setDate(d.getDate() - 30); // 30 days back by default
-        return d.toISOString().split('T')[0];
-    });
-    const [endDate, setEndDate] = useState(() => {
-        const d = new Date();
-        d.setFullYear(d.getFullYear() + 1); // 1 year forward to catch the "future" dates imported by mistake
-        return d.toISOString().split('T')[0];
-    });
+
+    // Default to current week (Monday to Sunday) as requested
+    const week = getCurrentWeekRange();
+    const [startDate, setStartDate] = useState(week.monday);
+    const [endDate, setEndDate] = useState(week.sunday);
 
     useEffect(() => {
         fetchData();

@@ -42,3 +42,23 @@ export function getIsPresent(dipId, presenze, date = TODAY) {
     );
     return record ? record.presente : true;
 }
+/**
+ * Returns the current week's Monday and Sunday as "YYYY-MM-DD" strings.
+ * @returns {{ monday: string, sunday: string }}
+ */
+export function getCurrentWeekRange() {
+    const now = new Date();
+    const day = now.getDay(); // 0 (Sun) to 6 (Sat)
+    const diffToMonday = day === 0 ? 6 : day - 1;
+
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - diffToMonday);
+
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+
+    return {
+        monday: getLocalDate(monday),
+        sunday: getLocalDate(sunday)
+    };
+}

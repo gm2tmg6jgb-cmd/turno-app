@@ -1,12 +1,18 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { Icons } from "../components/ui/Icons";
+import { getCurrentWeekRange } from "../lib/dateUtils";
 
 export default function SapDataView({ macchine = [] }) {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
-    const [dateFilter, setDateFilter] = useState("");
+
+    // Default to current week (Monday to Sunday) as requested
+    const week = getCurrentWeekRange();
+    const [startDate, setStartDate] = useState(week.monday);
+    const [endDate, setEndDate] = useState(week.sunday);
+
     const [limit, setLimit] = useState(500);
     const [totalCount, setTotalCount] = useState(0);
 
@@ -16,7 +22,7 @@ export default function SapDataView({ macchine = [] }) {
     useEffect(() => {
         fetchSapData();
         fetchAnagrafica();
-    }, [limit]);
+    }, [limit, startDate, endDate]);
 
     const fetchAnagrafica = async () => {
         setLoadingAnagrafica(true);
@@ -60,6 +66,8 @@ export default function SapDataView({ macchine = [] }) {
         const { data: res, error } = await supabase
             .from("conferme_sap")
             .select("*")
+            .gte("data", startDate)
+            .lte("data", endDate)
             .order("data", { ascending: false })
             .limit(limit);
 
@@ -87,7 +95,7 @@ export default function SapDataView({ macchine = [] }) {
             (r.work_center_sap || "").toLowerCase().includes(search.toLowerCase()) ||
             machineMatches;
 
-        const matchesDate = !dateFilter || r.data === dateFilter;
+        const matchesDate = true; // Date filtering is now handled in the query
         return matchesSearch && matchesDate;
     });
 
@@ -147,13 +155,24 @@ export default function SapDataView({ macchine = [] }) {
                             onChange={e => setSearch(e.target.value)}
                         />
                     </div>
-                    <div style={{ width: 160 }}>
-                        <input
-                            type="date"
-                            className="input"
-                            value={dateFilter}
-                            onChange={e => setDateFilter(e.target.value)}
-                        />
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <div style={{ width: 140 }}>
+                            <input
+                                type="date"
+                                className="input"
+                                value={startDate}
+                                onChange={e => setStartDate(e.target.value)}
+                            />
+                        </div>
+                        <span style={{ color: "var(--text-muted)", fontSize: 13 }}>al</span>
+                        <div style={{ width: 140 }}>
+                            <input
+                                type="date"
+                                className="input"
+                                value={endDate}
+                                onChange={e => setEndDate(e.target.value)}
+                            />
+                        </div>
                     </div>
                 </div>
 
