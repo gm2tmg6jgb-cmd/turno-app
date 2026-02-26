@@ -22,6 +22,7 @@ import ZoneView from "./views/ZoneView";
 import LimitazioniView from "./views/LimitazioniView";
 import Op10View from "./views/Op10View";
 import AnagraficaFermiView from "./views/AnagraficaFermiView";
+import AnagraficaMacchineView from "./views/AnagraficaMacchineView";
 
 export default function App() {
   const [currentView, setCurrentView] = useState("dashboard");
@@ -208,6 +209,7 @@ export default function App() {
     { id: "import", label: "Import SAP", icon: Icons.upload },
     { id: "fermi", label: "Report Fermi", icon: Icons.alert },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings },
+    { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine },
   ];
 
   const viewTitles = {
@@ -221,6 +223,7 @@ export default function App() {
     import: "Import Dati SAP",
     fermi: "Report Fermi",
     anagraficaFermi: "Anagrafica Fermi Macchine",
+    anagraficaMacchine: "Anagrafica Macchine",
     zones: "Anagrafica Zone",
     skills: "Matrice Competenze",
     formazione: "Gestione Formazione Operatori",
@@ -316,6 +319,7 @@ export default function App() {
                 {renderItem(ni("import"))}
                 {renderItem(ni("fermi"))}
                 {renderItem(ni("anagraficaFermi"))}
+                {renderItem(ni("anagraficaMacchine"))}
 
                 <div className="nav-section-label" style={{ color: "var(--danger)", marginTop: 12 }}>Privacy Alta</div>
                 <div className={`nav-item ${currentView === 'limitazioni' ? "active" : ""}`} onClick={() => setCurrentView('limitazioni')} style={{ color: currentView === 'limitazioni' ? "var(--danger)" : "inherit" }}>
@@ -434,7 +438,10 @@ export default function App() {
             <FermiView macchine={macchine} initialReparto={repartoCorrente} initialTurno={turnoCorrente} motiviFermo={motiviFermo} tecnologie={tecnologie} />
           )}
           {currentView === "anagraficaFermi" && (
-            <AnagraficaFermiView motiviFermo={motiviFermo} setMotiviFermo={setMotiviFermo} tecnologie={tecnologie} setTecnologie={setTecnologie} showToast={showToast} />
+            <AnagraficaFermiView motiviFermo={motiviFermo} setMotiviFermo={setMotiviFermo} tecnologie={tecnologie} setTecnologie={setTecnologie} macchine={macchine} setMacchine={setMacchine} showToast={showToast} />
+          )}
+          {currentView === "anagraficaMacchine" && (
+            <AnagraficaMacchineView macchine={macchine} setMacchine={setMacchine} tecnologie={tecnologie} zone={zone} showToast={showToast} />
           )}
           {currentView === "op10" && <Op10View />}
           {currentView === "skills" && (
