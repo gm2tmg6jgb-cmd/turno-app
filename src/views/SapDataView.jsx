@@ -52,6 +52,26 @@ export default function SapDataView({ macchine = [] }) {
         return null;
     };
 
+    const handleDeleteFutureData = async () => {
+        const today = new Date().toISOString().split('T')[0];
+        if (!window.confirm(`Sei sicuro di voler eliminare TUTTI i dati con data successiva a oggi (${today})? Questa operazione non è reversibile.`)) return;
+
+        setLoading(true);
+        const { error } = await supabase
+            .from("conferme_sap")
+            .delete()
+            .gt("data", today);
+
+        if (error) {
+            console.error("Errore cancellazione dati futuri:", error);
+            alert("Errore durante la cancellazione dei dati: " + error.message);
+        } else {
+            alert("Dati futuri eliminati con successo.");
+            fetchSapData();
+        }
+        setLoading(false);
+    };
+
     const fetchSapData = async () => {
         setLoading(true);
 
@@ -130,9 +150,18 @@ export default function SapDataView({ macchine = [] }) {
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 16 }}>
                         {/* Alert Date Future */}
                         {data.some(r => r.data > new Date().toISOString().split('T')[0]) && (
-                            <div style={{ flex: 1, minWidth: "300px", padding: "10px 14px", background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.3)", borderRadius: 8, fontSize: 13 }}>
-                                <strong style={{ color: "#EA580C" }}>⚠️ Attenzione: Date Future</strong><br />
-                                Alcuni dati importati hanno date nel futuro (es. luglio 2026). Controlla se il formato data nel file SAP era corretto (Giorno.Mese o Mese.Giorno).
+                            <div style={{ flex: 1, minWidth: "300px", padding: "12px 16px", background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.3)", borderRadius: 8, fontSize: 13, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+                                <div>
+                                    <strong style={{ color: "#EA580C" }}>⚠️ Attenzione: Date Future Rilevate</strong><br />
+                                    Ci sono record con date nel futuro (es. luglio 2026). Questo di solito indica un errore di formato nel file SAP.
+                                </div>
+                                <button
+                                    className="btn btn-danger btn-sm"
+                                    onClick={handleDeleteFutureData}
+                                    style={{ whiteSpace: "nowrap", flexShrink: 0 }}
+                                >
+                                    {Icons.trash} Elimina Dati Futuri
+                                </button>
                             </div>
                         )}
                         {/* Alert Matching Macchine */}
