@@ -29,13 +29,8 @@ import AnagraficaMaterialiView from "./views/AnagraficaMaterialiView";
 
 export default function App() {
   const [currentView, setCurrentView] = useState("dashboard");
-  const [repartoCorrente, setRepartoCorrente] = useState(() => localStorage.getItem("repartoCorrente") || "T11");
+  const repartoCorrente = "";
   const [turnoCorrente, setTurnoCorrente] = useState(() => localStorage.getItem("turnoCorrente") || getActiveGroup());
-
-  useEffect(() => {
-    if (repartoCorrente) localStorage.setItem("repartoCorrente", repartoCorrente);
-    else localStorage.removeItem("repartoCorrente");
-  }, [repartoCorrente]);
 
   useEffect(() => {
     localStorage.setItem("turnoCorrente", turnoCorrente);
@@ -262,31 +257,31 @@ export default function App() {
           <div className="sidebar-subtitle">Gestione Personale</div>
         </div>
 
-        <div className="sidebar-turno-badge">
-          <div className="dot" />
+        <div className="sidebar-turno-badge" style={{ margin: "16px 12px", padding: "20px 18px", gap: 14 }}>
+          <div className="dot" style={{ width: 10, height: 10 }} />
           <div className="sidebar-turno-info">
-            <div className="label">Turno Attivo ({turno?.id})</div>
-            <div className="value">{activeTurnoSlot ? activeTurnoSlot.nome : "..."} — {activeTurnoSlot ? activeTurnoSlot.orario : "..."}</div>
-          </div>
-        </div>
-
-        <div style={{ padding: "0 12px", display: "flex", flexDirection: "column", gap: 8 }}>
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Team</label>
-            <select className="select-input" value={repartoCorrente} onChange={(e) => setRepartoCorrente(e.target.value)}>
-              <option value="">Tutti i team</option>
-              {REPARTI.map((r) => (
-                <option key={r.id} value={r.id}>{r.nome}</option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label className="form-label">Turno</label>
-            <select className="select-input" value={turnoCorrente} onChange={(e) => setTurnoCorrente(e.target.value)}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div className="label" style={{ flex: 1, fontSize: 11 }}>Turno Attivo</div>
+              {turnoCorrente !== getActiveGroup() && (
+                <button
+                  onClick={() => setTurnoCorrente(getActiveGroup())}
+                  title="Torna al turno corrente"
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", fontSize: 11, padding: 0, lineHeight: 1 }}
+                >
+                  ↺ auto
+                </button>
+              )}
+            </div>
+            <select
+              value={turnoCorrente}
+              onChange={(e) => setTurnoCorrente(e.target.value)}
+              style={{ background: "transparent", border: "none", color: "var(--text-primary)", fontWeight: 700, fontSize: 15, cursor: "pointer", padding: "4px 0", outline: "none", width: "100%" }}
+            >
               {TURNI.map((t) => (
                 <option key={t.id} value={t.id}>{t.nome}{t.coordinatore ? ` - ${t.coordinatore}` : ''}</option>
               ))}
             </select>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{activeTurnoSlot ? activeTurnoSlot.nome : "..."} — {activeTurnoSlot ? activeTurnoSlot.orario : "..."}</div>
           </div>
         </div>
 

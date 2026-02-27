@@ -282,7 +282,7 @@ export default function AnagraficaMaterialiView({ showToast }) {
     const toSaveCount = importRows.filter(r => r.componente.trim()).length;
 
     return (
-        <div className="fade-in" style={{ height: "100%", paddingBottom: 20 }}>
+        <div className="fade-in" style={{ height: "100%", overflowY: "auto", paddingBottom: 20 }}>
             <div className="card" style={{ marginBottom: 16 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
                     <div>

@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { formatItalianDate } from "../lib/dateUtils";
 import * as XLSX from "xlsx";
 import { supabase } from "../lib/supabase";
 
@@ -421,7 +422,7 @@ export default function ImportView({ showToast, macchine = [] }) {
                                 <tbody>
                                     {result.rows.slice(0, 100).map((r, i) => (
                                         <tr key={i} style={{ borderBottom: "1px solid var(--border-light)", opacity: r.matched ? 1 : 0.45 }}>
-                                            <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", whiteSpace: "nowrap" }}>{r.data || "—"}</td>
+                                            <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", whiteSpace: "nowrap" }}>{formatItalianDate(r.data)}</td>
                                             <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", fontWeight: 600 }}>{r.work_center_sap}</td>
                                             <td style={{ padding: "7px 12px", fontSize: 12 }}>
                                                 {r.matched ? (

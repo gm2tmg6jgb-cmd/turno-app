@@ -56,7 +56,7 @@ function getWeekDays(mondayStr) {
 }
 
 export default function SapSummaryView({ macchine = [] }) {
-    const [activeTab, setActiveTab] = useState("riepilogo");
+    const [activeTab, setActiveTab] = useState("turno");
 
     // ── Riepilogo state ──
     const [data, setData] = useState([]);
@@ -92,7 +92,7 @@ export default function SapSummaryView({ macchine = [] }) {
     const [gData, setGData] = useState({});
     const [gLoading, setGLoading] = useState(false);
     const [gTargets, setGTargets] = useState({});
-    const [gDays, setGDays]       = useState({});
+    const [gDays, setGDays] = useState({});
 
     // ── Settimanale state ──
     const [wWeek, setWWeek] = useState(getCurrentWeekRange().monday);
@@ -289,10 +289,10 @@ export default function SapSummaryView({ macchine = [] }) {
         if (data) {
             const gt = {}, gd = {}, wt = {}, tt = {};
             data.forEach(r => {
-                if (r.daily_target  != null) gt[r.progetto_id] = String(r.daily_target);
-                if (r.days          != null) gd[r.progetto_id] = String(r.days);
+                if (r.daily_target != null) gt[r.progetto_id] = String(r.daily_target);
+                if (r.days != null) gd[r.progetto_id] = String(r.days);
                 if (r.weekly_target != null) wt[r.progetto_id] = String(r.weekly_target);
-                if (r.shift_target  != null) tt[r.progetto_id] = String(r.shift_target);
+                if (r.shift_target != null) tt[r.progetto_id] = String(r.shift_target);
             });
             setGTargets(gt);
             setGDays(gd);
@@ -428,14 +428,13 @@ export default function SapSummaryView({ macchine = [] }) {
                     <div>
                         <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 2 }}>Analisi Produzione SAP</h2>
                         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
-                            {activeTab === "riepilogo" ? "KPI e trend produzione per il periodo selezionato" : activeTab === "giornaliero" ? "Produzione giornaliera per progetto e componente" : activeTab === "settimanale" ? "Riepilogo settimana per progetto e componente" : "Produzione per singolo turno"}
+                            {activeTab === "turno" ? "Produzione per singolo turno" : activeTab === "giornaliero" ? "Produzione giornaliera per progetto e componente" : "Riepilogo settimana per progetto e componente"}
                         </p>
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <button className={activeTab === "riepilogo" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("riepilogo")}>📊 Riepilogo</button>
+                        <button className={activeTab === "turno" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("turno")}>🔄 Per Turno</button>
                         <button className={activeTab === "giornaliero" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("giornaliero")}>📋 Giornaliero</button>
                         <button className={activeTab === "settimanale" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("settimanale")}>📅 Settimanale</button>
-                        <button className={activeTab === "turno" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("turno")}>🔄 Per Turno</button>
                     </div>
                 </div>
             </div>
@@ -861,229 +860,6 @@ export default function SapSummaryView({ macchine = [] }) {
                     )}
                 </div>
             )}
-
-            {/* ══════════════════════════════════════
-                TAB RIEPILOGO (contenuto esistente)
-            ══════════════════════════════════════ */}
-            {activeTab === "riepilogo" && (
-            <div>
-
-            {/* Filtri data riepilogo */}
-            <div className="card" style={{ marginBottom: 16, padding: "14px 20px" }}>
-                <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--bg-tertiary)", padding: "6px 14px", borderRadius: 8, border: "1px solid var(--border)" }}>
-                            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Dal</label>
-                            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                                style={{ background: "none", border: "none", color: "var(--text-primary)", fontSize: 13, outline: "none" }} />
-                            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginLeft: 8 }}>Al</label>
-                            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-                                style={{ background: "none", border: "none", color: "var(--text-primary)", fontSize: 13, outline: "none" }} />
-                        </div>
-                        <button
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => { setStartDate(""); setEndDate(""); }}
-                            title="Rimuovi filtro e mostra tutti i dati"
-                        >
-                            Tutti i dati
-                        </button>
-                        <button className="btn btn-secondary btn-sm" onClick={fetchData} disabled={loading}>
-                            {Icons.history} Aggiorna
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {loading ? (
-                <div style={{ padding: 60, textAlign: "center", color: "var(--text-muted)" }}>
-                    <div className="spinner" style={{ marginBottom: 12 }}></div>
-                    Caricamento dati...
-                </div>
-            ) : data.length === 0 ? (
-                <div className="card" style={{ padding: "28px 32px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
-                    <div>
-                        <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 6 }}>ℹ️ Nessun dato nel periodo selezionato</div>
-                        <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-                            {startDate || endDate
-                                ? `Nessuna conferma SAP tra ${startDate || "—"} e ${endDate || "—"}. I dati potrebbero avere date diverse (es. future).`
-                                : "Nessun dato disponibile nella tabella conferme_sap."}
-                        </div>
-                    </div>
-                    {(startDate || endDate) && (
-                        <button className="btn btn-primary" onClick={() => { setStartDate(""); setEndDate(""); }}>
-                            Mostra tutti i dati
-                        </button>
-                    )}
-                </div>
-            ) : (
-                <>
-                    {/* ── KPI Panel ── */}
-                    <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-                        <KpiCard
-                            label="Pezzi Buoni"
-                            value={kpi.totalBuoni.toLocaleString("it-IT")}
-                            sub={`su ${(kpi.totalBuoni + kpi.totalScarti).toLocaleString("it-IT")} prodotti`}
-                            color="var(--success)"
-                            icon="✅"
-                        />
-                        <KpiCard
-                            label="Scarti Totali"
-                            value={kpi.totalScarti.toLocaleString("it-IT")}
-                            sub={`${kpi.scrapPct}% del totale prodotto`}
-                            color={parseFloat(kpi.scrapPct) > 5 ? "var(--danger)" : "var(--text-muted)"}
-                            icon="⚠️"
-                        />
-                        <KpiCard
-                            label="% Scarto"
-                            value={`${kpi.scrapPct}%`}
-                            sub={parseFloat(kpi.scrapPct) > 5 ? "Soglia 5% superata" : "Entro soglia"}
-                            color={parseFloat(kpi.scrapPct) > 5 ? "var(--danger)" : "var(--success)"}
-                            icon="📊"
-                        />
-                        <KpiCard
-                            label="Macchine Attive"
-                            value={kpi.macchineAttive}
-                            sub={`${kpi.totalRecords} conferme importate`}
-                            color="var(--accent)"
-                            icon="⚙️"
-                        />
-                    </div>
-
-                    {/* ── Grafici ── */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-
-                        {/* Trend giornaliero */}
-                        <div className="card">
-                            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16, color: "var(--text-primary)" }}>
-                                Trend Produzione Giornaliero
-                            </div>
-                            {trendData.length <= 1 ? (
-                                <div style={{ height: 180, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 13, fontStyle: "italic" }}>
-                                    Seleziona un intervallo di più giorni per vedere il trend
-                                </div>
-                            ) : (
-                                <ResponsiveContainer width="100%" height={200}>
-                                    <AreaChart data={trendData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                                        <defs>
-                                            <linearGradient id="gradBuoni" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#10B981" stopOpacity={0.3} />
-                                                <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
-                                            </linearGradient>
-                                            <linearGradient id="gradScarti" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#EF4444" stopOpacity={0.3} />
-                                                <stop offset="95%" stopColor="#EF4444" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                                        <XAxis dataKey="label" tick={{ fontSize: 11, fill: "var(--text-muted)" }} />
-                                        <YAxis tick={{ fontSize: 11, fill: "var(--text-muted)" }} width={50} />
-                                        <Tooltip content={<ChartTooltip />} />
-                                        <Area type="monotone" dataKey="buoni" name="Pezzi Buoni" stroke="#10B981" fill="url(#gradBuoni)" strokeWidth={2} />
-                                        <Area type="monotone" dataKey="scarti" name="Scarti" stroke="#EF4444" fill="url(#gradScarti)" strokeWidth={2} />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            )}
-                        </div>
-
-                        {/* Confronto turni */}
-                        <div className="card">
-                            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16, color: "var(--text-primary)" }}>
-                                Produzione per Turno
-                            </div>
-                            {turniData.length === 0 || (turniData.length === 1 && turniData[0].turno === "?") ? (
-                                <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 13, fontStyle: "italic" }}>
-                                    Nessun dato turno nelle conferme importate
-                                </div>
-                            ) : (
-                                <ResponsiveContainer width="100%" height={200}>
-                                    <BarChart data={turniData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                                        <XAxis dataKey="turno" tick={{ fontSize: 13, fontWeight: 700, fill: "var(--text-primary)" }} />
-                                        <YAxis tick={{ fontSize: 11, fill: "var(--text-muted)" }} width={50} />
-                                        <Tooltip content={<ChartTooltip />} />
-                                        <Bar dataKey="buoni" name="Pezzi Buoni" radius={[4, 4, 0, 0]}
-                                            fill="#10B981"
-                                            label={{ position: "top", fontSize: 11, fill: "var(--text-muted)", formatter: v => v > 0 ? v.toLocaleString("it-IT") : "" }}
-                                        />
-                                        <Bar dataKey="scarti" name="Scarti" radius={[4, 4, 0, 0]} fill="#EF4444" />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* ── Tabella aggregata per macchina ── */}
-                    <div className="card">
-                        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 16, color: "var(--text-primary)" }}>
-                            Dettaglio per Macchina e Componente
-                        </div>
-                        <div className="table-container">
-                            <table style={{ width: "100%" }}>
-                                <thead>
-                                    <tr style={{ background: "var(--bg-tertiary)" }}>
-                                        <th style={{ textAlign: "left", padding: "10px 16px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Macchina / Componente</th>
-                                        <th style={{ textAlign: "right", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Pezzi Buoni</th>
-                                        <th style={{ textAlign: "right", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Scarti</th>
-                                        <th style={{ textAlign: "right", padding: "10px 16px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>% Scarto</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {aggregatedData.map(group => {
-                                        const materiali = Object.values(group.materiali).sort((a, b) => b.qtaOttenuta - a.qtaOttenuta);
-                                        const machineTotalOk = materiali.reduce((acc, m) => acc + m.qtaOttenuta, 0);
-                                        const machineTotalScrap = materiali.reduce((acc, m) => acc + m.qtaScarto, 0);
-                                        const scrapRate = machineTotalOk + machineTotalScrap > 0
-                                            ? (machineTotalScrap / (machineTotalOk + machineTotalScrap) * 100).toFixed(1) : 0;
-
-                                        return (
-                                            <React.Fragment key={group.id}>
-                                                <tr style={{ background: "rgba(99,102,241,0.05)", borderBottom: "1px solid var(--border)" }}>
-                                                    <td style={{ padding: "12px 16px", fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>{group.nome}</td>
-                                                    <td style={{ textAlign: "right", padding: "12px 12px", fontWeight: 800, fontSize: 14, color: "var(--success)" }}>{machineTotalOk.toLocaleString("it-IT")}</td>
-                                                    <td style={{ textAlign: "right", padding: "12px 12px", fontWeight: 700, fontSize: 13, color: "var(--danger)" }}>{machineTotalScrap > 0 ? machineTotalScrap.toLocaleString("it-IT") : "—"}</td>
-                                                    <td style={{ textAlign: "right", padding: "12px 16px", fontWeight: 700, fontSize: 13, color: scrapRate > 5 ? "var(--danger)" : "var(--text-secondary)" }}>
-                                                        {scrapRate > 0 ? `${scrapRate}%` : "0%"}
-                                                    </td>
-                                                </tr>
-                                                {materiali.map(m => {
-                                                    const mScrapRate = m.qtaOttenuta + m.qtaScarto > 0
-                                                        ? (m.qtaScarto / (m.qtaOttenuta + m.qtaScarto) * 100).toFixed(1) : 0;
-                                                    return (
-                                                        <tr key={`${m.progetto}-${m.nome}`} style={{ borderBottom: "1px solid var(--border-light)" }}>
-                                                            <td style={{ padding: "8px 12px 8px 40px", fontSize: 13 }}>
-                                                                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                                                                    {m.progetto ? (
-                                                                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase" }}>{m.progetto}</span>
-                                                                    ) : (
-                                                                        <span style={{ fontSize: 10, color: "var(--text-muted)", fontStyle: "italic" }}>Senza progetto</span>
-                                                                    )}
-                                                                    <span style={{ opacity: 0.3 }}>•</span>
-                                                                    <span style={{ padding: "2px 8px", background: "var(--bg-tertiary)", borderRadius: 4, fontWeight: 800, color: "var(--accent)", fontSize: 12 }}>
-                                                                        {m.nome}
-                                                                    </span>
-                                                                </div>
-                                                            </td>
-                                                            <td style={{ textAlign: "right", padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>{m.qtaOttenuta.toLocaleString("it-IT")}</td>
-                                                            <td style={{ textAlign: "right", padding: "8px 12px", fontSize: 12, color: m.qtaScarto > 0 ? "var(--danger)" : "var(--text-muted)" }}>
-                                                                {m.qtaScarto > 0 ? m.qtaScarto.toLocaleString("it-IT") : "—"}
-                                                            </td>
-                                                            <td style={{ textAlign: "right", padding: "8px 16px", fontSize: 12, color: "var(--text-muted)" }}>
-                                                                {mScrapRate > 0 ? `${mScrapRate}%` : "—"}
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })}
-                                            </React.Fragment>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </>
-            )}
-        </div>
-        )}
 
         </div>
     );

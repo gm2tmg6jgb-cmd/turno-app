@@ -104,6 +104,7 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
     /* ── LISTA state ── */
     const [date, setDate] = useState(getLocalDate(new Date()));
     const [turno, setTurno] = useState(initialTurno || "A");
+    useEffect(() => { if (initialTurno) setTurno(initialTurno); }, [initialTurno]);
     const [filterTec, setFilterTec] = useState("");
     const [fermi, setFermi] = useState([]);
     const [loading, setLoading] = useState(false);

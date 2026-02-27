@@ -1,39 +1,17 @@
-import { useState, useCallback, useRef } from "react";
+import { useRef } from "react";
 import { MACCHINE, REPARTI, LIVELLI_COMPETENZA } from "../data/constants";
 import { supabase } from "../lib/supabase";
 
 export default function SkillsView({ dipendenti, setDipendenti, macchine, showToast, turnoCorrente }) {
     const fileInputRef = useRef(null);
-    const [repartoCorrente, setRepartoCorrente] = useState("T11");
-
-    // Filter by both reparto and turnoCorrente if provided
-    const filteredDipendenti = dipendenti
-        .filter(d =>
-            d.reparto_id === repartoCorrente &&
-            (!turnoCorrente || d.turno === turnoCorrente || d.turno_default === turnoCorrente)
-        )
-        .sort((a, b) => (a.cognome || "").localeCompare(b.cognome || "") || (a.nome || "").localeCompare(b.nome || ""));
-    const macchineReparto = macchine
-        .filter(m => m.reparto_id === repartoCorrente)
-        .sort((a, b) => a.nome.localeCompare(b.nome));
-    const reparto = REPARTI.find(r => r.id === repartoCorrente);
-
-    // Dipendenti senza competenze: tutti i valori delle macchine del reparto sono 0 o assenti
-    const dipendentiSenzaCompetenze = filteredDipendenti.filter(d => {
-        if (macchineReparto.length === 0) return false;
-        return macchineReparto.every(m => {
-            const val = d.competenze?.[m.id];
-            return !val || val === 0;
-        });
-    });
 
     const getSkillInfo = (level) => {
         return LIVELLI_COMPETENZA.find(l => l.value === (level || 0)) || LIVELLI_COMPETENZA[0];
     };
 
     // Calculate coverage stats
-    const getMachineCoverage = (machineId) => {
-        const skills = filteredDipendenti.map(d => d.competenze?.[machineId] || 0);
+    const getMachineCoverage = (machineId, dips) => {
+        const skills = dips.map(d => d.competenze?.[machineId] || 0);
         // Level 4+ considered "Autonomous/Skilled"
         const esperti = skills.filter(s => s >= 5).length;
         const autonomi = skills.filter(s => s === 4).length;
@@ -169,19 +147,7 @@ export default function SkillsView({ dipendenti, setDipendenti, macchine, showTo
     return (
         <div className="fade-in">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <div className="form-group" style={{ marginBottom: 0, display: "flex", alignItems: "flex-end", gap: 12 }}>
-                    <div>
-                        <label className="form-label">Seleziona Team</label>
-                        <select
-                            className="select-input"
-                            value={repartoCorrente}
-                            onChange={(e) => setRepartoCorrente(e.target.value)}
-                            style={{ width: 200 }}
-                        >
-                            {REPARTI.map((r) => <option key={r.id} value={r.id}>{r.nome}</option>)}
-                        </select>
-                    </div>
-
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 12 }}>
                     <input
                         type="file"
                         accept=".csv"
@@ -189,7 +155,6 @@ export default function SkillsView({ dipendenti, setDipendenti, macchine, showTo
                         style={{ display: "none" }}
                         onChange={handleCsvUpload}
                     />
-
                     <button
                         className="btn btn-secondary"
                         onClick={() => fileInputRef.current.click()}
@@ -220,116 +185,100 @@ export default function SkillsView({ dipendenti, setDipendenti, macchine, showTo
                 </div>
             </div>
 
-            {/* ALERT: Dipendenti senza competenze */}
-            {dipendentiSenzaCompetenze.length > 0 && (
-                <div style={{
-                    marginBottom: 16,
-                    padding: "12px 16px",
-                    background: "rgba(249, 115, 22, 0.08)",
-                    border: "1px solid rgba(249, 115, 22, 0.35)",
-                    borderRadius: 8,
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 12
-                }}>
-                    <span style={{ fontSize: 20 }}>⚠️</span>
-                    <div>
-                        <div style={{ fontWeight: 700, fontSize: 14, color: "var(--warning)", marginBottom: 4 }}>
-                            {dipendentiSenzaCompetenze.length} {dipendentiSenzaCompetenze.length === 1 ? 'dipendente' : 'dipendenti'} senza competenze assegnate
-                        </div>
-                        <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 8 }}>
-                            Questi operatori non hanno ancora competenze registrate per nessuna macchina del reparto. Verifica se manca la formazione o la pianificazione delle competenze.
-                        </div>
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                            {dipendentiSenzaCompetenze.map(d => (
-                                <span key={d.id} style={{
-                                    background: "rgba(249, 115, 22, 0.12)",
-                                    border: "1px solid rgba(249, 115, 22, 0.3)",
-                                    borderRadius: 6,
-                                    padding: "2px 10px",
-                                    fontSize: 13,
-                                    fontWeight: 500,
-                                    color: "var(--text-primary)"
-                                }}>
-                                    {d.cognome} {(d.nome || "").charAt(0)}.
-                                </span>
-                            ))}
+            {REPARTI.map((reparto, idx) => {
+                const macchineReparto = macchine
+                    .filter(m => {
+                        if (m.reparto_id) return m.reparto_id === reparto.id;
+                        const mc = MACCHINE.find(c => c.id === m.id);
+                        return mc?.reparto === reparto.id;
+                    })
+                    .sort((a, b) => a.nome.localeCompare(b.nome));
+                const filteredDipendenti = dipendenti
+                    .filter(d =>
+                        d.reparto_id === reparto.id &&
+                        (!turnoCorrente || d.turno === turnoCorrente || d.turno_default === turnoCorrente)
+                    )
+                    .sort((a, b) => (a.cognome || "").localeCompare(b.cognome || "") || (a.nome || "").localeCompare(b.nome || ""));
+                const dipendentiSenzaCompetenze = filteredDipendenti.filter(d =>
+                    macchineReparto.length > 0 &&
+                    macchineReparto.every(m => { const v = d.competenze?.[m.id]; return !v || v === 0; })
+                );
+
+                return (
+                    <div key={reparto.id} style={{
+                        borderTop: idx > 0 ? "3px solid var(--text-primary)" : "none",
+                        paddingTop: idx > 0 ? 28 : 0,
+                        marginTop: idx > 0 ? 32 : 0,
+                        marginBottom: 8
+                    }}>
+                        <h3 style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{reparto.nome}</h3>
+
+                        {dipendentiSenzaCompetenze.length > 0 && (
+                            <div style={{ marginBottom: 16, padding: "12px 16px", background: "rgba(249, 115, 22, 0.08)", border: "1px solid rgba(249, 115, 22, 0.35)", borderRadius: 8, display: "flex", alignItems: "flex-start", gap: 12 }}>
+                                <span style={{ fontSize: 20 }}>⚠️</span>
+                                <div>
+                                    <div style={{ fontWeight: 700, fontSize: 14, color: "var(--warning)", marginBottom: 4 }}>
+                                        {dipendentiSenzaCompetenze.length} {dipendentiSenzaCompetenze.length === 1 ? 'dipendente' : 'dipendenti'} senza competenze assegnate
+                                    </div>
+                                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                                        {dipendentiSenzaCompetenze.map(d => (
+                                            <span key={d.id} style={{ background: "rgba(249, 115, 22, 0.12)", border: "1px solid rgba(249, 115, 22, 0.3)", borderRadius: 6, padding: "2px 10px", fontSize: 13, fontWeight: 500, color: "var(--text-primary)" }}>
+                                                {d.cognome} {(d.nome || "").charAt(0)}.
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="table-container">
+                            <table style={{ fontSize: 13 }}>
+                                <thead>
+                                    <tr>
+                                        <th style={{ padding: "12px 16px", width: 200, position: "sticky", left: 0, background: "var(--bg-tertiary)", zIndex: 2 }}>Dipendente</th>
+                                        {macchineReparto.map(m => {
+                                            const stats = getMachineCoverage(m.id, filteredDipendenti);
+                                            return (
+                                                <th key={m.id} style={{ padding: "12px 8px", textAlign: "center", minWidth: 60, borderRight: "1px solid var(--border-light)" }}>
+                                                    <div style={{ marginBottom: 4 }}>{m.nome.replace("Macchina ", "")}</div>
+                                                    <div style={{ fontSize: 10, fontWeight: 400, color: stats.statusColor }}>{stats.esperti} | {stats.autonomi} | {stats.intermedi}</div>
+                                                </th>
+                                            );
+                                        })}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredDipendenti.map(d => (
+                                        <tr key={d.id}>
+                                            <td style={{ padding: "4px 8px", minWidth: 180, maxWidth: 180, fontWeight: 500, fontSize: 15, whiteSpace: "nowrap", position: "sticky", left: 0, background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "var(--bg-card)", zIndex: 2, borderRight: "1px solid var(--border-light)", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                                {d.cognome} {(d.nome || "").charAt(0)}.
+                                                {d.ruolo === 'capoturno' && (
+                                                    <span style={{ marginLeft: 8, fontSize: 10, background: "rgba(59,130,246,0.1)", color: "#3B82F6", padding: "2px 6px", borderRadius: 4 }}>CT</span>
+                                                )}
+                                            </td>
+                                            {macchineReparto.map(m => {
+                                                const skillLevel = d.competenze?.[m.id] || 0;
+                                                const skill = getSkillInfo(skillLevel);
+                                                return (
+                                                    <td key={m.id} style={{ textAlign: "center", padding: "4px 2px", borderRight: "1px solid var(--border-light)" }}>
+                                                        {String(skillLevel).includes('=>') ? (
+                                                            <div style={{ color: "#8B5CF6", fontWeight: 700, fontSize: 12, textAlign: "center", whiteSpace: "nowrap" }}>{skillLevel}</div>
+                                                        ) : skillLevel === 0 ? (
+                                                            <div style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: 13, textAlign: "center" }}>—</div>
+                                                        ) : (
+                                                            <div style={{ color: skill.color, fontWeight: 700, fontSize: 13, textAlign: "center" }}>{skillLevel}</div>
+                                                        )}
+                                                    </td>
+                                                );
+                                            })}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
                     </div>
-                </div>
-            )}
-
-            <div className="table-container">
-                <table style={{ fontSize: 13 }}>
-                    <thead>
-                        <tr>
-                            <th style={{ padding: "12px 16px", width: 200, position: "sticky", left: 0, background: "var(--bg-tertiary)", zIndex: 2 }}>
-                                Dipendente
-                            </th>
-                            {macchineReparto.map(m => {
-                                const stats = getMachineCoverage(m.id);
-                                return (
-                                    <th key={m.id} style={{ padding: "12px 8px", textAlign: "center", minWidth: 60, borderRight: "1px solid var(--border-light)" }}>
-                                        <div style={{ marginBottom: 4 }}>{m.nome.replace("Macchina ", "")}</div>
-                                        <div style={{ fontSize: 10, fontWeight: 400, color: stats.statusColor }}>
-                                            {stats.esperti} | {stats.autonomi} | {stats.intermedi}
-                                        </div>
-                                    </th>
-                                );
-                            })}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {filteredDipendenti.map(d => (
-                            <tr key={d.id}>
-                                <td style={{
-                                    padding: "4px 8px",
-                                    minWidth: 180,
-                                    maxWidth: 180,
-                                    fontWeight: 500,
-                                    fontSize: 15,
-                                    whiteSpace: "nowrap",
-                                    position: "sticky",
-                                    left: 0,
-                                    background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "var(--bg-card)",
-                                    zIndex: 2,
-                                    borderRight: "1px solid var(--border-light)",
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis"
-                                }}>
-                                    {d.cognome} {(d.nome || "").charAt(0)}.
-                                    {d.ruolo === 'capoturno' && (
-                                        <span style={{
-                                            marginLeft: 8,
-                                            fontSize: 10,
-                                            background: "rgba(59,130,246,0.1)",
-                                            color: "#3B82F6",
-                                            padding: "2px 6px",
-                                            borderRadius: 4
-                                        }}>CT</span>
-                                    )}
-                                </td>
-                                {macchineReparto.map(m => {
-                                    const skillLevel = d.competenze?.[m.id] || 0;
-                                    const skill = getSkillInfo(skillLevel);
-
-                                    return (
-                                        <td key={m.id} style={{ textAlign: "center", padding: "4px 2px", borderRight: "1px solid var(--border-light)" }}>
-                                            {String(skillLevel).includes('=>') ? (
-                                                <div style={{ color: "#8B5CF6", fontWeight: 700, fontSize: 12, textAlign: "center", whiteSpace: "nowrap" }}>{skillLevel}</div>
-                                            ) : skillLevel === 0 ? (
-                                                <div style={{ color: "var(--text-muted)", fontWeight: 700, fontSize: 13, textAlign: "center" }}>—</div>
-                                            ) : (
-                                                <div style={{ color: skill.color, fontWeight: 700, fontSize: 13, textAlign: "center" }}>{skillLevel}</div>
-                                            )}
-                                        </td>
-                                    );
-                                })}
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div >
+                );
+            })}
 
             <div style={{ marginTop: 24, padding: 16, background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
                 <h4 style={{ margin: "0 0 12px 0", fontSize: 14 }}>Legenda Copertura Macchine</h4>

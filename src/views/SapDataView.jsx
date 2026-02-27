@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { Icons } from "../components/ui/Icons";
-import { getCurrentWeekRange } from "../lib/dateUtils";
+import { getCurrentWeekRange, formatItalianDate } from "../lib/dateUtils";
 
 export default function SapDataView({ macchine = [] }) {
     const [data, setData] = useState([]);
@@ -250,7 +250,7 @@ export default function SapDataView({ macchine = [] }) {
                             ) : (
                                 filtered.map(r => (
                                     <tr key={r.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
-                                        <td style={{ padding: "8px 12px", fontSize: 13, fontFamily: "monospace" }}>{r.data}</td>
+                                        <td style={{ padding: "8px 12px", fontSize: 13, fontFamily: "monospace" }}>{formatItalianDate(r.data)}</td>
                                         <td style={{ padding: "8px 12px", fontSize: 13, fontWeight: 600 }}>{r.work_center_sap}</td>
                                         <td style={{ padding: "8px 12px", fontSize: 13 }}>
                                             {(() => {

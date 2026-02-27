@@ -16,10 +16,10 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
         return getLocalDate(d);
     });
 
-    // Default: +12 days
+    // Default: +27 days (4 settimane)
     const [dateEnd, setDateEnd] = useState(() => {
         const d = new Date();
-        d.setDate(d.getDate() + 12);
+        d.setDate(d.getDate() + 27);
         return getLocalDate(d);
     });
 
@@ -73,7 +73,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
 
         // Safety break to prevent infinite loop if dates are invalid
         let iterations = 0;
-        while (d <= end && iterations < 31) {
+        while (d <= end && iterations < 35) {
             const dateStr = getLocalDate(d);
             days.push({
                 date: dateStr,

@@ -18,7 +18,8 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
     const [reportType, setReportType] = useState("turno");
 
     const [selectedDate, setSelectedDate] = useState(getLocalDate(new Date()));
-    const [selectedTurno, setSelectedTurno] = useState(""); // Default to Daily View (All Shifts) as requested
+    const [selectedTurno, setSelectedTurno] = useState(turnoCorrente || "");
+    useEffect(() => { setSelectedTurno(turnoCorrente || ""); }, [turnoCorrente]);
 
     // State for Machine Details (Fermi & Pezzi)
     const [fermiMacchina, setFermiMacchina] = useState([]);
@@ -959,35 +960,47 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                 <thead>
                                     <tr>
                                         <th>Dipendente</th>
-                                        <th>Team</th>
                                         <th>Motivo</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {allPres.filter((p) => !p.presente).map((p) => {
-                                        const d = dipendenti.find((dd) => dd.id === p.dipendente_id);
-                                        const motivoObj = motivi.find((m) => m.id === p.motivo_assenza);
-                                        return (
-                                            <tr key={p.dipendente_id}>
-                                                <td style={{ fontWeight: 500, fontSize: 15 }}>{d?.cognome} {d?.nome?.charAt(0)}.</td>
-                                                <td>{REPARTI.find((r) => r.id === d?.reparto_id)?.nome || "—"}</td>
-                                                <td>
-                                                    {motivoObj ? (
-                                                        <span style={{
-                                                            display: "inline-flex", alignItems: "center", gap: 6,
-                                                            fontSize: 13, fontWeight: 500
-                                                        }}>
-                                                            <span style={{ width: 10, height: 10, borderRadius: 2, background: motivoObj.colore }}></span>
-                                                            {motivoObj.label}
-                                                        </span>
-                                                    ) : "—"}
-                                                </td>
-                                            </tr>
+                                    {(() => {
+                                        const tutteAssenze = presenze.filter(p => p.data === selectedDate && !p.presente);
+                                        if (tutteAssenze.length === 0) return (
+                                            <tr><td colSpan={2} style={{ textAlign: "center", color: "var(--text-muted)", padding: 20 }}>Nessuna assenza registrata</td></tr>
                                         );
-                                    })}
-                                    {allPres.filter((p) => !p.presente).length === 0 && (
-                                        <tr><td colSpan={3} style={{ textAlign: "center", color: "var(--text-muted)", padding: 20 }}>Nessuna assenza registrata</td></tr>
-                                    )}
+                                        return REPARTI.flatMap((rep, repIdx) => {
+                                            const repAssenze = tutteAssenze.filter(p => {
+                                                const d = dipendenti.find(dd => dd.id === p.dipendente_id);
+                                                return d?.reparto_id === rep.id;
+                                            });
+                                            if (repAssenze.length === 0) return [];
+                                            return [
+                                                <tr key={`hdr-${rep.id}`}>
+                                                    <td colSpan={2} style={{ padding: "10px 12px 6px", fontWeight: 700, fontSize: 12, color: "var(--text-muted)", textTransform: "uppercase", background: "var(--bg-tertiary)", borderTop: repIdx > 0 ? "3px solid var(--border)" : "none" }}>
+                                                        {rep.nome}
+                                                    </td>
+                                                </tr>,
+                                                ...repAssenze.map(p => {
+                                                    const d = dipendenti.find(dd => dd.id === p.dipendente_id);
+                                                    const motivoObj = motivi.find(m => m.id === p.motivo_assenza);
+                                                    return (
+                                                        <tr key={p.dipendente_id}>
+                                                            <td style={{ fontWeight: 500, fontSize: 15 }}>{d?.cognome} {d?.nome?.charAt(0)}.</td>
+                                                            <td>
+                                                                {motivoObj ? (
+                                                                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 500 }}>
+                                                                        <span style={{ width: 10, height: 10, borderRadius: 2, background: motivoObj.colore }}></span>
+                                                                        {motivoObj.label}
+                                                                    </span>
+                                                                ) : "—"}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })
+                                            ];
+                                        });
+                                    })()}
                                 </tbody>
                             </table>
                         </div>

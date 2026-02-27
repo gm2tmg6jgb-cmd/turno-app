@@ -22,6 +22,19 @@ export function getLocalDate(d = new Date()) {
 export const TODAY = getLocalDate(new Date());
 
 /**
+ * Converts "YYYY-MM-DD" → "DD/MM/YYYY" for display.
+ * Returns the original value if it doesn't match the expected format.
+ * @param {string} dateStr
+ * @returns {string}
+ */
+export function formatItalianDate(dateStr) {
+    if (!dateStr) return "—";
+    const parts = dateStr.split("-");
+    if (parts.length !== 3) return dateStr;
+    return `${parts[2]}/${parts[1]}/${parts[0]}`;
+}
+
+/**
  * Returns true if the employee should be considered present for a given date.
  *
  * Rules (consistent with Dashboard logic):

@@ -126,8 +126,8 @@ body {
 }
 
 .sidebar-turno-badge {
-  margin: 16px 20px;
-  padding: 10px 14px;
+  margin: 16px 12px;
+  padding: 14px 16px;
   background: var(--accent-muted);
   border: 1px solid rgba(249, 115, 22, 0.25);
   border-radius: var(--radius);
