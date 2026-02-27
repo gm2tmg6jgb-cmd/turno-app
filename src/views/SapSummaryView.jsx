@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { Icons } from "../components/ui/Icons";
 import { getCurrentWeekRange, getLocalDate } from "../lib/dateUtils";
@@ -72,6 +72,7 @@ export default function SapSummaryView({ macchine = [] }) {
         fetchData();
         fetchAnagrafica();
         fetchWcFasi();
+        fetchTargets();
     }, [startDate, endDate]);
 
     // Resolver dinamico: usa le righe di wc_fasi_mapping caricate da DB
@@ -88,16 +89,16 @@ export default function SapSummaryView({ macchine = [] }) {
 
     // ── Giornaliero state ──
     const [gDate, setGDate] = useState(getLocalDate(new Date()));
-    const [gData, setGData] = useState({});   // { ["projId::componente"]: { start_soft, ... } }
+    const [gData, setGData] = useState({});
     const [gLoading, setGLoading] = useState(false);
-    const [gTargets, setGTargets] = useState({}); // { [proj.id]: string }
-    const [gDays, setGDays] = useState({});       // { [proj.id]: string }
+    const [gTargets, setGTargets] = useState({});
+    const [gDays, setGDays]       = useState({});
 
     // ── Settimanale state ──
     const [wWeek, setWWeek] = useState(getCurrentWeekRange().monday);
-    const [wData, setWData] = useState({});  // { ["projId::componente"]: { start_soft, end_soft, ht, start_hard, end_hard, washing } }
+    const [wData, setWData] = useState({});
     const [wLoading, setWLoading] = useState(false);
-    const [wTargets, setWTargets] = useState({}); // { [proj.id]: string }
+    const [wTargets, setWTargets] = useState({});
 
     // ── Turno state ──
     const [tDate, setTDate] = useState(getLocalDate(new Date()));
@@ -106,6 +107,9 @@ export default function SapSummaryView({ macchine = [] }) {
     const [tLoading, setTLoading] = useState(false);
     const [tTargets, setTTargets] = useState({});
     const [tAvailableTurni, setTAvailableTurni] = useState([]);
+
+    // Debounce ref per salvataggio target
+    const saveTimerRef = useRef({});
 
     // Progetti e componenti (hardcoded, WC mapping da aggiungere)
     const PROGETTI_GIORNALIERO = [
@@ -278,6 +282,36 @@ export default function SapSummaryView({ macchine = [] }) {
     const fetchWcFasi = async () => {
         const { data: res } = await supabase.from("wc_fasi_mapping").select("*");
         if (res) setWcFasiMapping(res);
+    };
+
+    const fetchTargets = async () => {
+        const { data } = await supabase.from("produzione_targets").select("*");
+        if (data) {
+            const gt = {}, gd = {}, wt = {}, tt = {};
+            data.forEach(r => {
+                if (r.daily_target  != null) gt[r.progetto_id] = String(r.daily_target);
+                if (r.days          != null) gd[r.progetto_id] = String(r.days);
+                if (r.weekly_target != null) wt[r.progetto_id] = String(r.weekly_target);
+                if (r.shift_target  != null) tt[r.progetto_id] = String(r.shift_target);
+            });
+            setGTargets(gt);
+            setGDays(gd);
+            setWTargets(wt);
+            setTTargets(tt);
+        }
+    };
+
+    const saveTargetDebounced = (progettoId, field, value) => {
+        const key = `${progettoId}::${field}`;
+        clearTimeout(saveTimerRef.current[key]);
+        saveTimerRef.current[key] = setTimeout(() => {
+            supabase
+                .from("produzione_targets")
+                .upsert(
+                    { progetto_id: progettoId, [field]: value !== "" ? parseInt(value) : null },
+                    { onConflict: "progetto_id" }
+                );
+        }, 800);
     };
 
     const getProjectFromCode = (code) => {
@@ -483,7 +517,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                                                 <input
                                                                     type="number" min="0"
                                                                     value={gTargets[proj.id] || ""}
-                                                                    onChange={e => setGTargets(prev => ({ ...prev, [proj.id]: e.target.value }))}
+                                                                    onChange={e => { const v = e.target.value; setGTargets(prev => ({ ...prev, [proj.id]: v })); saveTargetDebounced(proj.id, "daily_target", v); }}
                                                                     placeholder="0"
                                                                     style={{ width: 90, padding: "4px 10px", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-primary)", fontSize: 15, fontWeight: 700, textAlign: "right" }}
                                                                 />
@@ -493,7 +527,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                                                 <input
                                                                     type="number" min="0"
                                                                     value={gDays[proj.id] || ""}
-                                                                    onChange={e => setGDays(prev => ({ ...prev, [proj.id]: e.target.value }))}
+                                                                    onChange={e => { const v = e.target.value; setGDays(prev => ({ ...prev, [proj.id]: v })); saveTargetDebounced(proj.id, "days", v); }}
                                                                     placeholder="0"
                                                                     style={{ width: 70, padding: "4px 10px", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-primary)", fontSize: 15, fontWeight: 700, textAlign: "right" }}
                                                                 />
@@ -624,7 +658,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                                                 <input
                                                                     type="number" min="0"
                                                                     value={wTargets[proj.id] || ""}
-                                                                    onChange={e => setWTargets(prev => ({ ...prev, [proj.id]: e.target.value }))}
+                                                                    onChange={e => { const v = e.target.value; setWTargets(prev => ({ ...prev, [proj.id]: v })); saveTargetDebounced(proj.id, "weekly_target", v); }}
                                                                     placeholder="0"
                                                                     style={{ width: 90, padding: "4px 10px", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-primary)", fontSize: 15, fontWeight: 700, textAlign: "right" }}
                                                                 />
@@ -766,7 +800,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                                                 <input
                                                                     type="number" min="0"
                                                                     value={tTargets[proj.id] || ""}
-                                                                    onChange={e => setTTargets(prev => ({ ...prev, [proj.id]: e.target.value }))}
+                                                                    onChange={e => { const v = e.target.value; setTTargets(prev => ({ ...prev, [proj.id]: v })); saveTargetDebounced(proj.id, "shift_target", v); }}
                                                                     placeholder="0"
                                                                     style={{ width: 90, padding: "4px 10px", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-primary)", fontSize: 15, fontWeight: 700, textAlign: "right" }}
                                                                 />
