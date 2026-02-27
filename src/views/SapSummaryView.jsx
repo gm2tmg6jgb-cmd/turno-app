@@ -42,20 +42,7 @@ function ChartTooltip({ active, payload, label }) {
     );
 }
 
-const WEEK_LABELS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
-const HIGHLIGHT_COMPONENTS = new Set(["GEAR", "SHAFTS", "BAP"]);
-
-// Mapping work_center_sap → stage
-// FRW* = end_soft (es. FRW14020 per SG1)
-// SLW* = end_hard (es. SLW14050 per SG1)
-// TODO: aggiungere start_soft, ht, start_hard, washing quando l'utente fornisce i codici
-function getStageFromWC(workCenter) {
-    if (!workCenter) return null;
-    const wc = workCenter.toUpperCase();
-    if (wc.startsWith("FRW") || wc.startsWith("FRD") || wc.startsWith("STW")) return "end_soft";
-    if (wc.startsWith("SLW") || wc.startsWith("SLA"))                          return "end_hard";
-    return null;
-}
+// getStageFromWC è ora dinamico — caricato da wc_fasi_mapping in Supabase
 
 function getWeekDays(mondayStr) {
     const days = [];
@@ -75,6 +62,7 @@ export default function SapSummaryView({ macchine = [] }) {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [anagrafica, setAnagrafica] = useState({});
+    const [wcFasiMapping, setWcFasiMapping] = useState([]); // [{ work_center, fase, match_type }]
 
     const week = getCurrentWeekRange();
     const [startDate, setStartDate] = useState(week.monday);
@@ -83,7 +71,20 @@ export default function SapSummaryView({ macchine = [] }) {
     useEffect(() => {
         fetchData();
         fetchAnagrafica();
+        fetchWcFasi();
     }, [startDate, endDate]);
+
+    // Resolver dinamico: usa le righe di wc_fasi_mapping caricate da DB
+    const getStageFromWC = (wc) => {
+        if (!wc || wcFasiMapping.length === 0) return null;
+        const wcUp = wc.toUpperCase();
+        for (const m of wcFasiMapping) {
+            const mWc = m.work_center.toUpperCase();
+            if (m.match_type === "exact" && wcUp === mWc) return m.fase;
+            if (m.match_type !== "exact" && wcUp.startsWith(mWc)) return m.fase;
+        }
+        return null;
+    };
 
     // ── Giornaliero state ──
     const [gDate, setGDate] = useState(getLocalDate(new Date()));
@@ -94,8 +95,17 @@ export default function SapSummaryView({ macchine = [] }) {
 
     // ── Settimanale state ──
     const [wWeek, setWWeek] = useState(getCurrentWeekRange().monday);
-    const [wData, setWData] = useState({});  // { ["projId::componente"]: { "2026-02-24": qty, ... } }
+    const [wData, setWData] = useState({});  // { ["projId::componente"]: { start_soft, end_soft, ht, start_hard, end_hard, washing } }
     const [wLoading, setWLoading] = useState(false);
+    const [wTargets, setWTargets] = useState({}); // { [proj.id]: string }
+
+    // ── Turno state ──
+    const [tDate, setTDate] = useState(getLocalDate(new Date()));
+    const [tTurnoId, setTTurnoId] = useState("");
+    const [tData, setTData] = useState({});
+    const [tLoading, setTLoading] = useState(false);
+    const [tTargets, setTTargets] = useState({});
+    const [tAvailableTurni, setTAvailableTurni] = useState([]);
 
     // Progetti e componenti (hardcoded, WC mapping da aggiungere)
     const PROGETTI_GIORNALIERO = [
@@ -116,7 +126,9 @@ export default function SapSummaryView({ macchine = [] }) {
     useEffect(() => {
         if (activeTab !== "giornaliero") return;
         loadGiornaliero();
-    }, [gDate, activeTab, anagrafica]);
+    }, [gDate, activeTab, anagrafica, wcFasiMapping]);
+
+    const [gDiag, setGDiag] = useState(null); // { total, mapped }
 
     const loadGiornaliero = async () => {
         setGLoading(true);
@@ -127,14 +139,22 @@ export default function SapSummaryView({ macchine = [] }) {
 
         if (rows) {
             const map = {};
+            let mapped = 0;
+            const unmappedMateriali = new Set();
             rows.forEach(r => {
                 const info = anagrafica[(r.materiale || "").toUpperCase()];
-                if (!info?.componente || !info?.progetto) return;
+                if (!info?.componente || !info?.progetto) {
+                    unmappedMateriali.add(`${r.materiale || "?"} (WC: ${r.work_center_sap || "?"})`);
+                    return;
+                }
                 const key = `${info.progetto}::${info.componente}`;
                 if (!map[key]) map[key] = { start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0 };
-                // TODO: mappatura work_center_sap → stage (da definire con utente)
+                mapped++;
+                const stage = getStageFromWC(r.work_center_sap);
+                if (stage) map[key][stage] = (map[key][stage] || 0) + (r.qta_ottenuta || 0);
             });
             setGData(map);
+            setGDiag({ total: rows.length, mapped, unmapped: [...unmappedMateriali] });
         }
         setGLoading(false);
     };
@@ -149,7 +169,17 @@ export default function SapSummaryView({ macchine = [] }) {
     useEffect(() => {
         if (activeTab !== "settimanale") return;
         loadSettimanale();
-    }, [wWeek, activeTab, anagrafica]);
+    }, [wWeek, activeTab, anagrafica, wcFasiMapping]);
+
+    useEffect(() => {
+        if (activeTab !== "turno") return;
+        fetchTAvailableTurni();
+    }, [tDate, activeTab]);
+
+    useEffect(() => {
+        if (activeTab !== "turno" || !tTurnoId) return;
+        loadTurno();
+    }, [tDate, tTurnoId, activeTab, anagrafica, wcFasiMapping]);
 
     const loadSettimanale = async () => {
         setWLoading(true);
@@ -157,7 +187,7 @@ export default function SapSummaryView({ macchine = [] }) {
         const sunday = days[6];
         const { data: rows } = await supabase
             .from("conferme_sap")
-            .select("data, materiale, qta_ottenuta")
+            .select("materiale, work_center_sap, qta_ottenuta")
             .gte("data", wWeek)
             .lte("data", sunday);
 
@@ -167,12 +197,49 @@ export default function SapSummaryView({ macchine = [] }) {
                 const info = anagrafica[(r.materiale || "").toUpperCase()];
                 if (!info?.componente || !info?.progetto) return;
                 const key = `${info.progetto}::${info.componente}`;
-                if (!map[key]) map[key] = {};
-                map[key][r.data] = (map[key][r.data] || 0) + (r.qta_ottenuta || 0);
+                if (!map[key]) map[key] = { start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0 };
+                const stage = getStageFromWC(r.work_center_sap);
+                if (stage) map[key][stage] = (map[key][stage] || 0) + (r.qta_ottenuta || 0);
             });
             setWData(map);
         }
         setWLoading(false);
+    };
+
+    const fetchTAvailableTurni = async () => {
+        const { data: rows } = await supabase
+            .from("conferme_sap")
+            .select("turno_id")
+            .eq("data", tDate)
+            .not("turno_id", "is", null);
+        if (rows) {
+            const unique = [...new Set(rows.map(r => r.turno_id).filter(Boolean))].sort();
+            setTAvailableTurni(unique);
+            setTTurnoId(cur => (!cur || !unique.includes(cur)) ? (unique[0] || "") : cur);
+        }
+    };
+
+    const loadTurno = async () => {
+        if (!tTurnoId) return;
+        setTLoading(true);
+        const { data: rows } = await supabase
+            .from("conferme_sap")
+            .select("materiale, work_center_sap, qta_ottenuta")
+            .eq("data", tDate)
+            .eq("turno_id", tTurnoId);
+        if (rows) {
+            const map = {};
+            rows.forEach(r => {
+                const info = anagrafica[(r.materiale || "").toUpperCase()];
+                if (!info?.componente || !info?.progetto) return;
+                const key = `${info.progetto}::${info.componente}`;
+                if (!map[key]) map[key] = { start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0 };
+                const stage = getStageFromWC(r.work_center_sap);
+                if (stage) map[key][stage] = (map[key][stage] || 0) + (r.qta_ottenuta || 0);
+            });
+            setTData(map);
+        }
+        setTLoading(false);
     };
 
     const fetchData = async () => {
@@ -206,6 +273,11 @@ export default function SapSummaryView({ macchine = [] }) {
             });
             setAnagrafica(map);
         }
+    };
+
+    const fetchWcFasi = async () => {
+        const { data: res } = await supabase.from("wc_fasi_mapping").select("*");
+        if (res) setWcFasiMapping(res);
     };
 
     const getProjectFromCode = (code) => {
@@ -322,13 +394,14 @@ export default function SapSummaryView({ macchine = [] }) {
                     <div>
                         <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 2 }}>Analisi Produzione SAP</h2>
                         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
-                            {activeTab === "riepilogo" ? "KPI e trend produzione per il periodo selezionato" : activeTab === "giornaliero" ? "Produzione giornaliera per progetto e componente" : "Riepilogo settimana per progetto e componente"}
+                            {activeTab === "riepilogo" ? "KPI e trend produzione per il periodo selezionato" : activeTab === "giornaliero" ? "Produzione giornaliera per progetto e componente" : activeTab === "settimanale" ? "Riepilogo settimana per progetto e componente" : "Produzione per singolo turno"}
                         </p>
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                         <button className={activeTab === "riepilogo" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("riepilogo")}>📊 Riepilogo</button>
                         <button className={activeTab === "giornaliero" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("giornaliero")}>📋 Giornaliero</button>
                         <button className={activeTab === "settimanale" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("settimanale")}>📅 Settimanale</button>
+                        <button className={activeTab === "turno" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("turno")}>🔄 Per Turno</button>
                     </div>
                 </div>
             </div>
@@ -349,10 +422,22 @@ export default function SapSummaryView({ macchine = [] }) {
                                 {Icons.history} Aggiorna
                             </button>
                         </div>
-                        <div style={{ marginLeft: "auto", paddingTop: 20, fontSize: 13, color: "var(--text-muted)" }}>
-                            {Object.keys(gData).length > 0
-                                ? `${Object.keys(gData).length} macchine con dati`
-                                : "Nessun dato inserito per questa data"}
+                        <div style={{ marginLeft: "auto", paddingTop: 20, fontSize: 12, color: "var(--text-muted)", maxWidth: 500 }}>
+                            {gDiag == null ? null : gDiag.total === 0
+                                ? "⚠️ Nessuna riga in conferme_sap per questa data"
+                                : <>
+                                    <div style={{ color: gDiag.mapped === 0 ? "var(--danger)" : "var(--success)" }}>
+                                        {gDiag.mapped === 0
+                                            ? `⚠️ ${gDiag.total} righe trovate ma 0 mappate`
+                                            : `✓ ${gDiag.total} righe trovate, ${gDiag.mapped} mappate`}
+                                    </div>
+                                    {gDiag.unmapped?.length > 0 && (
+                                        <div style={{ marginTop: 4, color: "#F59E0B", fontSize: 11 }}>
+                                            Non mappati: {gDiag.unmapped.slice(0, 5).join(" | ")}{gDiag.unmapped.length > 5 ? ` +${gDiag.unmapped.length - 5}` : ""}
+                                        </div>
+                                    )}
+                                </>
+                            }
                         </div>
                     </div>
 
@@ -507,6 +592,10 @@ export default function SapSummaryView({ macchine = [] }) {
                     ) : (
                         PROGETTI_GIORNALIERO.map(proj => {
                             const weekDays = getWeekDays(wWeek);
+                            const totale = proj.componenti.reduce((s, comp) => s + (getProduzione(wData[`${proj.id}::${comp}`]) || 0), 0);
+                            const target = parseInt(wTargets[proj.id] || 0);
+                            const pctTarget = target > 0 ? Math.round(totale / target * 100) : null;
+                            const weekLabel = `${new Date(wWeek + "T12:00:00").toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" })} — ${new Date(weekDays[6] + "T12:00:00").toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" })}`;
                             return (
                                 <div key={proj.id} style={{ marginBottom: 32, display: "flex", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
 
@@ -526,40 +615,206 @@ export default function SapSummaryView({ macchine = [] }) {
                                     <div style={{ flex: 1, overflowX: "auto" }}>
                                         <table style={{ width: "100%", borderCollapse: "collapse" }}>
                                             <thead>
+                                                {/* Riga Weekly Target */}
+                                                <tr style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border-light)" }}>
+                                                    <td colSpan={8} style={{ padding: "8px 16px" }}>
+                                                        <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
+                                                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                                                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Weekly Target</span>
+                                                                <input
+                                                                    type="number" min="0"
+                                                                    value={wTargets[proj.id] || ""}
+                                                                    onChange={e => setWTargets(prev => ({ ...prev, [proj.id]: e.target.value }))}
+                                                                    placeholder="0"
+                                                                    style={{ width: 90, padding: "4px 10px", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-primary)", fontSize: 15, fontWeight: 700, textAlign: "right" }}
+                                                                />
+                                                            </div>
+                                                            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+                                                                <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
+                                                                    Produzione: <strong style={{ fontSize: 16, color: totale > 0 ? "var(--success)" : "var(--text-muted)" }}>{totale > 0 ? totale.toLocaleString("it-IT") : "—"}</strong>
+                                                                </span>
+                                                                {pctTarget !== null && (
+                                                                    <span style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg-tertiary)", color: pctTarget >= 100 ? "var(--success)" : pctTarget >= 80 ? "#F59E0B" : "var(--danger)" }}>
+                                                                        {pctTarget}% target
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+
+                                                {/* Riga settimana */}
+                                                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                                                    <td colSpan={8} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
+                                                        {weekLabel}
+                                                    </td>
+                                                </tr>
+
+                                                {/* Intestazioni colonne */}
                                                 <tr style={{ background: "var(--bg-tertiary)", borderBottom: "1px solid var(--border)" }}>
                                                     <th style={thStyle}>Component</th>
-                                                    {weekDays.map((day, i) => (
-                                                        <th key={day} style={{ ...thStyle, textAlign: "center" }}>
-                                                            {WEEK_LABELS[i]}
-                                                            <div style={{ fontSize: 10, fontWeight: 400, color: "var(--text-muted)" }}>{day.slice(5).replace("-", "/")}</div>
-                                                        </th>
-                                                    ))}
-                                                    <th style={{ ...thStyle, textAlign: "center", color: "var(--success)" }}>Totale</th>
+                                                    <th style={{ ...thStyle, textAlign: "center" }}>Start Soft</th>
+                                                    <th style={{ ...thStyle, textAlign: "center" }}>End Soft</th>
+                                                    <th style={{ ...thStyle, textAlign: "center" }}>HT</th>
+                                                    <th style={{ ...thStyle, textAlign: "center" }}>Start Hard</th>
+                                                    <th style={{ ...thStyle, textAlign: "center" }}>End Hard</th>
+                                                    <th style={{ ...thStyle, textAlign: "center" }}>Washing</th>
+                                                    <th style={{ ...thStyle, minWidth: 180 }}>Weekly Remarks</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {proj.componenti.map((componente, idx) => {
-                                                    const isHL = HIGHLIGHT_COMPONENTS.has(componente);
-                                                    const key = `${proj.id}::${componente}`;
-                                                    const dayVals = weekDays.map(day => wData[key]?.[day] || 0);
-                                                    const totale = dayVals.reduce((s, v) => s + v, 0);
+                                                    const row = wData[`${proj.id}::${componente}`] || {};
                                                     const isEven = idx % 2 === 0;
-                                                    const rowBg = isHL
-                                                        ? "rgba(59,130,246,0.10)"
-                                                        : isEven ? "var(--bg-card)" : "rgba(0,0,0,0.015)";
                                                     return (
-                                                        <tr key={componente} style={{ background: rowBg, borderBottom: "1px solid var(--border-light)", ...(isHL ? { borderLeft: "3px solid #3B82F6" } : {}) }}>
-                                                            <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: isHL ? 800 : 700, whiteSpace: "nowrap", color: isHL ? "#3B82F6" : "inherit" }}>
+                                                        <tr key={componente} style={{ background: isEven ? "var(--bg-card)" : "rgba(0,0,0,0.015)", borderBottom: "1px solid var(--border-light)" }}>
+                                                            <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
                                                                 {componente}
                                                             </td>
-                                                            {dayVals.map((val, i) => (
-                                                                <td key={weekDays[i]} style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: val > 0 ? 700 : 400, color: val > 0 ? "#D97706" : "var(--text-secondary)" }}>
-                                                                    {val > 0 ? val.toLocaleString("it-IT") : "—"}
+                                                            {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => (
+                                                                <td key={field} style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: row[field] > 0 ? 700 : 400, color: row[field] > 0 ? "#D97706" : "var(--text-secondary)" }}>
+                                                                    {row[field] > 0 ? row[field].toLocaleString("it-IT") : "—"}
                                                                 </td>
                                                             ))}
-                                                            <td style={{ padding: "7px 14px", textAlign: "center", fontSize: 13, fontWeight: totale > 0 ? 800 : 400, color: totale > 0 ? "var(--success)" : "var(--text-secondary)" }}>
-                                                                {totale > 0 ? totale.toLocaleString("it-IT") : "—"}
-                                                            </td>
+                                                            <td style={{ padding: "7px 12px", fontSize: 12, color: "var(--text-muted)" }}>—</td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
+                </div>
+            )}
+
+            {/* ══════════════════════════════════════
+                TAB TURNO
+            ══════════════════════════════════════ */}
+            {activeTab === "turno" && (
+                <div>
+                    {/* Selettori data + turno */}
+                    <div style={{ display: "flex", gap: 12, marginBottom: 20, alignItems: "center", flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Data</label>
+                            <input type="date" value={tDate} onChange={e => setTDate(e.target.value)} className="input" style={{ width: 160 }} />
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Turno</label>
+                            <div style={{ display: "flex", gap: 6 }}>
+                                {tAvailableTurni.length === 0 ? (
+                                    <span style={{ fontSize: 12, color: "var(--text-muted)", padding: "6px 0" }}>Nessun turno per questa data</span>
+                                ) : (
+                                    tAvailableTurni.map(t => (
+                                        <button
+                                            key={t}
+                                            className={tTurnoId === t ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"}
+                                            onClick={() => setTTurnoId(t)}
+                                        >
+                                            {t}
+                                        </button>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                        <div style={{ paddingTop: 20 }}>
+                            <button className="btn btn-secondary btn-sm" onClick={loadTurno} disabled={tLoading || !tTurnoId}>
+                                {Icons.history} Aggiorna
+                            </button>
+                        </div>
+                    </div>
+
+                    {tLoading ? (
+                        <div style={{ padding: 60, textAlign: "center", color: "var(--text-muted)" }}>Caricamento...</div>
+                    ) : !tTurnoId ? (
+                        <div style={{ padding: 60, textAlign: "center", color: "var(--text-muted)" }}>Seleziona una data con dati SAP</div>
+                    ) : (
+                        PROGETTI_GIORNALIERO.map(proj => {
+                            const totale = proj.componenti.reduce((s, comp) => s + (getProduzione(tData[`${proj.id}::${comp}`]) || 0), 0);
+                            const target = parseInt(tTargets[proj.id] || 0);
+                            const pctTarget = target > 0 ? Math.round(totale / target * 100) : null;
+                            const dateLabel = new Date(tDate + "T12:00:00")
+                                .toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" })
+                                .replace(/\//g, ".");
+
+                            return (
+                                <div key={proj.id} style={{ marginBottom: 32, display: "flex", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
+                                    {/* Label progetto verticale */}
+                                    <div style={{
+                                        writingMode: "vertical-rl", transform: "rotate(180deg)",
+                                        display: "flex", alignItems: "center", justifyContent: "center",
+                                        padding: "24px 10px", background: "var(--bg-tertiary)",
+                                        borderRight: "2px solid var(--border)",
+                                        fontWeight: 900, fontSize: 16, letterSpacing: 3,
+                                        color: "var(--text-primary)", userSelect: "none",
+                                        minWidth: 46, flexShrink: 0,
+                                    }}>
+                                        {proj.nome}
+                                    </div>
+
+                                    <div style={{ flex: 1, overflowX: "auto" }}>
+                                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                                            <thead>
+                                                {/* Riga Shift Target */}
+                                                <tr style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border-light)" }}>
+                                                    <td colSpan={8} style={{ padding: "8px 16px" }}>
+                                                        <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
+                                                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                                                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Shift Target</span>
+                                                                <input
+                                                                    type="number" min="0"
+                                                                    value={tTargets[proj.id] || ""}
+                                                                    onChange={e => setTTargets(prev => ({ ...prev, [proj.id]: e.target.value }))}
+                                                                    placeholder="0"
+                                                                    style={{ width: 90, padding: "4px 10px", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-primary)", fontSize: 15, fontWeight: 700, textAlign: "right" }}
+                                                                />
+                                                            </div>
+                                                            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+                                                                <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
+                                                                    Produzione: <strong style={{ fontSize: 16, color: totale > 0 ? "var(--success)" : "var(--text-muted)" }}>{totale > 0 ? totale.toLocaleString("it-IT") : "—"}</strong>
+                                                                </span>
+                                                                {pctTarget !== null && (
+                                                                    <span style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg-tertiary)", color: pctTarget >= 100 ? "var(--success)" : pctTarget >= 80 ? "#F59E0B" : "var(--danger)" }}>
+                                                                        {pctTarget}% target
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                {/* Riga data + turno */}
+                                                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                                                    <td colSpan={8} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
+                                                        {dateLabel} · Turno {tTurnoId}
+                                                    </td>
+                                                </tr>
+                                                {/* Intestazioni colonne */}
+                                                <tr style={{ background: "var(--bg-tertiary)", borderBottom: "1px solid var(--border)" }}>
+                                                    <th style={thStyle}>Component</th>
+                                                    <th style={{ ...thStyle, textAlign: "center" }}>Start Soft</th>
+                                                    <th style={{ ...thStyle, textAlign: "center" }}>End Soft</th>
+                                                    <th style={{ ...thStyle, textAlign: "center" }}>HT</th>
+                                                    <th style={{ ...thStyle, textAlign: "center" }}>Start Hard</th>
+                                                    <th style={{ ...thStyle, textAlign: "center" }}>End Hard</th>
+                                                    <th style={{ ...thStyle, textAlign: "center" }}>Washing</th>
+                                                    <th style={{ ...thStyle, minWidth: 180 }}>Shift Remarks</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {proj.componenti.map((componente, idx) => {
+                                                    const row = tData[`${proj.id}::${componente}`] || {};
+                                                    const isEven = idx % 2 === 0;
+                                                    return (
+                                                        <tr key={componente} style={{ background: isEven ? "var(--bg-card)" : "rgba(0,0,0,0.015)", borderBottom: "1px solid var(--border-light)" }}>
+                                                            <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>{componente}</td>
+                                                            {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => (
+                                                                <td key={field} style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: row[field] > 0 ? 700 : 400, color: row[field] > 0 ? "#D97706" : "var(--text-secondary)" }}>
+                                                                    {row[field] > 0 ? row[field].toLocaleString("it-IT") : "—"}
+                                                                </td>
+                                                            ))}
+                                                            <td style={{ padding: "7px 12px", fontSize: 12, color: "var(--text-muted)" }}>—</td>
                                                         </tr>
                                                     );
                                                 })}
