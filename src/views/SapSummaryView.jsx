@@ -583,6 +583,28 @@ export default function SapSummaryView({ macchine = [] }) {
                                                     );
                                                 })}
                                             </tbody>
+                                            <tfoot style={{ background: "var(--bg-card)", borderTop: "2px solid var(--border)" }}>
+                                                <tr style={{ fontWeight: 800 }}>
+                                                    <td style={{ padding: "10px 12px", fontSize: 13, color: "var(--text-primary)" }}>TOTALE</td>
+                                                    {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => {
+                                                        const colTotal = proj.componenti.reduce((s, comp) => s + (gData[`${proj.id}::${comp}`]?.[field] || 0), 0);
+                                                        const colPct = target > 0 ? Math.round(colTotal / target * 100) : null;
+                                                        return (
+                                                            <td key={field} style={{ padding: "10px 12px", textAlign: "center" }}>
+                                                                <div style={{ fontSize: 14, color: (target > 0 && colTotal < target) ? "var(--danger)" : (colTotal > 0 ? "var(--success)" : "var(--text-muted)") }}>
+                                                                    {colTotal > 0 ? colTotal.toLocaleString("it-IT") : "—"}
+                                                                </div>
+                                                                {colPct !== null && (
+                                                                    <div style={{ fontSize: 10, color: colPct >= 100 ? "var(--success)" : colPct >= 80 ? "#F59E0B" : "var(--danger)" }}>
+                                                                        {colPct}%
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                        );
+                                                    })}
+                                                    <td style={{ padding: "10px 12px" }}></td>
+                                                </tr>
+                                            </tfoot>
                                         </table>
                                     </div>
                                 </div>
@@ -714,6 +736,28 @@ export default function SapSummaryView({ macchine = [] }) {
                                                     );
                                                 })}
                                             </tbody>
+                                            <tfoot style={{ background: "var(--bg-card)", borderTop: "2px solid var(--border)" }}>
+                                                <tr style={{ fontWeight: 800 }}>
+                                                    <td style={{ padding: "10px 12px", fontSize: 13, color: "var(--text-primary)" }}>TOTALE</td>
+                                                    {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => {
+                                                        const colTotal = proj.componenti.reduce((s, comp) => s + (wData[`${proj.id}::${comp}`]?.[field] || 0), 0);
+                                                        const colPct = target > 0 ? Math.round(colTotal / target * 100) : null;
+                                                        return (
+                                                            <td key={field} style={{ padding: "10px 12px", textAlign: "center" }}>
+                                                                <div style={{ fontSize: 14, color: (target > 0 && colTotal < target) ? "var(--danger)" : (colTotal > 0 ? "var(--success)" : "var(--text-muted)") }}>
+                                                                    {colTotal > 0 ? colTotal.toLocaleString("it-IT") : "—"}
+                                                                </div>
+                                                                {colPct !== null && (
+                                                                    <div style={{ fontSize: 10, color: colPct >= 100 ? "var(--success)" : colPct >= 80 ? "#F59E0B" : "var(--danger)" }}>
+                                                                        {colPct}%
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                        );
+                                                    })}
+                                                    <td style={{ padding: "10px 12px" }}></td>
+                                                </tr>
+                                            </tfoot>
                                         </table>
                                     </div>
                                 </div>
@@ -849,6 +893,28 @@ export default function SapSummaryView({ macchine = [] }) {
                                                     );
                                                 })}
                                             </tbody>
+                                            <tfoot style={{ background: "var(--bg-card)", borderTop: "2px solid var(--border)" }}>
+                                                <tr style={{ fontWeight: 800 }}>
+                                                    <td style={{ padding: "10px 12px", fontSize: 13, color: "var(--text-primary)" }}>TOTALE</td>
+                                                    {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => {
+                                                        const colTotal = proj.componenti.reduce((s, comp) => s + (tData[`${proj.id}::${comp}`]?.[field] || 0), 0);
+                                                        const colPct = target > 0 ? Math.round(colTotal / target * 100) : null;
+                                                        return (
+                                                            <td key={field} style={{ padding: "10px 12px", textAlign: "center" }}>
+                                                                <div style={{ fontSize: 14, color: (target > 0 && colTotal < target) ? "var(--danger)" : (colTotal > 0 ? "var(--success)" : "var(--text-muted)") }}>
+                                                                    {colTotal > 0 ? colTotal.toLocaleString("it-IT") : "—"}
+                                                                </div>
+                                                                {colPct !== null && (
+                                                                    <div style={{ fontSize: 10, color: colPct >= 100 ? "var(--success)" : colPct >= 80 ? "#F59E0B" : "var(--danger)" }}>
+                                                                        {colPct}%
+                                                                    </div>
+                                                                )}
+                                                            </td>
+                                                        );
+                                                    })}
+                                                    <td style={{ padding: "10px 12px" }}></td>
+                                                </tr>
+                                            </tfoot>
                                         </table>
                                     </div>
                                 </div>
