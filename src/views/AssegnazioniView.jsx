@@ -90,15 +90,31 @@ export default function AssegnazioniView({
 
             if (!previousAssignments || previousAssignments.length === 0) return;
 
+            // Filter to only employees present today
+
+            const presentIds = new Set(
+                dipendenti
+                    .filter(d => {
+                        const rec = presenze.find(p => p.dipendente_id === d.id && p.data === today);
+                        if (rec) return rec.presente;
+                        return new Date().getDay() !== 0; // default present unless Sunday
+                    })
+                    .map(d => d.id)
+            );
+
             // Prepare new assignments
-            const newAssignments = previousAssignments.map(a => ({
-                dipendente_id: a.dipendente_id,
-                macchina_id: a.macchina_id,
-                attivita_id: a.attivita_id,
-                data: today,
-                turno_id: turnoCorrente,
-                note: a.note
-            }));
+            const newAssignments = previousAssignments
+                .filter(a => presentIds.has(a.dipendente_id))
+                .map(a => ({
+                    dipendente_id: a.dipendente_id,
+                    macchina_id: a.macchina_id,
+                    attivita_id: a.attivita_id,
+                    data: today,
+                    turno_id: turnoCorrente,
+                    note: a.note
+                }));
+
+            if (newAssignments.length === 0) return;
 
             const { data: inserted, error: insertError } = await supabase
                 .from('assegnazioni')
@@ -122,7 +138,7 @@ export default function AssegnazioniView({
         const timer = setTimeout(manageAssignments, 1500); // Slight delay to let props settle
         return () => clearTimeout(timer);
 
-    }, [turnoCorrente, today, dipendenti.length]); // Re-run if shift changes
+    }, [turnoCorrente, today, dipendenti.length, presenze]); // Re-run if shift or presences change
 
     // --- FILTER LOGIC ---
     const dipRep = dipendenti.filter((d) =>
