@@ -761,8 +761,6 @@ export default function SapSummaryView({ macchine = [] }) {
 
                     {tLoading ? (
                         <div style={{ padding: 60, textAlign: "center", color: "var(--text-muted)" }}>Caricamento...</div>
-                    ) : !tTurnoId ? (
-                        <div style={{ padding: 60, textAlign: "center", color: "var(--text-muted)" }}>Seleziona una data con dati SAP</div>
                     ) : (
                         PROGETTI_GIORNALIERO.map(proj => {
                             const totale = proj.componenti.reduce((s, comp) => s + (getProduzione(tData[`${proj.id}::${comp}`]) || 0), 0);
@@ -817,10 +815,9 @@ export default function SapSummaryView({ macchine = [] }) {
                                                         </div>
                                                     </td>
                                                 </tr>
-                                                {/* Riga data + turno */}
                                                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
                                                     <td colSpan={8} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
-                                                        {dateLabel} · Turno {tTurnoId}
+                                                        {dateLabel} {tTurnoId ? `· Turno ${tTurnoId}` : "· Nessun dato turno"}
                                                     </td>
                                                 </tr>
                                                 {/* Intestazioni colonne */}
