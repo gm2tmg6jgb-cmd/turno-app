@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { REPARTI } from "../data/constants";
 import { supabase } from "../lib/supabase";
 import { getLocalDate } from "../lib/dateUtils";
+import { Icons } from "../components/ui/Icons";
 
 export default function DashboardView({ dipendenti, presenze, setPresenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, showToast, motivi, zones }) {
     if (!dipendenti) return <div className="p-4 text-center">Caricamento dipendenti...</div>;
@@ -104,7 +105,6 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
     const getPresenceStatus = (dipId, date, isSunday) => {
         const key = `${dipId}-${date}`;
         const p = presenceMap[key];
-
         if (p) {
             // If record exists, use it
             if (p.presente) return true;
@@ -112,102 +112,96 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                 const m = motivi.find(ma => ma.id === p.motivo_assenza);
                 return m ? m.sigla : "?";
             }
-            return false; // Should generally have reason if not present
+            return false;
         }
 
         // Default behavior if no record exists
         if (isSunday) return "-";
-        if (date === today) return true; // Default present today only if NOT Sunday
-
-        return true; // Default present in future/past if no record
+        return true;
     };
 
     const toggleWeekPresenza = async (dipId, date, event) => {
-        const status = getPresenceStatus(dipId, date, false);
+        const isSunday = new Date(date).getDay() === 0;
+        const status = getPresenceStatus(dipId, date, isSunday);
         const isCurrentlyPresent = status === true;
 
-        if (isCurrentlyPresent) {
-            // Going from present → absent: show motivo popup
-            const rect = event.currentTarget.getBoundingClientRect(); // Use currentTarget for consistency
-            const spaceBelow = window.innerHeight - rect.bottom;
-            const ESTIMATED_HEIGHT = 200; // Reduced estimate
-            // Default to bottom unless space is tight (less than 200px)
-            const placement = spaceBelow < ESTIMATED_HEIGHT ? 'top' : 'bottom';
+        const rect = event.currentTarget.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        const ESTIMATED_HEIGHT = 200;
+        const placement = spaceBelow < ESTIMATED_HEIGHT ? 'top' : 'bottom';
 
-            console.log("Popup:", { rect, spaceBelow, placement, windowHeight: window.innerHeight });
-
-            setMotivoPopup({
-                dipId,
-                date,
-                x: rect.left,
-                y: placement === 'bottom' ? rect.bottom + 4 : rect.top - 4,
-                placement
-            });
-        } else {
-            // Going from absent (or null/-) → present
-            setMotivoPopup(null);
-
-            // Optimistic Update
-            setPresenze((prev) => {
-                const exists = prev.find(p => p.dipendente_id === dipId && p.data === date);
-                if (exists) {
-                    return prev.map(p => p.dipendente_id === dipId && p.data === date ? { ...p, presente: true, motivo_assenza: null } : p);
-                } else {
-                    return [...prev, { dipendente_id: dipId, data: date, presente: true, motivo_assenza: null, turno_id: "D" }];
-                }
-            });
-
-            // DB Update
-            try {
-                const { error } = await supabase.from('presenze').upsert({
-                    dipendente_id: dipId,
-                    data: date,
-                    presente: true,
-                    motivo_assenza: null,
-                    turno_id: turnoCorrente || "D" // Default to current or D
-                }, { onConflict: 'dipendente_id, data' });
-
-                if (error) throw error;
-            } catch (error) {
-                console.error("Error saving presence:", error);
-                showToast("Errore salvataggio presenza", "error");
-                // Revert logic could go here
-            }
-        }
+        setMotivoPopup({
+            dipId,
+            date,
+            x: rect.left,
+            y: placement === 'bottom' ? rect.bottom + 4 : rect.top - 4,
+            placement,
+            status: isCurrentlyPresent
+        });
     };
 
-    const confirmAssenza = async (motivo) => {
+    const confirmPresenza = async (isPresent, motivo = null, turnoId = null) => {
         if (!motivoPopup) return;
         const { dipId, date } = motivoPopup;
+        const currentP = presenceMap[`${dipId}-${date}`];
+        const newTurno = turnoId || currentP?.turno_id || turnoCorrente || "D";
 
         // Optimistic Update
         setPresenze((prev) => {
             const exists = prev.find(p => p.dipendente_id === dipId && p.data === date);
             if (exists) {
-                return prev.map(p => p.dipendente_id === dipId && p.data === date ? { ...p, presente: false, motivo_assenza: motivo } : p);
+                return prev.map(p => p.dipendente_id === dipId && p.data === date
+                    ? { ...p, presente: isPresent, motivo_assenza: isPresent ? null : (motivo || p.motivo_assenza), turno_id: newTurno }
+                    : p);
             } else {
-                return [...prev, { dipendente_id: dipId, data: date, presente: false, motivo_assenza: motivo, turno_id: "D" }];
+                return [...prev, { dipendente_id: dipId, data: date, presente: isPresent, motivo_assenza: isPresent ? null : motivo, turno_id: newTurno }];
             }
         });
 
         setMotivoPopup(null);
-        const motivoObj = motivi.find(m => m.id === motivo);
-        showToast(`Assenza registrata: ${motivoObj?.label}`, "warning");
+        if (!isPresent && motivo) {
+            const motivoObj = motivi.find(m => m.id === motivo);
+            showToast(`Assenza registrata: ${motivoObj?.label}`, "warning");
+        } else if (isPresent) {
+            showToast(`Presenza confermata${turnoId ? ' in turno ' + turnoId : ''}`, "success");
+        }
 
-        // DB Update
         try {
             const { error } = await supabase.from('presenze').upsert({
                 dipendente_id: dipId,
                 data: date,
-                presente: false,
-                motivo_assenza: motivo,
-                turno_id: turnoCorrente || "D"
+                presente: isPresent,
+                motivo_assenza: isPresent ? null : (motivo || currentP?.motivo_assenza),
+                turno_id: newTurno
             }, { onConflict: 'dipendente_id, data' });
 
             if (error) throw error;
         } catch (error) {
-            console.error("Error saving absence:", error);
-            showToast("Errore salvataggio assenza", "error");
+            console.error("Error saving presence state:", error);
+            showToast("Errore salvataggio", "error");
+        }
+    };
+
+    const deletePresenza = async () => {
+        if (!motivoPopup) return;
+        const { dipId, date } = motivoPopup;
+
+        // Optimistic Update
+        setPresenze((prev) => prev.filter(p => !(p.dipendente_id === dipId && p.data === date)));
+        setMotivoPopup(null);
+        showToast("Dato rimosso", "info");
+
+        try {
+            const { error } = await supabase
+                .from('presenze')
+                .delete()
+                .eq('dipendente_id', dipId)
+                .eq('data', date);
+
+            if (error) throw error;
+        } catch (error) {
+            console.error("Error deleting presence:", error);
+            showToast("Errore cancellazione", "error");
         }
     };
 
@@ -262,6 +256,32 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
         // Terziario: Alfabetico per Cognome
         return cognomeA.localeCompare(cognomeB);
     });
+
+    // RC logic: find missed compensatory rests (cumulative balance in visible range)
+    const dipWithAlerts = useMemo(() => {
+        const alerts = new Set();
+        sortedDip.forEach(dip => {
+            let sundaysWorked = 0;
+            let rcsTaken = 0;
+
+            presenze.filter(p => p.dipendente_id === dip.id).forEach(p => {
+                const d = new Date(p.data);
+                // Present on Sunday
+                if (d.getDay() === 0 && p.presente) {
+                    sundaysWorked++;
+                }
+                // Has "Permesso Compensativo" (RC)
+                if (p.motivo_assenza === 'permesso_compensativo') {
+                    rcsTaken++;
+                }
+            });
+
+            if (sundaysWorked > rcsTaken) {
+                alerts.add(dip.id);
+            }
+        });
+        return alerts;
+    }, [presenze, sortedDip]);
 
     let lastReparto = "";
 
@@ -405,8 +425,8 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                         ...rowStyle
                                     }}>
                                         {d.cognome} {(d.nome || "").charAt(0)}.
-                                        {teamLeaders[d.reparto_id] && (d.cognome || "").includes(teamLeaders[d.reparto_id]) && (
-                                            <span style={{ marginLeft: 6, fontSize: 10 }} title="Team Leader">👑</span>
+                                        {dipWithAlerts.has(d.id) && (
+                                            <span style={{ marginLeft: 6, cursor: "help" }} title="Mancato riposo compensativo!">⚠️</span>
                                         )}
                                     </td>
 
@@ -438,6 +458,8 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                         let cellBg = undefined;
                                         if (isAbsence) {
                                             cellBg = "rgba(249, 115, 22, 0.2)"; // Orange fill for absence
+                                        } else if (day.isSunday) {
+                                            cellBg = "rgba(99, 102, 241, 0.15)"; // Soft Indigo for Sunday
                                         } else if (day.isToday) {
                                             cellBg = "rgba(249, 115, 22, 0.04)";
                                         }
@@ -533,11 +555,22 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                         boxShadow: "0 8px 30px rgba(0,0,0,0.4)",
                         minWidth: 160,
                     }}>
-                        <div style={{ fontSize: 10, color: "var(--text-muted)", padding: "4px 8px", fontWeight: 600, textTransform: "uppercase" }}>Motivo assenza</div>
+                        <div style={{ fontSize: 10, color: "var(--text-muted)", padding: "4px 8px", fontWeight: 600, textTransform: "uppercase" }}>Tipo Presenza / Assenza</div>
+                        <div
+                            onClick={() => confirmPresenza(true)}
+                            style={{
+                                padding: "6px 8px", fontSize: 12, cursor: "pointer", borderRadius: 4,
+                                display: "flex", alignItems: "center", gap: 6, fontWeight: 700,
+                                color: "var(--success)", background: "rgba(34,197,94,0.1)", marginBottom: 4
+                            }}
+                        >
+                            <div style={{ width: 12, height: 12, borderRadius: 2, background: "var(--success)" }}></div>
+                            <span>PRESENTE</span>
+                        </div>
                         {motivi.map((m) => (
                             <div
                                 key={m.id}
-                                onClick={() => confirmAssenza(m.id)}
+                                onClick={() => confirmPresenza(false, m.id)}
                                 style={{
                                     padding: "6px 8px",
                                     fontSize: 12,
@@ -554,10 +587,48 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                 <span>{m.label}</span>
                             </div>
                         ))}
+
+                        <div style={{ margin: "8px 0", borderTop: "1px solid var(--border-light)" }} />
+                        <div style={{ fontSize: 10, color: "var(--text-muted)", padding: "4px 8px", fontWeight: 600, textTransform: "uppercase" }}>Cambia Turno / Conferma</div>
+
+                        <div style={{ display: "flex", gap: 4, padding: "4px" }}>
+                            {["A", "B", "C", "D"].map(t => (
+                                <button
+                                    key={t}
+                                    onClick={() => confirmPresenza(true, null, t)}
+                                    style={{
+                                        flex: 1, height: 28, fontSize: 11, fontWeight: 700, borderRadius: 4,
+                                        border: "1px solid var(--border)", background: "var(--bg-secondary)", cursor: "pointer"
+                                    }}
+                                >
+                                    {t}
+                                </button>
+                            ))}
+                            <button
+                                onClick={deletePresenza}
+                                title="Svuota / Cancella dato"
+                                style={{
+                                    width: 28, height: 28, fontSize: 14, borderRadius: 4,
+                                    border: "1px solid var(--danger)", background: "rgba(239, 68, 68, 0.1)",
+                                    color: "var(--danger)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center"
+                                }}
+                            >
+                                {Icons.trash}
+                            </button>
+                        </div>
+                        <button
+                            onClick={() => confirmPresenza(true)}
+                            style={{
+                                width: "100%", marginTop: 4, padding: "8px", background: "var(--success)",
+                                color: "white", border: "none", borderRadius: 4, fontWeight: 700, cursor: "pointer"
+                            }}
+                        >
+                            Conferma Presenza
+                        </button>
                     </div>
                 </>,
                 document.body
             )}
-        </div>
+        </div >
     );
 }

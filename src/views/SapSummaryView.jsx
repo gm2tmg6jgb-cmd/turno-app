@@ -561,50 +561,80 @@ export default function SapSummaryView({ macchine = [] }) {
                                                     <th style={{ ...thStyle, textAlign: "center" }}>Start Hard</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>End Hard</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>Washing</th>
+                                                    <th style={{ ...thStyle, textAlign: "center", color: "var(--accent)" }}>Media</th>
                                                     <th style={{ ...thStyle, minWidth: 180 }}>Daily Remarks</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {proj.componenti.map((componente, idx) => {
-                                                    const row = gData[`${proj.id}::${componente}`] || {};
+                                                    const isBap = componente === "BAP";
+                                                    const isGear = componente === "GEAR";
+                                                    const isShafts = componente === "SHAFTS";
+                                                    const isSummaryRow = isBap || isGear || isShafts;
+
+                                                    let row = gData[`${proj.id}::${componente}`] || {};
+                                                    const days = parseInt(gDays[proj.id] || 1);
+
+                                                    // Logica di aggregazione per righe di riepilogo
+                                                    if (isSummaryRow) {
+                                                        const calculatedRow = { start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0 };
+                                                        let children = [];
+
+                                                        if (isBap) {
+                                                            children = proj.componenti.filter(c => !["BAP", "GEAR", "SHAFTS"].includes(c));
+                                                        } else if (isGear) {
+                                                            children = proj.componenti.filter(c =>
+                                                                !["BAP", "GEAR", "SHAFTS"].includes(c) &&
+                                                                (c.startsWith("SG") || c.startsWith("DG") || c.startsWith("RG") || c.startsWith("SGR") || c === "Pinion" || c.startsWith("Fix"))
+                                                            );
+                                                        } else if (isShafts) {
+                                                            children = proj.componenti.filter(c =>
+                                                                !["BAP", "GEAR", "SHAFTS"].includes(c) &&
+                                                                (c.startsWith("IS") || c.startsWith("OS"))
+                                                            );
+                                                        }
+
+                                                        children.forEach(c => {
+                                                            const cData = gData[`${proj.id}::${c}`] || {};
+                                                            ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(f => {
+                                                                calculatedRow[f] += (cData[f] || 0);
+                                                            });
+                                                        });
+
+                                                        // Mostra la MEDIA per tutte le fasi nelle righe di riepilogo
+                                                        if (days > 1) {
+                                                            Object.keys(calculatedRow).forEach(f => {
+                                                                calculatedRow[f] = Math.round(calculatedRow[f] / days);
+                                                            });
+                                                        }
+                                                        row = calculatedRow;
+                                                    }
+
                                                     const isEven = idx % 2 === 0;
+                                                    const rowBg = isSummaryRow ? "rgba(99, 102, 241, 0.15)" : (isEven ? "var(--bg-card)" : "rgba(0,0,0,0.015)");
+
                                                     return (
-                                                        <tr key={componente} style={{ background: isEven ? "var(--bg-card)" : "rgba(0,0,0,0.015)", borderBottom: "1px solid var(--border-light)" }}>
-                                                            <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
+                                                        <tr key={componente} style={{ background: rowBg, borderBottom: isSummaryRow ? "2px solid var(--accent)" : "1px solid var(--border-light)", fontWeight: isSummaryRow ? 800 : 400 }}>
+                                                            <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: isSummaryRow ? "var(--accent)" : "inherit" }}>
                                                                 {componente}
                                                             </td>
                                                             {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => (
-                                                                <td key={field} style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: row[field] > 0 ? 700 : 400, color: row[field] > 0 ? "#D97706" : "var(--text-secondary)" }}>
+                                                                <td key={field} style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: row[field] > 0 ? 700 : 400, color: row[field] > 0 ? (isSummaryRow ? "var(--accent)" : "#D97706") : "var(--text-secondary)" }}>
                                                                     {row[field] > 0 ? row[field].toLocaleString("it-IT") : "—"}
                                                                 </td>
                                                             ))}
+                                                            <td style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: 700, color: "var(--accent)" }}>
+                                                                {(() => {
+                                                                    const prod = getProduzione(row);
+                                                                    if (isSummaryRow) return prod ? prod.toFixed(1) : "—";
+                                                                    return prod ? (prod / days).toFixed(1) : "—";
+                                                                })()}
+                                                            </td>
                                                             <td style={{ padding: "7px 12px", fontSize: 12, color: "var(--text-muted)" }}>—</td>
                                                         </tr>
                                                     );
                                                 })}
                                             </tbody>
-                                            <tfoot style={{ background: "var(--bg-card)", borderTop: "2px solid var(--border)" }}>
-                                                <tr style={{ fontWeight: 800 }}>
-                                                    <td style={{ padding: "10px 12px", fontSize: 13, color: "var(--text-primary)" }}>TOTALE</td>
-                                                    {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => {
-                                                        const colTotal = proj.componenti.reduce((s, comp) => s + (gData[`${proj.id}::${comp}`]?.[field] || 0), 0);
-                                                        const colPct = target > 0 ? Math.round(colTotal / target * 100) : null;
-                                                        return (
-                                                            <td key={field} style={{ padding: "10px 12px", textAlign: "center" }}>
-                                                                <div style={{ fontSize: 14, color: (target > 0 && colTotal < target) ? "var(--danger)" : (colTotal > 0 ? "var(--success)" : "var(--text-muted)") }}>
-                                                                    {colTotal > 0 ? colTotal.toLocaleString("it-IT") : "—"}
-                                                                </div>
-                                                                {colPct !== null && (
-                                                                    <div style={{ fontSize: 10, color: colPct >= 100 ? "var(--success)" : colPct >= 80 ? "#F59E0B" : "var(--danger)" }}>
-                                                                        {colPct}%
-                                                                    </div>
-                                                                )}
-                                                            </td>
-                                                        );
-                                                    })}
-                                                    <td style={{ padding: "10px 12px" }}></td>
-                                                </tr>
-                                            </tfoot>
                                         </table>
                                     </div>
                                 </div>
@@ -714,50 +744,80 @@ export default function SapSummaryView({ macchine = [] }) {
                                                     <th style={{ ...thStyle, textAlign: "center" }}>Start Hard</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>End Hard</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>Washing</th>
+                                                    <th style={{ ...thStyle, textAlign: "center", color: "var(--accent)" }}>Media</th>
                                                     <th style={{ ...thStyle, minWidth: 180 }}>Weekly Remarks</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {proj.componenti.map((componente, idx) => {
-                                                    const row = wData[`${proj.id}::${componente}`] || {};
+                                                    const isBap = componente === "BAP";
+                                                    const isGear = componente === "GEAR";
+                                                    const isShafts = componente === "SHAFTS";
+                                                    const isSummaryRow = isBap || isGear || isShafts;
+
+                                                    let row = wData[`${proj.id}::${componente}`] || {};
+                                                    const days = parseInt(gDays[proj.id] || 6); // Default 6 for weekly
+
+                                                    // Logica di aggregazione per righe di riepilogo
+                                                    if (isSummaryRow) {
+                                                        const calculatedRow = { start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0 };
+                                                        let children = [];
+
+                                                        if (isBap) {
+                                                            children = proj.componenti.filter(c => !["BAP", "GEAR", "SHAFTS"].includes(c));
+                                                        } else if (isGear) {
+                                                            children = proj.componenti.filter(c =>
+                                                                !["BAP", "GEAR", "SHAFTS"].includes(c) &&
+                                                                (c.startsWith("SG") || c.startsWith("DG") || c.startsWith("RG") || c.startsWith("SGR") || c === "Pinion" || c.startsWith("Fix"))
+                                                            );
+                                                        } else if (isShafts) {
+                                                            children = proj.componenti.filter(c =>
+                                                                !["BAP", "GEAR", "SHAFTS"].includes(c) &&
+                                                                (c.startsWith("IS") || c.startsWith("OS"))
+                                                            );
+                                                        }
+
+                                                        children.forEach(c => {
+                                                            const cData = wData[`${proj.id}::${c}`] || {};
+                                                            ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(f => {
+                                                                calculatedRow[f] += (cData[f] || 0);
+                                                            });
+                                                        });
+
+                                                        // Mostra la MEDIA per tutte le fasi nelle righe di riepilogo
+                                                        if (days > 1) {
+                                                            Object.keys(calculatedRow).forEach(f => {
+                                                                calculatedRow[f] = Math.round(calculatedRow[f] / days);
+                                                            });
+                                                        }
+                                                        row = calculatedRow;
+                                                    }
+
                                                     const isEven = idx % 2 === 0;
+                                                    const rowBg = isSummaryRow ? "rgba(99, 102, 241, 0.15)" : (isEven ? "var(--bg-card)" : "rgba(0,0,0,0.015)");
+
                                                     return (
-                                                        <tr key={componente} style={{ background: isEven ? "var(--bg-card)" : "rgba(0,0,0,0.015)", borderBottom: "1px solid var(--border-light)" }}>
-                                                            <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
+                                                        <tr key={componente} style={{ background: rowBg, borderBottom: isSummaryRow ? "2px solid var(--accent)" : "1px solid var(--border-light)", fontWeight: isSummaryRow ? 800 : 400 }}>
+                                                            <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: isSummaryRow ? "var(--accent)" : "inherit" }}>
                                                                 {componente}
                                                             </td>
                                                             {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => (
-                                                                <td key={field} style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: row[field] > 0 ? 700 : 400, color: row[field] > 0 ? "#D97706" : "var(--text-secondary)" }}>
+                                                                <td key={field} style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: row[field] > 0 ? 700 : 400, color: row[field] > 0 ? (isSummaryRow ? "var(--accent)" : "#D97706") : "var(--text-secondary)" }}>
                                                                     {row[field] > 0 ? row[field].toLocaleString("it-IT") : "—"}
                                                                 </td>
                                                             ))}
+                                                            <td style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: 700, color: "var(--accent)" }}>
+                                                                {(() => {
+                                                                    const prod = getProduzione(row);
+                                                                    if (isSummaryRow) return prod ? prod.toFixed(1) : "—";
+                                                                    return prod ? (prod / days).toFixed(1) : "—";
+                                                                })()}
+                                                            </td>
                                                             <td style={{ padding: "7px 12px", fontSize: 12, color: "var(--text-muted)" }}>—</td>
                                                         </tr>
                                                     );
                                                 })}
                                             </tbody>
-                                            <tfoot style={{ background: "var(--bg-card)", borderTop: "2px solid var(--border)" }}>
-                                                <tr style={{ fontWeight: 800 }}>
-                                                    <td style={{ padding: "10px 12px", fontSize: 13, color: "var(--text-primary)" }}>TOTALE</td>
-                                                    {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => {
-                                                        const colTotal = proj.componenti.reduce((s, comp) => s + (wData[`${proj.id}::${comp}`]?.[field] || 0), 0);
-                                                        const colPct = target > 0 ? Math.round(colTotal / target * 100) : null;
-                                                        return (
-                                                            <td key={field} style={{ padding: "10px 12px", textAlign: "center" }}>
-                                                                <div style={{ fontSize: 14, color: (target > 0 && colTotal < target) ? "var(--danger)" : (colTotal > 0 ? "var(--success)" : "var(--text-muted)") }}>
-                                                                    {colTotal > 0 ? colTotal.toLocaleString("it-IT") : "—"}
-                                                                </div>
-                                                                {colPct !== null && (
-                                                                    <div style={{ fontSize: 10, color: colPct >= 100 ? "var(--success)" : colPct >= 80 ? "#F59E0B" : "var(--danger)" }}>
-                                                                        {colPct}%
-                                                                    </div>
-                                                                )}
-                                                            </td>
-                                                        );
-                                                    })}
-                                                    <td style={{ padding: "10px 12px" }}></td>
-                                                </tr>
-                                            </tfoot>
                                         </table>
                                     </div>
                                 </div>
@@ -873,48 +933,71 @@ export default function SapSummaryView({ macchine = [] }) {
                                                     <th style={{ ...thStyle, textAlign: "center" }}>Start Hard</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>End Hard</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>Washing</th>
+                                                    <th style={{ ...thStyle, textAlign: "center", color: "var(--accent)" }}>Media</th>
                                                     <th style={{ ...thStyle, minWidth: 180 }}>Shift Remarks</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {proj.componenti.map((componente, idx) => {
-                                                    const row = tData[`${proj.id}::${componente}`] || {};
+                                                    const isBap = componente === "BAP";
+                                                    const isGear = componente === "GEAR";
+                                                    const isShafts = componente === "SHAFTS";
+                                                    const isSummaryRow = isBap || isGear || isShafts;
+
+                                                    let row = tData[`${proj.id}::${componente}`] || {};
+
+                                                    // Logica di aggregazione per righe di riepilogo
+                                                    if (isSummaryRow) {
+                                                        const calculatedRow = { start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0 };
+                                                        let children = [];
+
+                                                        if (isBap) {
+                                                            children = proj.componenti.filter(c => !["BAP", "GEAR", "SHAFTS"].includes(c));
+                                                        } else if (isGear) {
+                                                            children = proj.componenti.filter(c =>
+                                                                !["BAP", "GEAR", "SHAFTS"].includes(c) &&
+                                                                (c.startsWith("SG") || c.startsWith("DG") || c.startsWith("RG") || c.startsWith("SGR") || c === "Pinion" || c.startsWith("Fix"))
+                                                            );
+                                                        } else if (isShafts) {
+                                                            children = proj.componenti.filter(c =>
+                                                                !["BAP", "GEAR", "SHAFTS"].includes(c) &&
+                                                                (c.startsWith("IS") || c.startsWith("OS"))
+                                                            );
+                                                        }
+
+                                                        children.forEach(c => {
+                                                            const cData = tData[`${proj.id}::${c}`] || {};
+                                                            ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(f => {
+                                                                calculatedRow[f] += (cData[f] || 0);
+                                                            });
+                                                        });
+                                                        row = calculatedRow;
+                                                    }
+
                                                     const isEven = idx % 2 === 0;
+                                                    const rowBg = isSummaryRow ? "rgba(99, 102, 241, 0.15)" : (isEven ? "var(--bg-card)" : "rgba(0,0,0,0.015)");
+
                                                     return (
-                                                        <tr key={componente} style={{ background: isEven ? "var(--bg-card)" : "rgba(0,0,0,0.015)", borderBottom: "1px solid var(--border-light)" }}>
-                                                            <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>{componente}</td>
+                                                        <tr key={componente} style={{ background: rowBg, borderBottom: isSummaryRow ? "2px solid var(--accent)" : "1px solid var(--border-light)", fontWeight: isSummaryRow ? 800 : 400 }}>
+                                                            <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: isSummaryRow ? "var(--accent)" : "inherit" }}>
+                                                                {componente}
+                                                            </td>
                                                             {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => (
-                                                                <td key={field} style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: row[field] > 0 ? 700 : 400, color: row[field] > 0 ? "#D97706" : "var(--text-secondary)" }}>
+                                                                <td key={field} style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: row[field] > 0 ? 700 : 400, color: row[field] > 0 ? (isSummaryRow ? "var(--accent)" : "#D97706") : "var(--text-secondary)" }}>
                                                                     {row[field] > 0 ? row[field].toLocaleString("it-IT") : "—"}
                                                                 </td>
                                                             ))}
+                                                            <td style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: 700, color: "var(--accent)" }}>
+                                                                {(() => {
+                                                                    const prod = getProduzione(row);
+                                                                    return prod ? prod.toFixed(1) : "—";
+                                                                })()}
+                                                            </td>
                                                             <td style={{ padding: "7px 12px", fontSize: 12, color: "var(--text-muted)" }}>—</td>
                                                         </tr>
                                                     );
                                                 })}
                                             </tbody>
-                                            <tfoot style={{ background: "var(--bg-card)", borderTop: "2px solid var(--border)" }}>
-                                                <tr style={{ fontWeight: 800 }}>
-                                                    <td style={{ padding: "10px 12px", fontSize: 13, color: "var(--text-primary)" }}>TOTALE</td>
-                                                    {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => {
-                                                        const colTotal = proj.componenti.reduce((s, comp) => s + (tData[`${proj.id}::${comp}`]?.[field] || 0), 0);
-                                                        const colPct = target > 0 ? Math.round(colTotal / target * 100) : null;
-                                                        return (
-                                                            <td key={field} style={{ padding: "10px 12px", textAlign: "center" }}>
-                                                                <div style={{ fontSize: 14, color: (target > 0 && colTotal < target) ? "var(--danger)" : (colTotal > 0 ? "var(--success)" : "var(--text-muted)") }}>
-                                                                    {colTotal > 0 ? colTotal.toLocaleString("it-IT") : "—"}
-                                                                </div>
-                                                                {colPct !== null && (
-                                                                    <div style={{ fontSize: 10, color: colPct >= 100 ? "var(--success)" : colPct >= 80 ? "#F59E0B" : "var(--danger)" }}>
-                                                                        {colPct}%
-                                                                    </div>
-                                                                )}
-                                                            </td>
-                                                        );
-                                                    })}
-                                                    <td style={{ padding: "10px 12px" }}></td>
-                                                </tr>
-                                            </tfoot>
                                         </table>
                                     </div>
                                 </div>
