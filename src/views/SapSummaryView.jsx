@@ -136,10 +136,11 @@ export default function SapSummaryView({ macchine = [] }) {
 
     const loadGiornaliero = async () => {
         setGLoading(true);
-        const { data: rows } = await supabase
+        const { data: rows, error: gErr } = await supabase
             .from("conferme_sap")
             .select("materiale, work_center_sap, qta_ottenuta")
             .eq("data", gDate);
+        if (gErr) { console.error("Errore loadGiornaliero:", gErr); setGLoading(false); return; }
 
         if (rows) {
             const map = {};
@@ -189,11 +190,12 @@ export default function SapSummaryView({ macchine = [] }) {
         setWLoading(true);
         const days = getWeekDays(wWeek);
         const sunday = days[6];
-        const { data: rows } = await supabase
+        const { data: rows, error: wErr } = await supabase
             .from("conferme_sap")
             .select("materiale, work_center_sap, qta_ottenuta")
             .gte("data", wWeek)
             .lte("data", sunday);
+        if (wErr) { console.error("Errore loadSettimanale:", wErr); setWLoading(false); return; }
 
         if (rows) {
             const map = {};
@@ -226,11 +228,12 @@ export default function SapSummaryView({ macchine = [] }) {
     const loadTurno = async () => {
         if (!tTurnoId) return;
         setTLoading(true);
-        const { data: rows } = await supabase
+        const { data: rows, error: tErr } = await supabase
             .from("conferme_sap")
             .select("materiale, work_center_sap, qta_ottenuta")
             .eq("data", tDate)
             .eq("turno_id", tTurnoId);
+        if (tErr) { console.error("Errore loadTurno:", tErr); setTLoading(false); return; }
         if (rows) {
             const map = {};
             rows.forEach(r => {
@@ -304,15 +307,21 @@ export default function SapSummaryView({ macchine = [] }) {
     const saveTargetDebounced = (progettoId, field, value) => {
         const key = `${progettoId}::${field}`;
         clearTimeout(saveTimerRef.current[key]);
-        saveTimerRef.current[key] = setTimeout(() => {
-            supabase
+        saveTimerRef.current[key] = setTimeout(async () => {
+            const { error } = await supabase
                 .from("produzione_targets")
                 .upsert(
                     { progetto_id: progettoId, [field]: value !== "" ? parseInt(value) : null },
                     { onConflict: "progetto_id" }
                 );
+            if (error) console.error("Errore salvataggio target:", error);
         }, 800);
     };
+
+    // Cleanup timer all'unmount
+    useEffect(() => {
+        return () => { Object.values(saveTimerRef.current).forEach(clearTimeout); };
+    }, []);
 
     const getProjectFromCode = (code) => {
         if (!code) return null;
@@ -417,7 +426,7 @@ export default function SapSummaryView({ macchine = [] }) {
     }, [data, macchine, anagrafica]);
 
     /* ── Render ── */
-    const thStyle = { padding: "10px 12px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", textAlign: "left", whiteSpace: "nowrap" };
+    const thStyle = { padding: "10px 12px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", textAlign: "left", whiteSpace: "nowrap", borderRight: "1px solid var(--border-light)" };
 
     return (
         <div className="fade-in" style={{ height: "100%", overflowY: "auto", paddingBottom: 32 }}>
@@ -509,7 +518,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                             <thead>
                                                 {/* Riga Daily Target + Days */}
                                                 <tr style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border-light)" }}>
-                                                    <td colSpan={8} style={{ padding: "8px 16px" }}>
+                                                    <td colSpan={6} style={{ padding: "8px 16px" }}>
                                                         <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
                                                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                                                 <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Daily Target</span>
@@ -531,23 +540,13 @@ export default function SapSummaryView({ macchine = [] }) {
                                                                     style={{ width: 70, padding: "4px 10px", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-primary)", fontSize: 15, fontWeight: 700, textAlign: "right" }}
                                                                 />
                                                             </div>
-                                                            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
-                                                                <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
-                                                                    Produzione: <strong style={{ fontSize: 16, color: totale > 0 ? "var(--success)" : "var(--text-muted)" }}>{totale > 0 ? totale.toLocaleString("it-IT") : "—"}</strong>
-                                                                </span>
-                                                                {pctTarget !== null && (
-                                                                    <span style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg-tertiary)", color: pctTarget >= 100 ? "var(--success)" : pctTarget >= 80 ? "#F59E0B" : "var(--danger)" }}>
-                                                                        {pctTarget}% target
-                                                                    </span>
-                                                                )}
-                                                            </div>
                                                         </div>
                                                     </td>
                                                 </tr>
 
                                                 {/* Riga data */}
                                                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                                                    <td colSpan={8} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
+                                                    <td colSpan={6} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
                                                         {dateLabel}
                                                     </td>
                                                 </tr>
@@ -561,8 +560,6 @@ export default function SapSummaryView({ macchine = [] }) {
                                                     <th style={{ ...thStyle, textAlign: "center" }}>Start Hard</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>End Hard</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>Washing</th>
-                                                    <th style={{ ...thStyle, textAlign: "center", color: "var(--accent)" }}>Media</th>
-                                                    <th style={{ ...thStyle, minWidth: 180 }}>Daily Remarks</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -602,11 +599,6 @@ export default function SapSummaryView({ macchine = [] }) {
                                                         });
 
                                                         // Mostra la MEDIA per tutte le fasi nelle righe di riepilogo
-                                                        if (days > 1) {
-                                                            Object.keys(calculatedRow).forEach(f => {
-                                                                calculatedRow[f] = Math.round(calculatedRow[f] / days);
-                                                            });
-                                                        }
                                                         row = calculatedRow;
                                                     }
 
@@ -615,22 +607,14 @@ export default function SapSummaryView({ macchine = [] }) {
 
                                                     return (
                                                         <tr key={componente} style={{ background: rowBg, borderBottom: isSummaryRow ? "2px solid var(--accent)" : "1px solid var(--border-light)", fontWeight: isSummaryRow ? 800 : 400 }}>
-                                                            <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: isSummaryRow ? "var(--accent)" : "inherit" }}>
+                                                            <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: isSummaryRow ? "var(--accent)" : "inherit", borderRight: "1px solid var(--border-light)" }}>
                                                                 {componente}
                                                             </td>
                                                             {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => (
-                                                                <td key={field} style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: row[field] > 0 ? 700 : 400, color: row[field] > 0 ? (isSummaryRow ? "var(--accent)" : "#D97706") : "var(--text-secondary)" }}>
+                                                                <td key={field} style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: row[field] > 0 ? 700 : 400, color: row[field] > 0 ? (isSummaryRow ? "var(--accent)" : "#D97706") : "var(--text-secondary)", borderRight: "1px solid var(--border-light)" }}>
                                                                     {row[field] > 0 ? row[field].toLocaleString("it-IT") : "—"}
                                                                 </td>
                                                             ))}
-                                                            <td style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: 700, color: "var(--accent)" }}>
-                                                                {(() => {
-                                                                    const prod = getProduzione(row);
-                                                                    if (isSummaryRow) return prod ? prod.toFixed(1) : "—";
-                                                                    return prod ? (prod / days).toFixed(1) : "—";
-                                                                })()}
-                                                            </td>
-                                                            <td style={{ padding: "7px 12px", fontSize: 12, color: "var(--text-muted)" }}>—</td>
                                                         </tr>
                                                     );
                                                 })}
@@ -702,7 +686,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                             <thead>
                                                 {/* Riga Weekly Target */}
                                                 <tr style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border-light)" }}>
-                                                    <td colSpan={8} style={{ padding: "8px 16px" }}>
+                                                    <td colSpan={6} style={{ padding: "8px 16px" }}>
                                                         <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
                                                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                                                 <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Weekly Target</span>
@@ -714,23 +698,13 @@ export default function SapSummaryView({ macchine = [] }) {
                                                                     style={{ width: 90, padding: "4px 10px", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-primary)", fontSize: 15, fontWeight: 700, textAlign: "right" }}
                                                                 />
                                                             </div>
-                                                            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
-                                                                <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
-                                                                    Produzione: <strong style={{ fontSize: 16, color: totale > 0 ? "var(--success)" : "var(--text-muted)" }}>{totale > 0 ? totale.toLocaleString("it-IT") : "—"}</strong>
-                                                                </span>
-                                                                {pctTarget !== null && (
-                                                                    <span style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg-tertiary)", color: pctTarget >= 100 ? "var(--success)" : pctTarget >= 80 ? "#F59E0B" : "var(--danger)" }}>
-                                                                        {pctTarget}% target
-                                                                    </span>
-                                                                )}
-                                                            </div>
                                                         </div>
                                                     </td>
                                                 </tr>
 
                                                 {/* Riga settimana */}
                                                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                                                    <td colSpan={8} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
+                                                    <td colSpan={6} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
                                                         {weekLabel}
                                                     </td>
                                                 </tr>
@@ -744,8 +718,6 @@ export default function SapSummaryView({ macchine = [] }) {
                                                     <th style={{ ...thStyle, textAlign: "center" }}>Start Hard</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>End Hard</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>Washing</th>
-                                                    <th style={{ ...thStyle, textAlign: "center", color: "var(--accent)" }}>Media</th>
-                                                    <th style={{ ...thStyle, minWidth: 180 }}>Weekly Remarks</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -785,11 +757,6 @@ export default function SapSummaryView({ macchine = [] }) {
                                                         });
 
                                                         // Mostra la MEDIA per tutte le fasi nelle righe di riepilogo
-                                                        if (days > 1) {
-                                                            Object.keys(calculatedRow).forEach(f => {
-                                                                calculatedRow[f] = Math.round(calculatedRow[f] / days);
-                                                            });
-                                                        }
                                                         row = calculatedRow;
                                                     }
 
@@ -798,22 +765,14 @@ export default function SapSummaryView({ macchine = [] }) {
 
                                                     return (
                                                         <tr key={componente} style={{ background: rowBg, borderBottom: isSummaryRow ? "2px solid var(--accent)" : "1px solid var(--border-light)", fontWeight: isSummaryRow ? 800 : 400 }}>
-                                                            <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: isSummaryRow ? "var(--accent)" : "inherit" }}>
+                                                            <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: isSummaryRow ? "var(--accent)" : "inherit", borderRight: "1px solid var(--border-light)" }}>
                                                                 {componente}
                                                             </td>
                                                             {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => (
-                                                                <td key={field} style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: row[field] > 0 ? 700 : 400, color: row[field] > 0 ? (isSummaryRow ? "var(--accent)" : "#D97706") : "var(--text-secondary)" }}>
+                                                                <td key={field} style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: row[field] > 0 ? 700 : 400, color: row[field] > 0 ? (isSummaryRow ? "var(--accent)" : "#D97706") : "var(--text-secondary)", borderRight: "1px solid var(--border-light)" }}>
                                                                     {row[field] > 0 ? row[field].toLocaleString("it-IT") : "—"}
                                                                 </td>
                                                             ))}
-                                                            <td style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: 700, color: "var(--accent)" }}>
-                                                                {(() => {
-                                                                    const prod = getProduzione(row);
-                                                                    if (isSummaryRow) return prod ? prod.toFixed(1) : "—";
-                                                                    return prod ? (prod / days).toFixed(1) : "—";
-                                                                })()}
-                                                            </td>
-                                                            <td style={{ padding: "7px 12px", fontSize: 12, color: "var(--text-muted)" }}>—</td>
                                                         </tr>
                                                     );
                                                 })}
@@ -825,7 +784,8 @@ export default function SapSummaryView({ macchine = [] }) {
                         })
                     )}
                 </div>
-            )}
+            )
+            }
 
             {/* ══════════════════════════════════════
                 TAB TURNO
@@ -894,7 +854,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                             <thead>
                                                 {/* Riga Shift Target */}
                                                 <tr style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border-light)" }}>
-                                                    <td colSpan={8} style={{ padding: "8px 16px" }}>
+                                                    <td colSpan={6} style={{ padding: "8px 16px" }}>
                                                         <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
                                                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                                                 <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Shift Target</span>
@@ -906,21 +866,11 @@ export default function SapSummaryView({ macchine = [] }) {
                                                                     style={{ width: 90, padding: "4px 10px", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-primary)", fontSize: 15, fontWeight: 700, textAlign: "right" }}
                                                                 />
                                                             </div>
-                                                            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
-                                                                <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
-                                                                    Produzione: <strong style={{ fontSize: 16, color: totale > 0 ? "var(--success)" : "var(--text-muted)" }}>{totale > 0 ? totale.toLocaleString("it-IT") : "—"}</strong>
-                                                                </span>
-                                                                {pctTarget !== null && (
-                                                                    <span style={{ fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 12, border: "1px solid var(--border)", background: "var(--bg-tertiary)", color: pctTarget >= 100 ? "var(--success)" : pctTarget >= 80 ? "#F59E0B" : "var(--danger)" }}>
-                                                                        {pctTarget}% target
-                                                                    </span>
-                                                                )}
-                                                            </div>
                                                         </div>
                                                     </td>
                                                 </tr>
                                                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                                                    <td colSpan={8} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
+                                                    <td colSpan={6} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
                                                         {dateLabel} {tTurnoId ? `· Turno ${tTurnoId}` : "· Nessun dato turno"}
                                                     </td>
                                                 </tr>
@@ -933,8 +883,6 @@ export default function SapSummaryView({ macchine = [] }) {
                                                     <th style={{ ...thStyle, textAlign: "center" }}>Start Hard</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>End Hard</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>Washing</th>
-                                                    <th style={{ ...thStyle, textAlign: "center", color: "var(--accent)" }}>Media</th>
-                                                    <th style={{ ...thStyle, minWidth: 180 }}>Shift Remarks</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -979,21 +927,14 @@ export default function SapSummaryView({ macchine = [] }) {
 
                                                     return (
                                                         <tr key={componente} style={{ background: rowBg, borderBottom: isSummaryRow ? "2px solid var(--accent)" : "1px solid var(--border-light)", fontWeight: isSummaryRow ? 800 : 400 }}>
-                                                            <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: isSummaryRow ? "var(--accent)" : "inherit" }}>
+                                                            <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: isSummaryRow ? "var(--accent)" : "inherit", borderRight: "1px solid var(--border-light)" }}>
                                                                 {componente}
                                                             </td>
                                                             {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => (
-                                                                <td key={field} style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: row[field] > 0 ? 700 : 400, color: row[field] > 0 ? (isSummaryRow ? "var(--accent)" : "#D97706") : "var(--text-secondary)" }}>
+                                                                <td key={field} style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: row[field] > 0 ? 700 : 400, color: row[field] > 0 ? (isSummaryRow ? "var(--accent)" : "#D97706") : "var(--text-secondary)", borderRight: "1px solid var(--border-light)" }}>
                                                                     {row[field] > 0 ? row[field].toLocaleString("it-IT") : "—"}
                                                                 </td>
                                                             ))}
-                                                            <td style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: 700, color: "var(--accent)" }}>
-                                                                {(() => {
-                                                                    const prod = getProduzione(row);
-                                                                    return prod ? prod.toFixed(1) : "—";
-                                                                })()}
-                                                            </td>
-                                                            <td style={{ padding: "7px 12px", fontSize: 12, color: "var(--text-muted)" }}>—</td>
                                                         </tr>
                                                     );
                                                 })}

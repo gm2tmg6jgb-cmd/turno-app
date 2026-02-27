@@ -275,9 +275,9 @@ export default function AnagraficaMaterialiView({ showToast }) {
     // ──────────────────────────────────────────────────────────────────────────
 
     const filtered = materiali.filter(m =>
-        m.codice.toLowerCase().includes(search.toLowerCase()) ||
-        m.componente.toLowerCase().includes(search.toLowerCase()) ||
-        (m.progetto && m.progetto.toLowerCase().includes(search.toLowerCase()))
+        (m.codice?.toLowerCase() || "").includes(search.toLowerCase()) ||
+        (m.componente?.toLowerCase() || "").includes(search.toLowerCase()) ||
+        (m.progetto?.toLowerCase() || "").includes(search.toLowerCase())
     );
 
     const toSaveCount = importRows.filter(r => r.componente.trim()).length;
