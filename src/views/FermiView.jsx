@@ -10,13 +10,13 @@ import {
 
 /* ── tecnologie fallback (se DB non ancora popolato) ────── */
 const TECNOLOGIE_DEFAULT = [
-    { id: 'tornitura_soft', label: 'Tornitura Soft', prefissi: 'DRA',     colore: '#3B82F6', ordine: 1 },
-    { id: 'dentatrici',     label: 'Dentatrici',     prefissi: 'FRW,FRD', colore: '#F59E0B', ordine: 2 },
-    { id: 'rettifiche',     label: 'Rettifiche',     prefissi: 'SLW,SLA', colore: '#8B5CF6', ordine: 3 },
-    { id: 'stozzatrici',    label: 'Stozzatrici',    prefissi: 'STW',     colore: '#10B981', ordine: 4 },
-    { id: 'saldatrici',     label: 'Saldatrici',     prefissi: 'SCA,SDA', colore: '#EF4444', ordine: 5 },
-    { id: 'smussatrici',    label: 'Smussatrici',    prefissi: 'EGW',     colore: '#6366F1', ordine: 6 },
-    { id: 'altro',          label: 'Altro',          prefissi: '',        colore: '#6B7280', ordine: 99 },
+    { id: 'tornitura_soft', label: 'Tornitura Soft', prefissi: 'DRA', colore: '#3B82F6', ordine: 1 },
+    { id: 'dentatrici', label: 'Dentatrici', prefissi: 'FRW,FRD', colore: '#F59E0B', ordine: 2 },
+    { id: 'rettifiche', label: 'Rettifiche', prefissi: 'SLW,SLA', colore: '#8B5CF6', ordine: 3 },
+    { id: 'stozzatrici', label: 'Stozzatrici', prefissi: 'STW', colore: '#10B981', ordine: 4 },
+    { id: 'saldatrici', label: 'Saldatrici', prefissi: 'SCA,SDA', colore: '#EF4444', ordine: 5 },
+    { id: 'smussatrici', label: 'Smussatrici', prefissi: 'EGW', colore: '#6366F1', ordine: 6 },
+    { id: 'altro', label: 'Altro', prefissi: '', colore: '#6B7280', ordine: 99 },
 ];
 
 // normalizza prefissi stringa → array, e aggiunge sempre "altro" in fondo
@@ -381,7 +381,6 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
                                         <thead>
                                             <tr style={{ background: "var(--bg-tertiary)" }}>
                                                 <th style={{ textAlign: "left", padding: "12px 20px" }}>Macchina</th>
-                                                <th style={{ textAlign: "center", padding: "12px" }}>Orario</th>
                                                 <th style={{ textAlign: "left", padding: "12px" }}>Motivo / Note</th>
                                                 <th style={{ textAlign: "center", padding: "12px" }}>Durata (min)</th>
                                                 <th style={{ width: 60, padding: "12px 20px" }}></th>
@@ -398,9 +397,6 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
                                                         <td style={{ padding: "12px 20px", fontWeight: 600 }}>
                                                             {machineName}
                                                             <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 400 }}>{repartoName}</div>
-                                                        </td>
-                                                        <td style={{ textAlign: "center", padding: "12px", fontFamily: "monospace", fontSize: 13 }}>
-                                                            {f.ora_inizio ? f.ora_inizio.slice(0, 5) : "—"} – {f.ora_fine ? f.ora_fine.slice(0, 5) : "—"}
                                                         </td>
                                                         <td style={{ padding: "12px" }}>
                                                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -466,40 +462,6 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
                                     </select>
                                 </div>
 
-                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                                    <div className="form-group">
-                                        <label className="form-label">Ora inizio</label>
-                                        <input
-                                            type="time"
-                                            className="input"
-                                            value={formData.ora_inizio}
-                                            onChange={e => {
-                                                const ora_inizio = e.target.value;
-                                                setFormData(p => ({
-                                                    ...p,
-                                                    ora_inizio,
-                                                    durata_minuti: calcDurata(ora_inizio, p.ora_fine),
-                                                }));
-                                            }}
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Ora fine</label>
-                                        <input
-                                            type="time"
-                                            className="input"
-                                            value={formData.ora_fine}
-                                            onChange={e => {
-                                                const ora_fine = e.target.value;
-                                                setFormData(p => ({
-                                                    ...p,
-                                                    ora_fine,
-                                                    durata_minuti: calcDurata(p.ora_inizio, ora_fine),
-                                                }));
-                                            }}
-                                        />
-                                    </div>
-                                </div>
 
                                 <div className="form-group">
                                     <label className="form-label">Durata (min)</label>
@@ -507,7 +469,7 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
                                         type="number"
                                         min="0"
                                         className="input"
-                                        placeholder="auto da orari"
+                                        placeholder="Inserisci minuti..."
                                         value={formData.durata_minuti}
                                         onChange={e => setFormData(p => ({ ...p, durata_minuti: e.target.value }))}
                                     />

@@ -25,8 +25,8 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
     const [fermiMacchina, setFermiMacchina] = useState([]);
     const [pezziProdotti, setPezziProdotti] = useState([]);
     const [confermeSap, setConfermeSap] = useState([]);
-    const [absencesViewMode, setAbsencesViewMode] = useState("detail"); // "detail" or "aggregate"
-    const [pezziInputs, setPezziInputs] = useState({}); // { [machineId]: { qta: '', scarti: '' } }
+    const [absencesViewMode, setAbsencesViewMode] = useState("aggregate"); // "detail" or "aggregate"
+    const [pezziInputs, setPezziInputs] = useState({}); // { [machineId]: { qta: '', scarti: '', durata: '' } }
 
     // Fetch Fermi & Pezzi when Date or Turno changes
     useEffect(() => {
@@ -58,7 +58,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
         fetchData();
     }, [selectedDate, selectedTurno]);
 
-    const handlePostFermi = async (machineId, motivo) => {
+    const handlePostFermi = async (machineId, motivo, durataMin = null) => {
         if (!selectedDate) return;
         try {
             const newFermo = {
@@ -67,7 +67,8 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                 turno_id: selectedTurno || "A", // Default to A if not specified
                 motivo: motivo,
                 ora_inizio: new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
-                ora_fine: null
+                ora_fine: null,
+                durata_minuti: durataMin ? parseInt(durataMin) : null
             };
 
             const { data, error } = await supabase
@@ -215,7 +216,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
 
     const resolvedAnomalies = useMemo(() => {
         try {
-            return anomalousAbsences.map(p => {
+            const rawAnomalies = anomalousAbsences.map(p => {
                 const dateStr = p.data;
                 const d = new Date(dateStr);
                 const slotObj = getSlotForGroup(p.group, dateStr);
@@ -245,10 +246,44 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                 }
 
                 if (isAnomalous) {
-                    return { ...p, slot: slotObj, type: anomalyType, dateFormatted: new Date(dateStr).toLocaleDateString() };
+                    return { ...p, slot: slotObj, type: anomalyType };
                 }
                 return null;
-            }).filter(Boolean).sort((a, b) => new Date(b.data) - new Date(a.data));
+            }).filter(Boolean);
+
+            // Group consecutive absences
+            const groups = [];
+            let currentGroup = null;
+
+            const sorted = [...rawAnomalies].sort((a, b) => {
+                if (a.dipendente_id !== b.dipendente_id) return a.dipendente_id.localeCompare(b.dipendente_id);
+                return new Date(a.data) - new Date(b.data);
+            });
+
+            sorted.forEach(item => {
+                if (!currentGroup) {
+                    currentGroup = { ...item, dates: [item.data] };
+                    return;
+                }
+                const lastDate = new Date(currentGroup.dates[currentGroup.dates.length - 1]);
+                const nextDate = new Date(item.data);
+                const diffDays = Math.round((nextDate - lastDate) / (1000 * 60 * 60 * 24));
+
+                if (item.dipendente_id === currentGroup.dipendente_id && item.motivo_assenza === currentGroup.motivo_assenza && item.type === currentGroup.type && diffDays === 1) {
+                    currentGroup.dates.push(item.data);
+                } else {
+                    groups.push(currentGroup);
+                    currentGroup = { ...item, dates: [item.data] };
+                }
+            });
+            if (currentGroup) groups.push(currentGroup);
+
+            return groups.map(g => {
+                const first = new Date(g.dates[0]).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
+                if (g.dates.length === 1) return { ...g, dateFormatted: first };
+                const last = new Date(g.dates[g.dates.length - 1]).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
+                return { ...g, dateFormatted: `${first} - ${last}` };
+            }).sort((a, b) => new Date(b.dates[0]) - new Date(a.dates[0]));
         } catch (e) {
             console.error(e);
             return [];
@@ -260,12 +295,11 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
         try {
             const plannedReasons = ['ferie', 'rol', 'riposo_compensativo'];
 
-            return anomalousAbsences.filter(p => plannedReasons.includes(p.motivo_assenza)).map(p => {
+            const rawPlanned = anomalousAbsences.filter(p => plannedReasons.includes(p.motivo_assenza)).map(p => {
                 const dateStr = p.data;
-                // Parse date carefully to avoid timezone shifts shifting the day
                 const [year, month, day] = dateStr.split('-');
                 const d = new Date(year, month - 1, day);
-                const dayOfWeek = d.getDay(); // 0 = Sunday, 1 = Monday, 6 = Saturday
+                const dayOfWeek = d.getDay();
 
                 const slotObj = getSlotForGroup(p.group, dateStr);
                 if (!slotObj) return null;
@@ -282,10 +316,44 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                 }
 
                 if (isStrategic) {
-                    return { ...p, slot: slotObj, type: strategyType, dateFormatted: d.toLocaleDateString("it-IT") };
+                    return { ...p, slot: slotObj, type: strategyType };
                 }
                 return null;
-            }).filter(Boolean).sort((a, b) => new Date(b.data) - new Date(a.data));
+            }).filter(Boolean);
+
+            // Group consecutive absences
+            const groups = [];
+            let currentGroup = null;
+
+            const sorted = [...rawPlanned].sort((a, b) => {
+                if (a.dipendente_id !== b.dipendente_id) return a.dipendente_id.localeCompare(b.dipendente_id);
+                return new Date(a.data) - new Date(b.data);
+            });
+
+            sorted.forEach(item => {
+                if (!currentGroup) {
+                    currentGroup = { ...item, dates: [item.data] };
+                    return;
+                }
+                const lastDate = new Date(currentGroup.dates[currentGroup.dates.length - 1]);
+                const nextDate = new Date(item.data);
+                const diffDays = Math.round((nextDate - lastDate) / (1000 * 60 * 60 * 24));
+
+                if (item.dipendente_id === currentGroup.dipendente_id && item.motivo_assenza === currentGroup.motivo_assenza && item.type === currentGroup.type && diffDays === 1) {
+                    currentGroup.dates.push(item.data);
+                } else {
+                    groups.push(currentGroup);
+                    currentGroup = { ...item, dates: [item.data] };
+                }
+            });
+            if (currentGroup) groups.push(currentGroup);
+
+            return groups.map(g => {
+                const first = new Date(g.dates[0]).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
+                if (g.dates.length === 1) return { ...g, dateFormatted: first };
+                const last = new Date(g.dates[g.dates.length - 1]).toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
+                return { ...g, dateFormatted: `${first} - ${last}` };
+            }).sort((a, b) => new Date(b.dates[0]) - new Date(a.dates[0]));
         } catch (e) {
             console.error(e);
             return [];
@@ -771,19 +839,30 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                                     </div>
                                                                                                 ))}
                                                                                             </div>
-                                                                                            <select
-                                                                                                className="select-input"
-                                                                                                style={{ padding: "4px 8px", fontSize: 12, height: "auto", width: "100%" }}
-                                                                                                onChange={(e) => {
-                                                                                                    if (e.target.value) {
-                                                                                                        handlePostFermi(m.id, e.target.value);
-                                                                                                        e.target.value = "";
-                                                                                                    }
-                                                                                                }}
-                                                                                            >
-                                                                                                <option value="">+ Aggiungi fermo...</option>
-                                                                                                {motiviFermo.map(mot => <option key={mot.id} value={mot.label}>{mot.icona} {mot.label}</option>)}
-                                                                                            </select>
+                                                                                            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                                                                                                <input
+                                                                                                    type="number"
+                                                                                                    placeholder="Min"
+                                                                                                    className="input"
+                                                                                                    style={{ width: 50, height: 26, fontSize: 11, padding: "2px 6px" }}
+                                                                                                    value={pezziInputs[m.id]?.durata || ""}
+                                                                                                    onChange={e => setPezziInputs(prev => ({ ...prev, [m.id]: { ...(prev[m.id] || {}), durata: e.target.value } }))}
+                                                                                                />
+                                                                                                <select
+                                                                                                    className="select-input"
+                                                                                                    style={{ padding: "4px 8px", fontSize: 12, height: 26, width: "100%", flex: 1 }}
+                                                                                                    onChange={(e) => {
+                                                                                                        if (e.target.value) {
+                                                                                                            handlePostFermi(m.id, e.target.value, pezziInputs[m.id]?.durata);
+                                                                                                            setPezziInputs(prev => ({ ...prev, [m.id]: { ...(prev[m.id] || {}), durata: "" } }));
+                                                                                                            e.target.value = "";
+                                                                                                        }
+                                                                                                    }}
+                                                                                                >
+                                                                                                    <option value="">+ Motivazione...</option>
+                                                                                                    {motiviFermo.map(mot => <option key={mot.id} value={mot.label}>{mot.icona} {mot.label}</option>)}
+                                                                                                </select>
+                                                                                            </div>
                                                                                         </div>
                                                                                     </td>
                                                                                 </tr>
@@ -923,19 +1002,30 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                             </div>
                                                                                         ))}
                                                                                     </div>
-                                                                                    <select
-                                                                                        className="select-input"
-                                                                                        style={{ padding: "4px 8px", fontSize: 12, height: "auto", width: "100%" }}
-                                                                                        onChange={(e) => {
-                                                                                            if (e.target.value) {
-                                                                                                handlePostFermi(m.id, e.target.value);
-                                                                                                e.target.value = "";
-                                                                                            }
-                                                                                        }}
-                                                                                    >
-                                                                                        <option value="">+ Aggiungi fermo...</option>
-                                                                                        {motiviFermo.map(mot => <option key={mot.id} value={mot.label}>{mot.icona} {mot.label}</option>)}
-                                                                                    </select>
+                                                                                    <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                                                                                        <input
+                                                                                            type="number"
+                                                                                            placeholder="Min"
+                                                                                            className="input"
+                                                                                            style={{ width: 50, height: 26, fontSize: 11, padding: "2px 6px" }}
+                                                                                            value={pezziInputs[m.id]?.durata || ""}
+                                                                                            onChange={e => setPezziInputs(prev => ({ ...prev, [m.id]: { ...(prev[m.id] || {}), durata: e.target.value } }))}
+                                                                                        />
+                                                                                        <select
+                                                                                            className="select-input"
+                                                                                            style={{ padding: "4px 8px", fontSize: 12, height: 26, width: "100%", flex: 1 }}
+                                                                                            onChange={(e) => {
+                                                                                                if (e.target.value) {
+                                                                                                    handlePostFermi(m.id, e.target.value, pezziInputs[m.id]?.durata);
+                                                                                                    setPezziInputs(prev => ({ ...prev, [m.id]: { ...(prev[m.id] || {}), durata: "" } }));
+                                                                                                    e.target.value = "";
+                                                                                                }
+                                                                                            }}
+                                                                                        >
+                                                                                            <option value="">+ Motivazione...</option>
+                                                                                            {motiviFermo.map(mot => <option key={mot.id} value={mot.label}>{mot.icona} {mot.label}</option>)}
+                                                                                        </select>
+                                                                                    </div>
                                                                                 </div>
                                                                             </td>
                                                                         </tr>
@@ -1144,9 +1234,9 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                         <tbody>
                                             {resolvedAnomalies.map((a, idx) => (
                                                 <tr key={idx}>
-                                                    <td style={{ fontWeight: 600, color: "var(--text-primary)" }}>{a.dateFormatted}</td>
+                                                    <td style={{ fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap" }}>{a.dateFormatted}</td>
                                                     <td style={{ fontWeight: 600, fontSize: 15 }}>{a.dipendente.cognome} {a.dipendente.nome.charAt(0)}.</td>
-                                                    <td style={{ textAlign: "center", color: "var(--text-primary)" }}>{a.group}</td>
+                                                    <td style={{ textAlign: "center", color: "var(--text-primary)" }}>{a.dates.length > 1 ? "Vari" : a.group}</td>
                                                     <td style={{ color: "var(--text-muted)" }}>
                                                         {motivi.find(m => m.id === a.motivo_assenza)?.label || a.motivo_assenza || "Assenza"}
                                                     </td>
@@ -1195,9 +1285,9 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                     <tbody>
                                         {plannedAnomalies.map((a, idx) => (
                                             <tr key={idx}>
-                                                <td style={{ fontWeight: 600, color: "var(--text-primary)" }}>{a.dateFormatted}</td>
+                                                <td style={{ fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap" }}>{a.dateFormatted}</td>
                                                 <td style={{ fontWeight: 600, fontSize: 15 }}>{a.dipendente.cognome} {a.dipendente.nome.charAt(0)}.</td>
-                                                <td style={{ textAlign: "center", color: "var(--text-primary)" }}>{a.group}</td>
+                                                <td style={{ textAlign: "center", color: "var(--text-primary)" }}>{a.dates.length > 1 ? "Vari" : a.group}</td>
                                                 <td style={{ color: "var(--text-muted)" }}>
                                                     {motivi.find(m => m.id === a.motivo_assenza)?.label || a.motivo_assenza || "Assenza"}
                                                 </td>
@@ -1232,7 +1322,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                 <thead>
                                     <tr>
                                         <th>Macchina</th>
-                                        <th>Orario</th>
+                                        <th style={{ textAlign: "center" }}>Durata (min)</th>
                                         <th>Motivo</th>
                                         <th style={{ textAlign: "center" }}>Azioni</th>
                                     </tr>
@@ -1240,10 +1330,22 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                 <tbody>
                                     {fermiMacchina.map((f, idx) => {
                                         const mName = macchine.find(m => m.id === f.macchina_id)?.nome || f.macchina_id;
+
+                                        // Calc duration if not present in DB
+                                        let displayDurata = f.durata_minuti;
+                                        if (!displayDurata && f.ora_inizio && f.ora_fine) {
+                                            const [ih, im] = f.ora_inizio.split(":").map(Number);
+                                            const [fh, fm] = f.ora_fine.split(":").map(Number);
+                                            const diff = (fh * 60 + fm) - (ih * 60 + im);
+                                            if (diff > 0) displayDurata = diff;
+                                        }
+
                                         return (
                                             <tr key={idx}>
                                                 <td style={{ fontWeight: 600 }}>{mName}</td>
-                                                <td>{f.ora_inizio?.slice(0, 5)} - {f.ora_fine?.slice(0, 5)}</td>
+                                                <td style={{ textAlign: "center", fontWeight: 700, color: "var(--danger)" }}>
+                                                    {displayDurata ? `${displayDurata} min` : "—"}
+                                                </td>
                                                 <td>{f.motivo}</td>
                                                 <td style={{ textAlign: "center" }}>
                                                     <button

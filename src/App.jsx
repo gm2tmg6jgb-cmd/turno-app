@@ -297,14 +297,14 @@ export default function App() {
             ) : null;
             return (
               <>
-                <div className="nav-section-label">Sviluppo HR</div>
-                {renderItem(ni("skills"))}
-                {renderItem(ni("formazione"))}
-
                 <div className="nav-section-label">Operatività</div>
                 {renderItem(ni("dashboard"))}
                 {renderItem(ni("planning"))}
                 {renderItem(ni("assegnazioni"))}
+
+                <div className="nav-section-label">Sviluppo HR</div>
+                {renderItem(ni("skills"))}
+                {renderItem(ni("formazione"))}
 
                 <div className="nav-section-label">Report & Dati</div>
                 {renderItem(ni("report"))}

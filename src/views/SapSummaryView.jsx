@@ -55,6 +55,126 @@ function getWeekDays(mondayStr) {
     return days;
 }
 
+function FermiPopup({ isOpen, onClose, date, machines, turnoId, macchineAnagrafica }) {
+    const [fermi, setFermi] = useState([]);
+    const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (isOpen && (date || machines?.length)) {
+            fetchFermi();
+        }
+    }, [isOpen, date, machines, turnoId]);
+
+    const fetchFermi = async () => {
+        setLoading(true);
+        let query = supabase
+            .from("fermi_macchina")
+            .select("*")
+            .order("ora_inizio", { ascending: true });
+
+        if (Array.isArray(date)) {
+            query = query.gte("data", date[0]).lte("data", date[date.length - 1]);
+        } else {
+            query = query.eq("data", date);
+        }
+
+        if (turnoId) {
+            query = query.eq("turno_id", turnoId);
+        }
+
+        if (machines && machines.length > 0) {
+            // machines contains either machine IDs or SAP work center codes
+            // We need to match against macchina_id in fermi_macchina
+            // First, find all machine IDs that match the provided machines (which could be codes)
+            const machineIds = machines.map(m => {
+                const found = macchineAnagrafica.find(ma =>
+                    ma.id === m || (ma.codice_sap && ma.codice_sap.toUpperCase() === m.toUpperCase())
+                );
+                return found ? found.id : m;
+            });
+            query = query.in("macchina_id", machineIds);
+        }
+
+        const { data, error } = await query;
+        if (error) console.error("Errore fetchFermi:", error);
+        else setFermi(data || []);
+        setLoading(false);
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div style={{
+            position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+            background: "rgba(0,0,0,0.5)", zIndex: 1000,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 20, backdropFilter: "blur(4px)"
+        }} onClick={onClose}>
+            <div style={{
+                background: "var(--bg-card)", borderRadius: 12,
+                width: "100%", maxWidth: 800, maxHeight: "90vh",
+                display: "flex", flexDirection: "column",
+                boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)",
+                border: "1px solid var(--border)"
+            }} onClick={e => e.stopPropagation()}>
+                <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                        <h3 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Fermi Macchina</h3>
+                        <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "4px 0 0 0" }}>
+                            {Array.isArray(date)
+                                ? `Dal ${date[0].split('-').reverse().join('/')} al ${date[date.length - 1].split('-').reverse().join('/')}`
+                                : `Data: ${date.split('-').reverse().join('/')}`}
+                            {turnoId && ` · Turno ${turnoId}`}
+                        </p>
+                    </div>
+                    <button className="btn-ghost" onClick={onClose} style={{ padding: 8 }}>{Icons.x}</button>
+                </div>
+
+                <div style={{ padding: 24, overflowY: "auto", flex: 1 }}>
+                    {loading ? (
+                        <div style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>Caricamento fermi...</div>
+                    ) : fermi.length === 0 ? (
+                        <div style={{ textAlign: "center", padding: 40, color: "var(--text-muted)", fontStyle: "italic" }}>
+                            Nessun fermo registrato per questa selezione.
+                        </div>
+                    ) : (
+                        <div className="table-container">
+                            <table style={{ width: "100%" }}>
+                                <thead>
+                                    <tr style={{ background: "var(--bg-tertiary)" }}>
+                                        <th style={{ textAlign: "left", padding: "10px 12px", fontSize: 11, textTransform: "uppercase" }}>Macchina</th>
+                                        <th style={{ textAlign: "left", padding: "10px 12px", fontSize: 11, textTransform: "uppercase" }}>Motivo</th>
+                                        <th style={{ textAlign: "center", padding: "10px 12px", fontSize: 11, textTransform: "uppercase" }}>Durata</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {fermi.map(f => {
+                                        const m = macchineAnagrafica.find(ma => ma.id === f.macchina_id);
+                                        return (
+                                            <tr key={f.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                                <td style={{ padding: "10px 12px", fontSize: 13, fontWeight: 600 }}>{m?.nome || f.macchina_id}</td>
+                                                <td style={{ padding: "10px 12px", fontSize: 13 }}>
+                                                    <div style={{ fontWeight: 600 }}>{f.motivo}</div>
+                                                    {f.note && <div style={{ fontSize: 11, color: "var(--text-muted)", fontStyle: "italic" }}>{f.note}</div>}
+                                                </td>
+                                                <td style={{ padding: "10px 12px", textAlign: "center", fontSize: 13, fontWeight: 700 }}>{f.durata_minuti || 0} min</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+
+                <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end" }}>
+                    <button className="btn btn-secondary" onClick={onClose}>Chiudi</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export default function SapSummaryView({ macchine = [] }) {
     const [activeTab, setActiveTab] = useState("turno");
 
@@ -87,6 +207,12 @@ export default function SapSummaryView({ macchine = [] }) {
         return null;
     };
 
+    // ── Mapping Macchine per Fase (Sempre Collegate) ──
+    const PHASE_MACHINE_MAPPING = {
+        "DCT 300::SG1::start_soft": ["SCA11008"],
+        // Aggiungi qui altri mapping se necessario
+    };
+
     // ── Giornaliero state ──
     const [gDate, setGDate] = useState(getLocalDate(new Date()));
     const [gData, setGData] = useState({});
@@ -107,6 +233,13 @@ export default function SapSummaryView({ macchine = [] }) {
     const [tLoading, setTLoading] = useState(false);
     const [tTargets, setTTargets] = useState({});
     const [tAvailableTurni, setTAvailableTurni] = useState([]);
+
+    // ── Popup Fermi state ──
+    const [popupData, setPopupData] = useState({ isOpen: false, date: null, machines: [], turnoId: null });
+
+    const openFermiPopup = (date, machines, turnoId = null) => {
+        setPopupData({ isOpen: true, date, machines, turnoId });
+    };
 
     // Debounce ref per salvataggio target
     const saveTimerRef = useRef({});
@@ -138,12 +271,29 @@ export default function SapSummaryView({ macchine = [] }) {
         setGLoading(true);
         const { data: rows, error: gErr } = await supabase
             .from("conferme_sap")
-            .select("materiale, work_center_sap, qta_ottenuta")
+            .select("materiale, work_center_sap, qta_ottenuta, macchina_id")
             .eq("data", gDate);
         if (gErr) { console.error("Errore loadGiornaliero:", gErr); setGLoading(false); return; }
 
         if (rows) {
             const map = {};
+            // Pre-fill with manual mappings from PHASE_MACHINE_MAPPING
+            PROGETTI_GIORNALIERO.forEach(proj => {
+                proj.componenti.forEach(comp => {
+                    ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(stage => {
+                        const mapped = PHASE_MACHINE_MAPPING[`${proj.id}::${comp}::${stage}`];
+                        if (mapped) {
+                            const key = `${proj.id}::${comp}`;
+                            if (!map[key]) map[key] = {
+                                start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0,
+                                machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), washing: new Set() }
+                            };
+                            mapped.forEach(mId => map[key].machines[stage].add(mId));
+                        }
+                    });
+                });
+            });
+
             let mapped = 0;
             const unmappedMateriali = new Set();
             rows.forEach(r => {
@@ -153,11 +303,26 @@ export default function SapSummaryView({ macchine = [] }) {
                     return;
                 }
                 const key = `${info.progetto}::${info.componente}`;
-                if (!map[key]) map[key] = { start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0 };
+                if (!map[key]) map[key] = {
+                    start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0,
+                    machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), washing: new Set() }
+                };
                 mapped++;
                 const stage = getStageFromWC(r.work_center_sap);
-                if (stage) map[key][stage] = (map[key][stage] || 0) + (r.qta_ottenuta || 0);
+                if (stage) {
+                    map[key][stage] = (map[key][stage] || 0) + (r.qta_ottenuta || 0);
+                    if (r.macchina_id) map[key].machines[stage].add(r.macchina_id);
+                    if (r.work_center_sap) map[key].machines[stage].add(r.work_center_sap);
+                }
             });
+
+            // Convert Sets to Arrays for easier usage
+            Object.keys(map).forEach(key => {
+                Object.keys(map[key].machines).forEach(stage => {
+                    map[key].machines[stage] = Array.from(map[key].machines[stage]);
+                });
+            });
+
             setGData(map);
             setGDiag({ total: rows.length, mapped, unmapped: [...unmappedMateriali] });
         }
@@ -192,21 +357,53 @@ export default function SapSummaryView({ macchine = [] }) {
         const sunday = days[6];
         const { data: rows, error: wErr } = await supabase
             .from("conferme_sap")
-            .select("materiale, work_center_sap, qta_ottenuta")
+            .select("materiale, work_center_sap, qta_ottenuta, macchina_id")
             .gte("data", wWeek)
             .lte("data", sunday);
         if (wErr) { console.error("Errore loadSettimanale:", wErr); setWLoading(false); return; }
 
         if (rows) {
             const map = {};
+            // Pre-fill with manual mappings from PHASE_MACHINE_MAPPING
+            PROGETTI_GIORNALIERO.forEach(proj => {
+                proj.componenti.forEach(comp => {
+                    ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(stage => {
+                        const mapped = PHASE_MACHINE_MAPPING[`${proj.id}::${comp}::${stage}`];
+                        if (mapped) {
+                            const key = `${proj.id}::${comp}`;
+                            if (!map[key]) map[key] = {
+                                start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0,
+                                machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), washing: new Set() }
+                            };
+                            mapped.forEach(mId => map[key].machines[stage].add(mId));
+                        }
+                    });
+                });
+            });
+
             rows.forEach(r => {
                 const info = anagrafica[(r.materiale || "").toUpperCase()];
                 if (!info?.componente || !info?.progetto) return;
                 const key = `${info.progetto}::${info.componente}`;
-                if (!map[key]) map[key] = { start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0 };
+                if (!map[key]) map[key] = {
+                    start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0,
+                    machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), washing: new Set() }
+                };
                 const stage = getStageFromWC(r.work_center_sap);
-                if (stage) map[key][stage] = (map[key][stage] || 0) + (r.qta_ottenuta || 0);
+                if (stage) {
+                    map[key][stage] = (map[key][stage] || 0) + (r.qta_ottenuta || 0);
+                    if (r.macchina_id) map[key].machines[stage].add(r.macchina_id);
+                    if (r.work_center_sap) map[key].machines[stage].add(r.work_center_sap);
+                }
             });
+
+            // Convert Sets to Arrays
+            Object.keys(map).forEach(key => {
+                Object.keys(map[key].machines).forEach(stage => {
+                    map[key].machines[stage] = Array.from(map[key].machines[stage]);
+                });
+            });
+
             setWData(map);
         }
         setWLoading(false);
@@ -230,20 +427,52 @@ export default function SapSummaryView({ macchine = [] }) {
         setTLoading(true);
         const { data: rows, error: tErr } = await supabase
             .from("conferme_sap")
-            .select("materiale, work_center_sap, qta_ottenuta")
+            .select("materiale, work_center_sap, qta_ottenuta, macchina_id")
             .eq("data", tDate)
             .eq("turno_id", tTurnoId);
         if (tErr) { console.error("Errore loadTurno:", tErr); setTLoading(false); return; }
         if (rows) {
             const map = {};
+            // Pre-fill with manual mappings from PHASE_MACHINE_MAPPING
+            PROGETTI_GIORNALIERO.forEach(proj => {
+                proj.componenti.forEach(comp => {
+                    ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(stage => {
+                        const mapped = PHASE_MACHINE_MAPPING[`${proj.id}::${comp}::${stage}`];
+                        if (mapped) {
+                            const key = `${proj.id}::${comp}`;
+                            if (!map[key]) map[key] = {
+                                start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0,
+                                machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), washing: new Set() }
+                            };
+                            mapped.forEach(mId => map[key].machines[stage].add(mId));
+                        }
+                    });
+                });
+            });
+
             rows.forEach(r => {
                 const info = anagrafica[(r.materiale || "").toUpperCase()];
                 if (!info?.componente || !info?.progetto) return;
                 const key = `${info.progetto}::${info.componente}`;
-                if (!map[key]) map[key] = { start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0 };
+                if (!map[key]) map[key] = {
+                    start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0,
+                    machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), washing: new Set() }
+                };
                 const stage = getStageFromWC(r.work_center_sap);
-                if (stage) map[key][stage] = (map[key][stage] || 0) + (r.qta_ottenuta || 0);
+                if (stage) {
+                    map[key][stage] = (map[key][stage] || 0) + (r.qta_ottenuta || 0);
+                    if (r.macchina_id) map[key].machines[stage].add(r.macchina_id);
+                    if (r.work_center_sap) map[key].machines[stage].add(r.work_center_sap);
+                }
             });
+
+            // Convert Sets to Arrays
+            Object.keys(map).forEach(key => {
+                Object.keys(map[key].machines).forEach(stage => {
+                    map[key].machines[stage] = Array.from(map[key].machines[stage]);
+                });
+            });
+
             setTData(map);
         }
         setTLoading(false);
@@ -465,21 +694,7 @@ export default function SapSummaryView({ macchine = [] }) {
                             </button>
                         </div>
                         <div style={{ marginLeft: "auto", paddingTop: 20, fontSize: 12, color: "var(--text-muted)", maxWidth: 500 }}>
-                            {gDiag == null ? null : gDiag.total === 0
-                                ? "⚠️ Nessuna riga in conferme_sap per questa data"
-                                : <>
-                                    <div style={{ color: gDiag.mapped === 0 ? "var(--danger)" : "var(--success)" }}>
-                                        {gDiag.mapped === 0
-                                            ? `⚠️ ${gDiag.total} righe trovate ma 0 mappate`
-                                            : `✓ ${gDiag.total} righe trovate, ${gDiag.mapped} mappate`}
-                                    </div>
-                                    {gDiag.unmapped?.length > 0 && (
-                                        <div style={{ marginTop: 4, color: "#F59E0B", fontSize: 11 }}>
-                                            Non mappati: {gDiag.unmapped.slice(0, 5).join(" | ")}{gDiag.unmapped.length > 5 ? ` +${gDiag.unmapped.length - 5}` : ""}
-                                        </div>
-                                    )}
-                                </>
-                            }
+                            {/* Diagnostica materiali nascosta su richiesta utente */}
                         </div>
                     </div>
 
@@ -518,7 +733,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                             <thead>
                                                 {/* Riga Daily Target + Days */}
                                                 <tr style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border-light)" }}>
-                                                    <td colSpan={6} style={{ padding: "8px 16px" }}>
+                                                    <td colSpan={7} style={{ padding: "8px 16px" }}>
                                                         <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
                                                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                                                 <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Daily Target</span>
@@ -546,7 +761,7 @@ export default function SapSummaryView({ macchine = [] }) {
 
                                                 {/* Riga data */}
                                                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                                                    <td colSpan={6} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
+                                                    <td colSpan={7} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
                                                         {dateLabel}
                                                     </td>
                                                 </tr>
@@ -574,7 +789,10 @@ export default function SapSummaryView({ macchine = [] }) {
 
                                                     // Logica di aggregazione per righe di riepilogo
                                                     if (isSummaryRow) {
-                                                        const calculatedRow = { start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0 };
+                                                        const calculatedRow = {
+                                                            start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0,
+                                                            machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), washing: new Set() }
+                                                        };
                                                         let children = [];
 
                                                         if (isBap) {
@@ -595,10 +813,16 @@ export default function SapSummaryView({ macchine = [] }) {
                                                             const cData = gData[`${proj.id}::${c}`] || {};
                                                             ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(f => {
                                                                 calculatedRow[f] += (cData[f] || 0);
+                                                                if (cData.machines?.[f]) {
+                                                                    cData.machines[f].forEach(m => calculatedRow.machines[f].add(m));
+                                                                }
                                                             });
                                                         });
 
-                                                        // Mostra la MEDIA per tutte le fasi nelle righe di riepilogo
+                                                        // Convert Sets to Arrays for render
+                                                        ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(f => {
+                                                            calculatedRow.machines[f] = Array.from(calculatedRow.machines[f]);
+                                                        });
                                                         row = calculatedRow;
                                                     }
 
@@ -610,14 +834,33 @@ export default function SapSummaryView({ macchine = [] }) {
                                                             <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: isSummaryRow ? "var(--accent)" : "inherit", borderRight: "1px solid var(--border-light)" }}>
                                                                 {componente}
                                                             </td>
-                                                            {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => (
-                                                                <td key={field} style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: row[field] > 0 ? 700 : 400, color: row[field] > 0 ? (isSummaryRow ? "var(--accent)" : "#D97706") : "var(--text-secondary)", borderRight: "1px solid var(--border-light)" }}>
-                                                                    {row[field] > 0 ? row[field].toLocaleString("it-IT") : "—"}
-                                                                </td>
-                                                            ))}
+                                                            {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => {
+                                                                const value = row[field];
+                                                                const machineList = row.machines?.[field] || [];
+
+                                                                return (
+                                                                    <td
+                                                                        key={field}
+                                                                        style={{
+                                                                            padding: "7px 12px",
+                                                                            textAlign: "center",
+                                                                            fontSize: 13,
+                                                                            fontWeight: value > 0 ? 700 : (machineList.length > 0 ? 600 : 400),
+                                                                            color: value > 0 ? (isSummaryRow ? "var(--accent)" : "#D97706") : (machineList.length > 0 ? "var(--accent)" : "var(--text-secondary)"),
+                                                                            borderRight: "1px solid var(--border-light)",
+                                                                            cursor: (value > 0 || machineList.length > 0) ? "pointer" : "default"
+                                                                        }}
+                                                                        onClick={() => (value > 0 || machineList.length > 0) && openFermiPopup(gDate, machineList)}
+                                                                        title={(value > 0 || machineList.length > 0) ? "Clicca per vedere i fermi macchina" : ""}
+                                                                    >
+                                                                        {value > 0 ? value.toLocaleString("it-IT") : (machineList.length > 0 ? "0" : "—")}
+                                                                    </td>
+                                                                );
+                                                            })}
                                                         </tr>
                                                     );
                                                 })}
+
                                             </tbody>
                                         </table>
                                     </div>
@@ -686,7 +929,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                             <thead>
                                                 {/* Riga Weekly Target */}
                                                 <tr style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border-light)" }}>
-                                                    <td colSpan={6} style={{ padding: "8px 16px" }}>
+                                                    <td colSpan={7} style={{ padding: "8px 16px" }}>
                                                         <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
                                                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                                                 <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Weekly Target</span>
@@ -704,7 +947,7 @@ export default function SapSummaryView({ macchine = [] }) {
 
                                                 {/* Riga settimana */}
                                                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                                                    <td colSpan={6} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
+                                                    <td colSpan={7} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
                                                         {weekLabel}
                                                     </td>
                                                 </tr>
@@ -732,7 +975,10 @@ export default function SapSummaryView({ macchine = [] }) {
 
                                                     // Logica di aggregazione per righe di riepilogo
                                                     if (isSummaryRow) {
-                                                        const calculatedRow = { start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0 };
+                                                        const calculatedRow = {
+                                                            start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0,
+                                                            machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), washing: new Set() }
+                                                        };
                                                         let children = [];
 
                                                         if (isBap) {
@@ -753,10 +999,16 @@ export default function SapSummaryView({ macchine = [] }) {
                                                             const cData = wData[`${proj.id}::${c}`] || {};
                                                             ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(f => {
                                                                 calculatedRow[f] += (cData[f] || 0);
+                                                                if (cData.machines?.[f]) {
+                                                                    cData.machines[f].forEach(m => calculatedRow.machines[f].add(m));
+                                                                }
                                                             });
                                                         });
 
-                                                        // Mostra la MEDIA per tutte le fasi nelle righe di riepilogo
+                                                        // Convert Sets to Arrays for render
+                                                        ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(f => {
+                                                            calculatedRow.machines[f] = Array.from(calculatedRow.machines[f]);
+                                                        });
                                                         row = calculatedRow;
                                                     }
 
@@ -768,14 +1020,33 @@ export default function SapSummaryView({ macchine = [] }) {
                                                             <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: isSummaryRow ? "var(--accent)" : "inherit", borderRight: "1px solid var(--border-light)" }}>
                                                                 {componente}
                                                             </td>
-                                                            {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => (
-                                                                <td key={field} style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: row[field] > 0 ? 700 : 400, color: row[field] > 0 ? (isSummaryRow ? "var(--accent)" : "#D97706") : "var(--text-secondary)", borderRight: "1px solid var(--border-light)" }}>
-                                                                    {row[field] > 0 ? row[field].toLocaleString("it-IT") : "—"}
-                                                                </td>
-                                                            ))}
+                                                            {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => {
+                                                                const value = row[field];
+                                                                const machineList = row.machines?.[field] || [];
+
+                                                                return (
+                                                                    <td
+                                                                        key={field}
+                                                                        style={{
+                                                                            padding: "7px 12px",
+                                                                            textAlign: "center",
+                                                                            fontSize: 13,
+                                                                            fontWeight: value > 0 ? 700 : (machineList.length > 0 ? 600 : 400),
+                                                                            color: value > 0 ? (isSummaryRow ? "var(--accent)" : "#D97706") : (machineList.length > 0 ? "var(--accent)" : "var(--text-secondary)"),
+                                                                            borderRight: "1px solid var(--border-light)",
+                                                                            cursor: (value > 0 || machineList.length > 0) ? "pointer" : "default"
+                                                                        }}
+                                                                        onClick={() => (value > 0 || machineList.length > 0) && openFermiPopup(getWeekDays(wWeek), machineList)}
+                                                                        title={(value > 0 || machineList.length > 0) ? "Clicca per vedere i fermi macchina" : ""}
+                                                                    >
+                                                                        {value > 0 ? value.toLocaleString("it-IT") : (machineList.length > 0 ? "0" : "—")}
+                                                                    </td>
+                                                                );
+                                                            })}
                                                         </tr>
                                                     );
                                                 })}
+
                                             </tbody>
                                         </table>
                                     </div>
@@ -854,7 +1125,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                             <thead>
                                                 {/* Riga Shift Target */}
                                                 <tr style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border-light)" }}>
-                                                    <td colSpan={6} style={{ padding: "8px 16px" }}>
+                                                    <td colSpan={7} style={{ padding: "8px 16px" }}>
                                                         <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
                                                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                                                 <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Shift Target</span>
@@ -870,7 +1141,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                                     </td>
                                                 </tr>
                                                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                                                    <td colSpan={6} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
+                                                    <td colSpan={7} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
                                                         {dateLabel} {tTurnoId ? `· Turno ${tTurnoId}` : "· Nessun dato turno"}
                                                     </td>
                                                 </tr>
@@ -896,7 +1167,10 @@ export default function SapSummaryView({ macchine = [] }) {
 
                                                     // Logica di aggregazione per righe di riepilogo
                                                     if (isSummaryRow) {
-                                                        const calculatedRow = { start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0 };
+                                                        const calculatedRow = {
+                                                            start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0,
+                                                            machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), washing: new Set() }
+                                                        };
                                                         let children = [];
 
                                                         if (isBap) {
@@ -917,7 +1191,15 @@ export default function SapSummaryView({ macchine = [] }) {
                                                             const cData = tData[`${proj.id}::${c}`] || {};
                                                             ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(f => {
                                                                 calculatedRow[f] += (cData[f] || 0);
+                                                                if (cData.machines?.[f]) {
+                                                                    cData.machines[f].forEach(m => calculatedRow.machines[f].add(m));
+                                                                }
                                                             });
+                                                        });
+
+                                                        // Convert Sets to Arrays for render
+                                                        ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(f => {
+                                                            calculatedRow.machines[f] = Array.from(calculatedRow.machines[f]);
                                                         });
                                                         row = calculatedRow;
                                                     }
@@ -930,14 +1212,33 @@ export default function SapSummaryView({ macchine = [] }) {
                                                             <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: isSummaryRow ? "var(--accent)" : "inherit", borderRight: "1px solid var(--border-light)" }}>
                                                                 {componente}
                                                             </td>
-                                                            {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => (
-                                                                <td key={field} style={{ padding: "7px 12px", textAlign: "center", fontSize: 13, fontWeight: row[field] > 0 ? 700 : 400, color: row[field] > 0 ? (isSummaryRow ? "var(--accent)" : "#D97706") : "var(--text-secondary)", borderRight: "1px solid var(--border-light)" }}>
-                                                                    {row[field] > 0 ? row[field].toLocaleString("it-IT") : "—"}
-                                                                </td>
-                                                            ))}
+                                                            {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => {
+                                                                const value = row[field];
+                                                                const machineList = row.machines?.[field] || [];
+
+                                                                return (
+                                                                    <td
+                                                                        key={field}
+                                                                        style={{
+                                                                            padding: "7px 12px",
+                                                                            textAlign: "center",
+                                                                            fontSize: 13,
+                                                                            fontWeight: value > 0 ? 700 : (machineList.length > 0 ? 600 : 400),
+                                                                            color: value > 0 ? (isSummaryRow ? "var(--accent)" : "#D97706") : (machineList.length > 0 ? "var(--accent)" : "var(--text-secondary)"),
+                                                                            borderRight: "1px solid var(--border-light)",
+                                                                            cursor: (value > 0 || machineList.length > 0) ? "pointer" : "default"
+                                                                        }}
+                                                                        onClick={() => (value > 0 || machineList.length > 0) && openFermiPopup(tDate, machineList, tTurnoId)}
+                                                                        title={(value > 0 || machineList.length > 0) ? "Clicca per vedere i fermi macchina" : ""}
+                                                                    >
+                                                                        {value > 0 ? value.toLocaleString("it-IT") : (machineList.length > 0 ? "0" : "—")}
+                                                                    </td>
+                                                                );
+                                                            })}
                                                         </tr>
                                                     );
                                                 })}
+
                                             </tbody>
                                         </table>
                                     </div>
@@ -948,6 +1249,14 @@ export default function SapSummaryView({ macchine = [] }) {
                 </div>
             )}
 
+            <FermiPopup
+                isOpen={popupData.isOpen}
+                onClose={() => setPopupData({ ...popupData, isOpen: false })}
+                date={popupData.date}
+                machines={popupData.machines}
+                turnoId={popupData.turnoId}
+                macchineAnagrafica={macchine}
+            />
         </div>
     );
 }
