@@ -115,13 +115,15 @@ export default function App() {
             .eq('data', today);
 
           if (count === 0) {
-            const newPresenze = dipHelper.map(d => ({
-              dipendente_id: d.id,
-              data: today,
-              turno_id: d.turno_default || "D",
-              presente: true,
-              motivo_assenza: null
-            }));
+            const newPresenze = dipHelper
+              .filter(d => d.attivo !== false) // Filter out terminated workers
+              .map(d => ({
+                dipendente_id: d.id,
+                data: today,
+                turno_id: d.turno_default || "D",
+                presente: true,
+                motivo_assenza: null
+              }));
 
             const { data: insertedPres, error: errInsert } = await supabase
               .from('presenze')

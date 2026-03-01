@@ -8,6 +8,7 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
     const [searchTerm, setSearchTerm] = useState("");
     const [filterReparto, setFilterReparto] = useState("all");
     const [filterTipo, setFilterTipo] = useState("all");
+    const [filterStato, setFilterStato] = useState("attivo"); // New state filter: active by default
     const [showAllShifts, setShowAllShifts] = useState(false); // Toggle state
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -15,6 +16,7 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
     const [newDip, setNewDip] = useState({
         nome: "", cognome: "", turno: "D", reparto: "T11", tipo: "indeterminato",
         competenze: {}, ruolo: "operatore", agenzia: "", scadenza: "", l104: "",
+        attivo: true, data_fine_rapporto: ""
     });
 
     const filtered = dipendenti.filter((d) => {
@@ -22,11 +24,16 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
         const matchReparto = filterReparto === "all" || d.reparto_id === filterReparto;
         const matchTipo = filterTipo === "all" || d.tipo === filterTipo;
 
+        // Filter by state
+        const matchStato = filterStato === "all" ||
+            (filterStato === "attivo" && (d.attivo !== false)) ||
+            (filterStato === "cessato" && d.attivo === false);
+
         // STRICT FILTER: Only show employees of the CURRENT ACTIVE SHIFT unless "Show All" is checked
         // Fallback to 'D' if d.turno_default is missing.
         const matchTurno = showAllShifts || d.turno_default === turnoCorrente;
 
-        return matchSearch && matchReparto && matchTipo && matchTurno;
+        return matchSearch && matchReparto && matchTipo && matchTurno && matchStato;
     }).sort((a, b) => a.cognome.localeCompare(b.cognome) || a.nome.localeCompare(b.nome));
 
     const handleSave = async () => {
@@ -44,7 +51,9 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
                     ruolo: newDip.ruolo,
                     agenzia: newDip.tipo === 'interinale' ? (newDip.agenzia || null) : null,
                     scadenza: newDip.tipo === 'interinale' ? (newDip.scadenza || null) : null,
-                    l104: newDip.l104 || null
+                    l104: newDip.l104 || null,
+                    attivo: newDip.attivo ?? true,
+                    data_fine_rapporto: newDip.attivo === false ? (newDip.data_fine_rapporto || null) : null
                 };
 
                 const { error } = await supabase
@@ -70,7 +79,9 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
                     // Optional fields
                     agenzia: newDip.tipo === 'interinale' ? (newDip.agenzia || null) : null,
                     scadenza: newDip.tipo === 'interinale' ? (newDip.scadenza || null) : null,
-                    l104: newDip.l104 || null
+                    l104: newDip.l104 || null,
+                    attivo: newDip.attivo ?? true,
+                    data_fine_rapporto: newDip.attivo === false ? (newDip.data_fine_rapporto || null) : null
                 };
 
                 const { data, error } = await supabase
@@ -102,7 +113,9 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
             ruolo: "operatore",
             agenzia: "",
             scadenza: "",
-            l104: ""
+            l104: "",
+            attivo: true,
+            data_fine_rapporto: ""
         });
         setIsEditing(false);
         setCurrentDipId(null);
@@ -151,6 +164,12 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
                     <option value="interinale">Interinale</option>
                 </select>
 
+                <select className="select-input" style={{ width: 140 }} value={filterStato} onChange={(e) => setFilterStato(e.target.value)}>
+                    <option value="all">Tutti gli stati</option>
+                    <option value="attivo">Solo Attivi</option>
+                    <option value="cessato">Solo Cessati</option>
+                </select>
+
                 {/* Visual Toggle for Show All Shifts */}
                 <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer", userSelect: "none", background: "var(--bg-secondary)", padding: "6px 12px", borderRadius: 6, border: "1px solid var(--border)" }}>
                     <input
@@ -187,11 +206,12 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
                                                 onClick={() => openEdit(d)}
                                                 style={{
                                                     cursor: "pointer",
-                                                    background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "var(--bg-card)",
-                                                    border: d.tipo === 'interinale' ? "1px solid rgba(236, 72, 153, 0.3)" : "1px solid var(--border)",
+                                                    background: d.attivo === false ? "rgba(0, 0, 0, 0.05)" : (d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "var(--bg-card)"),
+                                                    border: d.attivo === false ? "1px solid var(--border)" : (d.tipo === 'interinale' ? "1px solid rgba(236, 72, 153, 0.3)" : "1px solid var(--border)"),
                                                     padding: 12,
                                                     borderRadius: 8,
-                                                    transition: "all 0.2s"
+                                                    transition: "all 0.2s",
+                                                    opacity: d.attivo === false ? 0.6 : 1
                                                 }}
                                             >
                                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
@@ -200,6 +220,11 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
                                                         {d.tipo === 'interinale' && (
                                                             <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
                                                                 <span style={{ color: "#EC4899", fontWeight: 600 }}>INTERINALE</span>
+                                                            </div>
+                                                        )}
+                                                        {d.attivo === false && (
+                                                            <div style={{ fontSize: 11, color: "var(--danger)", marginTop: 2, fontWeight: 700 }}>
+                                                                CESSATO {d.data_fine_rapporto && <span>il {new Date(d.data_fine_rapporto).toLocaleDateString()}</span>}
                                                             </div>
                                                         )}
                                                     </div>
@@ -283,6 +308,19 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
                                     <option value="capoturno">Team Leader</option>
                                 </select>
                             </div>
+                            <div className="form-group">
+                                <label className="form-label">Stato Dipendente</label>
+                                <select className="select-input" value={newDip.attivo ?? true} onChange={(e) => setNewDip({ ...newDip, attivo: e.target.value === 'true' })}>
+                                    <option value="true">Attivo</option>
+                                    <option value="false">Cessato / Fine Rapporto</option>
+                                </select>
+                            </div>
+                            {newDip.attivo === false && (
+                                <div className="form-group" style={{ gridColumn: "span 2" }}>
+                                    <label className="form-label">Data Fine Rapporto</label>
+                                    <input className="input" type="date" value={newDip.data_fine_rapporto || ""} onChange={(e) => setNewDip({ ...newDip, data_fine_rapporto: e.target.value })} />
+                                </div>
+                            )}
                             <div className="form-group" style={{ gridColumn: "span 2" }}>
                                 <div className="alert alert-info" style={{ marginTop: 0, padding: "8px 12px" }}>
                                     <span style={{ fontSize: 14, marginRight: 6 }}>🔒</span>
