@@ -16,6 +16,9 @@ export default function AssegnazioniView({
 
     const today = getLocalDate(new Date());
 
+    // Presenze di oggi — defined early so getIsPresent can use it
+    const presRep = presenze.filter((p) => p.data === today);
+
     // --- PRESENCE LOGIC HELPER ---
     // Align with DashboardView: If record missing for today -> Default PRESENT (unless Sunday)
     const getIsPresent = (dipId) => {
@@ -145,9 +148,6 @@ export default function AssegnazioniView({
         (!repartoCorrente || d.reparto_id === repartoCorrente) &&
         d.turno_default === turnoCorrente
     );
-    // Presenze check needs to be broad 
-    const presRep = presenze.filter((p) => p.data === today);
-
     const macchineReparto = repartoCorrente ? macchine.filter((m) => m.reparto_id === repartoCorrente) : macchine;
     const assRep = assegnazioni.filter((a) => dipRep.some((d) => d.id === a.dipendente_id) && a.data === today);
 

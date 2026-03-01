@@ -19,6 +19,9 @@ const FASI = [
 ];
 
 export default function AnagraficaMaterialiView({ showToast }) {
+    // View is always rendered inside AdminSecurityWrapper, so user is always admin
+    const isAdmin = true;
+
     const [materiali, setMateriali] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);

@@ -528,7 +528,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                                 );
                                             })
                                         ) : (
-                                            <span style={{ color: "var(--text) opacity 0.3", fontSize: 11 }}>—</span>
+                                            <span style={{ color: "var(--text-muted)", fontSize: 11 }}>—</span>
                                         )}
                                     </td>
                                 </tr>
