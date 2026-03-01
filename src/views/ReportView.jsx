@@ -951,7 +951,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                     const machineOps = allAss.filter(a => pairMachines.some(pm => pm.id === a.macchina_id));
 
                                                                     // Filter production and downtime data based on selected shift for the main table
-                                                                    const currentMachineFermi = fermiMacchina.filter(f => pairMachines.some(pm => pm.id === a.macchina_id) && (!selectedTurno || f.turno_id === selectedTurno));
+                                                                    const currentMachineFermi = fermiMacchina.filter(f => pairMachines.some(pm => pm.id === f.macchina_id) && (!selectedTurno || f.turno_id === selectedTurno));
                                                                     const currentMachinePezzi = pezziProdotti.filter(p => pairMachines.some(pm => pm.id === p.macchina_id) && (!selectedTurno || p.turno_id === selectedTurno));
                                                                     const currentMachineSap = confermeSap.filter(s =>
                                                                         pairMachines.some(pm =>
