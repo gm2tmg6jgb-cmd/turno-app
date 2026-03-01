@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase, fetchAllRows } from "../lib/supabase";
 import { Icons } from "../components/ui/Icons";
 import { getCurrentWeekRange, getLocalDate } from "../lib/dateUtils";
 import {
@@ -269,10 +269,12 @@ export default function SapSummaryView({ macchine = [] }) {
 
     const loadGiornaliero = async () => {
         setGLoading(true);
-        const { data: rows, error: gErr } = await supabase
-            .from("conferme_sap")
-            .select("materiale, work_center_sap, qta_ottenuta, macchina_id")
-            .eq("data", gDate);
+        const { data: rows, error: gErr } = await fetchAllRows(() =>
+            supabase
+                .from("conferme_sap")
+                .select("materiale, work_center_sap, qta_ottenuta, macchina_id")
+                .eq("data", gDate)
+        );
         if (gErr) { console.error("Errore loadGiornaliero:", gErr); setGLoading(false); return; }
 
         if (rows) {
@@ -355,11 +357,13 @@ export default function SapSummaryView({ macchine = [] }) {
         setWLoading(true);
         const days = getWeekDays(wWeek);
         const sunday = days[6];
-        const { data: rows, error: wErr } = await supabase
-            .from("conferme_sap")
-            .select("materiale, work_center_sap, qta_ottenuta, macchina_id")
-            .gte("data", wWeek)
-            .lte("data", sunday);
+        const { data: rows, error: wErr } = await fetchAllRows(() =>
+            supabase
+                .from("conferme_sap")
+                .select("materiale, work_center_sap, qta_ottenuta, macchina_id")
+                .gte("data", wWeek)
+                .lte("data", sunday)
+        );
         if (wErr) { console.error("Errore loadSettimanale:", wErr); setWLoading(false); return; }
 
         if (rows) {
@@ -425,11 +429,13 @@ export default function SapSummaryView({ macchine = [] }) {
     const loadTurno = async () => {
         if (!tTurnoId) return;
         setTLoading(true);
-        const { data: rows, error: tErr } = await supabase
-            .from("conferme_sap")
-            .select("materiale, work_center_sap, qta_ottenuta, macchina_id")
-            .eq("data", tDate)
-            .eq("turno_id", tTurnoId);
+        const { data: rows, error: tErr } = await fetchAllRows(() =>
+            supabase
+                .from("conferme_sap")
+                .select("materiale, work_center_sap, qta_ottenuta, macchina_id")
+                .eq("data", tDate)
+                .eq("turno_id", tTurnoId)
+        );
         if (tErr) { console.error("Errore loadTurno:", tErr); setTLoading(false); return; }
         if (rows) {
             const map = {};
@@ -480,15 +486,15 @@ export default function SapSummaryView({ macchine = [] }) {
 
     const fetchData = async () => {
         setLoading(true);
-        let query = supabase
-            .from("conferme_sap")
-            .select("*")
-            .order("data", { ascending: true });
-
-        if (startDate) query = query.gte("data", startDate);
-        if (endDate) query = query.lte("data", endDate);
-
-        const { data: res, error } = await query;
+        const { data: res, error } = await fetchAllRows(() => {
+            let q = supabase
+                .from("conferme_sap")
+                .select("*")
+                .order("data", { ascending: true });
+            if (startDate) q = q.gte("data", startDate);
+            if (endDate) q = q.lte("data", endDate);
+            return q;
+        });
         if (error) console.error("Errore recupero dati:", error);
         else setData(res || []);
         setLoading(false);

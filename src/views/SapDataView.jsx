@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase, fetchAllRows } from "../lib/supabase";
 import { Icons } from "../components/ui/Icons";
 import { getCurrentWeekRange, formatItalianDate } from "../lib/dateUtils";
 
@@ -82,17 +82,17 @@ export default function SapDataView({ macchine = [] }) {
 
         if (!countErr) setTotalCount(count || 0);
 
-        // Applica il filtro date solo se entrambi i campi sono valorizzati
-        let query = supabase
-            .from("conferme_sap")
-            .select("*")
-            .order("data", { ascending: false })
-            .limit(limit);
-
-        if (startDate) query = query.gte("data", startDate);
-        if (endDate) query = query.lte("data", endDate);
-
-        const { data: res, error } = await query;
+        // Carica tutte le righe paginate (nessun cap a 1000)
+        const { data: res, error } = await fetchAllRows(() => {
+            let q = supabase
+                .from("conferme_sap")
+                .select("*")
+                .order("data", { ascending: false })
+                .limit(limit);
+            if (startDate) q = q.gte("data", startDate);
+            if (endDate) q = q.lte("data", endDate);
+            return q;
+        });
 
         if (error) {
             console.error("Errore recupero dati SAP:", error);
