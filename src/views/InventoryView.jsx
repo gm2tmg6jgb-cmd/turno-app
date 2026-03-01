@@ -1,94 +1,186 @@
 import React, { useState } from 'react';
 import { Icons } from '../components/ui/Icons';
 
-const InventoryBlock = ({ data, type = "normal" }) => {
+
+const matchPhases = (label) => {
+    let l = label.toLowerCase();
+    if (l.match(/ore 33|lavaggio ore33/)) return 10;
+    if (l.match(/soft turn/)) return 20;
+    if (l.match(/weisser/)) return 30;
+    if (l.match(/ws coron/)) return 35;
+    if (l.match(/dmc/)) return 40;
+    if (l.match(/broaching/)) return 50;
+    if (l.match(/lavaggio ore 48/)) return 60;
+    if (l.match(/laser.w.*sca06|laser.w.*sca08|laser.w.*sca09|laser.w.*sca10|laser.w.*sca151|laser.w.*sca78|laser/)) return 70;
+    if (l.match(/shaping|stozza/)) return 80;
+    if (l.match(/milling/)) return 90;
+    if (l.match(/hobbing|pfauter|dentare/)) return 100;
+    if (l.match(/deburr|sbav|smuss/)) return 110;
+    if (l.match(/mozzetta sca/)) return 115;
+    if (l.match(/ut |ut[123]? |mza/)) return 120;
+    if (l.match(/dg car/)) return 125;
+    if (l.match(/rh160/)) return 126;
+    if (l.match(/da tratta|trattare/)) return 130;
+    if (l.match(/ht|in tratt/)) return 140;
+    if (l.match(/pallina/)) return 150;
+    if (l.match(/emag/)) return 160;
+    if (l.match(/cono est|cone.*sla110/)) return 170;
+    if (l.match(/cono int|cone.*sla84/)) return 175;
+    if (l.match(/cone|cono/)) return 180;
+    if (l.match(/power hon/)) return 185;
+    if (l.match(/grind|rz|sla /)) return 190;
+    if (l.match(/us/)) return 195;
+    if (l.match(/ac1/)) return 196;
+    if (l.match(/da lavare/)) return 200;
+    if (l.match(/sala.*ingran|ingran.*sala/)) return 210;
+    if (l.match(/ingranometro/)) return 215;
+    if (l.match(/sala/)) return 220;
+    if (l.match(/finiti /) || l === 'finiti') return 230;
+    if (l.match(/blister/)) return 240;
+    if (l.match(/sveva/)) return 245;
+    if (l.match(/diff/)) return 250;
+    if (l.match(/box/)) return 260;
+    return 999;
+};
+
+const getBgColor = (type, diffVal) => {
+    if (type === 'blue') return '#BDD7EE';
+    if (type === 'yellow') return '#FFFF00';
+    if (type === 'green') return '#C6E0B4';
+    if (type === 'gray') return '#D9D9D9';
+    if (type === 'cyan') return '#B4E4F1';
+    if (type === 'diffColor') return diffVal < 0 ? '#F8CBAD' : '#C6E0B4';
+    return 'transparent';
+};
+
+const PivotTableGroup = ({ dataGroups }) => {
+    const columnsWithSteps = dataGroups.map(col => {
+        const rowsWithSteps = col.rows.map(r => ({ ...r, stepId: matchPhases(r.label) }));
+        const usedSteps = new Set();
+        rowsWithSteps.forEach(r => {
+            while (usedSteps.has(r.stepId)) { r.stepId += 0.1; }
+            usedSteps.add(r.stepId);
+        });
+        return { ...col, rows: rowsWithSteps };
+    });
+
+    const allStepIds = Array.from(
+        new Set(columnsWithSteps.flatMap(col => col.rows.map(r => r.stepId)))
+    ).sort((a, b) => a - b);
+
     return (
-        <div style={{
-            minWidth: type === "wide" ? 400 : 240,
-            flex: 1,
-            border: '2px solid #000',
-            fontSize: 10,
-            fontFamily: 'monospace',
-            backgroundColor: '#fff'
-        }}>
-            {/* Header */}
-            <div style={{ display: 'flex', borderBottom: '2px solid #000', fontWeight: 'bold', textAlign: 'center' }}>
-                <div style={{ flex: 1, padding: 4, borderRight: '1px solid #000' }}>{data.id}-{data.code}</div>
-                <div style={{ flex: 1, padding: 4 }}>{data.primaryPart}</div>
-            </div>
-            {/* Rack Size */}
-            <div style={{ display: 'flex', borderBottom: '1px solid #000', textAlign: 'center' }}>
-                <div style={{ flex: 1, padding: 2, borderRight: '1px solid #000' }}>rack size {data.rackSize}</div>
-                <div style={{ flex: 1, padding: 2, fontWeight: 'bold' }}>{data.primaryPart}/S</div>
-            </div>
-
-            {/* Rows */}
-            {data.rows.map((row, idx) => {
-                let bgColor = 'transparent';
-                if (row.type === 'blue') bgColor = '#BDD7EE';
-                if (row.type === 'yellow') bgColor = '#FFFF00';
-                if (row.type === 'green') bgColor = '#C6E0B4';
-                if (row.type === 'gray') bgColor = '#D9D9D9';
-                if (row.type === 'cyan') bgColor = '#B4E4F1';
-
-                return (
-                    <div key={idx} style={{
-                        display: 'flex',
-                        borderBottom: '1px solid #000',
-                        backgroundColor: bgColor,
-                        height: 20,
-                        alignItems: 'center'
-                    }}>
-                        <div style={{ flex: 1.5, padding: '0 4px', borderRight: '1px solid #000', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                            {row.label}
-                        </div>
-                        {/* Support for multiple columns if value is an array */}
-                        {Array.isArray(row.value) ? (
-                            row.value.map((val, vIdx) => (
-                                <div key={vIdx} style={{ flex: 1, textAlign: 'center', fontWeight: val ? 'bold' : 'normal', borderRight: vIdx < row.value.length - 1 ? '1px solid #000' : 'none', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    {val || ''}
+        <div style={{ width: '100%', overflowX: 'auto', marginBottom: '20px' }}>
+            <table style={{ borderCollapse: 'collapse', fontSize: 10, fontFamily: 'monospace', width: '100%', border: '2px solid #000', backgroundColor: '#fff' }}>
+                <thead>
+                    <tr>
+                        {columnsWithSteps.map(col => (
+                            <th key={"h1-" + col.id} colSpan="2" style={{ border: '1px solid #000', borderBottom: '2px solid #000', padding: 2, textAlign: 'center' }}>
+                                <div style={{ display: 'flex' }}>
+                                    <div style={{ flex: 1, borderRight: '1px solid #000' }}>{col.id}-{col.code}</div>
+                                    <div style={{ flex: 1 }}>{col.primaryPart}</div>
                                 </div>
-                            ))
-                        ) : (
-                            <div style={{ flex: 1, textAlign: 'center', fontWeight: row.value ? 'bold' : 'normal' }}>
-                                {row.value || ''}
-                            </div>
-                        )}
-                    </div>
-                );
-            })}
-
-            {/* Totals */}
-            <div style={{ display: 'flex', borderBottom: '1px solid #000', backgroundColor: '#eee', height: 20, alignItems: 'center' }}>
-                <div style={{ flex: 1.5, padding: '0 4px', borderRight: '1px solid #000', fontWeight: 'bold' }}>{data.totLabel || 'Tot. WIP'}</div>
-                <div style={{ flex: 1, textAlign: 'center', fontWeight: 'bold' }}>{data.totWip}</div>
-            </div>
-            <div style={{ display: 'flex', borderBottom: '2px solid #000', backgroundColor: '#C6E0B4', height: 20, alignItems: 'center' }}>
-                <div style={{ flex: 1.5, padding: '0 4px', borderRight: '1px solid #000', fontWeight: 'bold' }}>TOT FINITI</div>
-                <div style={{ flex: 1, textAlign: 'center', fontWeight: 'bold' }}>{data.totFiniti}</div>
-            </div>
-
-            {/* Difference Row */}
-            <div style={{ display: 'flex', height: 24, alignItems: 'center' }}>
-                <div style={{ flex: 1.5, padding: '0 4px', borderRight: '1px solid #000', fontWeight: 'bold' }}>{data.grandLabel || data.grandTotal}</div>
-                <div style={{ flex: 1, textAlign: 'center', fontWeight: 'bold', backgroundColor: data.diff < 0 ? '#F8CBAD' : '#C6E0B4' }}>
-                    {data.diff}
-                </div>
-            </div>
-
-            {/* Footer text if any */}
-            {data.footerNote && (
-                <div style={{
-                    backgroundColor: '#FFCC00',
-                    borderTop: '2px solid #000',
-                    textAlign: 'center',
-                    padding: 2,
-                    fontWeight: 'bold',
-                    fontSize: 9
-                }}>
-                    {data.footerNote}
-                </div>
-            )}
+                            </th>
+                        ))}
+                    </tr>
+                    <tr>
+                        {columnsWithSteps.map(col => (
+                            <th key={"h2-" + col.id} colSpan="2" style={{ border: '1px solid #000', padding: 2, textAlign: 'center', fontWeight: 'normal' }}>
+                                <div style={{ display: 'flex' }}>
+                                    <div style={{ flex: 1, borderRight: '1px solid #000' }}>rack size {col.rackSize}</div>
+                                    <div style={{ flex: 1, fontWeight: 'bold' }}>{col.primaryPart}/S</div>
+                                </div>
+                            </th>
+                        ))}
+                    </tr>
+                </thead>
+                <tbody>
+                    {allStepIds.map(stepId => (
+                        <tr key={"step-" + stepId} style={{ borderBottom: '1px solid #000', height: 20 }}>
+                            {columnsWithSteps.map(col => {
+                                const cellRow = col.rows.find(r => r.stepId === stepId);
+                                if (!cellRow) {
+                                    return (
+                                        <React.Fragment key={"empty-" + stepId + "-" + col.id}>
+                                            <td style={{ border: '1px solid #000', padding: '0 4px', width: '110px' }}></td>
+                                            <td style={{ border: '1px solid #000', width: '50px' }}></td>
+                                        </React.Fragment>
+                                    );
+                                }
+                                const bgColor = getBgColor(cellRow.type);
+                                return (
+                                    <React.Fragment key={"cell-" + stepId + "-" + col.id}>
+                                        <td style={{
+                                            border: '1px solid #000',
+                                            padding: '0 4px',
+                                            backgroundColor: bgColor,
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            width: '110px'
+                                        }}>
+                                            {cellRow.label}
+                                        </td>
+                                        <td style={{
+                                            border: '1px solid #000',
+                                            textAlign: 'center',
+                                            backgroundColor: bgColor,
+                                            fontWeight: cellRow.value ? 'bold' : 'normal',
+                                            width: '50px'
+                                        }}>
+                                            {cellRow.value || ''}
+                                        </td>
+                                    </React.Fragment>
+                                );
+                            })}
+                        </tr>
+                    ))}
+                    <tr style={{ backgroundColor: '#eee', height: 20 }}>
+                        {columnsWithSteps.map(col => (
+                            <React.Fragment key={"totwip-" + col.id}>
+                                <td style={{ border: '1px solid #000', padding: '0 4px', fontWeight: 'bold' }}>{col.totLabel || 'Tot. WIP'}</td>
+                                <td style={{ border: '1px solid #000', textAlign: 'center', fontWeight: 'bold' }}>{col.totWip}</td>
+                            </React.Fragment>
+                        ))}
+                    </tr>
+                    <tr style={{ backgroundColor: '#C6E0B4', height: 20, borderBottom: '2px solid #000' }}>
+                        {columnsWithSteps.map(col => (
+                            <React.Fragment key={"totfiniti-" + col.id}>
+                                <td style={{ border: '1px solid #000', padding: '0 4px', fontWeight: 'bold' }}>TOT FINITI</td>
+                                <td style={{ border: '1px solid #000', textAlign: 'center', fontWeight: 'bold' }}>{col.totFiniti}</td>
+                            </React.Fragment>
+                        ))}
+                    </tr>
+                    <tr style={{ height: 24 }}>
+                        {columnsWithSteps.map(col => (
+                            <React.Fragment key={"diff-" + col.id}>
+                                <td style={{ border: '1px solid #000', padding: '0 4px', fontWeight: 'bold' }}>{col.grandLabel || col.grandTotal}</td>
+                                <td style={{
+                                    border: '1px solid #000',
+                                    textAlign: 'center',
+                                    fontWeight: 'bold',
+                                    backgroundColor: getBgColor('diffColor', col.diff)
+                                }}>
+                                    {col.diff}
+                                </td>
+                            </React.Fragment>
+                        ))}
+                    </tr>
+                    <tr>
+                        {columnsWithSteps.map(col => (
+                            <td key={"note-" + col.id} colSpan="2" style={{
+                                border: '1px solid #000',
+                                backgroundColor: col.footerNote ? '#FFCC00' : 'transparent',
+                                textAlign: 'center',
+                                padding: col.footerNote ? 2 : 0,
+                                fontWeight: 'bold',
+                                fontSize: 9
+                            }}>
+                                {col.footerNote || ''}
+                            </td>
+                        ))}
+                    </tr>
+                </tbody>
+            </table>
         </div>
     );
 };
@@ -758,9 +850,7 @@ const InventoryView = ({ showToast }) => {
                         <div style={{ flex: 2, textAlign: 'center' }}>27/02/2026</div>
                     </div>
                     {/* Eco Blocks */}
-                    <div style={{ display: 'flex', gap: 2, justifyContent: 'space-between', marginBottom: 20 }}>
-                        {dataEcoRow1.map(item => <InventoryBlock key={item.id} data={item} />)}
-                    </div>
+                    <PivotTableGroup dataGroups={dataEcoRow1} />
                     {/* Eco Summary */}
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, border: '2px solid #000' }}>
                         <tbody>
@@ -898,14 +988,10 @@ const InventoryView = ({ showToast }) => {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 30, padding: 10, background: '#fff', borderRadius: 8, border: '1px solid var(--border)' }}>
                 {/* Row 1 */}
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between' }}>
-                    {data8FeRow1.map(item => <InventoryBlock key={item.id} data={item} />)}
-                </div>
+                <PivotTableGroup dataGroups={data8FeRow1} />
 
                 {/* Row 2 */}
-                <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between' }}>
-                    {data8FeRow2.map(item => <InventoryBlock key={item.id} data={item} />)}
-                </div>
+                <PivotTableGroup dataGroups={data8FeRow2} />
 
                 {/* Summary Table 1 */}
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, border: '2px solid #000' }}>
