@@ -320,6 +320,7 @@ export default function App() {
                 {renderItem(ni("lpaPlan"))}
                 {renderItem(ni("import"))}
                 {renderItem(ni("sapData"))}
+                {renderItem(ni("inventory"))}
 
                 <div className="nav-section-label">Anagrafiche</div>
                 {renderItem(ni("anagrafica"))}
