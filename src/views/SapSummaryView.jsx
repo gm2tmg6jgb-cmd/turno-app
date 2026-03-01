@@ -4,7 +4,7 @@ import { Icons } from "../components/ui/Icons";
 import { getCurrentWeekRange, getLocalDate } from "../lib/dateUtils";
 import {
     AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
-    ResponsiveContainer, CartesianGrid
+    ResponsiveContainer, CartesianGrid, ComposedChart, Line, Cell
 } from 'recharts';
 
 function KpiCard({ label, value, sub, color, icon }) {
@@ -36,6 +36,20 @@ function ChartTooltip({ active, payload, label }) {
             {payload.map(p => (
                 <div key={p.dataKey} style={{ color: p.color }}>
                     {p.name}: <strong>{p.value?.toLocaleString("it-IT")}</strong>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function ParetoTooltip({ active, payload, label }) {
+    if (!active || !payload?.length) return null;
+    return (
+        <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px", fontSize: 12, maxWidth: 220 }}>
+            <div style={{ fontWeight: 700, marginBottom: 6, wordBreak: "break-all" }}>{label}</div>
+            {payload.map(p => (
+                <div key={p.dataKey} style={{ color: p.color, marginBottom: 2 }}>
+                    {p.name}: <strong>{p.dataKey === "cumPct" ? `${p.value}%` : p.value?.toLocaleString("it-IT")}</strong>
                 </div>
             ))}
         </div>
@@ -233,6 +247,10 @@ export default function SapSummaryView({ macchine = [] }) {
     const [tLoading, setTLoading] = useState(false);
     const [tTargets, setTTargets] = useState({});
     const [tAvailableTurni, setTAvailableTurni] = useState([]);
+
+    // ── Pareto state ──
+    const [paretoGroupBy, setParetoGroupBy] = useState("macchina"); // "macchina" | "componente"
+    const [paretoProj, setParetoProj] = useState("tutti");
 
     // ── Popup Fermi state ──
     const [popupData, setPopupData] = useState({ isOpen: false, date: null, machines: [], turnoId: null });
@@ -660,6 +678,53 @@ export default function SapSummaryView({ macchine = [] }) {
         })).sort((a, b) => a.nome.localeCompare(b.nome));
     }, [data, macchine, anagrafica]);
 
+    /* ── Pareto Scarti ── */
+    const paretoData = useMemo(() => {
+        const groups = {};
+        data.forEach(r => {
+            const scarti = r.qta_scarto || 0;
+            if (scarti === 0) return;
+
+            // Filtro progetto
+            if (paretoProj !== "tutti") {
+                const info = anagrafica[(r.materiale || "").toUpperCase()];
+                const proj = info?.progetto || getProjectFromCode(r.materiale);
+                if (proj !== paretoProj) return;
+            }
+
+            let key, nome;
+            if (paretoGroupBy === "macchina") {
+                const m = macchine.find(m =>
+                    m.id === r.macchina_id ||
+                    (r.work_center_sap && (m.codice_sap || "").toUpperCase() === r.work_center_sap.toUpperCase())
+                );
+                key = m ? m.id : (r.work_center_sap || "non_collegata");
+                nome = m ? m.nome : (r.work_center_sap || "Non collegata");
+            } else {
+                const info = anagrafica[(r.materiale || "").toUpperCase()];
+                key = info?.componente || r.materiale || "sconosciuto";
+                nome = key;
+            }
+
+            if (!groups[key]) groups[key] = { name: nome, scarti: 0, buoni: 0 };
+            groups[key].scarti += scarti;
+            groups[key].buoni += (r.qta_ottenuta || 0);
+        });
+
+        const sorted = Object.values(groups).sort((a, b) => b.scarti - a.scarti).slice(0, 20);
+        const totalScarti = sorted.reduce((s, g) => s + g.scarti, 0);
+        let cumulative = 0;
+        return sorted.map(g => {
+            cumulative += g.scarti;
+            const scrapPct = (g.buoni + g.scarti) > 0 ? (g.scarti / (g.buoni + g.scarti) * 100) : 0;
+            return {
+                ...g,
+                scrapPct: parseFloat(scrapPct.toFixed(1)),
+                cumPct: totalScarti > 0 ? parseFloat((cumulative / totalScarti * 100).toFixed(1)) : 0,
+            };
+        });
+    }, [data, macchine, anagrafica, paretoGroupBy, paretoProj]);
+
     /* ── Render ── */
     const thStyle = { padding: "10px 12px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", textAlign: "left", whiteSpace: "nowrap", borderRight: "1px solid var(--border-light)" };
 
@@ -679,6 +744,7 @@ export default function SapSummaryView({ macchine = [] }) {
                         <button className={activeTab === "turno" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("turno")}>🔄 Per Turno</button>
                         <button className={activeTab === "giornaliero" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("giornaliero")}>📋 Giornaliero</button>
                         <button className={activeTab === "settimanale" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("settimanale")}>📅 Settimanale</button>
+                        <button className={activeTab === "pareto" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("pareto")}>📊 Pareto Scarti</button>
                     </div>
                 </div>
             </div>
@@ -1273,6 +1339,152 @@ export default function SapSummaryView({ macchine = [] }) {
                     </div>
                 )
             }
+
+            {/* ══════════════════════════════════════
+                TAB PARETO SCARTI
+            ══════════════════════════════════════ */}
+            {activeTab === "pareto" && (
+                <div>
+                    {/* Filtri */}
+                    <div className="card" style={{ marginBottom: 16, padding: "16px 20px" }}>
+                        <div style={{ display: "flex", gap: 20, alignItems: "flex-end", flexWrap: "wrap" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Dal</label>
+                                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="input" style={{ width: 148 }} />
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Al</label>
+                                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="input" style={{ width: 148 }} />
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Raggruppa per</label>
+                                <div style={{ display: "flex", gap: 6 }}>
+                                    {[["macchina", "Macchina"], ["componente", "Componente"]].map(([v, l]) => (
+                                        <button key={v} className={paretoGroupBy === v ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setParetoGroupBy(v)}>{l}</button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Progetto</label>
+                                <div style={{ display: "flex", gap: 6 }}>
+                                    {[["tutti", "Tutti"], ["DCT 300", "DCT300"], ["8Fe", "8Fe"], ["DCT Eco", "Eco"]].map(([v, l]) => (
+                                        <button key={v} className={paretoProj === v ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setParetoProj(v)}>{l}</button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {loading ? (
+                        <div style={{ padding: 60, textAlign: "center", color: "var(--text-muted)" }}>Caricamento...</div>
+                    ) : paretoData.length === 0 ? (
+                        <div className="card" style={{ padding: 60, textAlign: "center", color: "var(--text-muted)", fontStyle: "italic" }}>
+                            Nessun scarto nel periodo selezionato
+                        </div>
+                    ) : (
+                        <>
+                            {/* KPI summary */}
+                            <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+                                <KpiCard
+                                    label="Totale Scarti"
+                                    value={paretoData.reduce((s, g) => s + g.scarti, 0).toLocaleString("it-IT")}
+                                    icon="⚠️" color="var(--danger)"
+                                />
+                                <KpiCard
+                                    label={`${paretoGroupBy === "macchina" ? "Macchine" : "Componenti"} con scarti`}
+                                    value={paretoData.length}
+                                    icon="📍"
+                                />
+                                <KpiCard
+                                    label="Top 3 = % del totale"
+                                    value={`${Math.round(paretoData.slice(0, 3).reduce((s, g) => s + g.scarti, 0) / paretoData.reduce((s, g) => s + g.scarti, 0) * 100)}%`}
+                                    sub="prime 3 voci"
+                                    icon="🎯" color="var(--warning)"
+                                />
+                            </div>
+
+                            {/* Grafico Pareto */}
+                            <div className="card" style={{ marginBottom: 16, padding: 20 }}>
+                                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
+                                    Pareto Scarti per {paretoGroupBy === "macchina" ? "Macchina" : "Componente"}
+                                </div>
+                                <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 16 }}>
+                                    Top {paretoData.length} ordinati per scarti decrescenti · Linea gialla = % cumulata
+                                </div>
+                                <ResponsiveContainer width="100%" height={340}>
+                                    <ComposedChart data={paretoData} margin={{ top: 4, right: 48, left: 0, bottom: 72 }}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                                        <XAxis
+                                            dataKey="name"
+                                            tick={{ fontSize: 10, fill: "var(--text-muted)" }}
+                                            angle={-42}
+                                            textAnchor="end"
+                                            interval={0}
+                                        />
+                                        <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "var(--text-muted)" }} width={48} />
+                                        <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 11, fill: "var(--text-muted)" }} width={44} />
+                                        <Tooltip content={<ParetoTooltip />} />
+                                        <Bar yAxisId="left" dataKey="scarti" name="Scarti" radius={[3, 3, 0, 0]}>
+                                            {paretoData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.cumPct <= 80 ? "#EF4444" : "#FCA5A5"} />
+                                            ))}
+                                        </Bar>
+                                        <Line yAxisId="right" type="monotone" dataKey="cumPct" name="Cumulato %" stroke="#F59E0B" strokeWidth={2} dot={{ r: 3, fill: "#F59E0B" }} />
+                                    </ComposedChart>
+                                </ResponsiveContainer>
+                                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 8, display: "flex", gap: 16, justifyContent: "center" }}>
+                                    <span>🔴 Rosso scuro = voci che compongono l'80% degli scarti</span>
+                                    <span>🟡 Linea gialla = % cumulata</span>
+                                </div>
+                            </div>
+
+                            {/* Tabella dettaglio */}
+                            <div className="card" style={{ padding: 0 }}>
+                                <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)" }}>
+                                    <span style={{ fontSize: 14, fontWeight: 700 }}>Dettaglio</span>
+                                </div>
+                                <div className="table-container">
+                                    <table style={{ width: "100%" }}>
+                                        <thead>
+                                            <tr style={{ background: "var(--bg-tertiary)" }}>
+                                                <th style={thStyle}>#</th>
+                                                <th style={thStyle}>{paretoGroupBy === "macchina" ? "Macchina" : "Componente"}</th>
+                                                <th style={{ ...thStyle, textAlign: "right" }}>Scarti</th>
+                                                <th style={{ ...thStyle, textAlign: "right" }}>Buoni</th>
+                                                <th style={{ ...thStyle, textAlign: "right" }}>Scrap %</th>
+                                                <th style={{ ...thStyle, textAlign: "right" }}>Cum. %</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {paretoData.map((row, i) => (
+                                                <tr key={row.name} style={{
+                                                    borderBottom: "1px solid var(--border-light)",
+                                                    background: row.cumPct <= 80 ? "rgba(239,68,68,0.04)" : "transparent"
+                                                }}>
+                                                    <td style={{ padding: "9px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", width: 36 }}>{i + 1}</td>
+                                                    <td style={{ padding: "9px 12px", fontSize: 13, fontWeight: 600 }}>{row.name}</td>
+                                                    <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "var(--danger)", fontSize: 14 }}>
+                                                        {row.scarti.toLocaleString("it-IT")}
+                                                    </td>
+                                                    <td style={{ padding: "9px 12px", textAlign: "right", fontSize: 13, color: "var(--text-secondary)" }}>
+                                                        {row.buoni.toLocaleString("it-IT")}
+                                                    </td>
+                                                    <td style={{ padding: "9px 12px", textAlign: "right", fontSize: 13, fontWeight: 600, color: row.scrapPct > 5 ? "var(--danger)" : "var(--text-primary)" }}>
+                                                        {row.scrapPct.toFixed(1)}%
+                                                    </td>
+                                                    <td style={{ padding: "9px 12px", textAlign: "right", fontSize: 12, color: row.cumPct <= 80 ? "#D97706" : "var(--text-muted)", fontWeight: row.cumPct <= 80 ? 700 : 400 }}>
+                                                        {row.cumPct.toFixed(1)}%
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </>
+                    )}
+                </div>
+            )}
 
             <FermiPopup
                 isOpen={popupData.isOpen}
