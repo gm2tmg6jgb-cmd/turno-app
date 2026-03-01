@@ -56,7 +56,6 @@ export default function AssegnazioniView({
                 });
 
                 if (duplicates.length > 0) {
-                    console.log("🧹 Auto-cleaning duplicates:", duplicates);
                     await supabase.from('assegnazioni').delete().in('id', duplicates);
                     // Update local state by filtering
                     setAssegnazioni(prev => prev.filter(a => !duplicates.includes(a.id)));
@@ -65,7 +64,6 @@ export default function AssegnazioniView({
             }
 
             // 2. COPY FROM PREVIOUS DAY (Only if DB was empty for today)
-            console.log("🔍 No assignments found today. Checking previous days...");
 
             // Find last Day with assignments for this Turno
             const { data: lastAssStub, error } = await supabase
@@ -77,12 +75,10 @@ export default function AssegnazioniView({
                 .limit(1);
 
             if (error || !lastAssStub || lastAssStub.length === 0) {
-                console.log("ℹ️ No previous assignments found to copy.");
                 return;
             }
 
             const lastDate = lastAssStub[0].data;
-            console.log(`📅 Found previous assignments from ${lastDate}. Copying...`);
 
             // Fetch FULL previous assignments
             const { data: previousAssignments } = await supabase
@@ -127,7 +123,6 @@ export default function AssegnazioniView({
             if (insertError) {
                 console.error("Error copying assignments:", insertError);
             } else {
-                console.log(`✅ Copied ${inserted.length} assignments.`);
                 const localNew = inserted.map(savedAss => ({
                     ...savedAss,
                     macchina_id: savedAss.macchina_id || savedAss.attivita_id,
@@ -171,7 +166,6 @@ export default function AssegnazioniView({
             const { data, error } = await supabase.from('assegnazioni').insert(dbPayload).select();
             if (error) throw error;
 
-            console.log("✅ Assignment saved:", data);
             const savedAss = data[0];
             const localAss = {
                 ...savedAss,

@@ -3,7 +3,7 @@ import { supabase } from "../lib/supabase";
 import { REPARTI, TURNI, MOTIVI_FERMO as MOTIVI_FERMO_DEFAULT, LIVELLI_COMPETENZA } from "../data/constants";
 import { Icons } from "../components/ui/Icons";
 import {
-    PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend,
+    ResponsiveContainer, Tooltip,
     BarChart, Bar, XAxis, YAxis, CartesianGrid, AreaChart, Area
 } from 'recharts';
 

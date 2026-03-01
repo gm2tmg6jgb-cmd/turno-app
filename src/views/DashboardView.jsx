@@ -388,10 +388,6 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                                     // Find machines in this zone
                                     const zoneMachines = macchine ? macchine.filter(m => m.zona === z.id).map(m => m.nome) : [];
 
-                                    // DEBUG LOG
-                                    if (zoneMachines.length === 0) {
-                                        console.log("DEBUG ZONE NULL:", { zID: z.id, macchineSample: macchine?.slice(0, 3) });
-                                    }
 
                                     return {
                                         label: z.label || z.id,

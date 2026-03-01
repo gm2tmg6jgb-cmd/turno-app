@@ -228,13 +228,6 @@ export default function App() {
   const handleSendPlan = async () => {
     // Logic to "Send" the plan. For now, we simulate a successful action.
     // In a real app, this might trigger an email or saving a snapshot.
-    console.log("📤 Sending Shift Plan...", {
-      date: new Date().toISOString().split("T")[0],
-      reparto: repartoCorrente,
-      turno: turnoCorrente,
-      presenzeCount: presenze.length
-    });
-
     // Simulate API call
     showToast("Invio piano turno in corso...", "info");
     await new Promise(r => setTimeout(r, 1000));
