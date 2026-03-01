@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { supabase, fetchAllRows } from "../lib/supabase";
+import { supabase } from "../lib/supabase";
 import { Icons } from "../components/ui/Icons";
 import { getCurrentWeekRange, formatItalianDate } from "../lib/dateUtils";
 
@@ -8,21 +8,28 @@ export default function SapDataView({ macchine = [] }) {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
 
-    // Default to current week (Monday to Sunday) as requested
     const week = getCurrentWeekRange();
     const [startDate, setStartDate] = useState(week.monday);
     const [endDate, setEndDate] = useState(week.sunday);
 
-    const [limit, setLimit] = useState(500);
-    const [totalCount, setTotalCount] = useState(0);
+    const PAGE_SIZE = 100;
+    const [page, setPage] = useState(0);
+    const [totalCount, setTotalCount] = useState(0);      // righe totali nel DB
+    const [filteredCount, setFilteredCount] = useState(0); // righe con filtri applicati
 
     const [anagrafica, setAnagrafica] = useState({});
     const [loadingAnagrafica, setLoadingAnagrafica] = useState(false);
 
+    // Carica la pagina corrente ogni volta che cambiano filtri o pagina
     useEffect(() => {
         fetchSapData();
+    }, [page, search, startDate, endDate]);
+
+    // Fetch una-tantum: anagrafica e conteggio totale
+    useEffect(() => {
         fetchAnagrafica();
-    }, [limit, startDate, endDate]);
+        fetchTotalCount();
+    }, []);
 
     const fetchAnagrafica = async () => {
         setLoadingAnagrafica(true);
@@ -72,27 +79,35 @@ export default function SapDataView({ macchine = [] }) {
         setLoading(false);
     };
 
+    const fetchTotalCount = async () => {
+        const { count } = await supabase
+            .from("conferme_sap")
+            .select("*", { count: "exact", head: true });
+        setTotalCount(count || 0);
+    };
+
+    const applyFilters = (q) => {
+        if (startDate) q = q.gte("data", startDate);
+        if (endDate) q = q.lte("data", endDate);
+        if (search.trim()) {
+            q = q.or(`materiale.ilike.%${search.trim()}%,work_center_sap.ilike.%${search.trim()}%`);
+        }
+        return q;
+    };
+
     const fetchSapData = async () => {
         setLoading(true);
 
-        // Recupera il conteggio totale (senza filtri)
-        const { count, error: countErr } = await supabase
-            .from("conferme_sap")
-            .select("*", { count: "exact", head: true });
+        // Conteggio righe con filtri applicati (per navigazione pagine)
+        const { count: fc } = await applyFilters(
+            supabase.from("conferme_sap").select("*", { count: "exact", head: true })
+        );
+        setFilteredCount(fc || 0);
 
-        if (!countErr) setTotalCount(count || 0);
-
-        // Carica tutte le righe paginate (nessun cap a 1000)
-        const { data: res, error } = await fetchAllRows(() => {
-            let q = supabase
-                .from("conferme_sap")
-                .select("*")
-                .order("data", { ascending: false })
-                .limit(limit);
-            if (startDate) q = q.gte("data", startDate);
-            if (endDate) q = q.lte("data", endDate);
-            return q;
-        });
+        // Carica solo la pagina corrente
+        const { data: res, error } = await applyFilters(
+            supabase.from("conferme_sap").select("*").order("data", { ascending: false })
+        ).range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
 
         if (error) {
             console.error("Errore recupero dati SAP:", error);
@@ -102,25 +117,8 @@ export default function SapDataView({ macchine = [] }) {
         setLoading(false);
     };
 
-    const loadMore = () => {
-        setLimit(prev => prev + 500);
-    };
-
-    const filtered = data.filter(r => {
-        const m = macchine.find(m =>
-            m.id === r.macchina_id ||
-            (r.work_center_sap && (m.codice_sap || "").toUpperCase() === r.work_center_sap.toUpperCase())
-        );
-        const machineMatches = m && m.nome.toLowerCase().includes(search.toLowerCase());
-
-        const matchesSearch = !search ||
-            (r.materiale || "").toLowerCase().includes(search.toLowerCase()) ||
-            (r.work_center_sap || "").toLowerCase().includes(search.toLowerCase()) ||
-            machineMatches;
-
-        const matchesDate = true; // Date filtering is now handled in the query
-        return matchesSearch && matchesDate;
-    });
+    // Filtro e paginazione gestiti server-side; data contiene solo la pagina corrente
+    const filtered = data;
 
     const getMacchinaNome = (macchinaId, workCenterSap) => {
         // 1. Cerca per ID (se presente)
@@ -145,7 +143,7 @@ export default function SapDataView({ macchine = [] }) {
                     <div style={{ display: "flex", gap: 8 }}>
                         <button
                             className="btn btn-secondary btn-sm"
-                            onClick={() => { setStartDate(""); setEndDate(""); }}
+                            onClick={() => { setPage(0); setStartDate(""); setEndDate(""); }}
                             title="Rimuovi filtro date e mostra tutti i record"
                         >
                             Tutti i dati
@@ -166,7 +164,7 @@ export default function SapDataView({ macchine = [] }) {
                         </div>
                         <button
                             className="btn btn-primary btn-sm"
-                            onClick={() => { setStartDate(""); setEndDate(""); }}
+                            onClick={() => { setPage(0); setStartDate(""); setEndDate(""); }}
                             style={{ whiteSpace: "nowrap", flexShrink: 0 }}
                         >
                             Mostra tutti i dati
@@ -209,7 +207,7 @@ export default function SapDataView({ macchine = [] }) {
                             className="input"
                             placeholder="Cerca materiale o centro di lavoro..."
                             value={search}
-                            onChange={e => setSearch(e.target.value)}
+                            onChange={e => { setPage(0); setSearch(e.target.value); }}
                         />
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -218,7 +216,7 @@ export default function SapDataView({ macchine = [] }) {
                                 type="date"
                                 className="input"
                                 value={startDate}
-                                onChange={e => setStartDate(e.target.value)}
+                                onChange={e => { setPage(0); setStartDate(e.target.value); }}
                             />
                         </div>
                         <span style={{ color: "var(--text-muted)", fontSize: 13 }}>al</span>
@@ -227,7 +225,7 @@ export default function SapDataView({ macchine = [] }) {
                                 type="date"
                                 className="input"
                                 value={endDate}
-                                onChange={e => setEndDate(e.target.value)}
+                                onChange={e => { setPage(0); setEndDate(e.target.value); }}
                             />
                         </div>
                     </div>
@@ -318,20 +316,37 @@ export default function SapDataView({ macchine = [] }) {
                         </tbody>
                     </table>
                 </div>
-                <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
                     <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-                        Mostrando <strong>{filtered.length}</strong> record {search ? "(filtrati)" : ""} di <strong>{data.length}</strong> caricati (su <strong>{totalCount.toLocaleString("it-IT")}</strong> totali nel DB).
+                        {filteredCount > 0 ? (
+                            <>
+                                Pagina <strong>{page + 1}</strong> di <strong>{Math.ceil(filteredCount / PAGE_SIZE)}</strong>
+                                {" — "}<strong>{filteredCount.toLocaleString("it-IT")}</strong> record {search || startDate ? "filtrati" : ""}
+                                {" su "}<strong>{totalCount.toLocaleString("it-IT")}</strong> totali nel DB
+                            </>
+                        ) : (
+                            !loading && <>Nessun record trovato — <strong>{totalCount.toLocaleString("it-IT")}</strong> totali nel DB</>
+                        )}
                     </div>
-                    {data.length < totalCount && (
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                         <button
                             className="btn btn-secondary btn-sm"
-                            onClick={loadMore}
-                            disabled={loading}
-                            style={{ display: "flex", alignItems: "center", gap: 8 }}
+                            onClick={() => setPage(p => p - 1)}
+                            disabled={loading || page === 0}
                         >
-                            {loading ? "Caricamento..." : <>{Icons.plus} Carica Altri 500</>}
+                            ← Precedente
                         </button>
-                    )}
+                        <span style={{ fontSize: 13, color: "var(--text-muted)", minWidth: 60, textAlign: "center" }}>
+                            {page + 1} / {Math.ceil(filteredCount / PAGE_SIZE) || 1}
+                        </span>
+                        <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => setPage(p => p + 1)}
+                            disabled={loading || page >= Math.ceil(filteredCount / PAGE_SIZE) - 1}
+                        >
+                            Successivo →
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
