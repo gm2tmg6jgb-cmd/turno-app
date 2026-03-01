@@ -27,6 +27,7 @@ import SapDataView from "./views/SapDataView";
 import SapSummaryView from "./views/SapSummaryView";
 import AnagraficaMaterialiView from "./views/AnagraficaMaterialiView";
 import LpaPlanView from "./views/LpaPlanView";
+import InventoryView from "./views/InventoryView";
 
 export default function App() {
   const [currentView, setCurrentView] = useState("dashboard");
@@ -198,6 +199,7 @@ export default function App() {
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine },
     { id: "anagraficaMateriali", label: "Anagrafica Materiali", icon: Icons.filter },
     { id: "zones", label: "Anagrafica Zone", icon: Icons.settings },
+    { id: "inventory", label: "Inventario", icon: Icons.report },
   ];
 
   const viewTitles = {
@@ -220,6 +222,7 @@ export default function App() {
     skills: "Matrice Competenze",
     formazione: "Gestione Formazione Operatori",
     limitazioni: "Area Privacy Alta - Limitazioni",
+    inventory: "Gestione Inventario Progetti",
   };
 
   const handleSendPlan = async () => {
@@ -480,6 +483,7 @@ export default function App() {
           {currentView === "limitazioni" && (
             <LimitazioniView dipendenti={dipendenti} presenze={presenze} />
           )}
+          {currentView === "inventory" && <InventoryView showToast={showToast} />}
         </div>
       </div>
 

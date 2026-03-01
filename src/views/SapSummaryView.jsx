@@ -724,11 +724,13 @@ export default function SapSummaryView({ macchine = [] }) {
                                         transform: "rotate(180deg)",
                                         display: "flex", alignItems: "center", justifyContent: "center",
                                         padding: "24px 10px",
-                                        background: "var(--bg-tertiary)",
+                                        background: target > 0 ? (totale >= target ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)") : "var(--bg-tertiary)",
                                         borderRight: "2px solid var(--border)",
                                         fontWeight: 900, fontSize: 16, letterSpacing: 3,
-                                        color: "var(--text-primary)", userSelect: "none",
+                                        color: target > 0 ? (totale >= target ? "var(--success)" : "var(--danger)") : "var(--text-primary)",
+                                        userSelect: "none",
                                         minWidth: 46, flexShrink: 0,
+                                        transition: "all 0.3s ease",
                                     }}>
                                         {proj.nome}
                                     </div>
@@ -748,17 +750,15 @@ export default function SapSummaryView({ macchine = [] }) {
                                                                     value={gTargets[proj.id] || ""}
                                                                     onChange={e => { const v = e.target.value; setGTargets(prev => ({ ...prev, [proj.id]: v })); saveTargetDebounced(proj.id, "daily_target", v); }}
                                                                     placeholder="0"
-                                                                    style={{ width: 90, padding: "4px 10px", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-primary)", fontSize: 15, fontWeight: 700, textAlign: "right" }}
-                                                                />
-                                                            </div>
-                                                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                                                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Days</span>
-                                                                <input
-                                                                    type="number" min="0"
-                                                                    value={gDays[proj.id] || ""}
-                                                                    onChange={e => { const v = e.target.value; setGDays(prev => ({ ...prev, [proj.id]: v })); saveTargetDebounced(proj.id, "days", v); }}
-                                                                    placeholder="0"
-                                                                    style={{ width: 70, padding: "4px 10px", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-primary)", fontSize: 15, fontWeight: 700, textAlign: "right" }}
+                                                                    style={{
+                                                                        width: 90, padding: "4px 10px",
+                                                                        background: "var(--bg-tertiary)",
+                                                                        border: target > 0 ? (totale >= target ? "2px solid var(--success)" : "2px solid var(--danger)") : "1px solid var(--border)",
+                                                                        borderRadius: 6,
+                                                                        color: target > 0 ? (totale >= target ? "var(--success)" : "var(--danger)") : "var(--text-primary)",
+                                                                        fontSize: 15, fontWeight: 700, textAlign: "right",
+                                                                        outline: "none"
+                                                                    }}
                                                                 />
                                                             </div>
                                                         </div>
@@ -921,11 +921,14 @@ export default function SapSummaryView({ macchine = [] }) {
                                     <div style={{
                                         writingMode: "vertical-rl", transform: "rotate(180deg)",
                                         display: "flex", alignItems: "center", justifyContent: "center",
-                                        padding: "24px 10px", background: "var(--bg-tertiary)",
+                                        padding: "24px 10px",
+                                        background: target > 0 ? (totale >= target ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)") : "var(--bg-tertiary)",
                                         borderRight: "2px solid var(--border)",
                                         fontWeight: 900, fontSize: 16, letterSpacing: 3,
-                                        color: "var(--text-primary)", userSelect: "none",
+                                        color: target > 0 ? (totale >= target ? "var(--success)" : "var(--danger)") : "var(--text-primary)",
+                                        userSelect: "none",
                                         minWidth: 46, flexShrink: 0,
+                                        transition: "all 0.3s ease",
                                     }}>
                                         {proj.nome}
                                     </div>
@@ -944,17 +947,18 @@ export default function SapSummaryView({ macchine = [] }) {
                                                                     value={wTargets[proj.id] || ""}
                                                                     onChange={e => { const v = e.target.value; setWTargets(prev => ({ ...prev, [proj.id]: v })); saveTargetDebounced(proj.id, "weekly_target", v); }}
                                                                     placeholder="0"
-                                                                    style={{ width: 90, padding: "4px 10px", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-primary)", fontSize: 15, fontWeight: 700, textAlign: "right" }}
+                                                                    style={{
+                                                                        width: 90, padding: "4px 10px",
+                                                                        background: "var(--bg-tertiary)",
+                                                                        border: target > 0 ? (totale >= target ? "2px solid var(--success)" : "2px solid var(--danger)") : "1px solid var(--border)",
+                                                                        borderRadius: 6,
+                                                                        color: target > 0 ? (totale >= target ? "var(--success)" : "var(--danger)") : "var(--text-primary)",
+                                                                        fontSize: 15, fontWeight: 700, textAlign: "right",
+                                                                        outline: "none"
+                                                                    }}
                                                                 />
                                                             </div>
                                                         </div>
-                                                    </td>
-                                                </tr>
-
-                                                {/* Riga settimana */}
-                                                <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                                                    <td colSpan={7} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
-                                                        {weekLabel}
                                                     </td>
                                                 </tr>
 
@@ -1067,193 +1071,208 @@ export default function SapSummaryView({ macchine = [] }) {
             {/* ══════════════════════════════════════
                 TAB TURNO
             ══════════════════════════════════════ */}
-            {activeTab === "turno" && (
-                <div>
-                    {/* Selettori data + turno */}
-                    <div style={{ display: "flex", gap: 12, marginBottom: 20, alignItems: "center", flexWrap: "wrap" }}>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Data</label>
-                            <input type="date" value={tDate} onChange={e => setTDate(e.target.value)} className="input" style={{ width: 160 }} />
-                        </div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Turno</label>
-                            <div style={{ display: "flex", gap: 6 }}>
-                                {tAvailableTurni.length === 0 ? (
-                                    <span style={{ fontSize: 12, color: "var(--text-muted)", padding: "6px 0" }}>Nessun turno per questa data</span>
-                                ) : (
-                                    tAvailableTurni.map(t => (
-                                        <button
-                                            key={t}
-                                            className={tTurnoId === t ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"}
-                                            onClick={() => setTTurnoId(t)}
-                                        >
-                                            {t}
-                                        </button>
-                                    ))
-                                )}
+            {
+                activeTab === "turno" && (
+                    <div>
+                        {/* Selettori data + turno */}
+                        <div style={{ display: "flex", gap: 12, marginBottom: 20, alignItems: "center", flexWrap: "wrap" }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Data</label>
+                                <input type="date" value={tDate} onChange={e => setTDate(e.target.value)} className="input" style={{ width: 160 }} />
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Turno</label>
+                                <div style={{ display: "flex", gap: 6 }}>
+                                    {["A", "B", "C", "D"].map(t => {
+                                        const isActive = tTurnoId === t;
+                                        return (
+                                            <button
+                                                key={t}
+                                                className={isActive ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"}
+                                                onClick={() => setTTurnoId(t)}
+                                                style={{
+                                                    minWidth: 40,
+                                                    fontWeight: 700
+                                                }}
+                                            >
+                                                {t}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                            <div style={{ paddingTop: 20 }}>
+                                <button className="btn btn-secondary btn-sm" onClick={loadTurno} disabled={tLoading || !tTurnoId}>
+                                    {Icons.history} Aggiorna
+                                </button>
                             </div>
                         </div>
-                        <div style={{ paddingTop: 20 }}>
-                            <button className="btn btn-secondary btn-sm" onClick={loadTurno} disabled={tLoading || !tTurnoId}>
-                                {Icons.history} Aggiorna
-                            </button>
-                        </div>
-                    </div>
 
-                    {tLoading ? (
-                        <div style={{ padding: 60, textAlign: "center", color: "var(--text-muted)" }}>Caricamento...</div>
-                    ) : (
-                        PROGETTI_GIORNALIERO.map(proj => {
-                            const totale = proj.componenti.reduce((s, comp) => s + (getProduzione(tData[`${proj.id}::${comp}`]) || 0), 0);
-                            const target = parseInt(tTargets[proj.id] || 0);
-                            const pctTarget = target > 0 ? Math.round(totale / target * 100) : null;
-                            const dateLabel = new Date(tDate + "T12:00:00")
-                                .toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" })
-                                .replace(/\//g, ".");
+                        {tLoading ? (
+                            <div style={{ padding: 60, textAlign: "center", color: "var(--text-muted)" }}>Caricamento...</div>
+                        ) : (
+                            PROGETTI_GIORNALIERO.map(proj => {
+                                const totale = proj.componenti.reduce((s, comp) => s + (getProduzione(tData[`${proj.id}::${comp}`]) || 0), 0);
+                                const target = parseInt(tTargets[proj.id] || 0);
+                                const pctTarget = target > 0 ? Math.round(totale / target * 100) : null;
+                                const dateLabel = new Date(tDate + "T12:00:00")
+                                    .toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" })
+                                    .replace(/\//g, ".");
 
-                            return (
-                                <div key={proj.id} style={{ marginBottom: 32, display: "flex", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
-                                    {/* Label progetto verticale */}
-                                    <div style={{
-                                        writingMode: "vertical-rl", transform: "rotate(180deg)",
-                                        display: "flex", alignItems: "center", justifyContent: "center",
-                                        padding: "24px 10px", background: "var(--bg-tertiary)",
-                                        borderRight: "2px solid var(--border)",
-                                        fontWeight: 900, fontSize: 16, letterSpacing: 3,
-                                        color: "var(--text-primary)", userSelect: "none",
-                                        minWidth: 46, flexShrink: 0,
-                                    }}>
-                                        {proj.nome}
-                                    </div>
+                                return (
+                                    <div key={proj.id} style={{ marginBottom: 32, display: "flex", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
+                                        {/* Label progetto verticale */}
+                                        <div style={{
+                                            writingMode: "vertical-rl", transform: "rotate(180deg)",
+                                            display: "flex", alignItems: "center", justifyContent: "center",
+                                            padding: "24px 10px",
+                                            background: target > 0 ? (totale >= target ? "rgba(34,197,94,0.1)" : "rgba(239,68,68,0.1)") : "var(--bg-tertiary)",
+                                            borderRight: "2px solid var(--border)",
+                                            fontWeight: 900, fontSize: 16, letterSpacing: 3,
+                                            color: target > 0 ? (totale >= target ? "var(--success)" : "var(--danger)") : "var(--text-primary)",
+                                            userSelect: "none",
+                                            minWidth: 46, flexShrink: 0,
+                                        }}>
+                                            {proj.nome}
+                                        </div>
 
-                                    <div style={{ flex: 1, overflowX: "auto" }}>
-                                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                                            <thead>
-                                                {/* Riga Shift Target */}
-                                                <tr style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border-light)" }}>
-                                                    <td colSpan={7} style={{ padding: "8px 16px" }}>
-                                                        <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
-                                                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                                                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Shift Target</span>
-                                                                <input
-                                                                    type="number" min="0"
-                                                                    value={tTargets[proj.id] || ""}
-                                                                    onChange={e => { const v = e.target.value; setTTargets(prev => ({ ...prev, [proj.id]: v })); saveTargetDebounced(proj.id, "shift_target", v); }}
-                                                                    placeholder="0"
-                                                                    style={{ width: 90, padding: "4px 10px", background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: 6, color: "var(--text-primary)", fontSize: 15, fontWeight: 700, textAlign: "right" }}
-                                                                />
+                                        <div style={{ flex: 1, overflowX: "auto" }}>
+                                            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                                                <thead>
+                                                    {/* Riga Shift Target */}
+                                                    <tr style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border-light)" }}>
+                                                        <td colSpan={7} style={{ padding: "8px 16px" }}>
+                                                            <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
+                                                                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                                                    <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Shift Target</span>
+                                                                    <input
+                                                                        type="number" min="0"
+                                                                        value={tTargets[proj.id] || ""}
+                                                                        onChange={e => { const v = e.target.value; setTTargets(prev => ({ ...prev, [proj.id]: v })); saveTargetDebounced(proj.id, "shift_target", v); }}
+                                                                        placeholder="0"
+                                                                        style={{
+                                                                            width: 90, padding: "4px 10px",
+                                                                            background: "var(--bg-tertiary)",
+                                                                            border: target > 0 ? (totale >= target ? "2px solid var(--success)" : "2px solid var(--danger)") : "1px solid var(--border)",
+                                                                            borderRadius: 6,
+                                                                            color: target > 0 ? (totale >= target ? "var(--success)" : "var(--danger)") : "var(--text-primary)",
+                                                                            fontSize: 15, fontWeight: 700, textAlign: "right",
+                                                                            outline: "none"
+                                                                        }}
+                                                                    />
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                                <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                                                    <td colSpan={7} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
-                                                        {dateLabel} {tTurnoId ? `· Turno ${tTurnoId}` : "· Nessun dato turno"}
-                                                    </td>
-                                                </tr>
-                                                {/* Intestazioni colonne */}
-                                                <tr style={{ background: "var(--bg-tertiary)", borderBottom: "1px solid var(--border)" }}>
-                                                    <th style={thStyle}>Component</th>
-                                                    <th style={{ ...thStyle, textAlign: "center" }}>Start Soft</th>
-                                                    <th style={{ ...thStyle, textAlign: "center" }}>End Soft</th>
-                                                    <th style={{ ...thStyle, textAlign: "center" }}>HT</th>
-                                                    <th style={{ ...thStyle, textAlign: "center" }}>Start Hard</th>
-                                                    <th style={{ ...thStyle, textAlign: "center" }}>End Hard</th>
-                                                    <th style={{ ...thStyle, textAlign: "center" }}>Washing</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {proj.componenti.map((componente, idx) => {
-                                                    const isBap = componente === "BAP";
-                                                    const isGear = componente === "GEAR";
-                                                    const isShafts = componente === "SHAFTS";
-                                                    const isSummaryRow = isBap || isGear || isShafts;
+                                                        </td>
+                                                    </tr>
+                                                    <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                                                        <td colSpan={7} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
+                                                            {dateLabel} {tTurnoId ? `· Turno ${tTurnoId}` : "· Nessun dato turno"}
+                                                        </td>
+                                                    </tr>
+                                                    {/* Intestazioni colonne */}
+                                                    <tr style={{ background: "var(--bg-tertiary)", borderBottom: "1px solid var(--border)" }}>
+                                                        <th style={thStyle}>Component</th>
+                                                        <th style={{ ...thStyle, textAlign: "center" }}>Start Soft</th>
+                                                        <th style={{ ...thStyle, textAlign: "center" }}>End Soft</th>
+                                                        <th style={{ ...thStyle, textAlign: "center" }}>HT</th>
+                                                        <th style={{ ...thStyle, textAlign: "center" }}>Start Hard</th>
+                                                        <th style={{ ...thStyle, textAlign: "center" }}>End Hard</th>
+                                                        <th style={{ ...thStyle, textAlign: "center" }}>Washing</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {proj.componenti.map((componente, idx) => {
+                                                        const isBap = componente === "BAP";
+                                                        const isGear = componente === "GEAR";
+                                                        const isShafts = componente === "SHAFTS";
+                                                        const isSummaryRow = isBap || isGear || isShafts;
 
-                                                    let row = tData[`${proj.id}::${componente}`] || {};
+                                                        let row = tData[`${proj.id}::${componente}`] || {};
 
-                                                    // Logica di aggregazione per righe di riepilogo
-                                                    if (isSummaryRow) {
-                                                        const calculatedRow = {
-                                                            start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0,
-                                                            machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), washing: new Set() }
-                                                        };
-                                                        let children = [];
+                                                        // Logica di aggregazione per righe di riepilogo
+                                                        if (isSummaryRow) {
+                                                            const calculatedRow = {
+                                                                start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0,
+                                                                machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), washing: new Set() }
+                                                            };
+                                                            let children = [];
 
-                                                        if (isBap) {
-                                                            children = proj.componenti.filter(c => !["BAP", "GEAR", "SHAFTS"].includes(c));
-                                                        } else if (isGear) {
-                                                            children = proj.componenti.filter(c =>
-                                                                !["BAP", "GEAR", "SHAFTS"].includes(c) &&
-                                                                (c.startsWith("SG") || c.startsWith("DG") || c.startsWith("RG") || c.startsWith("SGR") || c === "Pinion" || c.startsWith("Fix"))
-                                                            );
-                                                        } else if (isShafts) {
-                                                            children = proj.componenti.filter(c =>
-                                                                !["BAP", "GEAR", "SHAFTS"].includes(c) &&
-                                                                (c.startsWith("IS") || c.startsWith("OS"))
-                                                            );
+                                                            if (isBap) {
+                                                                children = proj.componenti.filter(c => !["BAP", "GEAR", "SHAFTS"].includes(c));
+                                                            } else if (isGear) {
+                                                                children = proj.componenti.filter(c =>
+                                                                    !["BAP", "GEAR", "SHAFTS"].includes(c) &&
+                                                                    (c.startsWith("SG") || c.startsWith("DG") || c.startsWith("RG") || c.startsWith("SGR") || c === "Pinion" || c.startsWith("Fix"))
+                                                                );
+                                                            } else if (isShafts) {
+                                                                children = proj.componenti.filter(c =>
+                                                                    !["BAP", "GEAR", "SHAFTS"].includes(c) &&
+                                                                    (c.startsWith("IS") || c.startsWith("OS"))
+                                                                );
+                                                            }
+
+                                                            children.forEach(c => {
+                                                                const cData = tData[`${proj.id}::${c}`] || {};
+                                                                ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(f => {
+                                                                    calculatedRow[f] += (cData[f] || 0);
+                                                                    if (cData.machines?.[f]) {
+                                                                        cData.machines[f].forEach(m => calculatedRow.machines[f].add(m));
+                                                                    }
+                                                                });
+                                                            });
+
+                                                            // Convert Sets to Arrays for render
+                                                            ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(f => {
+                                                                calculatedRow.machines[f] = Array.from(calculatedRow.machines[f]);
+                                                            });
+                                                            row = calculatedRow;
                                                         }
 
-                                                        children.forEach(c => {
-                                                            const cData = tData[`${proj.id}::${c}`] || {};
-                                                            ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(f => {
-                                                                calculatedRow[f] += (cData[f] || 0);
-                                                                if (cData.machines?.[f]) {
-                                                                    cData.machines[f].forEach(m => calculatedRow.machines[f].add(m));
-                                                                }
-                                                            });
-                                                        });
+                                                        const isEven = idx % 2 === 0;
+                                                        const rowBg = isSummaryRow ? "rgba(99, 102, 241, 0.15)" : (isEven ? "var(--bg-card)" : "rgba(0,0,0,0.015)");
 
-                                                        // Convert Sets to Arrays for render
-                                                        ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(f => {
-                                                            calculatedRow.machines[f] = Array.from(calculatedRow.machines[f]);
-                                                        });
-                                                        row = calculatedRow;
-                                                    }
+                                                        return (
+                                                            <tr key={componente} style={{ background: rowBg, borderBottom: isSummaryRow ? "2px solid var(--accent)" : "1px solid var(--border-light)", fontWeight: isSummaryRow ? 800 : 400 }}>
+                                                                <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: isSummaryRow ? "var(--accent)" : "inherit", borderRight: "1px solid var(--border-light)" }}>
+                                                                    {componente}
+                                                                </td>
+                                                                {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => {
+                                                                    const value = row[field];
+                                                                    const machineList = row.machines?.[field] || [];
 
-                                                    const isEven = idx % 2 === 0;
-                                                    const rowBg = isSummaryRow ? "rgba(99, 102, 241, 0.15)" : (isEven ? "var(--bg-card)" : "rgba(0,0,0,0.015)");
+                                                                    return (
+                                                                        <td
+                                                                            key={field}
+                                                                            style={{
+                                                                                padding: "7px 12px",
+                                                                                textAlign: "center",
+                                                                                fontSize: 13,
+                                                                                fontWeight: value > 0 ? 700 : (machineList.length > 0 ? 600 : 400),
+                                                                                color: value > 0 ? (isSummaryRow ? "var(--accent)" : "#D97706") : (machineList.length > 0 ? "var(--accent)" : "var(--text-secondary)"),
+                                                                                borderRight: "1px solid var(--border-light)",
+                                                                                cursor: (value > 0 || machineList.length > 0) ? "pointer" : "default"
+                                                                            }}
+                                                                            onClick={() => (value > 0 || machineList.length > 0) && openFermiPopup(tDate, machineList, tTurnoId)}
+                                                                            title={(value > 0 || machineList.length > 0) ? "Clicca per vedere i fermi macchina" : ""}
+                                                                        >
+                                                                            {value > 0 ? value.toLocaleString("it-IT") : (machineList.length > 0 ? "0" : "—")}
+                                                                        </td>
+                                                                    );
+                                                                })}
+                                                            </tr>
+                                                        );
+                                                    })}
 
-                                                    return (
-                                                        <tr key={componente} style={{ background: rowBg, borderBottom: isSummaryRow ? "2px solid var(--accent)" : "1px solid var(--border-light)", fontWeight: isSummaryRow ? 800 : 400 }}>
-                                                            <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: isSummaryRow ? "var(--accent)" : "inherit", borderRight: "1px solid var(--border-light)" }}>
-                                                                {componente}
-                                                            </td>
-                                                            {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => {
-                                                                const value = row[field];
-                                                                const machineList = row.machines?.[field] || [];
-
-                                                                return (
-                                                                    <td
-                                                                        key={field}
-                                                                        style={{
-                                                                            padding: "7px 12px",
-                                                                            textAlign: "center",
-                                                                            fontSize: 13,
-                                                                            fontWeight: value > 0 ? 700 : (machineList.length > 0 ? 600 : 400),
-                                                                            color: value > 0 ? (isSummaryRow ? "var(--accent)" : "#D97706") : (machineList.length > 0 ? "var(--accent)" : "var(--text-secondary)"),
-                                                                            borderRight: "1px solid var(--border-light)",
-                                                                            cursor: (value > 0 || machineList.length > 0) ? "pointer" : "default"
-                                                                        }}
-                                                                        onClick={() => (value > 0 || machineList.length > 0) && openFermiPopup(tDate, machineList, tTurnoId)}
-                                                                        title={(value > 0 || machineList.length > 0) ? "Clicca per vedere i fermi macchina" : ""}
-                                                                    >
-                                                                        {value > 0 ? value.toLocaleString("it-IT") : (machineList.length > 0 ? "0" : "—")}
-                                                                    </td>
-                                                                );
-                                                            })}
-                                                        </tr>
-                                                    );
-                                                })}
-
-                                            </tbody>
-                                        </table>
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
-                                </div>
-                            );
-                        })
-                    )}
-                </div>
-            )}
+                                );
+                            })
+                        )}
+                    </div>
+                )
+            }
 
             <FermiPopup
                 isOpen={popupData.isOpen}
@@ -1263,6 +1282,6 @@ export default function SapSummaryView({ macchine = [] }) {
                 turnoId={popupData.turnoId}
                 macchineAnagrafica={macchine}
             />
-        </div>
+        </div >
     );
 }

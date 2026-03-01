@@ -53,11 +53,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
             let queryPezzi = supabase.from('pezzi_prodotti').select('*').eq('data', selectedDate);
             let querySap = supabase.from('conferme_sap').select('*').eq('data', selectedDate);
 
-            if (selectedTurno) {
-                queryFermi = queryFermi.eq('turno_id', selectedTurno);
-                queryPezzi = queryPezzi.eq('turno_id', selectedTurno);
-                querySap = querySap.eq('turno_id', selectedTurno);
-            }
+            // Fetch all day data (A, B, C, D) to allow full-day summaries
 
             const [fermiRes, pezziRes, sapRes] = await Promise.all([queryFermi, queryPezzi, querySap]);
 
@@ -91,14 +87,23 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                         }
                     }
 
+                    // Pre-populate input boxes with manual production data
+                    if (pezziRes.data) {
+                        pezziRes.data.filter(p => !selectedTurno || p.turno_id === selectedTurno).forEach(p => {
+                            if (groupMachines.includes(p.macchina_id)) {
+                                initialInputs[p.macchina_id] = { qta: p.quantita, scarti: p.scarti, durata: "" };
+                            }
+                        });
+                    }
+
                     if (isSecondary) return; // Inputs will be handled by the primary machine
 
                     const relevantSap = sapData.filter(s =>
-                        groupMachines.includes(s.macchina_id) ||
-                        (s.work_center_sap && groupMachines.some(gId => {
-                            const gm = macchine.find(mac => mac.id === gId);
-                            return gm && gm.codice_sap && s.work_center_sap.toUpperCase() === gm.codice_sap.toUpperCase();
-                        }))
+                        (groupMachines.includes(s.macchina_id) ||
+                            (s.work_center_sap && groupMachines.some(gId => {
+                                const gm = macchine.find(mac => mac.id === gId);
+                                return gm && gm.codice_sap && s.work_center_sap.toUpperCase() === gm.codice_sap.toUpperCase();
+                            }))) && (!selectedTurno || s.turno_id === selectedTurno)
                     );
 
                     if (relevantSap.length > 0) {
@@ -735,10 +740,10 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
 
                                                         return (
                                                             <React.Fragment key={zone.id}>
-                                                                <tr style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border)", borderTop: "1px solid var(--border)" }}>
-                                                                    <td style={{ padding: "10px 12px", fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>
-                                                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                                                            {Icons.grid} {zone.label}
+                                                                <tr style={{ background: "var(--bg-tertiary)", borderBottom: "2px solid var(--border)", borderTop: "2px solid var(--border)" }}>
+                                                                    <td style={{ padding: "12px 12px", fontWeight: 800, fontSize: 16, color: "var(--accent)" }}>
+                                                                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                                                            <span style={{ color: "var(--accent)" }}>{Icons.grid}</span> {zone.label.toUpperCase()}
                                                                         </div>
                                                                     </td>
                                                                     <td style={{ padding: "10px 12px", fontWeight: 500, fontSize: 13, color: "var(--primary)" }}>
@@ -771,6 +776,16 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                         if (isSecondaryOfAnother && !secondaryId) return null;
 
                                                                         const machineOps = allAss.filter(a => pairMachines.some(pm => pm.id === a.macchina_id));
+
+                                                                        // Filter production and downtime data based on selected shift for the main table
+                                                                        const currentMachineFermi = fermiMacchina.filter(f => pairMachines.some(pm => pm.id === a.macchina_id) && (!selectedTurno || f.turno_id === selectedTurno));
+                                                                        const currentMachinePezzi = pezziProdotti.filter(p => pairMachines.some(pm => pm.id === p.macchina_id) && (!selectedTurno || p.turno_id === selectedTurno));
+                                                                        const currentMachineSap = confermeSap.filter(s =>
+                                                                            pairMachines.some(pm =>
+                                                                                pm.id === s.macchina_id ||
+                                                                                (s.work_center_sap && pm.codice_sap && s.work_center_sap.toUpperCase() === pm.codice_sap.toUpperCase())
+                                                                            ) && (!selectedTurno || s.turno_id === selectedTurno)
+                                                                        );
 
                                                                         return (
                                                                             <tr key={m.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
@@ -819,19 +834,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                 </td>
                                                                                 <td style={{ padding: "8px 12px" }}>
                                                                                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                                                                        {(() => {
-                                                                                            const relevantPezzi = pezziProdotti.filter(p => pairMachines.some(pm => pm.id === p.macchina_id));
-                                                                                            if (relevantPezzi.length > 0) {
-                                                                                                const totalQta = relevantPezzi.reduce((sum, p) => sum + (p.quantita || 0), 0);
-                                                                                                const totalScarti = relevantPezzi.reduce((sum, p) => sum + (p.scarti || 0), 0);
-                                                                                                return (
-                                                                                                    <div style={{ fontSize: 13, color: "var(--success)", fontWeight: 700 }}>
-                                                                                                        {totalQta} <span style={{ fontWeight: 400, fontSize: 11 }}>pz</span> {totalScarti > 0 && <span style={{ color: "var(--danger)", fontWeight: 400 }}>({totalScarti} sc)</span>}
-                                                                                                    </div>
-                                                                                                );
-                                                                                            }
-                                                                                            return <span style={{ color: "var(--text-muted)", fontSize: 12 }}>—</span>;
-                                                                                        })()}
+                                                                                        {/* Summary hidden as requested - visible in input boxes */}
                                                                                         <div style={{ display: "flex", gap: 4 }}>
                                                                                             <input
                                                                                                 type="number" className="input" placeholder="Pezzi"
@@ -853,12 +856,12 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                 <td style={{ padding: "8px 12px" }}>
                                                                                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                                                                                         {pairMachines.map(pm => {
-                                                                                            const machineFermi = fermiMacchina.filter(f => f.macchina_id === pm.id);
+                                                                                            const machineFermiRecords = currentMachineFermi.filter(f => f.macchina_id === pm.id);
                                                                                             return (
                                                                                                 <div key={`fermi-box-${pm.id}`} style={{ borderLeft: secondaryMachine ? "2px solid var(--border-light)" : "none", paddingLeft: secondaryMachine ? 6 : 0 }}>
                                                                                                     {secondaryMachine && <div style={{ fontSize: 9, fontWeight: 700, color: "var(--text-muted)", marginBottom: 2 }}>{pm.nome}</div>}
                                                                                                     <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
-                                                                                                        {machineFermi.map(f => (
+                                                                                                        {machineFermiRecords.map(f => (
                                                                                                             <div key={f.id} className="tag tag-red" style={{ fontSize: 9, padding: "1px 4px", display: "flex", alignItems: "center", gap: 2 }}>
                                                                                                                 <span>{f.motivo}</span>
                                                                                                                 <button onClick={() => handleDeleteFermi(f.id)} style={{ border: "none", background: "none", color: "inherit", cursor: "pointer", padding: 0 }}>{Icons.x}</button>
@@ -930,6 +933,16 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
 
                                                                     const machineOps = allAss.filter(a => pairMachines.some(pm => pm.id === a.macchina_id));
 
+                                                                    // Filter production and downtime data based on selected shift for the main table
+                                                                    const currentMachineFermi = fermiMacchina.filter(f => pairMachines.some(pm => pm.id === f.macchina_id) && (!selectedTurno || f.turno_id === selectedTurno));
+                                                                    const currentMachinePezzi = pezziProdotti.filter(p => pairMachines.some(pm => pm.id === p.macchina_id) && (!selectedTurno || p.turno_id === selectedTurno));
+                                                                    const currentMachineSap = confermeSap.filter(s =>
+                                                                        pairMachines.some(pm =>
+                                                                            pm.id === s.macchina_id ||
+                                                                            (s.work_center_sap && pm.codice_sap && s.work_center_sap.toUpperCase() === pm.codice_sap.toUpperCase())
+                                                                        ) && (!selectedTurno || s.turno_id === selectedTurno)
+                                                                    );
+
                                                                     return (
                                                                         <tr key={m.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
                                                                             <td style={{ padding: "8px 12px" }}>
@@ -966,19 +979,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                             </td>
                                                                             <td style={{ padding: "8px 12px" }}>
                                                                                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                                                                    {(() => {
-                                                                                        const relevantPezzi = pezziProdotti.filter(p => pairMachines.some(pm => pm.id === p.macchina_id));
-                                                                                        if (relevantPezzi.length > 0) {
-                                                                                            const totalQta = relevantPezzi.reduce((sum, p) => sum + (p.quantita || 0), 0);
-                                                                                            const totalScarti = relevantPezzi.reduce((sum, p) => sum + (p.scarti || 0), 0);
-                                                                                            return (
-                                                                                                <div style={{ fontSize: 13, color: "var(--success)", fontWeight: 700 }}>
-                                                                                                    {totalQta} <span style={{ fontWeight: 400, fontSize: 11 }}>pz</span> {totalScarti > 0 && <span style={{ color: "var(--danger)", fontWeight: 400 }}>({totalScarti} sc)</span>}
-                                                                                                </div>
-                                                                                            );
-                                                                                        }
-                                                                                        return <span style={{ color: "var(--text-muted)", fontSize: 12 }}>—</span>;
-                                                                                    })()}
+                                                                                    {/* Summary hidden as requested - visible in input boxes */}
                                                                                     <div style={{ display: "flex", gap: 4 }}>
                                                                                         <input
                                                                                             type="number" className="input" placeholder="Pezzi"
@@ -1000,12 +1001,12 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                             <td style={{ padding: "8px 12px" }}>
                                                                                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                                                                                     {pairMachines.map(pm => {
-                                                                                        const machineFermi = fermiMacchina.filter(f => f.macchina_id === pm.id);
+                                                                                        const machineFermiRecords = currentMachineFermi.filter(f => f.macchina_id === pm.id);
                                                                                         return (
                                                                                             <div key={`fermi-box-${pm.id}`} style={{ borderLeft: secondaryMachine ? "2px solid var(--border-light)" : "none", paddingLeft: secondaryMachine ? 6 : 0 }}>
                                                                                                 {secondaryMachine && <div style={{ fontSize: 9, fontWeight: 700, color: "var(--text-muted)", marginBottom: 2 }}>{pm.nome}</div>}
                                                                                                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
-                                                                                                    {machineFermi.map(f => (
+                                                                                                    {machineFermiRecords.map(f => (
                                                                                                         <div key={f.id} className="tag tag-red" style={{ fontSize: 9, padding: "1px 4px", display: "flex", alignItems: "center", gap: 2 }}>
                                                                                                             <span>{f.motivo}</span>
                                                                                                             <button onClick={() => handleDeleteFermi(f.id)} style={{ border: "none", background: "none", color: "inherit", cursor: "pointer", padding: 0 }}>{Icons.x}</button>
@@ -1338,6 +1339,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                 <table>
                                     <thead>
                                         <tr>
+                                            <th>Turno</th>
                                             <th>Macchina</th>
                                             <th style={{ textAlign: "center" }}>Durata (min)</th>
                                             <th>Motivo</th>
@@ -1359,6 +1361,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
 
                                             return (
                                                 <tr key={idx}>
+                                                    <td style={{ fontWeight: 700, color: "var(--primary)", fontSize: 13 }}>{f.turno_id}</td>
                                                     <td style={{ fontWeight: 600 }}>{mName}</td>
                                                     <td style={{ textAlign: "center", fontWeight: 700, color: "var(--danger)" }}>
                                                         {displayDurata ? `${displayDurata} min` : "—"}
@@ -1377,7 +1380,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                             );
                                         })}
                                         {fermiMacchina.length === 0 && (
-                                            <tr><td colSpan={4} style={{ textAlign: "center", padding: 20, color: "var(--text-muted)" }}>Nessun fermo registrato</td></tr>
+                                            <tr><td colSpan={5} style={{ textAlign: "center", padding: 20, color: "var(--text-muted)" }}>Nessun fermo registrato</td></tr>
                                         )}
                                     </tbody>
                                 </table>
@@ -1393,6 +1396,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                 <table>
                                     <thead>
                                         <tr>
+                                            <th>Turno</th>
                                             <th>Macchina</th>
                                             <th style={{ textAlign: "center" }}>Quantità</th>
                                             <th style={{ textAlign: "center" }}>Scarti</th>
@@ -1404,6 +1408,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                             const mName = macchine.find(m => m.id === p.macchina_id)?.nome || p.macchina_id;
                                             return (
                                                 <tr key={idx}>
+                                                    <td style={{ fontWeight: 700, color: "var(--primary)", fontSize: 13 }}>{p.turno_id}</td>
                                                     <td style={{ fontWeight: 600 }}>{mName}</td>
                                                     <td style={{ textAlign: "center", fontWeight: 700, color: "var(--success)" }}>{p.quantita}</td>
                                                     <td style={{ textAlign: "center", color: "var(--danger)" }}>{p.scarti || 0}</td>
@@ -1412,7 +1417,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                             );
                                         })}
                                         {pezziProdotti.length === 0 && (
-                                            <tr><td colSpan={4} style={{ textAlign: "center", padding: 20, color: "var(--text-muted)" }}>Nessun dato di produzione</td></tr>
+                                            <tr><td colSpan={5} style={{ textAlign: "center", padding: 20, color: "var(--text-muted)" }}>Nessun dato di produzione</td></tr>
                                         )}
                                     </tbody>
                                 </table>

@@ -138,7 +138,7 @@ export default function AnagraficaFermiView({ motiviFermo, setMotiviFermo, tecno
 
     /* ── Render ──────────────────────────────────── */
     return (
-        <div className="fade-in">
+        <div className="fade-in" style={{ height: "100%", overflowY: "auto", paddingBottom: 20 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
                 <p style={{ color: "var(--text-muted)", fontSize: 13, margin: 0 }}>
                     Associa le macchine direttamente a ogni tecnologia e configura i motivi di fermo.
