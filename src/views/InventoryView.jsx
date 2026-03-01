@@ -483,23 +483,257 @@ const InventoryView = ({ showToast }) => {
     ];
 
     // --- DCT 300 DATA ---
-    const data300Row1 = [
+    const data300TopRow = [
         {
-            id: 'Sample1',
-            code: 'XYZ-001',
-            primaryPart: ['PartA'],
-            rows: [
-                { label: 'Operation A', value: '100' },
-                { label: 'Operation B', value: '200' }
+            id: 'SG1',
+            headers: [
+                { id: 'h1', values: [{ v: 'codice KK' }, { v: '2511108150', color: 'blue' }, { v: 'LOW TORQUE M0140994', bg: '#FFFF00', bold: true }, { v: '2511124450', color: 'blue' }] },
+                { id: 'h2', values: [{ v: '550726300' }, { v: '2511108150/S', bold: true }, { v: 'M0140994/S', bold: true }, { v: '2511124450/S', bold: true }] },
+                { id: 'h3', values: [{ v: 'Lotto soft', bold: true }, { v: '' }, { v: '' }, { v: '' }] },
             ],
-            totWip: 300,
-            totFiniti: 150,
-            grandLabel: 'DELTA FINITI',
-            diff: -150,
-            totLabel: 'Tot.'
+            rows: [
+                { label: 'ORE 33', vals: [{}, {}, {}] },
+                { label: 'LASER', vals: [{ v: '270', bg: '#FFFF00' }, {}, {}] },
+                { label: 'PFAUTER', vals: [{ v: '108', bg: '#C6E0B4' }, {}, {}] },
+                { label: 'SMUSSATURA', vals: [{}, {}, {}] },
+                { label: 'DA TRATTARE', vals: [{ v: '216', bg: '#FFFF00' }, {}, {}] },
+                { label: 'IN TRATT.', vals: [{ v: '480', bg: '#F4B084' }, {}, {}] },
+                { label: 'DA PALLINARE', vals: [{ v: '810', bg: '#F4B084' }, {}, {}] },
+                { label: 'EMAG', vals: [{}, {}, {}] },
+                { label: 'RH160', vals: [{}, {}, {}] },
+                { label: '', vals: [{}, {}, {}], rowBg: '#D9D9D9' },
+                { label: 'DA LAVARE', vals: [{ v: '54', bg: '#C6E0B4' }, {}, {}] },
+                { label: 'FINITI', vals: [{ v: '594', bg: '#F4B084' }, {}, { v: '346', bg: '#FFFF00' }] }
+            ],
+            footers: [
+                { label: 'blister', rowBg: '#00B0F0', labelColor: 'blue', vals: [{}, {}, {}] },
+                { label: '', rowBg: '#F4B084', vals: [{}, {}, {}] },
+                { label: '', rowBg: '#FF00FF', vals: [{}, {}, {}] },
+                { label: '', rowBg: '#00B050', vals: [{}, {}, {}] },
+            ]
+        },
+        {
+            id: 'DG2',
+            headers: [
+                { id: 'h1', values: [{ v: 'codice KK' }, { v: 'Mozzetto' }, { v: '251.1.1055.50', color: 'blue' }, { v: 'LOW TORQUE M0156540', bg: '#FFFF00', bold: true }, { v: '251.1.1223.50', color: 'blue' }, { v: 'LOW TORQUE M0146872', bg: '#FFFF00', bold: true }, { v: '251.1.1246.50', color: 'blue' }] },
+                { id: 'h2', values: [{ v: '0550130300' }, { v: '251110950/S', bold: true }, { v: '2511109350/S', bold: true }, { v: 'M0156540/S', bold: true }, { v: '2511122350/S', bold: true }, { v: 'M0146872/S', bold: true }, { v: '2511124650/S', bold: true }] },
+                { id: 'h3', values: [{ v: 'Lotto soft', bold: true }, { v: '' }, { v: '' }, { v: '' }, { v: '' }, { v: '' }, { v: '' }] },
+            ],
+            rows: [
+                { label: '', vals: [{}, {}, {}, {}, {}, {}], rowBg: '#D9D9D9' },
+                { label: 'WS CORONCINA', vals: [{}, {}, {}, {}, {}, {}] },
+                { label: 'PFAUTER MOZZETTO', vals: [{ v: '144', bg: '#FFFF00' }, {}, {}, {}, {}, {}] },
+                { label: 'mozzetta SCA110/6', vals: [{ v: '792', bg: '#F4B084' }, {}, {}, {}, {}, {}] },
+                { label: 'US', vals: [{}, {}, {}, {}, {}, {}] },
+                { label: 'DG car SCA110/6', vals: [{}, { v: '720', bg: '#FFFF00' }, {}, { v: '3168', bg: '#F4B084' }, {}, {}] },
+                { label: 'PFAUTER DG', vals: [{}, {}, {}, { v: '1656', bg: '#F4B084' }, {}, {}] },
+                { label: 'DA TRATTARE', vals: [{}, {}, {}, {}, {}, {}], rowBg: '#D9D9D9' },
+                { label: 'IN TRATT.', vals: [{}, {}, {}, {}, {}, {}], rowBg: '#D9D9D9' },
+                { label: 'DA PALLINARE', vals: [{}, { v: '72', bg: '#C6E0B4' }, {}, { v: '144', bg: '#FFFF00' }, {}, {}] },
+                { label: 'ore33', vals: [{}, { v: '216', bg: '#FFFF00' }, {}, { v: '1116', bg: '#F4B084' }, {}, {}] },
+                { label: 'AC1', vals: [{}, { v: '72', bg: '#C6E0B4' }, {}, { v: '288', bg: '#FFFF00' }, {}, {}] },
+                { label: 'RH160', vals: [{}, { v: '216', bg: '#FFFF00' }, {}, {}, {}, {}] },
+                { label: 'DA LAVARE', vals: [{}, { v: '144', bg: '#FFFF00' }, {}, {}, {}, {}] },
+                { label: 'FINITI', vals: [{}, { v: '612', bg: '#F4B084' }, {}, { v: '180', bg: '#FFFF00' }, {}, { v: '72', bg: '#C6E0B4' }] }
+            ],
+            footers: [
+                { label: '', rowBg: '#00B0F0', vals: [{}, {}, {}, {}, {}, {}] },
+                { label: '', rowBg: '#F4B084', vals: [{}, {}, {}, {}, {}, {}] },
+                { label: '', rowBg: '#FF00FF', vals: [{}, {}, {}, {}, {}, {}] },
+                { label: '', rowBg: '#00B050', vals: [{}, {}, {}, {}, {}, {}] },
+            ]
+        },
+        {
+            id: 'SG 5',
+            headers: [
+                { id: 'h1', values: [{ v: 'codice KK' }, { v: '2511108862', color: 'blue' }, { v: '2511122851', color: 'blue' }, { v: '2511126150', color: 'blue' }] },
+                { id: 'h2', values: [{ v: '550730005' }, { v: '2511108851/S', bold: true }, { v: '2511122851/S', bold: true }, { v: '2511126150/S', bold: true }] },
+                { id: 'h3', values: [{ v: 'Lotto soft', bold: true }, { v: '' }, { v: '' }, { v: '' }] },
+            ],
+            rows: [
+                { label: '', vals: [{}, {}, {}], rowBg: '#D9D9D9' },
+                { label: 'WEISSER', vals: [{}, {}, {}] },
+                { label: 'PFAUTER', vals: [{ v: '528', bg: '#FFFF00' }, { v: '1716', bg: '#FF0000' }, { v: '212', bg: '#C6E0B4' }] },
+                { label: 'DA TRATTARE', vals: [{}, {}, {}] },
+                { label: 'IN TRATT.', vals: [{ v: '396', bg: '#C6E0B4' }, {}, {}] },
+                { label: 'EMAG', vals: [{ v: '264', bg: '#FFFF00' }, { v: '1188', bg: '#FF0000' }, { v: '462', bg: '#F4B084' }] },
+                { label: 'RH160', vals: [{}, { v: '264', bg: '#FFFF00' }, {}] },
+                { label: 'LASER', vals: [{}, { v: '1980', bg: '#FF0000' }, {}] },
+                { label: 'US', vals: [{}, { v: '264', bg: '#FFFF00' }, {}] },
+                { label: 'AC1', vals: [{}, { v: '132', bg: '#C6E0B4' }, {}] },
+                { label: '', vals: [{}, {}, {}], rowBg: '#D9D9D9' },
+                { label: '', vals: [{}, {}, {}], rowBg: '#D9D9D9' },
+                { label: 'DA LAVARE', vals: [{}, {}, {}] },
+                { label: 'FINITI', vals: [{ v: '577', bg: '#FFFF00' }, { v: '726', bg: '#F4B084' }, { v: '8', bg: '#C6E0B4' }] }
+            ],
+            footers: [
+                { label: '', rowBg: '#00B0F0', vals: [{}, {}, {}] },
+                { label: '', rowBg: '#F4B084', vals: [{}, {}, {}] },
+                { label: '', rowBg: '#FF00FF', vals: [{}, {}, {}] },
+                { label: '', rowBg: '#00B050', vals: [{}, {}, {}] },
+            ]
+        },
+        {
+            id: 'SG 6',
+            headers: [
+                { id: 'h1', values: [{ v: 'codice KK' }, { v: '2511109151', color: 'blue' }, { v: '2511123050', color: 'blue' }, { v: '2511125350', color: 'blue' }] },
+                { id: 'h2', values: [{ v: '550730305' }, { v: '2511109250/S', bold: true }, { v: '2511123150/S', bold: true }, { v: '2511125450/S', bold: true }] },
+                { id: 'h3', values: [{ v: 'Lotto soft', bold: true }, { v: '' }, { v: '' }, { v: '' }] },
+            ],
+            rows: [
+                { label: '', vals: [{}, {}, {}], rowBg: '#D9D9D9' },
+                { label: 'WEISSER', vals: [{}, {}, {}] },
+                { label: 'DA TRATTARE', vals: [{ v: '120', bg: '#C6E0B4' }, { v: '960', bg: '#F4B084' }, {}] },
+                { label: 'IN TRATT.', vals: [{}, { v: '600', bg: '#FFFF00' }, {}] },
+                { label: 'EMAG', vals: [{}, {}, {}] },
+                { label: 'RH160', vals: [{}, {}, {}] },
+                { label: 'LASER', vals: [{ v: '840', bg: '#F4B084' }, { v: '1920', bg: '#FF0000' }, {}] },
+                { label: 'US', vals: [{}, {}, {}] },
+                { label: 'AC1', vals: [{ v: '384', bg: '#C6E0B4' }, { v: '253', bg: '#C6E0B4' }, {}] },
+                { label: '', vals: [{}, {}, {}], rowBg: '#D9D9D9' },
+                { label: '', vals: [{}, {}, {}], rowBg: '#D9D9D9' },
+                { label: 'DA LAVARE', vals: [{}, { v: '120', bg: '#FFFF00' }, {}] },
+                { label: 'FINITI', vals: [{ v: '156', bg: '#FFFF00' }, { v: '180', bg: '#FFFF00' }, { v: '411', bg: '#F4B084' }] }
+            ],
+            footers: [
+                { label: '', rowBg: '#00B0F0', vals: [{}, {}, {}] },
+                { label: '', rowBg: '#F4B084', vals: [{}, {}, {}] },
+                { label: '', rowBg: '#FF00FF', vals: [{}, {}, {}] },
+                { label: '', rowBg: '#00B050', vals: [{}, {}, {}] },
+            ]
         }
     ];
-    const data300Row2 = []; // Add more rows as needed
+
+    const data300BottomRow = [
+        {
+            id: 'SG 3',
+            headers: [
+                { id: 'h1', values: [{ v: '' }, { v: '2511108850', color: 'blue' }, { v: '2511122550', color: 'blue' }, { v: '2511124850', color: 'blue' }] },
+                { id: 'h2', values: [{ v: '' }, { v: '2511108850/S', bold: true }, { v: '2511122550/S', bold: true }, { v: '2511122550/S', bold: true }] },
+                { id: 'h3', values: [{ v: 'Lotto soft', bold: true }, { v: '' }, { v: '' }, { v: '' }] },
+            ],
+            rows: [
+                { label: 'LORENZ', vals: [{}, {}, {}], rowBg: '#D9D9D9' },
+                { label: 'PFAUTER WEIMA', vals: [{}, {}, {}], rowBg: '#D9D9D9' },
+                { label: 'PFAUTER', vals: [{}, {}, {}], rowBg: '#D9D9D9' },
+                { label: 'ORE 33', vals: [{}, {}, {}] },
+                { label: 'DA TRATTARE', vals: [{ v: '480', bg: '#F4B084' }, {}, {}] },
+                { label: 'IN TRATT.', vals: [{}, {}, {}] },
+                { label: 'AC1', vals: [{}, {}, { v: '96', bg: '#C6E0B4' }] },
+                { label: 'RH160', vals: [{}, { v: '71', bg: '#C6E0B4' }, {}] },
+                { label: 'DA LAVARE', vals: [{ v: '256', bg: '#FFFF00' }, {}, {}] },
+                { label: 'FINITI', vals: [{ v: '384', bg: '#F4B084' }, { v: '96', bg: '#FFFF00' }, { v: '96', bg: '#FFFF00' }] },
+            ],
+            footers: [
+                { label: 'blister', rowBg: '#00B0F0', labelColor: 'blue', vals: [{}, {}, {}] },
+                { label: '', rowBg: '#FF00FF', vals: [{}, {}, {}] },
+                { label: '', rowBg: '#00B050', vals: [{}, {}, {}] },
+            ]
+        },
+        {
+            id: 'SG4',
+            headers: [
+                { id: 'h1', values: [{ v: '0556536100' }, { v: '2511108751', color: 'blue' }, { v: '2511122651', color: 'blue' }, { v: '2511124950', color: 'blue' }] },
+                { id: 'h2', values: [{ v: '' }, { v: '2511108750/S', bold: true }, { v: '2511122651/S', bold: true }, { v: '2511124950/S', bold: true }] },
+                { id: 'h3', values: [{ v: 'Lotto soft', bold: true }, { v: '' }, { v: '' }, { v: '' }] },
+            ],
+            rows: [
+                { label: 'WEISSER', vals: [{}, {}, {}], rowBg: '#D9D9D9' },
+                { label: 'LASER', vals: [{ v: '176', bg: '#F4B084' }, { v: '264' }, {}] },
+                { label: 'PFAUTER', vals: [{ v: '704', bg: '#F4B084' }, {}, {}] },
+                { label: 'DA TRATTARE', vals: [{ v: '176', bg: '#FFFF00' }, {}, {}] },
+                { label: 'IN TRATT.', vals: [{}, {}, {}] },
+                { label: 'AC1', vals: [{ v: '88', bg: '#C6E0B4' }, { v: '88', bg: '#C6E0B4' }, { v: '704', bg: '#FFFF00' }] },
+                { label: 'RH160', vals: [{ v: '88', bg: '#C6E0B4' }, { v: '232' }, {}] },
+                { label: 'DA LAVARE', vals: [{ v: '176', bg: '#FFFF00' }, {}, {}] },
+                { label: 'FINITI', vals: [{ v: '616', bg: '#F4B084' }, {}, { v: '132', bg: '#FFFF00' }] },
+            ],
+            footers: [
+                { label: '', rowBg: '#00B0F0', vals: [{}, {}, {}] },
+                { label: '', rowBg: '#F4B084', vals: [{}, {}, {}] },
+                { label: '', rowBg: '#FF00FF', vals: [{}, {}, {}] },
+                { label: '', rowBg: '#00B050', vals: [{}, {}, {}] },
+            ]
+        },
+        {
+            id: 'RG',
+            headers: [
+                { id: 'h1', values: [{ v: '' }, { v: '2511108653', color: 'blue' }, { v: 'LOW TORQUE M0140999', bg: '#FFFF00', bold: true }, { v: '2511130051', color: 'blue' }, { v: 'LOW TORQUE M0160207', bg: '#FFFF00', bold: true }, { v: '2511124351', color: 'blue' }] },
+                { id: 'h2', values: [{ v: '' }, { v: '2511108653/S', bold: true }, { v: 'M0140999/S', bold: true }, { v: '' }, { v: 'M0160207/S', bold: true }, { v: '2511124350/S', bold: true }] },
+                { id: 'h3', values: [{ v: 'Lotto soft', bold: true }, { v: '' }, { v: '' }, { v: '' }, { v: '' }, { v: '' }] },
+            ],
+            rows: [
+                { label: 'DA DENTARE', vals: [{ v: '60', bg: '#FFFF00' }, {}, {}, {}, {}] },
+                { label: 'DA SBAVARE', vals: [{}, {}, {}, {}, {}] },
+                { label: 'DA LAVARE', vals: [{ v: '240', bg: '#FFFF00' }, {}, {}, {}, {}] },
+                { label: 'IN TRATTAM.', vals: [{ v: '300', bg: '#FFFF00' }, {}, {}, {}, {}] },
+                { label: 'DA PALLIN.', vals: [{ v: '60', bg: '#C6E0B4' }, {}, {}, {}, {}] },
+                { label: 'EMAG', vals: [{ v: '150', bg: '#C6E0B4' }, {}, {}, { v: '420', bg: '#FFFF00' }, {}] },
+                { label: 'RH250', vals: [{}, {}, {}, {}, {}] },
+                { label: 'DA LAVARE', vals: [{ v: '270', bg: '#C6E0B4' }, {}, {}, {}, {}] },
+                { label: 'FINITI', vals: [{ v: '480', bg: '#F4B084' }, {}, { v: '100', bg: '#FFFF00' }, { v: '570', bg: '#FFFF00' }, {}] },
+            ],
+            footers: [
+                { label: 'Blister', rowBg: '#00B0F0', vals: [{}, {}, {}, {}, {}] },
+                { label: 'SVEVA', rowBg: '#F4B084', vals: [{}, {}, {}, {}, {}] },
+                { label: '', rowBg: '#FF00FF', vals: [{}, {}, {}, {}, {}] },
+                { label: '', rowBg: '#00B050', vals: [{}, {}, {}, {}, {}] },
+            ]
+        },
+        {
+            id: 'SG7',
+            headers: [
+                { id: 'h1', values: [{ v: '' }, { v: '2511109050', color: 'blue' }, { v: '2511123250', color: 'blue' }, { v: '2511125550', color: 'blue' }] },
+                { id: 'h2', values: [{ v: '' }, { v: '2511109050/S', bold: true }, { v: '2511123250/S', bold: true }, { v: '2511125550/S', bold: true }] },
+                { id: 'h3', values: [{ v: 'Lotto soft', bold: true }, { v: '' }, { v: '' }, { v: '' }] },
+            ],
+            rows: [
+                { label: 'WEISSER', vals: [{}, {}, {}], rowBg: '#D9D9D9' },
+                { label: 'STOZZA', vals: [{ v: '416', bg: '#C6E0B4' }, { v: '624', bg: '#FFFF00' }, {}] },
+                { label: 'PFAUTER', vals: [{ v: '104', bg: '#C6E0B4' }, {}, {}] },
+                { label: 'DA TRATTARE', vals: [{}, { v: '624', bg: '#FFFF00' }, {}] },
+                { label: 'IN TRATTAM.', vals: [{}, { v: '826', bg: '#F4B084' }, {}] },
+                { label: 'EMAG', vals: [{}, {}, {}] },
+                { label: 'RH160', vals: [{}, {}, {}] },
+                { label: 'DA LAVARE', vals: [{}, { v: '624', bg: '#FFFF00' }, {}] },
+                { label: 'FINITI', vals: [{ v: '780', bg: '#F4B084' }, { v: '884', bg: '#F4B084' }, { v: '227', bg: '#C6E0B4' }] },
+            ],
+            footers: [
+                { label: '', rowBg: '#00B0F0', vals: [{}, {}, {}] },
+                { label: '', rowBg: '#F4B084', vals: [{}, {}, {}] },
+                { label: '', rowBg: '#FF00FF', vals: [{}, {}, {}] },
+                { label: '', rowBg: '#00B050', vals: [{}, {}, {}] },
+            ]
+        },
+        {
+            id: 'SGRW',
+            headers: [
+                { id: 'h1', values: [{ v: '' }, { v: '2511109451', color: 'blue' }] },
+                { id: 'h2', values: [{ v: '' }, { v: '2511109451/S', bold: true }] },
+                { id: 'h3', values: [{ v: 'Lotto soft', bold: true }, { v: '' }] },
+            ],
+            rows: [
+                { label: 'ORE33', vals: [{}] },
+                { label: 'LASER', vals: [{ v: '432', bg: '#FFFF00' }] },
+                { label: 'PFAUTER', vals: [{ v: '648', bg: '#F4B084' }] },
+                { label: 'DA TRATTAM', vals: [{ v: '576', bg: '#F4B084' }] },
+                { label: 'IN TRATTAM.', vals: [{ v: '360', bg: '#C6E0B4' }] },
+                { label: 'PALLINATURA', vals: [{ v: '360', bg: '#C6E0B4' }] },
+                { label: 'EMAG', vals: [{ v: '1116', bg: '#FF0000' }] },
+                { label: 'RH160', vals: [{}] },
+                { label: 'DA LAVARE', vals: [{ v: '72', bg: '#C6E0B4' }] },
+                { label: 'FINITI', vals: [{ v: '468', bg: '#FFFF00' }] },
+            ],
+            footers: [
+                { label: '', rowBg: '#00B0F0', vals: [{}] },
+                { label: '', rowBg: '#F4B084', vals: [{}] },
+                { label: '', rowBg: '#FF00FF', vals: [{}] },
+                { label: '', rowBg: '#00B050', vals: [{}] },
+            ]
+        }
+    ];
+
+
 
 
     if (activeTab === 'DCT Eco') {
@@ -554,52 +788,74 @@ const InventoryView = ({ showToast }) => {
     }
 
     if (activeTab === 'DCT 300') {
-        const renderBlock = (item) => (
+        const renderBlock300 = (item) => (
             <div key={item.id} style={{
-                flex: item.type === 'wide' ? 2 : 1,
-                border: '2px solid #000',
+                flex: item.id === 'DG2' || item.id === 'RG' ? 2 : 1,
+                border: '1px solid #000',
                 fontSize: 10,
-                fontFamily: 'monospace',
                 backgroundColor: '#fff',
-                minWidth: item.type === 'wide' ? 400 : 240
+                fontFamily: 'monospace, sans-serif'
             }}>
-                {/* Header */}
-                <div style={{ display: 'flex', borderBottom: '2px solid #000', fontWeight: 'bold' }}>
-                    <div style={{ flex: 1.5, padding: 4, borderRight: '1px solid #000', textAlign: 'center' }}>{item.id}</div>
-                    {item.primaryPart.map((p, idx) => (
-                        <div key={idx} style={{ flex: 1, padding: 4, borderRight: idx < item.primaryPart.length - 1 ? '1px solid #000' : 'none', textAlign: 'center', fontSize: 8 }}>{p}</div>
-                    ))}
+                {/* Header Title */}
+                <div style={{ backgroundColor: '#e2efda', textAlign: 'center', fontWeight: 'bold', borderBottom: '1px solid #000', padding: 4, fontSize: 13 }}>
+                    {item.id}
                 </div>
-                <div style={{ display: 'flex', borderBottom: '1px solid #000' }}>
-                    <div style={{ flex: 1.5, padding: 2, borderRight: '1px solid #000' }}>{item.code}</div>
-                    {item.primaryPart.map((p, idx) => (
-                        <div key={idx} style={{ flex: 1, padding: 2, borderRight: idx < item.primaryPart.length - 1 ? '1px solid #000' : 'none', textAlign: 'center', fontSize: 7 }}>{p}/S</div>
-                    ))}
-                </div>
-
-                {/* Rows */}
-                {item.rows.map((row, idx) => {
-                    let bgColor = 'transparent';
-                    if (row.type === 'yellow') bgColor = '#FFFF00';
-                    if (row.type === 'orange') bgColor = '#F4B084';
-                    if (row.type === 'green') bgColor = '#C6E0B4';
-                    if (row.type === 'gray') bgColor = '#D9D9D9';
-
-                    return (
-                        <div key={idx} style={{ display: 'flex', borderBottom: '1px solid #000', backgroundColor: bgColor, height: 18, alignItems: 'center' }}>
-                            <div style={{ flex: 1.5, padding: '0 4px', borderRight: '1px solid #000', fontWeight: 'bold' }}>{row.label}</div>
-                            {row.value.map((val, vIdx) => (
-                                <div key={vIdx} style={{ flex: 1, textAlign: 'center', borderRight: vIdx < row.value.length - 1 ? '1px solid #000' : 'none', fontWeight: val ? 'bold' : 'normal' }}>{val}</div>
-                            ))}
+                {/* Sub Headers */}
+                {item.headers.map((hRow) => (
+                    <div key={hRow.id} style={{ display: 'flex', borderBottom: '1px solid #000', backgroundColor: '#f2f2f2' }}>
+                        {hRow.values.map((col, idx) => (
+                            <div key={idx} style={{
+                                flex: idx === 0 ? 1.5 : 1,
+                                padding: 3,
+                                textAlign: 'center',
+                                borderRight: idx < hRow.values.length - 1 ? '1px solid #000' : 'none',
+                                backgroundColor: col.bg || 'transparent',
+                                color: col.color || '#000',
+                                fontWeight: col.bold ? 'bold' : 'normal',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                whiteSpace: 'pre-wrap'
+                            }}>
+                                {col.v}
+                            </div>
+                        ))}
+                    </div>
+                ))}
+                {/* Data Rows */}
+                {item.rows.map((row, idx) => (
+                    <div key={idx} style={{ display: 'flex', borderBottom: '1px solid #000', backgroundColor: row.rowBg || '#fff', minHeight: 18 }}>
+                        <div style={{ flex: 1.5, padding: '0 4px', borderRight: '1px solid #000', fontSize: 9, fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                            {row.label}
                         </div>
-                    );
-                })}
-
-                {/* Footer colored bars */}
-                {item.extraBars && item.extraBars.map((bar, idx) => (
-                    <div key={idx} style={{ display: 'flex', height: 16, backgroundColor: bar.color, borderBottom: '1px solid #000', alignItems: 'center', padding: '0 4px', color: bar.label === 'blister' ? 'blue' : '#000', fontWeight: 'bold' }}>
-                        <div style={{ flex: 1.5 }}>{bar.label}</div>
-                        <div style={{ flex: 1, textAlign: 'center' }}>{bar.value || ''}</div>
+                        {row.vals.map((val, vIdx) => (
+                            <div key={vIdx} style={{
+                                flex: 1,
+                                textAlign: 'center',
+                                borderRight: vIdx < row.vals.length - 1 ? '1px solid #000' : 'none',
+                                backgroundColor: val.bg || 'transparent',
+                                fontWeight: val.v ? 'bold' : 'normal',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                {val.v || ''}
+                            </div>
+                        ))}
+                    </div>
+                ))}
+                {/* Footers */}
+                {item.footers.map((row, idx) => (
+                    <div key={idx} style={{ display: 'flex', borderBottom: idx < item.footers.length - 1 ? '1px solid #000' : 'none', backgroundColor: row.rowBg || '#fff', height: 18 }}>
+                        <div style={{ flex: 1.5, padding: '0 4px', borderRight: '1px solid #000', fontSize: 9, fontWeight: 'bold', color: row.labelColor || '#000', display: 'flex', alignItems: 'center' }}>
+                            {row.label}
+                        </div>
+                        {row.vals.map((val, vIdx) => (
+                            <div key={vIdx} style={{
+                                flex: 1,
+                                borderRight: vIdx < row.vals.length - 1 ? '1px solid #000' : 'none'
+                            }}></div>
+                        ))}
                     </div>
                 ))}
             </div>
@@ -615,18 +871,20 @@ const InventoryView = ({ showToast }) => {
                     </div>
                 </div>
 
-                <div style={{ padding: 10, background: '#fff', borderRadius: 8, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <div style={{ padding: 10, background: '#fff', borderRadius: 8, border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 30 }}>
+                    {/* Top Row Grid */}
                     <div style={{ display: 'flex', gap: 10 }}>
-                        {data300Row1.map(renderBlock)}
+                        {data300TopRow.map(renderBlock300)}
                     </div>
+                    {/* Bottom Row Grid */}
                     <div style={{ display: 'flex', gap: 10 }}>
-                        {data300Row2.map(renderBlock)}
+                        {data300BottomRow.map(renderBlock300)}
                     </div>
-                    <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>* Tabella DCT 300 con supporto multi-variante e indicatori di stato.</p>
                 </div>
             </div>
         );
     }
+
 
     return (
         <div className="inventory-view" style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: '100%', overflowX: 'auto' }}>
