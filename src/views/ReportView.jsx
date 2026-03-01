@@ -688,9 +688,26 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                     />
                                     <Bar dataKey="richiesti" fill="var(--text-muted)" radius={[4, 4, 0, 0]} name="Totale Macchine" opacity={0.3} />
                                     <Bar dataKey="presenti" fill="var(--success)" radius={[4, 4, 0, 0]} name="Staff Presente" opacity={0.6} />
-                                    <Bar dataKey="assegnati" fill="var(--accent)" radius={[4, 4, 0, 0]} name="Assegnate" />
                                 </BarChart>
                             </ResponsiveContainer>
+                            <BarChart data={coverageByReparto} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+                                <XAxis
+                                    dataKey="name"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fill: 'var(--text-muted)', fontSize: 10 }}
+                                />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-muted)', fontSize: 10 }} />
+                                <Tooltip
+                                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                    contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px' }}
+                                />
+                                <Bar dataKey="richiesti" fill="var(--text-muted)" radius={[4, 4, 0, 0]} name="Totale Macchine" opacity={0.3} />
+                                <Bar dataKey="presenti" fill="var(--success)" radius={[4, 4, 0, 0]} name="Staff Presente" opacity={0.6} />
+                                <Bar dataKey="assegnati" fill="var(--accent)" radius={[4, 4, 0, 0]} name="Assegnate" />
+                            </BarChart>
+
                         </div>
                     </div>
 
@@ -934,7 +951,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                     const machineOps = allAss.filter(a => pairMachines.some(pm => pm.id === a.macchina_id));
 
                                                                     // Filter production and downtime data based on selected shift for the main table
-                                                                    const currentMachineFermi = fermiMacchina.filter(f => pairMachines.some(pm => pm.id === f.macchina_id) && (!selectedTurno || f.turno_id === selectedTurno));
+                                                                    const currentMachineFermi = fermiMacchina.filter(f => pairMachines.some(pm => pm.id === a.macchina_id) && (!selectedTurno || f.turno_id === selectedTurno));
                                                                     const currentMachinePezzi = pezziProdotti.filter(p => pairMachines.some(pm => pm.id === p.macchina_id) && (!selectedTurno || p.turno_id === selectedTurno));
                                                                     const currentMachineSap = confermeSap.filter(s =>
                                                                         pairMachines.some(pm =>

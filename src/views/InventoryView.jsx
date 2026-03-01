@@ -482,6 +482,26 @@ const InventoryView = ({ showToast }) => {
         { label: 'gg copertura finiti', values: [0.05, 0.14, 0.28, 0.35, 0.42, 0.21, 0.42], colors: ['#FF0000', '#FFA500', '#FFA500', '#FFFF00', '#FFFF00', '#FFFF00', '#FFFF00'] }
     ];
 
+    // --- DCT 300 DATA ---
+    const data300Row1 = [
+        {
+            id: 'Sample1',
+            code: 'XYZ-001',
+            primaryPart: ['PartA'],
+            rows: [
+                { label: 'Operation A', value: '100' },
+                { label: 'Operation B', value: '200' }
+            ],
+            totWip: 300,
+            totFiniti: 150,
+            grandLabel: 'DELTA FINITI',
+            diff: -150,
+            totLabel: 'Tot.'
+        }
+    ];
+    const data300Row2 = []; // Add more rows as needed
+
+
     if (activeTab === 'DCT Eco') {
         return (
             <div className="inventory-view" style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: '100%', overflowX: 'auto' }}>
