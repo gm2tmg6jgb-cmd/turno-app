@@ -186,7 +186,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                 .select();
 
             if (error) throw error;
-            if (data) {
+            if (data && data.length > 0) {
                 setPezziProdotti(prev => {
                     const filtered = prev.filter(p => p.id !== data[0].id);
                     return [...filtered, ...data];
@@ -760,7 +760,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                 <tr style={{ background: "var(--bg-tertiary)", borderBottom: "2px solid var(--border)", borderTop: "2px solid var(--border)" }}>
                                                                     <td style={{ padding: "12px 12px", fontWeight: 800, fontSize: 16, color: "var(--accent)" }}>
                                                                         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                                                            <span style={{ color: "var(--accent)" }}>{Icons.grid}</span> {zone.label.toUpperCase()}
+                                                                            <span style={{ color: "var(--accent)" }}>{Icons.grid}</span> {(zone.label ?? zone.id ?? "").toUpperCase()}
                                                                         </div>
                                                                     </td>
                                                                     <td style={{ padding: "10px 12px", fontWeight: 500, fontSize: 13, color: "var(--primary)" }}>
@@ -829,7 +829,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
 
                                                                                                 return (
                                                                                                     <div key={`${o.id}-${d.id}`} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                                                                                        <span style={{ fontSize: 13, fontWeight: 500 }}>{d.cognome} {d.nome.charAt(0)}.</span>
+                                                                                                        <span style={{ fontSize: 13, fontWeight: 500 }}>{d.cognome} {d.nome?.charAt(0) ?? ""}.</span>
                                                                                                         {isFormazione ? (
                                                                                                             <span style={{ fontSize: 11, color: "#8B5CF6", fontWeight: 700 }}>{rawLevel}</span>
                                                                                                         ) : level > 0 ? (
@@ -842,7 +842,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                             })
                                                                                         ) : (
                                                                                             zoneResponsibles.length > 0 ? (
-                                                                                                <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Resp. {zone.label}</span>
+                                                                                                <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Resp. {zone.label ?? zone.id}</span>
                                                                                             ) : (
                                                                                                 <span style={{ color: "var(--text-lighter)", fontSize: 14 }}>&middot;</span>
                                                                                             )
@@ -980,7 +980,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
 
                                                                                             return (
                                                                                                 <div key={`${o.id}-${d.id}`} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                                                                                                    <span style={{ fontSize: 13, fontWeight: 500 }}>{d.cognome} {d.nome.charAt(0)}.</span>
+                                                                                                    <span style={{ fontSize: 13, fontWeight: 500 }}>{d.cognome} {d.nome?.charAt(0) ?? ""}.</span>
                                                                                                     {isFormazione ? (
                                                                                                         <span style={{ fontSize: 11, color: "#8B5CF6", fontWeight: 700 }}>{rawLevel}</span>
                                                                                                     ) : level > 0 ? (
@@ -1215,7 +1215,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                         <tbody>
                                             {aggregatedAbsenceData.map((item, idx) => (
                                                 <tr key={idx}>
-                                                    <td style={{ fontWeight: 600, fontSize: 15 }}>{item.dip.cognome} {item.dip.nome.charAt(0)}.</td>
+                                                    <td style={{ fontWeight: 600, fontSize: 15 }}>{item.dip?.cognome} {item.dip?.nome?.charAt(0) ?? ""}.</td>
                                                     <td style={{ textAlign: "center", fontSize: 12 }}>
                                                         {Array.from(item.patterns).map((p, pidx) => (
                                                             <span key={pidx} style={{
@@ -1270,7 +1270,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                 {resolvedAnomalies.map((a, idx) => (
                                                     <tr key={idx}>
                                                         <td style={{ fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap" }}>{a.dateFormatted}</td>
-                                                        <td style={{ fontWeight: 600, fontSize: 15 }}>{a.dipendente.cognome} {a.dipendente.nome.charAt(0)}.</td>
+                                                        <td style={{ fontWeight: 600, fontSize: 15 }}>{a.dipendente?.cognome} {a.dipendente?.nome?.charAt(0) ?? ""}.</td>
                                                         <td style={{ textAlign: "center", color: "var(--text-primary)" }}>{a.dates.length > 1 ? "Vari" : a.group}</td>
                                                         <td style={{ color: "var(--text-muted)" }}>
                                                             {motivi.find(m => m.id === a.motivo_assenza)?.label || a.motivo_assenza || "Assenza"}
@@ -1321,7 +1321,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                             {plannedAnomalies.map((a, idx) => (
                                                 <tr key={idx}>
                                                     <td style={{ fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap" }}>{a.dateFormatted}</td>
-                                                    <td style={{ fontWeight: 600, fontSize: 15 }}>{a.dipendente.cognome} {a.dipendente.nome.charAt(0)}.</td>
+                                                    <td style={{ fontWeight: 600, fontSize: 15 }}>{a.dipendente?.cognome} {a.dipendente?.nome?.charAt(0) ?? ""}.</td>
                                                     <td style={{ textAlign: "center", color: "var(--text-primary)" }}>{a.dates.length > 1 ? "Vari" : a.group}</td>
                                                     <td style={{ color: "var(--text-muted)" }}>
                                                         {motivi.find(m => m.id === a.motivo_assenza)?.label || a.motivo_assenza || "Assenza"}
