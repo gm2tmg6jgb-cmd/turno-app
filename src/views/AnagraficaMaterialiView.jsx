@@ -23,7 +23,6 @@ export default function AnagraficaMaterialiView({ showToast }) {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [search, setSearch] = useState("");
-    const [isAdmin, setIsAdmin] = useState(false);
 
     // Form state
     const [newItem, setNewItem] = useState({ codice: "", componente: "", progetto: "" });
@@ -397,30 +396,10 @@ export default function AnagraficaMaterialiView({ showToast }) {
                         <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>Associa i codici SAP a componenti e progetti</p>
                     </div>
                     <div style={{ display: "flex", gap: 10 }}>
-                        {!isAdmin ? (
-                            <button
-                                className="btn btn-secondary"
-                                onClick={() => {
-                                    const pw = prompt("Inserisci la password amministratore:");
-                                    if (pw === "admin123") {
-                                        setIsAdmin(true);
-                                        showToast("Accesso amministratore sbloccato", "success");
-                                    } else if (pw !== null) {
-                                        showToast("Password errata", "error");
-                                    }
-                                }}
-                            >
-                                {Icons.lock} Sblocca Modifiche
-                            </button>
-                        ) : (
-                            <button className="btn btn-secondary" onClick={() => setIsAdmin(false)}>
-                                {Icons.unlock} Blocca Modifiche
-                            </button>
-                        )}
                         <button
                             className="btn btn-secondary"
                             onClick={handleSyncAllWorkCenters}
-                            disabled={loading || !isAdmin}
+                            disabled={loading}
                             style={{ whiteSpace: "nowrap" }}
                             title="Sincronizza Centri di Lavoro SAP per tutti i materiali esistenti"
                         >
@@ -429,9 +408,8 @@ export default function AnagraficaMaterialiView({ showToast }) {
                         <button
                             className="btn btn-secondary"
                             onClick={importMode ? () => { setImportMode(false); setImportRows([]); } : handleImportFromSAP}
-                            disabled={importLoading || !isAdmin}
+                            disabled={importLoading}
                             style={{ whiteSpace: "nowrap" }}
-                            title={!isAdmin ? "Solo amministratorori" : ""}
                         >
                             {importMode ? "Chiudi Import" : importLoading ? "Caricamento..." : "Importa da Storico SAP"}
                         </button>
@@ -453,7 +431,7 @@ export default function AnagraficaMaterialiView({ showToast }) {
                             <button
                                 className="btn btn-primary"
                                 onClick={handleBulkSave}
-                                disabled={importSaving || toSaveCount === 0 || !isAdmin}
+                                disabled={importSaving || toSaveCount === 0}
                                 style={{ minWidth: 160 }}
                             >
                                 {importSaving ? "Salvataggio..." : `Salva ${toSaveCount > 0 ? toSaveCount : ""} Materiali`}

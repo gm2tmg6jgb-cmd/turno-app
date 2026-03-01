@@ -28,6 +28,7 @@ import SapSummaryView from "./views/SapSummaryView";
 import AnagraficaMaterialiView from "./views/AnagraficaMaterialiView";
 import LpaPlanView from "./views/LpaPlanView";
 import InventoryView from "./views/InventoryView";
+import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 export default function App() {
   const [currentView, setCurrentView] = useState("dashboard");
@@ -160,9 +161,6 @@ export default function App() {
 
     fetchData();
   }, [showToast]);
-
-
-
 
 
   const reparto = REPARTI.find((r) => r.id === repartoCorrente);
@@ -413,21 +411,10 @@ export default function App() {
               repartoCorrente={repartoCorrente}
               turnoCorrente={turnoCorrente}
               showToast={showToast}
-              zones={zone} // Pass zones for grouping
+              zones={zone}
             />
           )}
-          {currentView === "anagrafica" && (
-            <AnagraficaView
-              dipendenti={dipendenti}
-              setDipendenti={setDipendenti}
-              macchine={macchine}
-              showToast={showToast}
-              turnoCorrente={turnoCorrente} // Pass current shift for filtering
-            />
-          )}
-          {currentView === "zones" && (
-            <ZoneView zones={zone} setZones={setZone} macchine={macchine} setMacchine={setMacchine} />
-          )}
+
           {currentView === "report" && (
             <ReportView
               dipendenti={dipendenti}
@@ -442,6 +429,7 @@ export default function App() {
               tecnologie={tecnologie}
             />
           )}
+
           {currentView === "lpaPlan" && (
             <LpaPlanView macchine={macchine} dipendenti={dipendenti} showToast={showToast} turnoCorrente={turnoCorrente} />
           )}
@@ -458,15 +446,40 @@ export default function App() {
           {currentView === "fermi" && (
             <FermiView macchine={macchine} initialReparto={repartoCorrente} initialTurno={turnoCorrente} motiviFermo={motiviFermo} tecnologie={tecnologie} />
           )}
+
+          {/* Anagrafiche protette da lucchetto */}
+          {currentView === "anagrafica" && (
+            <AdminSecurityWrapper title="Anagrafica Personale">
+              <AnagraficaView
+                dipendenti={dipendenti}
+                setDipendenti={setDipendenti}
+                macchine={macchine}
+                showToast={showToast}
+                turnoCorrente={turnoCorrente}
+              />
+            </AdminSecurityWrapper>
+          )}
           {currentView === "anagraficaFermi" && (
-            <AnagraficaFermiView motiviFermo={motiviFermo} setMotiviFermo={setMotiviFermo} tecnologie={tecnologie} setTecnologie={setTecnologie} macchine={macchine} setMacchine={setMacchine} showToast={showToast} />
+            <AdminSecurityWrapper title="Anagrafica Motivi Fermi">
+              <AnagraficaFermiView motiviFermo={motiviFermo} setMotiviFermo={setMotiviFermo} tecnologie={tecnologie} setTecnologie={setTecnologie} macchine={macchine} setMacchine={setMacchine} showToast={showToast} />
+            </AdminSecurityWrapper>
           )}
           {currentView === "anagraficaMacchine" && (
-            <AnagraficaMacchineView macchine={macchine} setMacchine={setMacchine} tecnologie={tecnologie} zone={zone} showToast={showToast} />
+            <AdminSecurityWrapper title="Anagrafica Macchine">
+              <AnagraficaMacchineView macchine={macchine} setMacchine={setMacchine} tecnologie={tecnologie} zone={zone} showToast={showToast} />
+            </AdminSecurityWrapper>
           )}
           {currentView === "anagraficaMateriali" && (
-            <AnagraficaMaterialiView showToast={showToast} />
+            <AdminSecurityWrapper title="Settaggio Codici SAP">
+              <AnagraficaMaterialiView showToast={showToast} />
+            </AdminSecurityWrapper>
           )}
+          {currentView === "zones" && (
+            <AdminSecurityWrapper title="Anagrafica Zone">
+              <ZoneView zones={zone} setZones={setZone} macchine={macchine} setMacchine={setMacchine} />
+            </AdminSecurityWrapper>
+          )}
+
           {currentView === "op10" && <Op10View />}
           {currentView === "skills" && (
             <SkillsView dipendenti={dipendenti} setDipendenti={setDipendenti} macchine={macchine} showToast={showToast} turnoCorrente={turnoCorrente} />

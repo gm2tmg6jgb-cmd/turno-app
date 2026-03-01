@@ -332,11 +332,11 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
                             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 4 }}>
                                 <div className="form-group">
                                     <label className="form-label">Agenzia</label>
-                                    <input className="input" value={newDip.agenzia} onChange={(e) => setNewDip({ ...newDip, agenzia: e.target.value })} />
+                                    <input className="input" value={newDip.agenzia || ""} onChange={(e) => setNewDip({ ...newDip, agenzia: e.target.value })} />
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Scadenza Contratto</label>
-                                    <input className="input" type="date" value={newDip.scadenza} onChange={(e) => setNewDip({ ...newDip, scadenza: e.target.value })} />
+                                    <input className="input" type="date" value={newDip.scadenza || ""} onChange={(e) => setNewDip({ ...newDip, scadenza: e.target.value })} />
                                 </div>
                             </div>
                         )}
