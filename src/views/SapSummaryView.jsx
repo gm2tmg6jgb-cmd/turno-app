@@ -274,7 +274,7 @@ export default function SapSummaryView({ macchine = [] }) {
         },
         {
             id: "DCT Eco", nome: "DCTECO",
-            componenti: ["SG2", "SG3", "SG4", "SG5", "SGRW", "RG", "SHAFTS", "IS1", "IS2", "OS1", "OS2", "BAP"]
+            componenti: ["GEAR", "SG2", "SG3", "SG4", "SG5", "SGRW", "RG", "SHAFTS", "IS1", "IS2", "OS1", "OS2", "BAP"]
         },
     ];
 
