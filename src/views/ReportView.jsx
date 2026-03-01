@@ -13,7 +13,23 @@ import html2canvas from 'html2canvas';
 import { getSlotForGroup } from '../lib/shiftRotation';
 import { getLocalDate } from '../lib/dateUtils';
 
-export default function ReportView({ dipendenti, presenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, zones, motivi, motiviFermo: motiviFermoProp }) {
+const GEMELLARI_CONFIG = {
+    "DRA10063": "DRA10064",
+    "DRA10065": "DRA10066",
+    "DRA10069": "DRA10070",
+    "DRA10067": "DRA10068",
+    "DRA10102": "DRA10108",
+    "DRA10099": "DRA10100",
+    "DRA10097": "DRA10098",
+    "DRA10101": "DRA10107",
+    "DRA10113": "DRA10114",
+    "DRA10110": "DRA10111",
+    "DRA10190": "SLW11029",
+    "DRA11837": "SLW11018",
+    "DRA10096": "SLW11019",
+};
+
+export default function ReportView({ dipendenti, presenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, zones, motivi, motiviFermo: motiviFermoProp, tecnologie = [] }) {
     const motiviFermo = motiviFermoProp?.length ? motiviFermoProp : MOTIVI_FERMO_DEFAULT;
     const [reportType, setReportType] = useState("turno");
 
@@ -52,11 +68,56 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
             else setPezziProdotti(pezziRes.data || []);
 
             if (sapRes.error) console.error("Error fetching SAP data:", sapRes.error);
-            else setConfermeSap(sapRes.data || []);
+            else {
+                setConfermeSap(sapRes.data || []);
+
+                // Pre-populate input boxes with SAP data - Grouped for Gemellari
+                const sapData = sapRes.data || [];
+                const initialInputs = {};
+
+                macchine.forEach(m => {
+                    // Check if this is a primary or part of a group
+                    let groupMachines = [m.id];
+                    let isSecondary = false;
+
+                    for (const [p, sec] of Object.entries(GEMELLARI_CONFIG)) {
+                        if (m.id === sec) {
+                            isSecondary = true;
+                            break;
+                        }
+                        if (m.id === p) {
+                            groupMachines.push(sec);
+                            break;
+                        }
+                    }
+
+                    if (isSecondary) return; // Inputs will be handled by the primary machine
+
+                    const relevantSap = sapData.filter(s =>
+                        groupMachines.includes(s.macchina_id) ||
+                        (s.work_center_sap && groupMachines.some(gId => {
+                            const gm = macchine.find(mac => mac.id === gId);
+                            return gm && gm.codice_sap && s.work_center_sap.toUpperCase() === gm.codice_sap.toUpperCase();
+                        }))
+                    );
+
+                    if (relevantSap.length > 0) {
+                        const totalQta = relevantSap.reduce((sum, s) => sum + (s.qta_ottenuta || 0), 0);
+                        const totalScarti = relevantSap.reduce((sum, s) => sum + (s.qta_scarto || 0), 0);
+
+                        initialInputs[m.id] = {
+                            qta: totalQta > 0 ? String(totalQta) : "",
+                            scarti: totalScarti > 0 ? String(totalScarti) : "",
+                            durata: ""
+                        };
+                    }
+                });
+                setPezziInputs(initialInputs);
+            }
         };
 
         fetchData();
-    }, [selectedDate, selectedTurno]);
+    }, [selectedDate, selectedTurno, macchine]);
 
     const handlePostFermi = async (machineId, motivo, durataMin = null) => {
         if (!selectedDate) return;
@@ -632,19 +693,18 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                         <h3>Assegnazioni Macchine per Reparto (Raggruppate per Zona)</h3>
                         <div className="table-container">
                             {(() => {
-                                // 1. Group by Reparto first, then by Zone
-                                const repartiInUse = [...new Set(allMacchine.map(m => m.reparto_id))];
+                                // 1. Group by Reparto first, then by Zone patterns
+                                const repartiInUse = [...new Set(macchine.map(m => m.reparto_id))];
 
                                 return repartiInUse.map(repId => {
                                     const repObj = REPARTI.find(r => r.id === repId);
-                                    const macchineDelReparto = allMacchine.filter(m => m.reparto_id === repId);
+                                    const macchineDelReparto = macchine.filter(m => m.reparto_id === repId);
 
-                                    // Group by Zone - ONLY those defined in 'zones' prop
+                                    // Filter zones belonging to this reparto
                                     const repZones = zones.filter(z => (z.repart_id || z.reparto) === repId);
-
-                                    // Find machines that match these zones
                                     const validZoneIds = repZones.map(z => z.id);
-                                    const machinesInZones = macchineDelReparto.filter(m => validZoneIds.includes(m.zona));
+
+                                    // Machines in this reparto without a zone or in an invalid zone
                                     const machinesWithoutZone = macchineDelReparto.filter(m => !m.zona || !validZoneIds.includes(m.zona));
 
                                     return (
@@ -653,9 +713,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                 {repObj?.nome || repId}
                                             </h4>
 
-                                            {/* ZONES */}
-                                            {/* Single Table per Reparto */}
-                                            <table style={{ background: "var(--bg-card)", borderRadius: 6, overflow: "hidden", marginBottom: 12 }}>
+                                            <table style={{ background: "var(--bg-card)", borderRadius: 6, overflow: "hidden", marginBottom: 12, width: "100%" }}>
                                                 <thead>
                                                     <tr>
                                                         <th style={{ padding: "8px 12px", width: "30%", textAlign: "left" }}>Macchina / Zona</th>
@@ -665,374 +723,331 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {zones
-                                                        .filter(z => (z.repart_id || z.reparto) === repId)
-                                                        .map(zone => {
-                                                            const zoneMachines = macchineDelReparto.filter(m => m.zona === zone.id);
-                                                            // Find Zone Responsible
-                                                            const zoneResponsibles = allAss.filter(a => (a.macchina_id === zone.id || a.attivita_id === zone.id));
-                                                            const zoneOpComponent = zoneResponsibles.map(z => {
-                                                                const d = dipendenti.find(dd => dd.id === z.dipendente_id);
-                                                                if (!d) return null;
-                                                                return (
-                                                                    <span key={`${zone.id}-${d.id}`} style={{ color: "var(--primary)", fontWeight: 500, fontSize: 15 }}>
-                                                                        {d.cognome} {d.nome}
-                                                                    </span>
-                                                                );
-                                                            }).filter(Boolean);
+                                                    {/* 1. ZONES IN THIS REPARTO */}
+                                                    {repZones.map(zone => {
+                                                        const zoneMachines = macchineDelReparto.filter(m => m.zona === zone.id);
+                                                        const zoneResponsibles = allAss.filter(a => (a.macchina_id === zone.id || a.attivita_id === zone.id));
 
-                                                            const isZoneCovered = zoneResponsibles.length > 0;
+                                                        const zoneOpNames = zoneResponsibles.map(z => {
+                                                            const d = dipendenti.find(dd => dd.id === z.dipendente_id);
+                                                            return d ? `${d.cognome} ${d.nome}` : null;
+                                                        }).filter(Boolean);
 
-                                                            return (
-                                                                <React.Fragment key={zone.id}>
-                                                                    {/* ZONE HEADER ROW */}
-                                                                    <tr key={`zone-${zone.id}`} style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border)", borderTop: "1px solid var(--border)" }}>
-                                                                        <td style={{ padding: "10px 12px", fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>
-                                                                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                                                                {Icons.grid} {zone.label}
-                                                                            </div>
-                                                                        </td>
-                                                                        <td style={{ padding: "10px 12px", fontWeight: 500, fontSize: 15, color: "var(--primary)" }}>
-                                                                            {zoneOpComponent.length > 0 ? zoneOpComponent : <span style={{ color: "var(--text-muted)", fontWeight: 400, fontSize: 13, fontStyle: "italic" }}>— Nessun Responsabile —</span>}
-                                                                        </td>
-                                                                        <td style={{ textAlign: "center" }}>
-                                                                            {/* Optional: Zone Status if needed, currently empty as per request */}
-                                                                        </td>
-                                                                    </tr>
+                                                        return (
+                                                            <React.Fragment key={zone.id}>
+                                                                <tr style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border)", borderTop: "1px solid var(--border)" }}>
+                                                                    <td style={{ padding: "10px 12px", fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>
+                                                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                                                            {Icons.grid} {zone.label}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td style={{ padding: "10px 12px", fontWeight: 500, fontSize: 13, color: "var(--primary)" }}>
+                                                                        {zoneOpNames.length > 0 ? (
+                                                                            <span style={{ fontWeight: 600 }}>{zoneOpNames.join(" & ")}</span>
+                                                                        ) : (
+                                                                            <span style={{ color: "var(--text-muted)", fontWeight: 400, fontSize: 12, fontStyle: "italic" }}>— Resp. Zona —</span>
+                                                                        )}
+                                                                    </td>
+                                                                    <td></td>
+                                                                    <td></td>
+                                                                </tr>
 
-                                                                    {/* MACHINE ROWS */}
-                                                                    {zoneMachines.map(m => {
-                                                                        const machineOps = allAss.filter(a => a.macchina_id === m.id);
-                                                                        const specificNames = machineOps.map(o => {
-                                                                            const d = dipendenti.find(dd => dd.id === o.dipendente_id);
-                                                                            return d ? `${d.cognome} ${d.nome.charAt(0)}.` : null;
-                                                                        }).filter(Boolean);
+                                                                {/* RENDER MACHINES FOR THIS ZONE */}
+                                                                {(() => {
+                                                                    const renderedPairs = new Set();
+                                                                    return zoneMachines.map(m => {
+                                                                        if (renderedPairs.has(m.id)) return null;
 
-                                                                        // Logic: Machine is OK if it has specific op OR if zone is covered
-                                                                        const ok = machineOps.length > 0 || isZoneCovered;
+                                                                        const secondaryId = GEMELLARI_CONFIG[m.id];
+                                                                        const secondaryMachine = secondaryId ? macchine.find(mac => mac.id === secondaryId) : null;
+                                                                        const pairMachines = [m];
+                                                                        if (secondaryId && secondaryMachine) {
+                                                                            pairMachines.push(secondaryMachine);
+                                                                            renderedPairs.add(secondaryId);
+                                                                        }
+
+                                                                        // Check if this machine is a secondary machine (to avoid double rendering if it appears as primary elsewhere - though config shouldn't allow that)
+                                                                        const isSecondaryOfAnother = Object.values(GEMELLARI_CONFIG).includes(m.id);
+                                                                        if (isSecondaryOfAnother && !secondaryId) return null;
+
+                                                                        const machineOps = allAss.filter(a => pairMachines.some(pm => pm.id === a.macchina_id));
 
                                                                         return (
-                                                                            <React.Fragment key={m.id}>
-                                                                                <tr style={{ borderBottom: "1px solid var(--border-light)" }}>
-                                                                                    <td style={{ padding: "8px 12px", color: "var(--text-secondary)" }}>
-                                                                                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                                                                            <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text-primary)" }}>
-                                                                                                {m.nome}
-                                                                                                {m.codice_sap && m.codice_sap.toUpperCase() !== m.nome.toUpperCase() && (
-                                                                                                    <span style={{ fontSize: 11, color: "var(--accent)", marginLeft: 6, opacity: 0.8 }}>({m.codice_sap})</span>
-                                                                                                )}
-                                                                                            </div>
-                                                                                            <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{ok ? "✅ Operativa" : "⚠️ Sotto-organico"}</span>
+                                                                            <tr key={m.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                                                                <td style={{ padding: "8px 12px" }}>
+                                                                                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                                                                        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
+                                                                                            {secondaryMachine ? `${m.nome} - ${secondaryMachine.nome}` : m.nome}
                                                                                         </div>
-                                                                                    </td>
-                                                                                    <td style={{ padding: "8px 12px" }}>
-                                                                                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                                                                            {machineOps.length > 0 ? (
-                                                                                                machineOps.map(o => {
-                                                                                                    const d = dipendenti.find(dd => dd.id === o.dipendente_id);
-                                                                                                    if (!d) return null;
-                                                                                                    const rawLevel = d.competenze?.[m.id];
-                                                                                                    const isFormazione = String(rawLevel || '').includes('=>');
-                                                                                                    const level = isFormazione ? 0 : (rawLevel || 0);
-                                                                                                    const skill = LIVELLI_COMPETENZA.find(l => l.value === level) || LIVELLI_COMPETENZA[0];
-                                                                                                    return (
-                                                                                                        <span key={`${m.id}-${d.id}`} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                                                                                                            <span style={{ fontWeight: 500, fontSize: 15 }}>
-                                                                                                                {d.cognome} {d.nome.charAt(0)}.
-                                                                                                            </span>
-                                                                                                            {isFormazione ? (
-                                                                                                                <span style={{ color: "#8B5CF6", fontWeight: 700, fontSize: 13 }}>{rawLevel}</span>
-                                                                                                            ) : level > 0 ? (
-                                                                                                                <span style={{ color: skill.color, fontWeight: 700, fontSize: 15 }}>
-                                                                                                                    Liv. {level}
-                                                                                                                </span>
-                                                                                                            ) : (
-                                                                                                                <span style={{ color: "var(--danger)", fontWeight: 600, fontSize: 12 }}>Nessuna Formazione</span>
-                                                                                                            )}
-                                                                                                        </span>
-                                                                                                    );
-                                                                                                })
-                                                                                            ) : (
-                                                                                                // Coperta dalla zona: mostra Liv. del responsabile per questa macchina
-                                                                                                zoneResponsibles.length > 0 ? (
-                                                                                                    zoneResponsibles.map(za => {
-                                                                                                        const zd = dipendenti.find(dd => dd.id === za.dipendente_id);
-                                                                                                        if (!zd) return null;
-                                                                                                        const rawZLevel = zd.competenze?.[m.id];
-                                                                                                        const isZFormazione = String(rawZLevel || '').includes('=>');
-                                                                                                        const zLevel = isZFormazione ? 0 : (rawZLevel || 0);
-                                                                                                        const zSkill = LIVELLI_COMPETENZA.find(l => l.value === zLevel) || LIVELLI_COMPETENZA[0];
-                                                                                                        return isZFormazione ? (
-                                                                                                            <span key={`zs-${za.dipendente_id}`} style={{ color: "#8B5CF6", fontWeight: 700, fontSize: 13 }}>{rawZLevel}</span>
-                                                                                                        ) : zLevel > 0 ? (
-                                                                                                            <span key={`zs-${za.dipendente_id}`} style={{ color: zSkill.color, fontWeight: 700, fontSize: 15 }}>
-                                                                                                                Liv. {zLevel}
-                                                                                                            </span>
-                                                                                                        ) : (
-                                                                                                            <span key={`zs-${za.dipendente_id}`} style={{ color: "var(--danger)", fontWeight: 600, fontSize: 12 }}>Nessuna Formazione</span>
-                                                                                                        );
-                                                                                                    }).filter(Boolean)
-                                                                                                ) : (
-                                                                                                    <span style={{ color: "var(--text-lighter)", fontSize: 18, lineHeight: 0 }}>&middot;</span>
-                                                                                                )
-                                                                                            )}
-                                                                                        </div>
-                                                                                    </td>
-                                                                                    <td style={{ padding: "8px 12px" }}>
-                                                                                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                                                                            {/* Pezzi inseriti manualmente */}
-                                                                                            {pezziProdotti.filter(p => p.macchina_id === m.id).map(p => (
-                                                                                                <div key={p.id} style={{ fontSize: 13, color: "var(--success)", fontWeight: 600 }}>
-                                                                                                    📦 {p.quantita} pz {p.scarti > 0 && <span style={{ color: "var(--danger)", fontSize: 11 }}>(scarti: {p.scarti})</span>}
-                                                                                                </div>
-                                                                                            ))}
-                                                                                            {/* Dati da SAP */}
-                                                                                            {confermeSap.filter(s => s.macchina_id === m.id).map(s => (
-                                                                                                <div key={s.id} style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, background: "rgba(99,102,241,0.08)", padding: "2px 6px", borderRadius: 4, marginTop: 2 }}>
-                                                                                                    <div style={{ fontSize: 10, textTransform: "uppercase", opacity: 0.8 }}>Dati SAP</div>
-                                                                                                    📦 {s.qta_ottenuta} pz {s.qta_scarto > 0 && <span style={{ color: "var(--danger)", fontSize: 11 }}>(scarti: {s.qta_scarto})</span>}
-                                                                                                </div>
-                                                                                            ))}
-                                                                                            {pezziProdotti.filter(p => p.macchina_id === m.id).length === 0 && confermeSap.filter(s =>
-                                                                                                s.macchina_id === m.id ||
-                                                                                                (s.work_center_sap && m.codice_sap && s.work_center_sap.toUpperCase() === m.codice_sap.toUpperCase())
-                                                                                            ).length === 0 && (
-                                                                                                    <span style={{ color: "var(--text-muted)", fontSize: 13 }}>—</span>
-                                                                                                )}
-                                                                                            <div style={{ marginTop: 8, display: "flex", gap: 4, alignItems: "center" }}>
-                                                                                                <input
-                                                                                                    type="number"
-                                                                                                    placeholder="Pezzi"
-                                                                                                    className="input"
-                                                                                                    style={{ width: 60, height: 26, fontSize: 11, padding: "2px 6px" }}
-                                                                                                    value={pezziInputs[m.id]?.qta || ""}
-                                                                                                    onChange={e => setPezziInputs(prev => ({ ...prev, [m.id]: { ...(prev[m.id] || {}), qta: e.target.value } }))}
-                                                                                                />
-                                                                                                <input
-                                                                                                    type="number"
-                                                                                                    placeholder="Scarti"
-                                                                                                    className="input"
-                                                                                                    style={{ width: 60, height: 26, fontSize: 11, padding: "2px 6px" }}
-                                                                                                    value={pezziInputs[m.id]?.scarti || ""}
-                                                                                                    onChange={e => setPezziInputs(prev => ({ ...prev, [m.id]: { ...(prev[m.id] || {}), scarti: e.target.value } }))}
-                                                                                                />
-                                                                                                <button
-                                                                                                    className="btn btn-primary"
-                                                                                                    style={{ padding: "0 6px", height: 26, fontSize: 12 }}
-                                                                                                    onClick={() => {
-                                                                                                        handlePostPezzi(m.id, pezziInputs[m.id]?.qta, pezziInputs[m.id]?.scarti);
-                                                                                                        setPezziInputs(prev => ({ ...prev, [m.id]: { qta: "", scarti: "" } }));
-                                                                                                    }}
-                                                                                                >
-                                                                                                    {Icons.check}
-                                                                                                </button>
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    </td>
-                                                                                    <td style={{ padding: "8px 12px" }}>
-                                                                                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                                                                            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                                                                                                {fermiMacchina.filter(f => f.macchina_id === m.id).map(f => (
-                                                                                                    <div key={f.id} className="tag tag-red" style={{ fontSize: 10, padding: "2px 6px", display: "flex", alignItems: "center", gap: 4 }}>
-                                                                                                        <span>⚠️ {f.motivo}</span>
-                                                                                                        <button onClick={() => handleDeleteFermi(f.id)} style={{ border: "none", background: "none", color: "inherit", cursor: "pointer", padding: 0, display: "flex", opacity: 0.7 }}>{Icons.x}</button>
-                                                                                                    </div>
-                                                                                                ))}
-                                                                                            </div>
-                                                                                            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                                                                                                <input
-                                                                                                    type="number"
-                                                                                                    placeholder="Min"
-                                                                                                    className="input"
-                                                                                                    style={{ width: 50, height: 26, fontSize: 11, padding: "2px 6px" }}
-                                                                                                    value={pezziInputs[m.id]?.durata || ""}
-                                                                                                    onChange={e => setPezziInputs(prev => ({ ...prev, [m.id]: { ...(prev[m.id] || {}), durata: e.target.value } }))}
-                                                                                                />
-                                                                                                <select
-                                                                                                    className="select-input"
-                                                                                                    style={{ padding: "4px 8px", fontSize: 12, height: 26, width: "100%", flex: 1 }}
-                                                                                                    onChange={(e) => {
-                                                                                                        if (e.target.value) {
-                                                                                                            handlePostFermi(m.id, e.target.value, pezziInputs[m.id]?.durata);
-                                                                                                            setPezziInputs(prev => ({ ...prev, [m.id]: { ...(prev[m.id] || {}), durata: "" } }));
-                                                                                                            e.target.value = "";
-                                                                                                        }
-                                                                                                    }}
-                                                                                                >
-                                                                                                    <option value="">+ Motivazione...</option>
-                                                                                                    {motiviFermo.map(mot => <option key={mot.id} value={mot.label}>{mot.icona} {mot.label}</option>)}
-                                                                                                </select>
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    </td>
-                                                                                </tr>
-                                                                            </React.Fragment>
-                                                                        );
-                                                                    })}
-                                                                    {zoneMachines.length === 0 && (
-                                                                        <tr>
-                                                                            <td colSpan={3} style={{ padding: "8px 12px 8px 32px", fontSize: 12, color: "var(--text-muted)", fontStyle: "italic" }}>
-                                                                                Nessuna macchina in questa zona
-                                                                            </td>
-                                                                        </tr>
-                                                                    )}
-                                                                </React.Fragment>
-                                                            );
-                                                        })}
+                                                                                        {!secondaryMachine && m.codice_sap && m.codice_sap.toUpperCase() !== m.nome.toUpperCase() && (
+                                                                                            <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{m.codice_sap}</div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </td>
+                                                                                <td style={{ padding: "8px 12px" }}>
+                                                                                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                                                                        {machineOps.length > 0 ? (
+                                                                                            machineOps.map(o => {
+                                                                                                const d = dipendenti.find(dd => dd.id === o.dipendente_id);
+                                                                                                if (!d) return null;
+                                                                                                const rawLevel = d.competenze?.[o.macchina_id || m.id];
+                                                                                                const isFormazione = String(rawLevel || '').includes('=>');
+                                                                                                const level = isFormazione ? 0 : (rawLevel || 0);
+                                                                                                const skill = LIVELLI_COMPETENZA.find(l => l.value === level) || LIVELLI_COMPETENZA[0];
 
-                                                    {/* Machines without Zone */}
+                                                                                                return (
+                                                                                                    <div key={`${o.id}-${d.id}`} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                                                                                        <span style={{ fontSize: 13, fontWeight: 500 }}>{d.cognome} {d.nome.charAt(0)}.</span>
+                                                                                                        {isFormazione ? (
+                                                                                                            <span style={{ fontSize: 11, color: "#8B5CF6", fontWeight: 700 }}>{rawLevel}</span>
+                                                                                                        ) : level > 0 ? (
+                                                                                                            <span style={{ fontSize: 12, color: skill.color, fontWeight: 700 }}>L{level}</span>
+                                                                                                        ) : (
+                                                                                                            <span style={{ fontSize: 10, color: "var(--danger)" }}>N.F.</span>
+                                                                                                        )}
+                                                                                                    </div>
+                                                                                                );
+                                                                                            })
+                                                                                        ) : (
+                                                                                            zoneResponsibles.length > 0 ? (
+                                                                                                <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Resp. {zone.label}</span>
+                                                                                            ) : (
+                                                                                                <span style={{ color: "var(--text-lighter)", fontSize: 14 }}>&middot;</span>
+                                                                                            )
+                                                                                        )}
+                                                                                    </div>
+                                                                                </td>
+                                                                                <td style={{ padding: "8px 12px" }}>
+                                                                                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                                                                        {(() => {
+                                                                                            const relevantPezzi = pezziProdotti.filter(p => pairMachines.some(pm => pm.id === p.macchina_id));
+                                                                                            if (relevantPezzi.length > 0) {
+                                                                                                const totalQta = relevantPezzi.reduce((sum, p) => sum + (p.quantita || 0), 0);
+                                                                                                const totalScarti = relevantPezzi.reduce((sum, p) => sum + (p.scarti || 0), 0);
+                                                                                                return (
+                                                                                                    <div style={{ fontSize: 13, color: "var(--success)", fontWeight: 700 }}>
+                                                                                                        {totalQta} <span style={{ fontWeight: 400, fontSize: 11 }}>pz</span> {totalScarti > 0 && <span style={{ color: "var(--danger)", fontWeight: 400 }}>({totalScarti} sc)</span>}
+                                                                                                    </div>
+                                                                                                );
+                                                                                            }
+                                                                                            return <span style={{ color: "var(--text-muted)", fontSize: 12 }}>—</span>;
+                                                                                        })()}
+                                                                                        <div style={{ display: "flex", gap: 4 }}>
+                                                                                            <input
+                                                                                                type="number" className="input" placeholder="Pezzi"
+                                                                                                style={{ width: 45, height: 22, fontSize: 10, padding: 2 }}
+                                                                                                value={pezziInputs[m.id]?.qta || ""}
+                                                                                                onChange={e => setPezziInputs(prev => ({ ...prev, [m.id]: { ...(prev[m.id] || {}), qta: e.target.value } }))}
+                                                                                                onKeyDown={e => e.key === 'Enter' && handlePostPezzi(m.id, pezziInputs[m.id]?.qta, pezziInputs[m.id]?.scarti)}
+                                                                                            />
+                                                                                            <input
+                                                                                                type="number" className="input" placeholder="Scarti"
+                                                                                                style={{ width: 45, height: 22, fontSize: 10, padding: 2 }}
+                                                                                                value={pezziInputs[m.id]?.scarti || ""}
+                                                                                                onChange={e => setPezziInputs(prev => ({ ...prev, [m.id]: { ...(prev[m.id] || {}), scarti: e.target.value } }))}
+                                                                                                onKeyDown={e => e.key === 'Enter' && handlePostPezzi(m.id, pezziInputs[m.id]?.qta, pezziInputs[m.id]?.scarti)}
+                                                                                            />
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </td>
+                                                                                <td style={{ padding: "8px 12px" }}>
+                                                                                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                                                                        {pairMachines.map(pm => {
+                                                                                            const machineFermi = fermiMacchina.filter(f => f.macchina_id === pm.id);
+                                                                                            return (
+                                                                                                <div key={`fermi-box-${pm.id}`} style={{ borderLeft: secondaryMachine ? "2px solid var(--border-light)" : "none", paddingLeft: secondaryMachine ? 6 : 0 }}>
+                                                                                                    {secondaryMachine && <div style={{ fontSize: 9, fontWeight: 700, color: "var(--text-muted)", marginBottom: 2 }}>{pm.nome}</div>}
+                                                                                                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
+                                                                                                        {machineFermi.map(f => (
+                                                                                                            <div key={f.id} className="tag tag-red" style={{ fontSize: 9, padding: "1px 4px", display: "flex", alignItems: "center", gap: 2 }}>
+                                                                                                                <span>{f.motivo}</span>
+                                                                                                                <button onClick={() => handleDeleteFermi(f.id)} style={{ border: "none", background: "none", color: "inherit", cursor: "pointer", padding: 0 }}>{Icons.x}</button>
+                                                                                                            </div>
+                                                                                                        ))}
+                                                                                                    </div>
+                                                                                                    <div style={{ display: "flex", gap: 2 }}>
+                                                                                                        <input
+                                                                                                            type="number" className="input" placeholder="Min"
+                                                                                                            style={{ width: 35, height: 20, fontSize: 9, padding: 2 }}
+                                                                                                            value={pezziInputs[pm.id]?.durata || ""}
+                                                                                                            onChange={e => setPezziInputs(prev => ({ ...prev, [pm.id]: { ...(prev[pm.id] || {}), durata: e.target.value } }))}
+                                                                                                        />
+                                                                                                        <select
+                                                                                                            className="select-input" style={{ height: 20, fontSize: 9, padding: "0 2px", flex: 1 }}
+                                                                                                            onChange={(e) => {
+                                                                                                                if (e.target.value) {
+                                                                                                                    handlePostFermi(pm.id, e.target.value, pezziInputs[pm.id]?.durata);
+                                                                                                                    setPezziInputs(prev => ({ ...prev, [pm.id]: { ...(prev[pm.id] || {}), durata: "" } }));
+                                                                                                                    e.target.value = "";
+                                                                                                                }
+                                                                                                            }}
+                                                                                                        >
+                                                                                                            <option value="">+</option>
+                                                                                                            {(() => {
+                                                                                                                const tecId = pm.tecnologia_id || tecnologie.find(t => t.prefissi?.split(',').some(p => pm.id.startsWith(p)))?.id;
+                                                                                                                return motiviFermo.filter(mot => !tecId || mot.tecnologia_id === tecId).map(mot => (
+                                                                                                                    <option key={mot.id} value={mot.label}>{mot.label}</option>
+                                                                                                                ));
+                                                                                                            })()}
+                                                                                                        </select>
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            );
+                                                                                        })}
+                                                                                    </div>
+                                                                                </td>
+                                                                            </tr>
+                                                                        );
+                                                                    });
+                                                                })()}
+                                                            </React.Fragment>
+                                                        );
+                                                    })}
+
+                                                    {/* 2. OTHER MACHINES (WITHOUT ZONE) */}
                                                     {machinesWithoutZone.length > 0 && (
-                                                        <React.Fragment key={`${repId}-others`}>
+                                                        <>
                                                             <tr style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border)", borderTop: "1px solid var(--border)" }}>
-                                                                <td colSpan={3} style={{ padding: "10px 12px", fontWeight: 700, color: "var(--text-muted)", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                                                                    Altre Macchine
+                                                                <td colSpan={4} style={{ padding: "10px 12px", fontWeight: 700, fontSize: 13, color: "var(--text-muted)" }}>
+                                                                    Altre Macchine {repObj?.nome}
                                                                 </td>
                                                             </tr>
-                                                            {machinesWithoutZone.map(m => {
-                                                                const machineOps = allAss.filter(a => a.macchina_id === m.id);
-                                                                const specificNames = machineOps.map(o => {
-                                                                    const d = dipendenti.find(dd => dd.id === o.dipendente_id);
-                                                                    return d ? `${d.cognome} ${d.nome.charAt(0)}.` : null;
-                                                                }).filter(Boolean);
-                                                                const ok = machineOps.length >= (m.personale_minimo || 1);
+                                                            {(() => {
+                                                                const renderedPairs = new Set();
+                                                                return machinesWithoutZone.map(m => {
+                                                                    if (renderedPairs.has(m.id)) return null;
 
-                                                                return (
-                                                                    <React.Fragment key={m.id}>
-                                                                        <tr style={{ borderBottom: "1px solid var(--border-light)" }}>
-                                                                            <td style={{ padding: "8px 12px 8px 32px", color: "var(--text-secondary)" }}>
-                                                                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                                                                    <div style={{ fontSize: 15, fontWeight: 500, color: "var(--text-primary)" }}>{m.nome}</div>
-                                                                                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{ok ? "✅ Operativa" : "⚠️ Sotto-organico"}</span>
-                                                                                </div>
-                                                                            </td>
+                                                                    const secondaryId = GEMELLARI_CONFIG[m.id];
+                                                                    const secondaryMachine = secondaryId ? macchine.find(mac => mac.id === secondaryId) : null;
+                                                                    const pairMachines = [m];
+                                                                    if (secondaryId && secondaryMachine) {
+                                                                        pairMachines.push(secondaryMachine);
+                                                                        renderedPairs.add(secondaryId);
+                                                                    }
+
+                                                                    const isSecondaryOfAnother = Object.values(GEMELLARI_CONFIG).includes(m.id);
+                                                                    if (isSecondaryOfAnother && !secondaryId) return null;
+
+                                                                    const machineOps = allAss.filter(a => pairMachines.some(pm => pm.id === a.macchina_id));
+
+                                                                    return (
+                                                                        <tr key={m.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
                                                                             <td style={{ padding: "8px 12px" }}>
-                                                                                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                                                                    {machineOps.length > 0 ? (
-                                                                                        machineOps.map(o => {
-                                                                                            const d = dipendenti.find(dd => dd.id === o.dipendente_id);
-                                                                                            if (!d) return null;
-                                                                                            const rawLevel = d.competenze?.[m.id];
-                                                                                            const isFormazione = String(rawLevel || '').includes('=>');
-                                                                                            const level = isFormazione ? 0 : (rawLevel || 0);
-                                                                                            const skill = LIVELLI_COMPETENZA.find(l => l.value === level) || LIVELLI_COMPETENZA[0];
-                                                                                            return (
-                                                                                                <span key={`${m.id}-${d.id}`} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                                                                                                    <span style={{ fontWeight: 500, fontSize: 15 }}>
-                                                                                                        {d.cognome} {d.nome.charAt(0)}.
-                                                                                                    </span>
-                                                                                                    {isFormazione ? (
-                                                                                                        <span style={{ color: "#8B5CF6", fontWeight: 700, fontSize: 13 }}>{rawLevel}</span>
-                                                                                                    ) : level > 0 ? (
-                                                                                                        <span style={{ color: skill.color, fontWeight: 700, fontSize: 15 }}>
-                                                                                                            Liv. {level}
-                                                                                                        </span>
-                                                                                                    ) : (
-                                                                                                        <span style={{ color: "var(--danger)", fontWeight: 600, fontSize: 12 }}>Nessuna Formazione</span>
-                                                                                                    )}
-                                                                                                </span>
-                                                                                            );
-                                                                                        })
-                                                                                    ) : (
-                                                                                        <span style={{ color: "var(--text-muted)" }}>—</span>
-                                                                                    )}
-                                                                                </div>
-                                                                            </td>
-                                                                            <td style={{ padding: "8px 12px" }}>
-                                                                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                                                                    {/* Pezzi inseriti manualmente */}
-                                                                                    {pezziProdotti.filter(p => p.macchina_id === m.id).map(p => (
-                                                                                        <div key={p.id} style={{ fontSize: 13, color: "var(--success)", fontWeight: 600 }}>
-                                                                                            📦 {p.quantita} pz {p.scarti > 0 && <span style={{ color: "var(--danger)", fontSize: 11 }}>(scarti: {p.scarti})</span>}
-                                                                                        </div>
-                                                                                    ))}
-                                                                                    {/* Dati da SAP */}
-                                                                                    {confermeSap.filter(s =>
-                                                                                        s.macchina_id === m.id ||
-                                                                                        (s.work_center_sap && m.codice_sap && s.work_center_sap.toUpperCase() === m.codice_sap.toUpperCase())
-                                                                                    ).map(s => (
-                                                                                        <div key={s.id} style={{ fontSize: 12, color: "var(--accent)", fontWeight: 600, background: "rgba(99,102,241,0.08)", padding: "2px 6px", borderRadius: 4, marginTop: 2 }}>
-                                                                                            <div style={{ fontSize: 10, textTransform: "uppercase", opacity: 0.8 }}>Dati SAP</div>
-                                                                                            📦 {s.qta_ottenuta} pz {s.qta_scarto > 0 && <span style={{ color: "var(--danger)", fontSize: 11 }}>(scarti: {s.qta_scarto})</span>}
-                                                                                        </div>
-                                                                                    ))}
-                                                                                    {pezziProdotti.filter(p => p.macchina_id === m.id).length === 0 &&
-                                                                                        confermeSap.filter(s =>
-                                                                                            s.macchina_id === m.id ||
-                                                                                            (s.work_center_sap && m.codice_sap && s.work_center_sap.toUpperCase() === m.codice_sap.toUpperCase())
-                                                                                        ).length === 0 && (
-                                                                                            <span style={{ color: "var(--text-muted)", fontSize: 13 }}>—</span>
-                                                                                        )}
-                                                                                    <div style={{ marginTop: 8, display: "flex", gap: 4, alignItems: "center" }}>
-                                                                                        <input
-                                                                                            type="number"
-                                                                                            placeholder="Pezzi"
-                                                                                            className="input"
-                                                                                            style={{ width: 60, height: 26, fontSize: 11, padding: "2px 6px" }}
-                                                                                            value={pezziInputs[m.id]?.qta || ""}
-                                                                                            onChange={e => setPezziInputs(prev => ({ ...prev, [m.id]: { ...(prev[m.id] || {}), qta: e.target.value } }))}
-                                                                                        />
-                                                                                        <input
-                                                                                            type="number"
-                                                                                            placeholder="Scarti"
-                                                                                            className="input"
-                                                                                            style={{ width: 60, height: 26, fontSize: 11, padding: "2px 6px" }}
-                                                                                            value={pezziInputs[m.id]?.scarti || ""}
-                                                                                            onChange={e => setPezziInputs(prev => ({ ...prev, [m.id]: { ...(prev[m.id] || {}), scarti: e.target.value } }))}
-                                                                                        />
-                                                                                        <button
-                                                                                            className="btn btn-primary"
-                                                                                            style={{ padding: "0 6px", height: 26, fontSize: 12 }}
-                                                                                            onClick={() => {
-                                                                                                handlePostPezzi(m.id, pezziInputs[m.id]?.qta, pezziInputs[m.id]?.scarti);
-                                                                                                setPezziInputs(prev => ({ ...prev, [m.id]: { qta: "", scarti: "" } }));
-                                                                                            }}
-                                                                                        >
-                                                                                            {Icons.check}
-                                                                                        </button>
-                                                                                    </div>
+                                                                                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
+                                                                                    {secondaryMachine ? `${m.nome} - ${secondaryMachine.nome}` : m.nome}
                                                                                 </div>
                                                                             </td>
                                                                             <td style={{ padding: "8px 12px" }}>
                                                                                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                                                                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                                                                                        {fermiMacchina.filter(f => f.macchina_id === m.id).map(f => (
-                                                                                            <div key={f.id} className="tag tag-red" style={{ fontSize: 10, padding: "2px 6px", display: "flex", alignItems: "center", gap: 4 }}>
-                                                                                                <span>⚠️ {f.motivo}</span>
-                                                                                                <button onClick={() => handleDeleteFermi(f.id)} style={{ border: "none", background: "none", color: "inherit", cursor: "pointer", padding: 0, display: "flex", opacity: 0.7 }}>{Icons.x}</button>
-                                                                                            </div>
-                                                                                        ))}
-                                                                                    </div>
-                                                                                    <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                                                                                    {machineOps.length > 0 ? (
+                                                                                        machineOps.map(o => {
+                                                                                            const d = dipendenti.find(dd => dd.id === o.dipendente_id);
+                                                                                            if (!d) return null;
+                                                                                            const rawLevel = d.competenze?.[o.macchina_id || m.id];
+                                                                                            const isFormazione = String(rawLevel || '').includes('=>');
+                                                                                            const level = isFormazione ? 0 : (rawLevel || 0);
+                                                                                            const skill = LIVELLI_COMPETENZA.find(l => l.value === level) || LIVELLI_COMPETENZA[0];
+
+                                                                                            return (
+                                                                                                <div key={`${o.id}-${d.id}`} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                                                                                    <span style={{ fontSize: 13, fontWeight: 500 }}>{d.cognome} {d.nome.charAt(0)}.</span>
+                                                                                                    {isFormazione ? (
+                                                                                                        <span style={{ fontSize: 11, color: "#8B5CF6", fontWeight: 700 }}>{rawLevel}</span>
+                                                                                                    ) : level > 0 ? (
+                                                                                                        <span style={{ fontSize: 12, color: skill.color, fontWeight: 700 }}>L{level}</span>
+                                                                                                    ) : (
+                                                                                                        <span style={{ fontSize: 10, color: "var(--danger)" }}>N.F.</span>
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            );
+                                                                                        })
+                                                                                    ) : <span style={{ color: "var(--text-lighter)" }}>&middot;</span>}
+                                                                                </div>
+                                                                            </td>
+                                                                            <td style={{ padding: "8px 12px" }}>
+                                                                                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                                                                    {(() => {
+                                                                                        const relevantPezzi = pezziProdotti.filter(p => pairMachines.some(pm => pm.id === p.macchina_id));
+                                                                                        if (relevantPezzi.length > 0) {
+                                                                                            const totalQta = relevantPezzi.reduce((sum, p) => sum + (p.quantita || 0), 0);
+                                                                                            const totalScarti = relevantPezzi.reduce((sum, p) => sum + (p.scarti || 0), 0);
+                                                                                            return (
+                                                                                                <div style={{ fontSize: 13, color: "var(--success)", fontWeight: 700 }}>
+                                                                                                    {totalQta} <span style={{ fontWeight: 400, fontSize: 11 }}>pz</span> {totalScarti > 0 && <span style={{ color: "var(--danger)", fontWeight: 400 }}>({totalScarti} sc)</span>}
+                                                                                                </div>
+                                                                                            );
+                                                                                        }
+                                                                                        return <span style={{ color: "var(--text-muted)", fontSize: 12 }}>—</span>;
+                                                                                    })()}
+                                                                                    <div style={{ display: "flex", gap: 4 }}>
                                                                                         <input
-                                                                                            type="number"
-                                                                                            placeholder="Min"
-                                                                                            className="input"
-                                                                                            style={{ width: 50, height: 26, fontSize: 11, padding: "2px 6px" }}
-                                                                                            value={pezziInputs[m.id]?.durata || ""}
-                                                                                            onChange={e => setPezziInputs(prev => ({ ...prev, [m.id]: { ...(prev[m.id] || {}), durata: e.target.value } }))}
+                                                                                            type="number" className="input" placeholder="Pezzi"
+                                                                                            style={{ width: 45, height: 22, fontSize: 10, padding: 2 }}
+                                                                                            value={pezziInputs[m.id]?.qta || ""}
+                                                                                            onChange={e => setPezziInputs(prev => ({ ...prev, [m.id]: { ...(prev[m.id] || {}), qta: e.target.value } }))}
+                                                                                            onKeyDown={e => e.key === 'Enter' && handlePostPezzi(m.id, pezziInputs[m.id]?.qta, pezziInputs[m.id]?.scarti)}
                                                                                         />
-                                                                                        <select
-                                                                                            className="select-input"
-                                                                                            style={{ padding: "4px 8px", fontSize: 12, height: 26, width: "100%", flex: 1 }}
-                                                                                            onChange={(e) => {
-                                                                                                if (e.target.value) {
-                                                                                                    handlePostFermi(m.id, e.target.value, pezziInputs[m.id]?.durata);
-                                                                                                    setPezziInputs(prev => ({ ...prev, [m.id]: { ...(prev[m.id] || {}), durata: "" } }));
-                                                                                                    e.target.value = "";
-                                                                                                }
-                                                                                            }}
-                                                                                        >
-                                                                                            <option value="">+ Motivazione...</option>
-                                                                                            {motiviFermo.map(mot => <option key={mot.id} value={mot.label}>{mot.icona} {mot.label}</option>)}
-                                                                                        </select>
+                                                                                        <input
+                                                                                            type="number" className="input" placeholder="Scarti"
+                                                                                            style={{ width: 45, height: 22, fontSize: 10, padding: 2 }}
+                                                                                            value={pezziInputs[m.id]?.scarti || ""}
+                                                                                            onChange={e => setPezziInputs(prev => ({ ...prev, [m.id]: { ...(prev[m.id] || {}), scarti: e.target.value } }))}
+                                                                                            onKeyDown={e => e.key === 'Enter' && handlePostPezzi(m.id, pezziInputs[m.id]?.qta, pezziInputs[m.id]?.scarti)}
+                                                                                        />
                                                                                     </div>
                                                                                 </div>
                                                                             </td>
+                                                                            <td style={{ padding: "8px 12px" }}>
+                                                                                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                                                                    {pairMachines.map(pm => {
+                                                                                        const machineFermi = fermiMacchina.filter(f => f.macchina_id === pm.id);
+                                                                                        return (
+                                                                                            <div key={`fermi-box-${pm.id}`} style={{ borderLeft: secondaryMachine ? "2px solid var(--border-light)" : "none", paddingLeft: secondaryMachine ? 6 : 0 }}>
+                                                                                                {secondaryMachine && <div style={{ fontSize: 9, fontWeight: 700, color: "var(--text-muted)", marginBottom: 2 }}>{pm.nome}</div>}
+                                                                                                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
+                                                                                                    {machineFermi.map(f => (
+                                                                                                        <div key={f.id} className="tag tag-red" style={{ fontSize: 9, padding: "1px 4px", display: "flex", alignItems: "center", gap: 2 }}>
+                                                                                                            <span>{f.motivo}</span>
+                                                                                                            <button onClick={() => handleDeleteFermi(f.id)} style={{ border: "none", background: "none", color: "inherit", cursor: "pointer", padding: 0 }}>{Icons.x}</button>
+                                                                                                        </div>
+                                                                                                    ))}
+                                                                                                </div>
+                                                                                                <div style={{ display: "flex", gap: 2 }}>
+                                                                                                    <input
+                                                                                                        type="number" className="input" placeholder="Min"
+                                                                                                        style={{ width: 35, height: 20, fontSize: 9, padding: 2 }}
+                                                                                                        value={pezziInputs[pm.id]?.durata || ""}
+                                                                                                        onChange={e => setPezziInputs(prev => ({ ...prev, [pm.id]: { ...(prev[pm.id] || {}), durata: e.target.value } }))}
+                                                                                                    />
+                                                                                                    <select
+                                                                                                        className="select-input" style={{ height: 20, fontSize: 9, padding: "0 2px", flex: 1 }}
+                                                                                                        onChange={(e) => {
+                                                                                                            if (e.target.value) {
+                                                                                                                handlePostFermi(pm.id, e.target.value, pezziInputs[pm.id]?.durata);
+                                                                                                                setPezziInputs(prev => ({ ...prev, [pm.id]: { ...(prev[pm.id] || {}), durata: "" } }));
+                                                                                                                e.target.value = "";
+                                                                                                            }
+                                                                                                        }}
+                                                                                                    >
+                                                                                                        <option value="">+</option>
+                                                                                                        {(() => {
+                                                                                                            const tecId = pm.tecnologia_id || tecnologie.find(t => t.prefissi?.split(',').some(p => pm.id.startsWith(p)))?.id;
+                                                                                                            return motiviFermo.filter(mot => !tecId || mot.tecnologia_id === tecId).map(mot => (
+                                                                                                                <option key={mot.id} value={mot.label}>{mot.label}</option>
+                                                                                                            ));
+                                                                                                        })()}
+                                                                                                    </select>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        );
+                                                                                    })}
+                                                                                </div>
+                                                                            </td>
                                                                         </tr>
-                                                                    </React.Fragment>
-                                                                );
-                                                            })}
-                                                        </React.Fragment>
+                                                                    );
+                                                                });
+                                                            })()}
+                                                        </>
                                                     )}
                                                 </tbody>
                                             </table>
@@ -1096,129 +1111,182 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                         </div>
                     </div>
                 </div>
-            )}
+            )
+            }
 
-            {reportType === "settimanale" && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                    <div className="card">
-                        <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Analisi Trend Assenze (Prossimi 14 gg)</h3>
-                        <div style={{ height: 400, width: '100%' }}>
-                            <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 20 }}>
-                                Previsione dell'andamento delle assenze totali e impreviste a partire da oggi.
-                            </p>
-                            <ResponsiveContainer width="100%" height={340}>
-                                <AreaChart data={trendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                                    <defs>
-                                        <linearGradient id="colorAssenze" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="var(--danger)" stopOpacity={0.8} />
-                                            <stop offset="95%" stopColor="var(--danger)" stopOpacity={0} />
-                                        </linearGradient>
-                                        <linearGradient id="colorImprevisti" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="var(--warning)" stopOpacity={0.8} />
-                                            <stop offset="95%" stopColor="var(--warning)" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <XAxis dataKey="name" stroke="var(--text-muted)" tick={{ fontSize: 12 }} />
-                                    <YAxis stroke="var(--text-muted)" tick={{ fontSize: 12 }} />
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
-                                    <Tooltip
-                                        contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px' }}
-                                    />
-                                    <Area type="monotone" dataKey="Assenze" stroke="var(--danger)" fillOpacity={1} fill="url(#colorAssenze)" />
-                                    <Area type="monotone" dataKey="Imprevisti" stroke="var(--warning)" fillOpacity={1} fill="url(#colorImprevisti)" />
-                                </AreaChart>
-                            </ResponsiveContainer>
+            {
+                reportType === "settimanale" && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                        <div className="card">
+                            <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 20 }}>Analisi Trend Assenze (Prossimi 14 gg)</h3>
+                            <div style={{ height: 400, width: '100%' }}>
+                                <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 20 }}>
+                                    Previsione dell'andamento delle assenze totali e impreviste a partire da oggi.
+                                </p>
+                                <ResponsiveContainer width="100%" height={340}>
+                                    <AreaChart data={trendData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                                        <defs>
+                                            <linearGradient id="colorAssenze" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="var(--danger)" stopOpacity={0.8} />
+                                                <stop offset="95%" stopColor="var(--danger)" stopOpacity={0} />
+                                            </linearGradient>
+                                            <linearGradient id="colorImprevisti" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="var(--warning)" stopOpacity={0.8} />
+                                                <stop offset="95%" stopColor="var(--warning)" stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <XAxis dataKey="name" stroke="var(--text-muted)" tick={{ fontSize: 12 }} />
+                                        <YAxis stroke="var(--text-muted)" tick={{ fontSize: 12 }} />
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-light)" />
+                                        <Tooltip
+                                            contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px' }}
+                                        />
+                                        <Area type="monotone" dataKey="Assenze" stroke="var(--danger)" fillOpacity={1} fill="url(#colorAssenze)" />
+                                        <Area type="monotone" dataKey="Imprevisti" stroke="var(--warning)" fillOpacity={1} fill="url(#colorImprevisti)" />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
                         </div>
-                    </div>
 
-                    <div className="card">
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Analisi Percorsi Assenze (Anomale e Strategiche)</h3>
-                                <div style={{ display: "flex", background: "var(--bg-secondary)", padding: 4, borderRadius: 8, gap: 4 }}>
-                                    <button
-                                        onClick={() => setAbsencesViewMode("detail")}
-                                        style={{
-                                            padding: "4px 12px", border: "none", borderRadius: 6, fontSize: 12, cursor: "pointer",
-                                            background: absencesViewMode === "detail" ? "var(--bg-card)" : "transparent",
-                                            boxShadow: absencesViewMode === "detail" ? "0 2px 4px rgba(0,0,0,0.1)" : "none",
-                                            fontWeight: absencesViewMode === "detail" ? 600 : 400,
-                                            color: "var(--text-primary)"
-                                        }}
-                                    >
-                                        Dettaglio Log
-                                    </button>
-                                    <button
-                                        onClick={() => setAbsencesViewMode("aggregate")}
-                                        style={{
-                                            padding: "4px 12px", border: "none", borderRadius: 6, fontSize: 12, cursor: "pointer",
-                                            background: absencesViewMode === "aggregate" ? "var(--bg-card)" : "transparent",
-                                            boxShadow: absencesViewMode === "aggregate" ? "0 2px 4px rgba(0,0,0,0.1)" : "none",
-                                            fontWeight: absencesViewMode === "aggregate" ? 600 : 400,
-                                            color: "var(--text-primary)"
-                                        }}
-                                    >
-                                        Agglomerato (Per Dipendente)
-                                    </button>
+                        <div className="card">
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                                    <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Analisi Percorsi Assenze (Anomale e Strategiche)</h3>
+                                    <div style={{ display: "flex", background: "var(--bg-secondary)", padding: 4, borderRadius: 8, gap: 4 }}>
+                                        <button
+                                            onClick={() => setAbsencesViewMode("detail")}
+                                            style={{
+                                                padding: "4px 12px", border: "none", borderRadius: 6, fontSize: 12, cursor: "pointer",
+                                                background: absencesViewMode === "detail" ? "var(--bg-card)" : "transparent",
+                                                boxShadow: absencesViewMode === "detail" ? "0 2px 4px rgba(0,0,0,0.1)" : "none",
+                                                fontWeight: absencesViewMode === "detail" ? 600 : 400,
+                                                color: "var(--text-primary)"
+                                            }}
+                                        >
+                                            Dettaglio Log
+                                        </button>
+                                        <button
+                                            onClick={() => setAbsencesViewMode("aggregate")}
+                                            style={{
+                                                padding: "4px 12px", border: "none", borderRadius: 6, fontSize: 12, cursor: "pointer",
+                                                background: absencesViewMode === "aggregate" ? "var(--bg-card)" : "transparent",
+                                                boxShadow: absencesViewMode === "aggregate" ? "0 2px 4px rgba(0,0,0,0.1)" : "none",
+                                                fontWeight: absencesViewMode === "aggregate" ? 600 : 400,
+                                                color: "var(--text-primary)"
+                                            }}
+                                        >
+                                            Agglomerato (Per Dipendente)
+                                        </button>
+                                    </div>
                                 </div>
+                                <span className="tag tag-red" style={{ fontSize: 11, fontWeight: 700 }}>{resolvedAnomalies.length + plannedAnomalies.length} Segnalazioni Totali</span>
                             </div>
-                            <span className="tag tag-red" style={{ fontSize: 11, fontWeight: 700 }}>{resolvedAnomalies.length + plannedAnomalies.length} Segnalazioni Totali</span>
+
+                            {absencesViewMode === "aggregate" ? (
+                                <div className="table-container">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Dipendente</th>
+                                                <th style={{ textAlign: "center" }}>Pattern Rilevati</th>
+                                                <th style={{ textAlign: "center" }}>Anomale</th>
+                                                <th style={{ textAlign: "center" }}>Strategiche</th>
+                                                <th style={{ textAlign: "center" }}>Punteggio Totale</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {aggregatedAbsenceData.map((item, idx) => (
+                                                <tr key={idx}>
+                                                    <td style={{ fontWeight: 600, fontSize: 15 }}>{item.dip.cognome} {item.dip.nome.charAt(0)}.</td>
+                                                    <td style={{ textAlign: "center", fontSize: 12 }}>
+                                                        {Array.from(item.patterns).map((p, pidx) => (
+                                                            <span key={pidx} style={{
+                                                                display: "inline-block",
+                                                                background: "var(--bg-secondary)",
+                                                                padding: "2px 6px",
+                                                                borderRadius: 4,
+                                                                margin: "2px",
+                                                                fontSize: 10,
+                                                                color: "var(--text-secondary)"
+                                                            }}>
+                                                                {p}
+                                                            </span>
+                                                        ))}
+                                                    </td>
+                                                    <td style={{ textAlign: "center", color: "var(--danger)", fontWeight: 700 }}>{item.anomalies || "—"}</td>
+                                                    <td style={{ textAlign: "center", color: "var(--primary)", fontWeight: 700 }}>{item.strategic || "—"}</td>
+                                                    <td style={{ textAlign: "center" }}>
+                                                        <span style={{
+                                                            background: item.total > 3 ? "rgba(239, 68, 68, 0.1)" : "rgba(16, 185, 129, 0.1)",
+                                                            color: item.total > 3 ? "var(--danger)" : "var(--success)",
+                                                            padding: "4px 12px",
+                                                            borderRadius: 12,
+                                                            fontWeight: 800,
+                                                            fontSize: 14
+                                                        }}>
+                                                            {item.total}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <>
+                                    <p style={{ color: "var(--text-muted)", fontSize: 13, marginBottom: 16 }}>
+                                        Dettaglio delle assenze che avvengono in momenti critici (es. cambi turno notte o weekend lavorativi), calcolato su tutti i dati presenti nel sistema.
+                                    </p>
+                                    <div className="table-container">
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th style={{ textAlign: "left" }}>Data Assenza</th>
+                                                    <th style={{ textAlign: "left" }}>Dipendente</th>
+                                                    <th style={{ textAlign: "center" }}>Turno</th>
+                                                    <th style={{ textAlign: "left" }}>Motivo</th>
+                                                    <th style={{ textAlign: "center" }}>Anomalia Rilevata</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {resolvedAnomalies.map((a, idx) => (
+                                                    <tr key={idx}>
+                                                        <td style={{ fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap" }}>{a.dateFormatted}</td>
+                                                        <td style={{ fontWeight: 600, fontSize: 15 }}>{a.dipendente.cognome} {a.dipendente.nome.charAt(0)}.</td>
+                                                        <td style={{ textAlign: "center", color: "var(--text-primary)" }}>{a.dates.length > 1 ? "Vari" : a.group}</td>
+                                                        <td style={{ color: "var(--text-muted)" }}>
+                                                            {motivi.find(m => m.id === a.motivo_assenza)?.label || a.motivo_assenza || "Assenza"}
+                                                        </td>
+                                                        <td style={{ textAlign: "center" }}>
+                                                            <span style={{
+                                                                background: "rgba(220, 38, 38, 0.1)",
+                                                                color: "var(--danger)",
+                                                                padding: "4px 10px",
+                                                                borderRadius: 12,
+                                                                fontSize: 11,
+                                                                fontWeight: 700,
+                                                                display: "inline-block"
+                                                            }}>
+                                                                ⚠️ {a.type}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </>
+                            )}
                         </div>
 
-                        {absencesViewMode === "aggregate" ? (
-                            <div className="table-container">
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th>Dipendente</th>
-                                            <th style={{ textAlign: "center" }}>Pattern Rilevati</th>
-                                            <th style={{ textAlign: "center" }}>Anomale</th>
-                                            <th style={{ textAlign: "center" }}>Strategiche</th>
-                                            <th style={{ textAlign: "center" }}>Punteggio Totale</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {aggregatedAbsenceData.map((item, idx) => (
-                                            <tr key={idx}>
-                                                <td style={{ fontWeight: 600, fontSize: 15 }}>{item.dip.cognome} {item.dip.nome.charAt(0)}.</td>
-                                                <td style={{ textAlign: "center", fontSize: 12 }}>
-                                                    {Array.from(item.patterns).map((p, pidx) => (
-                                                        <span key={pidx} style={{
-                                                            display: "inline-block",
-                                                            background: "var(--bg-secondary)",
-                                                            padding: "2px 6px",
-                                                            borderRadius: 4,
-                                                            margin: "2px",
-                                                            fontSize: 10,
-                                                            color: "var(--text-secondary)"
-                                                        }}>
-                                                            {p}
-                                                        </span>
-                                                    ))}
-                                                </td>
-                                                <td style={{ textAlign: "center", color: "var(--danger)", fontWeight: 700 }}>{item.anomalies || "—"}</td>
-                                                <td style={{ textAlign: "center", color: "var(--primary)", fontWeight: 700 }}>{item.strategic || "—"}</td>
-                                                <td style={{ textAlign: "center" }}>
-                                                    <span style={{
-                                                        background: item.total > 3 ? "rgba(239, 68, 68, 0.1)" : "rgba(16, 185, 129, 0.1)",
-                                                        color: item.total > 3 ? "var(--danger)" : "var(--success)",
-                                                        padding: "4px 12px",
-                                                        borderRadius: 12,
-                                                        fontWeight: 800,
-                                                        fontSize: 14
-                                                    }}>
-                                                        {item.total}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
-                            <>
+                        {absencesViewMode === "detail" && (
+                            <div className="card">
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                                    <h3 style={{ fontSize: 16, fontWeight: 700 }}>Assenze Pianificate Strategiche (Sab/Lun)</h3>
+                                    <span className="tag tag-blue" style={{ fontSize: 11, fontWeight: 700 }}>{plannedAnomalies.length} Segnalazioni</span>
+                                </div>
                                 <p style={{ color: "var(--text-muted)", fontSize: 13, marginBottom: 16 }}>
-                                    Dettaglio delle assenze che avvengono in momenti critici (es. cambi turno notte o weekend lavorativi), calcolato su tutti i dati presenti nel sistema.
+                                    Questo pannello evidenzia le assenze pianificate (Ferie, ROL, Riposo Compensativo) strategiche che cadono di Sabato Sera, Sabato Notte o Lunedì, dall'inizio dell'anno.
                                 </p>
                                 <div className="table-container">
                                     <table>
@@ -1226,13 +1294,13 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                             <tr>
                                                 <th style={{ textAlign: "left" }}>Data Assenza</th>
                                                 <th style={{ textAlign: "left" }}>Dipendente</th>
-                                                <th style={{ textAlign: "center" }}>Turno</th>
-                                                <th style={{ textAlign: "left" }}>Motivo</th>
-                                                <th style={{ textAlign: "center" }}>Anomalia Rilevata</th>
+                                                <th style={{ textAlign: "center" }}>Turno Assegnato</th>
+                                                <th style={{ textAlign: "left" }}>Motivo Pianificato</th>
+                                                <th style={{ textAlign: "center" }}>Giornata Strategica</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {resolvedAnomalies.map((a, idx) => (
+                                            {plannedAnomalies.map((a, idx) => (
                                                 <tr key={idx}>
                                                     <td style={{ fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap" }}>{a.dateFormatted}</td>
                                                     <td style={{ fontWeight: 600, fontSize: 15 }}>{a.dipendente.cognome} {a.dipendente.nome.charAt(0)}.</td>
@@ -1242,15 +1310,15 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                     </td>
                                                     <td style={{ textAlign: "center" }}>
                                                         <span style={{
-                                                            background: "rgba(220, 38, 38, 0.1)",
-                                                            color: "var(--danger)",
+                                                            background: "rgba(59, 130, 246, 0.1)",
+                                                            color: "var(--primary)",
                                                             padding: "4px 10px",
                                                             borderRadius: 12,
                                                             fontSize: 11,
                                                             fontWeight: 700,
                                                             display: "inline-block"
                                                         }}>
-                                                            ⚠️ {a.type}
+                                                            🎯 {a.type}
                                                         </span>
                                                     </td>
                                                 </tr>
@@ -1258,151 +1326,101 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                         </tbody>
                                     </table>
                                 </div>
-                            </>
+                            </div>
                         )}
-                    </div>
 
-                    {absencesViewMode === "detail" && (
                         <div className="card">
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                                <h3 style={{ fontSize: 16, fontWeight: 700 }}>Assenze Pianificate Strategiche (Sab/Lun)</h3>
-                                <span className="tag tag-blue" style={{ fontSize: 11, fontWeight: 700 }}>{plannedAnomalies.length} Segnalazioni</span>
+                                <h3 style={{ fontSize: 16, fontWeight: 700 }}>Report Fermi Macchina</h3>
+                                <span className="tag tag-red" style={{ fontSize: 11, fontWeight: 700 }}>{fermiMacchina.length} Fermi</span>
                             </div>
-                            <p style={{ color: "var(--text-muted)", fontSize: 13, marginBottom: 16 }}>
-                                Questo pannello evidenzia le assenze pianificate (Ferie, ROL, Riposo Compensativo) strategiche che cadono di Sabato Sera, Sabato Notte o Lunedì, dall'inizio dell'anno.
-                            </p>
                             <div className="table-container">
                                 <table>
                                     <thead>
                                         <tr>
-                                            <th style={{ textAlign: "left" }}>Data Assenza</th>
-                                            <th style={{ textAlign: "left" }}>Dipendente</th>
-                                            <th style={{ textAlign: "center" }}>Turno Assegnato</th>
-                                            <th style={{ textAlign: "left" }}>Motivo Pianificato</th>
-                                            <th style={{ textAlign: "center" }}>Giornata Strategica</th>
+                                            <th>Macchina</th>
+                                            <th style={{ textAlign: "center" }}>Durata (min)</th>
+                                            <th>Motivo</th>
+                                            <th style={{ textAlign: "center" }}>Azioni</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {plannedAnomalies.map((a, idx) => (
-                                            <tr key={idx}>
-                                                <td style={{ fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap" }}>{a.dateFormatted}</td>
-                                                <td style={{ fontWeight: 600, fontSize: 15 }}>{a.dipendente.cognome} {a.dipendente.nome.charAt(0)}.</td>
-                                                <td style={{ textAlign: "center", color: "var(--text-primary)" }}>{a.dates.length > 1 ? "Vari" : a.group}</td>
-                                                <td style={{ color: "var(--text-muted)" }}>
-                                                    {motivi.find(m => m.id === a.motivo_assenza)?.label || a.motivo_assenza || "Assenza"}
-                                                </td>
-                                                <td style={{ textAlign: "center" }}>
-                                                    <span style={{
-                                                        background: "rgba(59, 130, 246, 0.1)",
-                                                        color: "var(--primary)",
-                                                        padding: "4px 10px",
-                                                        borderRadius: 12,
-                                                        fontSize: 11,
-                                                        fontWeight: 700,
-                                                        display: "inline-block"
-                                                    }}>
-                                                        🎯 {a.type}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {fermiMacchina.map((f, idx) => {
+                                            const mName = macchine.find(m => m.id === f.macchina_id)?.nome || f.macchina_id;
+
+                                            // Calc duration if not present in DB
+                                            let displayDurata = f.durata_minuti;
+                                            if (!displayDurata && f.ora_inizio && f.ora_fine) {
+                                                const [ih, im] = f.ora_inizio.split(":").map(Number);
+                                                const [fh, fm] = f.ora_fine.split(":").map(Number);
+                                                const diff = (fh * 60 + fm) - (ih * 60 + im);
+                                                if (diff > 0) displayDurata = diff;
+                                            }
+
+                                            return (
+                                                <tr key={idx}>
+                                                    <td style={{ fontWeight: 600 }}>{mName}</td>
+                                                    <td style={{ textAlign: "center", fontWeight: 700, color: "var(--danger)" }}>
+                                                        {displayDurata ? `${displayDurata} min` : "—"}
+                                                    </td>
+                                                    <td>{f.motivo}</td>
+                                                    <td style={{ textAlign: "center" }}>
+                                                        <button
+                                                            onClick={() => handleDeleteFermi(f.id)}
+                                                            className="btn btn-ghost"
+                                                            style={{ color: "var(--danger)", padding: 4 }}
+                                                        >
+                                                            {Icons.trash}
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                        {fermiMacchina.length === 0 && (
+                                            <tr><td colSpan={4} style={{ textAlign: "center", padding: 20, color: "var(--text-muted)" }}>Nessun fermo registrato</td></tr>
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
                         </div>
-                    )}
 
-                    <div className="card">
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                            <h3 style={{ fontSize: 16, fontWeight: 700 }}>Report Fermi Macchina</h3>
-                            <span className="tag tag-red" style={{ fontSize: 11, fontWeight: 700 }}>{fermiMacchina.length} Fermi</span>
-                        </div>
-                        <div className="table-container">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Macchina</th>
-                                        <th style={{ textAlign: "center" }}>Durata (min)</th>
-                                        <th>Motivo</th>
-                                        <th style={{ textAlign: "center" }}>Azioni</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {fermiMacchina.map((f, idx) => {
-                                        const mName = macchine.find(m => m.id === f.macchina_id)?.nome || f.macchina_id;
-
-                                        // Calc duration if not present in DB
-                                        let displayDurata = f.durata_minuti;
-                                        if (!displayDurata && f.ora_inizio && f.ora_fine) {
-                                            const [ih, im] = f.ora_inizio.split(":").map(Number);
-                                            const [fh, fm] = f.ora_fine.split(":").map(Number);
-                                            const diff = (fh * 60 + fm) - (ih * 60 + im);
-                                            if (diff > 0) displayDurata = diff;
-                                        }
-
-                                        return (
-                                            <tr key={idx}>
-                                                <td style={{ fontWeight: 600 }}>{mName}</td>
-                                                <td style={{ textAlign: "center", fontWeight: 700, color: "var(--danger)" }}>
-                                                    {displayDurata ? `${displayDurata} min` : "—"}
-                                                </td>
-                                                <td>{f.motivo}</td>
-                                                <td style={{ textAlign: "center" }}>
-                                                    <button
-                                                        onClick={() => handleDeleteFermi(f.id)}
-                                                        className="btn btn-ghost"
-                                                        style={{ color: "var(--danger)", padding: 4 }}
-                                                    >
-                                                        {Icons.trash}
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
-                                    {fermiMacchina.length === 0 && (
-                                        <tr><td colSpan={4} style={{ textAlign: "center", padding: 20, color: "var(--text-muted)" }}>Nessun fermo registrato</td></tr>
-                                    )}
-                                </tbody>
-                            </table>
+                        <div className="card">
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                                <h3 style={{ fontSize: 16, fontWeight: 700 }}>Produzione (Pezzi e Scarti)</h3>
+                                <span className="tag tag-green" style={{ fontSize: 11, fontWeight: 700 }}>{pezziProdotti.length} Record</span>
+                            </div>
+                            <div className="table-container">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Macchina</th>
+                                            <th style={{ textAlign: "center" }}>Quantità</th>
+                                            <th style={{ textAlign: "center" }}>Scarti</th>
+                                            <th>Note</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {pezziProdotti.map((p, idx) => {
+                                            const mName = macchine.find(m => m.id === p.macchina_id)?.nome || p.macchina_id;
+                                            return (
+                                                <tr key={idx}>
+                                                    <td style={{ fontWeight: 600 }}>{mName}</td>
+                                                    <td style={{ textAlign: "center", fontWeight: 700, color: "var(--success)" }}>{p.quantita}</td>
+                                                    <td style={{ textAlign: "center", color: "var(--danger)" }}>{p.scarti || 0}</td>
+                                                    <td style={{ fontSize: 12, color: "var(--text-muted)" }}>{p.note || "—"}</td>
+                                                </tr>
+                                            );
+                                        })}
+                                        {pezziProdotti.length === 0 && (
+                                            <tr><td colSpan={4} style={{ textAlign: "center", padding: 20, color: "var(--text-muted)" }}>Nessun dato di produzione</td></tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
-
-                    <div className="card">
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                            <h3 style={{ fontSize: 16, fontWeight: 700 }}>Produzione (Pezzi e Scarti)</h3>
-                            <span className="tag tag-green" style={{ fontSize: 11, fontWeight: 700 }}>{pezziProdotti.length} Record</span>
-                        </div>
-                        <div className="table-container">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Macchina</th>
-                                        <th style={{ textAlign: "center" }}>Quantità</th>
-                                        <th style={{ textAlign: "center" }}>Scarti</th>
-                                        <th>Note</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {pezziProdotti.map((p, idx) => {
-                                        const mName = macchine.find(m => m.id === p.macchina_id)?.nome || p.macchina_id;
-                                        return (
-                                            <tr key={idx}>
-                                                <td style={{ fontWeight: 600 }}>{mName}</td>
-                                                <td style={{ textAlign: "center", fontWeight: 700, color: "var(--success)" }}>{p.quantita}</td>
-                                                <td style={{ textAlign: "center", color: "var(--danger)" }}>{p.scarti || 0}</td>
-                                                <td style={{ fontSize: 12, color: "var(--text-muted)" }}>{p.note || "—"}</td>
-                                            </tr>
-                                        );
-                                    })}
-                                    {pezziProdotti.length === 0 && (
-                                        <tr><td colSpan={4} style={{ textAlign: "center", padding: 20, color: "var(--text-muted)" }}>Nessun dato di produzione</td></tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }

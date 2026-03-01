@@ -26,6 +26,7 @@ import AnagraficaMacchineView from "./views/AnagraficaMacchineView";
 import SapDataView from "./views/SapDataView";
 import SapSummaryView from "./views/SapSummaryView";
 import AnagraficaMaterialiView from "./views/AnagraficaMaterialiView";
+import LpaPlanView from "./views/LpaPlanView";
 
 export default function App() {
   const [currentView, setCurrentView] = useState("dashboard");
@@ -187,6 +188,7 @@ export default function App() {
     { id: "skills", label: "Competenze", icon: Icons.brain },
     { id: "formazione", label: "Formazione", icon: Icons.academic },
     { id: "report", label: "Report Fine Turno", icon: Icons.report },
+    { id: "lpaPlan", label: "Piano LPA", icon: Icons.calendar },
     { id: "motivi", label: "Motivi Assenza", icon: Icons.filter },
     { id: "import", label: "Import SAP", icon: Icons.upload },
     { id: "sapData", label: "Storico Dati SAP", icon: Icons.report },
@@ -214,6 +216,7 @@ export default function App() {
     anagraficaMacchine: "Anagrafica Macchine",
     anagraficaMateriali: "Anagrafica Materiali",
     zones: "Anagrafica Zone",
+    lpaPlan: "Piano LPA 2026",
     skills: "Matrice Competenze",
     formazione: "Gestione Formazione Operatori",
     limitazioni: "Area Privacy Alta - Limitazioni",
@@ -311,6 +314,7 @@ export default function App() {
                 {renderItem(ni("op10"))}
                 {renderItem(ni("fermi"))}
                 {renderItem(ni("sapSummary"))}
+                {renderItem(ni("lpaPlan"))}
                 {renderItem(ni("import"))}
                 {renderItem(ni("sapData"))}
 
@@ -429,7 +433,11 @@ export default function App() {
               zones={zone}
               motivi={motivi}
               motiviFermo={motiviFermo}
+              tecnologie={tecnologie}
             />
+          )}
+          {currentView === "lpaPlan" && (
+            <LpaPlanView macchine={macchine} dipendenti={dipendenti} showToast={showToast} turnoCorrente={turnoCorrente} />
           )}
 
           {currentView === "import" && (

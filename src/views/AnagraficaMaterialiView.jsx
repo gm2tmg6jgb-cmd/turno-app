@@ -46,6 +46,54 @@ export default function AnagraficaMaterialiView({ showToast }) {
         fetchWcFasi();
     }, []);
 
+    // Sincronizzazione automatica se mancano dati
+    const hasAutoSynced = useRef(false);
+    useEffect(() => {
+        if (!loading && materiali.length > 0 && !hasAutoSynced.current) {
+            const missingWc = materiali.filter(m => !m.centri_di_lavoro);
+            if (missingWc.length > materiali.length * 0.1) { // Più del 10% senza WC
+                hasAutoSynced.current = true;
+                // Eseguiamo la sincronizzazione silenziosa per popolare i dati mancanti
+                const silentySync = async () => {
+                    try {
+                        // Invece di rifare tutto handleSyncAllWorkCenters, usiamo la logica bulk qui
+                        // ma solo per i codici mancanti per ottimizzare
+                        let allSap = [];
+                        let from = 0;
+                        const pageSize = 1000;
+                        while (allSap.length < 50000) { // Limite ragionevole per sync auto
+                            const { data, error } = await supabase
+                                .from("conferme_sap")
+                                .select("materiale, work_center_sap")
+                                .range(from, from + pageSize - 1);
+                            if (error || !data || data.length === 0) break;
+                            allSap = allSap.concat(data);
+                            if (data.length < pageSize) break;
+                            from += pageSize;
+                        }
+                        const wcMap = {};
+                        allSap.forEach(r => {
+                            if (!r.materiale) return;
+                            const mat = r.materiale.trim().toUpperCase();
+                            if (!wcMap[mat]) wcMap[mat] = new Set();
+                            if (r.work_center_sap) wcMap[mat].add(r.work_center_sap.trim().toUpperCase());
+                        });
+
+                        for (const mat of missingWc) {
+                            const matCode = mat.codice.toUpperCase();
+                            if (wcMap[matCode]) {
+                                const newWcs = [...wcMap[matCode]].sort().join(", ");
+                                await supabase.from("anagrafica_materiali").update({ centri_di_lavoro: newWcs }).eq("id", mat.id);
+                            }
+                        }
+                        fetchData(); // Ricarica i dati aggiornati
+                    } catch (e) { console.error("Auto-sync error:", e); }
+                };
+                silentySync();
+            }
+        }
+    }, [loading, materiali]);
+
     const fetchWcFasi = async () => {
         setWcFasiLoading(true);
         const { data, error } = await supabase
@@ -253,6 +301,7 @@ export default function AnagraficaMaterialiView({ showToast }) {
             codice: r.codice,
             componente: r.componente.trim().toUpperCase(),
             progetto: r.progetto ? r.progetto.trim() : null,
+            centri_di_lavoro: r.workCenters && r.workCenters.length > 0 ? r.workCenters.join(", ") : null,
         }));
 
         const { error } = await supabase
@@ -272,12 +321,69 @@ export default function AnagraficaMaterialiView({ showToast }) {
         }
     };
 
+    const handleSyncAllWorkCenters = async () => {
+        if (!confirm("Questa operazione cercherà i centri di lavoro per TUTTI i materiali già mappati analizzando l'intero storico SAP. Potrebbe richiedere qualche secondo. Procedere?")) return;
+
+        setImportLoading(true);
+        try {
+            // 1. Fetch ALL SAP confirmations
+            let allSap = [];
+            let from = 0;
+            const pageSize = 1000;
+            while (true) {
+                const { data, error } = await supabase
+                    .from("conferme_sap")
+                    .select("materiale, work_center_sap")
+                    .range(from, from + pageSize - 1);
+                if (error) throw error;
+                if (!data || data.length === 0) break;
+                allSap = allSap.concat(data);
+                if (data.length < pageSize) break;
+                from += pageSize;
+            }
+
+            // 2. Aggregate WC by Material
+            const wcMap = {};
+            allSap.forEach(r => {
+                if (!r.materiale) return;
+                const mat = r.materiale.trim().toUpperCase();
+                if (!wcMap[mat]) wcMap[mat] = new Set();
+                if (r.work_center_sap) wcMap[mat].add(r.work_center_sap.trim().toUpperCase());
+            });
+
+            // 3. Update all materials that have new WC info
+            let updatedCount = 0;
+            for (const mat of materiali) {
+                const matCode = mat.codice.toUpperCase();
+                if (wcMap[matCode]) {
+                    const newWcs = [...wcMap[matCode]].sort().join(", ");
+                    if (newWcs !== mat.centri_di_lavoro) {
+                        const { error } = await supabase
+                            .from("anagrafica_materiali")
+                            .update({ centri_di_lavoro: newWcs })
+                            .eq("id", mat.id);
+                        if (!error) updatedCount++;
+                    }
+                }
+            }
+
+            showToast(`Sincronizzazione completata: ${updatedCount} materiali aggiornati`, "success");
+            fetchData();
+        } catch (err) {
+            console.error("Errore sincronizzazione WC:", err);
+            showToast("Errore durante la sincronizzazione: " + err.message, "error");
+        } finally {
+            setImportLoading(false);
+        }
+    };
+
     // ──────────────────────────────────────────────────────────────────────────
 
     const filtered = materiali.filter(m =>
         (m.codice?.toLowerCase() || "").includes(search.toLowerCase()) ||
         (m.componente?.toLowerCase() || "").includes(search.toLowerCase()) ||
-        (m.progetto?.toLowerCase() || "").includes(search.toLowerCase())
+        (m.progetto?.toLowerCase() || "").includes(search.toLowerCase()) ||
+        (m.centri_di_lavoro?.toLowerCase() || "").includes(search.toLowerCase())
     );
 
     const toSaveCount = importRows.filter(r => r.componente.trim()).length;
@@ -311,6 +417,15 @@ export default function AnagraficaMaterialiView({ showToast }) {
                                 {Icons.unlock} Blocca Modifiche
                             </button>
                         )}
+                        <button
+                            className="btn btn-secondary"
+                            onClick={handleSyncAllWorkCenters}
+                            disabled={loading || !isAdmin}
+                            style={{ whiteSpace: "nowrap" }}
+                            title="Sincronizza Centri di Lavoro SAP per tutti i materiali esistenti"
+                        >
+                            {Icons.history} Sincronizza WC
+                        </button>
                         <button
                             className="btn btn-secondary"
                             onClick={importMode ? () => { setImportMode(false); setImportRows([]); } : handleImportFromSAP}
@@ -453,6 +568,7 @@ export default function AnagraficaMaterialiView({ showToast }) {
                         <thead>
                             <tr style={{ background: "var(--bg-tertiary)" }}>
                                 <th style={{ textAlign: "left", padding: "10px 16px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Codice SAP</th>
+                                <th style={{ textAlign: "left", padding: "10px 16px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Centri di Lavoro</th>
                                 <th style={{ textAlign: "left", padding: "10px 16px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Progetto / Componente</th>
                                 <th style={{ textAlign: "right", padding: "10px 16px", width: 80 }}></th>
                             </tr>
@@ -466,6 +582,9 @@ export default function AnagraficaMaterialiView({ showToast }) {
                                 filtered.map(m => (
                                     <tr key={m.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
                                         <td style={{ padding: "12px 16px", fontWeight: 700, fontSize: 14 }}>{m.codice}</td>
+                                        <td style={{ padding: "12px 16px", fontSize: 12, color: "var(--text-secondary)", fontFamily: "monospace" }}>
+                                            {m.centri_di_lavoro || <span style={{ opacity: 0.4 }}>—</span>}
+                                        </td>
                                         <td style={{ padding: "12px 16px" }}>
                                             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                                                 {m.progetto && (

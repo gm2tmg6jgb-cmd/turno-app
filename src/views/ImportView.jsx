@@ -20,6 +20,7 @@ const COL_DEFS = [
     { key: "qta_ottenuta", label: "Quantità ottenuta", patterns: ["quantità ottenuta", "qtà ottenuta", "qta ottenuta", "yield", "qtà conf", "qta conf"] },
     { key: "qta_scarto", label: "Qtà scarto", patterns: ["scarto", "qtà scarto", "qta scarto", "scrap"] },
     { key: "turno", label: "Turno", patterns: ["turno", "shift", "turn"] },
+    { key: "ora", label: "Ora", patterns: ["ora", "time", "orario", "time of confirmation"] },
 ];
 
 function autoDetect(headers) {
@@ -77,6 +78,28 @@ function formatDate(val) {
     return s.slice(0, 10) || null;
 }
 
+function formatTime(val) {
+    if (!val) return null;
+    if (typeof val === "number") {
+        // Excel stores time as a fraction of a day
+        const totalSeconds = Math.round(val * 24 * 3600);
+        const h = Math.floor(totalSeconds / 3600);
+        const m = Math.floor((totalSeconds % 3600) / 60);
+        const s = totalSeconds % 60;
+        return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+    }
+    const s = String(val).trim();
+    // Match hh:mm or hh:mm:ss
+    const m = s.match(/^(\d{1,2})[:.](\d{1,2})([:.](\d{1,2}))?$/);
+    if (m) {
+        const h = m[1].padStart(2, "0");
+        const min = m[2].padStart(2, "0");
+        const sec = (m[4] || "00").padStart(2, "0");
+        return `${h}:${min}:${sec}`;
+    }
+    return s.length >= 5 ? s.slice(0, 8) : null;
+}
+
 function mapTurno(val) {
     const v = String(val || "").trim().toUpperCase();
     if (!v) return null;
@@ -98,6 +121,8 @@ export default function ImportView({ showToast, macchine = [] }) {
     const [step, setStep] = useState("upload"); // upload | map | preview | done
     const [result, setResult] = useState(null);
     const [saving, setSaving] = useState(false);
+    const [duplicateMode, setDuplicateMode] = useState(null); // 'ask' | 'replace' | 'append'
+    const [existingCount, setExistingCount] = useState(0);
     const inputRef = useRef();
 
     /* ── parse ── */
@@ -196,6 +221,7 @@ export default function ImportView({ showToast, macchine = [] }) {
                 qta_ottenuta: parseFloat(get(row, mapping.qta_ottenuta)) || null,
                 qta_scarto: parseFloat(get(row, mapping.qta_scarto)) || null,
                 turno_id: mapTurno(get(row, mapping.turno)),
+                ora: formatTime(get(row, mapping.ora)),
             };
         }).filter(r => r.work_center_sap); // salta righe senza WC
 
@@ -218,26 +244,82 @@ export default function ImportView({ showToast, macchine = [] }) {
     };
 
     /* ── salva ── */
-    const handleImport = async () => {
-        const toSave = result.rows.map(({ matched, macchina_nome, ...r }) => ({
-            ...r,
-            data_import: new Date().toISOString(),
-        }));
-
-        if (!toSave.length) { showToast("Nessuna riga da importare", "error"); return; }
-        setSaving(true);
-        const { error } = await supabase.from("conferme_sap").insert(toSave);
-        setSaving(false);
-        if (error) {
-            if (error.code === "42P01") {
-                showToast("Tabella 'conferme_sap' non trovata — esegui il setup SQL prima", "error");
-            } else {
-                showToast("Errore import: " + error.message, "error");
-            }
+    const handleImport = async (mode = null) => {
+        const distinctDates = [...new Set(result.rows.map(r => r.data).filter(Boolean))];
+        if (distinctDates.length === 0) {
+            showToast("Nessuna data valida trovata nelle righe", "error");
             return;
         }
-        showToast(`${toSave.length} righe importate`, "success");
-        setStep("done");
+
+        const start = distinctDates[0];
+        const end = distinctDates[distinctDates.length - 1];
+
+        // Se non abbiamo ancora controllato i duplicati e non è stato forzato un modo
+        if (!mode) {
+            setSaving(true);
+            const { count, error: countErr } = await supabase
+                .from("conferme_sap")
+                .select("*", { count: "exact", head: true })
+                .gte("data", start)
+                .lte("data", end);
+
+            setSaving(false);
+            if (!countErr && count > 0) {
+                setExistingCount(count);
+                setDuplicateMode("ask");
+                return;
+            }
+            mode = "append";
+        }
+
+        setSaving(true);
+        try {
+            if (mode === "replace") {
+                const { error: delErr } = await supabase
+                    .from("conferme_sap")
+                    .delete()
+                    .gte("data", start)
+                    .lte("data", end);
+                if (delErr) throw delErr;
+            }
+
+            const toSave = result.rows.map(({ matched, macchina_nome, ...r }) => ({
+                ...r,
+                data_import: new Date().toISOString(),
+            }));
+
+            if (!toSave.length) {
+                showToast("Nessuna riga da importare", "error");
+                setSaving(false);
+                return;
+            }
+
+            const { error: insErr } = await supabase.from("conferme_sap").insert(toSave);
+            if (insErr) throw insErr;
+
+            showToast(`${toSave.length} righe importate (${mode === "replace" ? "Sostituito" : "Aggiunto"})`, "success");
+            setStep("done");
+            setDuplicateMode(null);
+        } catch (err) {
+            console.error("Errore import:", err);
+            showToast("Errore import: " + err.message, "error");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleClearHistory = async () => {
+        if (!window.confirm("Sei SICURO di voler cancellare TUTTO lo storico SAP? Questa operazione non è reversibile.")) return;
+
+        setSaving(true);
+        const { error } = await supabase.from("conferme_sap").delete().neq("id", 0); // Cancella tutto
+        setSaving(false);
+
+        if (error) {
+            showToast("Errore durante la pulizia: " + error.message, "error");
+        } else {
+            showToast("Storico SAP svuotato con successo", "success");
+        }
     };
 
     const reset = () => {
@@ -302,6 +384,17 @@ export default function ImportView({ showToast, macchine = [] }) {
                     </div>
                     <input ref={inputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }}
                         onChange={e => handleFile(e.target.files[0])} />
+
+                    <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--border-light)", textAlign: "center" }}>
+                        <button
+                            className="btn btn-ghost btn-sm"
+                            style={{ color: "var(--danger)", opacity: 0.7 }}
+                            onClick={(e) => { e.stopPropagation(); handleClearHistory(); }}
+                            disabled={saving}
+                        >
+                            🗑️ Pulisci TUTTO lo storico SAP
+                        </button>
+                    </div>
                 </div>
             )}
 
@@ -414,7 +507,7 @@ export default function ImportView({ showToast, macchine = [] }) {
                             <table style={{ width: "100%" }}>
                                 <thead>
                                     <tr style={{ background: "var(--bg-tertiary)" }}>
-                                        {["Data", "Centro SAP", "Macchina", "Materiale", "Qtà Ott.", "Qtà Scarto", "Turno"].map(h => (
+                                        {["Data", "Ora", "Centro SAP", "Macchina", "Materiale", "Qtà Ott.", "Qtà Scarto", "Turno"].map(h => (
                                             <th key={h} style={{ padding: "8px 12px", textAlign: h === "Qtà Ott." || h === "Qtà Scarto" ? "right" : "left", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", whiteSpace: "nowrap" }}>{h}</th>
                                         ))}
                                     </tr>
@@ -423,6 +516,7 @@ export default function ImportView({ showToast, macchine = [] }) {
                                     {result.rows.slice(0, 100).map((r, i) => (
                                         <tr key={i} style={{ borderBottom: "1px solid var(--border-light)", opacity: r.matched ? 1 : 0.45 }}>
                                             <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", whiteSpace: "nowrap" }}>{formatItalianDate(r.data)}</td>
+                                            <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", color: "var(--text-muted)" }}>{r.ora || "—"}</td>
                                             <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", fontWeight: 600 }}>{r.work_center_sap}</td>
                                             <td style={{ padding: "7px 12px", fontSize: 12 }}>
                                                 {r.matched ? (
@@ -452,14 +546,49 @@ export default function ImportView({ showToast, macchine = [] }) {
                         </div>
                     </div>
 
-                    <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-                        <button className="btn btn-primary" onClick={handleImport} disabled={saving || result.rows.length === 0}>
-                            {saving ? "Importazione…" : `Importa ${result.rows.length} righe`}
-                        </button>
+                    {duplicateMode === "ask" && (
+                        <div style={{ marginTop: 20, padding: 20, background: "rgba(217, 119, 6, 0.1)", border: "1px solid #D97706", borderRadius: 12, width: "100%" }}>
+                            <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+                                <div style={{ fontSize: 32 }}>⚠️</div>
+                                <div style={{ flex: 1 }}>
+                                    <h4 style={{ margin: 0, color: "#D97706", fontWeight: 800 }}>Dati già presenti</h4>
+                                    <p style={{ margin: "4px 0", fontSize: 13, color: "var(--text-primary)" }}>
+                                        Esistono già <strong>{existingCount}</strong> record nel database per il periodo
+                                        <strong> {result.dateRange.start.split("-").reverse().join("/")}</strong> —
+                                        <strong> {result.dateRange.end.split("-").reverse().join("/")}</strong>.
+                                    </p>
+                                </div>
+                            </div>
+                            <div style={{ display: "flex", gap: 12, marginTop: 16, justifyContent: "flex-end" }}>
+                                <button
+                                    className="btn btn-secondary"
+                                    onClick={() => handleImport("append")}
+                                    disabled={saving}
+                                >
+                                    Aggiungi (Mantieni esistenti)
+                                </button>
+                                <button
+                                    className="btn btn-primary"
+                                    style={{ background: "#D97706", borderColor: "#D97706" }}
+                                    onClick={() => handleImport("replace")}
+                                    disabled={saving}
+                                >
+                                    Sostituisci (Pulisci e Importa)
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", marginTop: 24 }}>
+                        {!duplicateMode && (
+                            <button className="btn btn-primary" onClick={() => handleImport()} disabled={saving || result.rows.length === 0}>
+                                {saving ? "Controllo duplicati..." : `Invia ${result.rows.length} righe`}
+                            </button>
+                        )}
                         <button className="btn btn-secondary" onClick={reset}>Annulla</button>
                         {result.matched < result.rows.length && (
                             <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                                {result.rows.length - result.matched} centri non ancora collegati a macchine — verranno importati comunque con <code>macchina_id</code> vuoto.
+                                {result.rows.length - result.matched} centri non ancora collegati a macchine.
                             </span>
                         )}
                     </div>

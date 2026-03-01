@@ -21,22 +21,15 @@ const ANCHOR_MAPPING = {
     "D": 1  // Pomeriggio
 };
 
-// Logic: Rotation is BACKWARDS (Next week = Current Slot Index - 1)
-// Order: M(0) <- P(1) <- S(2) <- N(3) <- M(0) ...
+// Logic: Rotation is FORWARD (Next week = Current Slot Index + 1)
+// Order: M(0) -> P(1) -> S(2) -> N(3) -> M(0) ...
 
 export function getWeekDiff(date) {
     const d = new Date(date);
-    d.setHours(12, 0, 0, 0);
+    d.setUTCHours(12, 0, 0, 0);
     const diffTime = d.getTime() - ANCHOR_DATE.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    // Calculate weeks. If negative, floor correctly.
-    // Monday is start of week.
-    // Adjust to Monday
-    const anchorDay = ANCHOR_DATE.getDay() || 7; // ISO day (1-7)
-    // Actually simpler: just divide days by 7? 
-    // Need to handle "start of week".
-    // Let's use ISO week logic if exactness matters, or simple day diff/7 if we assume inputs are reliable dates.
-    // For rotation, simply: floor(days / 7).
+    // Return signed week difference (negative for past dates)
     return Math.floor(diffDays / 7);
 }
 
@@ -46,12 +39,10 @@ export function getSlotIndexForGroup(groupId, date) {
     const weeksPassed = getWeekDiff(date);
     const initialIndex = ANCHOR_MAPPING[groupId];
 
-    // Backwards rotation: index - weeks
-    // Modulo arithmetic for negative result support: ((a % n) + n) % n
-    const slotsCount = 4;
-    let newIndex = (initialIndex - weeksPassed) % slotsCount;
-    if (newIndex < 0) newIndex += slotsCount;
-
+    // Forward rotation: index + weeks (handle negative weeks correctly)
+    const slotsCount = SLOTS.length;
+    const rawIndex = initialIndex + weeksPassed;
+    const newIndex = ((rawIndex % slotsCount) + slotsCount) % slotsCount;
     return newIndex;
 }
 
