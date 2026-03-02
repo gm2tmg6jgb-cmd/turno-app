@@ -27,6 +27,22 @@
   --radius-lg: 14px;
   --shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
   --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Scala tipografica */
+  --font-xs:      10px;
+  --font-sm:      11px;
+  --font-base:    13px;
+  --font-md:      15px;
+  --font-lg:      18px;
+  --font-xl:      22px;
+  --font-2xl:     32px;
+  --font-display: 56px;
+
+  /* Pesi */
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
 }
 
 :root[data-theme="light"] {
@@ -62,6 +78,7 @@
 
 body {
   font-family: 'DM Sans', sans-serif;
+  font-size: var(--font-base);
   background: var(--bg-primary);
   color: var(--text-primary);
   overflow: hidden;
@@ -307,8 +324,8 @@ body {
   gap: 7px;
   padding: 8px 16px;
   border-radius: var(--radius-sm);
-  font-size: 16px;
-  font-weight: 600;
+  font-size: var(--font-base);
+  font-weight: var(--fw-semibold);
   cursor: pointer;
   transition: var(--transition);
   border: 1px solid transparent;
@@ -355,7 +372,7 @@ body {
 
 .btn-sm {
   padding: 5px 10px;
-  font-size: 12px;
+  font-size: var(--font-sm);
 }
 
 .btn-lg {
@@ -510,9 +527,9 @@ table {
 
 thead th {
   background: var(--bg-tertiary);
-  font-size: 14px;
+  font-size: var(--font-sm);
   padding: 14px 18px;
-  font-weight: 600;
+  font-weight: var(--fw-semibold);
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.8px;
@@ -521,8 +538,8 @@ thead th {
 }
 
 tbody td {
-  padding: 24px 22px;
-  font-size: 20px;
+  padding: 12px 18px;
+  font-size: var(--font-base);
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
@@ -947,8 +964,8 @@ tbody tr:hover {
 .tab {
   padding: 7px 16px;
   border-radius: 5px;
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: var(--font-sm);
+  font-weight: var(--fw-semibold);
   color: var(--text-muted);
   cursor: pointer;
   transition: var(--transition);

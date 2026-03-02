@@ -93,7 +93,9 @@ export default function AssegnazioniView({
 
             const presentIds = new Set(
                 dipendenti
+                    // Filter out inactive explicitly
                     .filter(d => {
+                        if (d.attivo === false) return false;
                         const rec = presenze.find(p => p.dipendente_id === d.id && p.data === today);
                         if (rec) return rec.presente;
                         return new Date().getDay() !== 0; // default present unless Sunday

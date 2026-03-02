@@ -36,6 +36,7 @@ export default function PlanningView({ dipendenti, setDipendenti, presenze = [],
     // Tutti i dipendenti del turno corrente, ordinati per reparto poi cognome
     const sortedDipendenti = dipendenti
         .filter(d => {
+            if (d.attivo === false) return false;
             if (!turnoCorrente) return true;
             return d.turno_default === turnoCorrente;
         })

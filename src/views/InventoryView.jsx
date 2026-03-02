@@ -12,14 +12,13 @@ const matchPhases = (label) => {
     if (l.match(/broaching/)) return 50;
     if (l.match(/lavaggio ore 48/)) return 60;
     if (l.match(/laser.w.*sca78/)) return 186; // Assicura che sia DOPO Power Honing (185)
-    if (l.match(/laser.w.*sca06|laser.w.*sca08|laser.w.*sca09|laser.w.*sca10|laser.w.*sca151|laser/)) return 70;
+    if (l.match(/laser.w.*sca06|laser.w.*sca08|laser.w.*sca09|laser.w.*sca10|laser.w.*sca151/)) return 70; // Specific early lasers
     if (l.match(/shaping|stozza/)) return 80;
     if (l.match(/milling/)) return 90;
     if (l.match(/hobbing|pfauter|dentare/)) return 100;
     if (l.match(/deburr|sbav|smuss/)) return 110;
     if (l.match(/mozzetta sca/)) return 115;
-    if (l.match(/ut1 mza06/)) return 188; // Assicura che in SG5 resti dopo Laser (186)
-    if (l.match(/ut |ut[123]? |mza/)) return 120;
+    if (l.match(/ut |ut[123]? |mza/)) return 120; // Specific early UTs
     if (l.match(/dg car/)) return 125;
     if (l.match(/rh160/)) return 126;
     if (l.match(/da tratta|trattare/)) return 130;
@@ -28,9 +27,12 @@ const matchPhases = (label) => {
     if (l.match(/emag/)) return 160;
     if (l.match(/cono est|cone.*sla110/)) return 170;
     if (l.match(/cono int|cone.*sla84/)) return 175;
-    if (l.match(/cone|cono/)) return 180;
-    if (l.match(/power hon/)) return 185;
-    if (l.match(/grind|rz|sla /)) return 190;
+    if (l.match(/power hon/)) return 178;
+    if (l.match(/^laser$/)) return 180; // General Laser for SG5
+    if (l.match(/^ut$/)) return 185; // General UT for SG5
+    if (l.match(/ut1 mza06/)) return 188;
+    if (l.match(/cone|cono/)) return 190;
+    if (l.match(/grind|rz|sla /)) return 192;
     if (l.match(/us/)) return 195;
     if (l.match(/ac1/)) return 196;
     if (l.match(/da lavare/)) return 200;
@@ -97,7 +99,7 @@ const PivotTableGroup = ({ dataGroups, macchine = [], hideFooter = false }) => {
 
     return (
         <div style={{ width: '100%', overflowX: 'auto', marginBottom: '20px' }}>
-            <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: 9, fontFamily: 'monospace', width: '100%', border: '2px solid #000', backgroundColor: '#fff' }}>
+            <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: 9, width: '100%', border: '2px solid #000', backgroundColor: '#fff' }}>
                 <colgroup>
                     {columnsWithSteps.map(col => (
                         <React.Fragment key={"cg-" + col.id}>
@@ -191,7 +193,7 @@ const PivotTableGroup = ({ dataGroups, macchine = [], hideFooter = false }) => {
                         {columnsWithSteps.map(col => (
                             <React.Fragment key={"totwip-" + col.id}>
                                 <td style={{ fontSize: 9, border: '1px solid #000', borderRight: '1px solid #000', padding: '0 4px', fontWeight: 'bold' }}>{col.totLabel || 'Tot. WIP'}</td>
-                                <td style={{ fontSize: 9, border: '1px solid #000', borderRight: '2px solid #000', textAlign: 'center', fontWeight: 'bold' }}>{col.totWip}</td>
+                                <td contentEditable={true} suppressContentEditableWarning={true} style={{ fontSize: 9, border: '1px solid #000', borderRight: '2px solid #000', textAlign: 'center', fontWeight: 'bold', outline: 'none', cursor: 'text' }}>{col.totWip}</td>
                             </React.Fragment>
                         ))}
                     </tr>
@@ -199,7 +201,7 @@ const PivotTableGroup = ({ dataGroups, macchine = [], hideFooter = false }) => {
                         {columnsWithSteps.map(col => (
                             <React.Fragment key={"totfiniti-" + col.id}>
                                 <td style={{ fontSize: 9, border: '1px solid #000', borderRight: '1px solid #000', padding: '0 4px', fontWeight: 'bold' }}>TOT FINITI</td>
-                                <td style={{ fontSize: 9, border: '1px solid #000', borderRight: '2px solid #000', textAlign: 'center', fontWeight: 'bold' }}>{col.totFiniti}</td>
+                                <td contentEditable={true} suppressContentEditableWarning={true} style={{ fontSize: 9, border: '1px solid #000', borderRight: '2px solid #000', textAlign: 'center', fontWeight: 'bold', outline: 'none', cursor: 'text' }}>{col.totFiniti}</td>
                             </React.Fragment>
                         ))}
                     </tr>
@@ -484,17 +486,17 @@ const InventoryView = ({ showToast, macchine = [] }) => {
     ];
 
     const summaryData8Fe = [
-        { label: 'wip+finiti', values: [2980, 3084, 3114, 4496, 2160, 3180, 1916, 2046, 3360, 4663, 2194, 308] },
-        { label: 'gg di copertura wip + finiti', values: [9.9, 10.3, 10.4, 15.0, 7.2, 10.6, 6.4, 6.8, 11.2, 15.5, 7.3, 1.0], colors: [null, null, '#FFA500', null, null, null, null, null, null, null, '#FFA500', null] },
-        { label: 'gg di copertura solo finiti', values: [0.8, 1.0, 0.9, 4.5, 2.8, 0.4, 0.4, 0.6, 4.4, 10.8, 2.9, 0.0], colors: [null, null, '#FF0000', null, null, null, '#FF0000', null, null, null, '#FFA500', null] }
+        { label: 'wip+finiti', values: Array(12).fill('') },
+        { label: 'gg di copertura wip + finiti', values: Array(12).fill('') },
+        { label: 'gg di copertura solo finiti', values: Array(12).fill('') }
     ];
 
     const differentialHouse8Fe = [
-        { cat: 'A - Torniti', code: 'M0150712', qta: '', gg: 0.0 },
-        { cat: 'B - Torniti Sferico', code: 'M0150712', qta: '', gg: 1.0, color: '#FF0000' },
-        { cat: 'C - Lavati', code: 'M0150712', qta: '', gg: 3.3, color: '#FFA500' },
-        { cat: 'D - Assemblati', code: 'M0150743', qta: '', gg: 0.6, color: '#FF0000' },
-        { cat: 'diff saldati recuperati da smontaggio', code: '', qta: '', gg: 0.0, color: '#FF0000' }
+        { cat: 'A - Torniti', code: 'M0150712', qta: '', gg: '' },
+        { cat: 'B - Torniti Sferico', code: 'M0150712', qta: '', gg: '' },
+        { cat: 'C - Lavati', code: 'M0150712', qta: '', gg: '' },
+        { cat: 'D - Assemblati', code: 'M0150743', qta: '', gg: '' },
+        { cat: 'diff saldati recuperati da smontaggio', code: '', qta: '', gg: '' }
     ];
 
     // --- DCT ECO DATA ---
@@ -502,7 +504,6 @@ const InventoryView = ({ showToast, macchine = [] }) => {
         {
             id: 'SG2', code: 'M0162645-784', rackSize: '80 pz', primaryPart: 'M0162644',
             rows: [
-                { label: 'Lavaggio ore33', value: '' },
                 { label: 'Laser W sca06 (151)', value: '' },
                 { label: 'UT mza05', value: '' },
                 { label: 'Hobbing frw78', value: '' },
@@ -521,7 +522,6 @@ const InventoryView = ({ showToast, macchine = [] }) => {
         {
             id: 'SG3', code: 'M0162624-784', rackSize: '120 pz', primaryPart: 'M0162623',
             rows: [
-                { label: 'Lavaggio ore33', value: '' },
                 { label: 'Laser W sca78(151)', value: '' },
                 { label: 'UT mza08', value: '' },
                 { label: 'Hobbing frw76', value: '' },
@@ -539,7 +539,6 @@ const InventoryView = ({ showToast, macchine = [] }) => {
         {
             id: 'SG4', code: 'M0162639-785', rackSize: '120 pz', primaryPart: 'M0162637',
             rows: [
-                { label: 'Lavaggio ore33', value: '' },
                 { label: 'Shaping stw07', value: '' },
                 { label: 'Milling fra25', value: '' },
                 { label: 'Hobbing frw217', value: '' },
@@ -559,15 +558,14 @@ const InventoryView = ({ showToast, macchine = [] }) => {
         {
             id: 'SG5', code: 'M0162622-784', rackSize: '120 pz', primaryPart: 'M0162621',
             rows: [
-                { label: 'Lavaggio ore33', value: '' },
                 { label: 'Hobbing frw62', value: '' },
                 { label: 'Da Trattare', value: '', type: 'blue' },
                 { label: 'HT - (600)', value: '', type: 'blue' },
-                { label: 'Emag pre w dra102/108', value: '' },
-                { label: 'Power Honing hmw40', value: '' },
-                { label: 'Laser W sca78(151)', value: '' },
-                { label: 'UT1 mza06 --> 0h', value: '' },
-                { label: 'Cone Grinding sla91', value: '' },
+                { label: 'Emag', value: '' },
+                { label: 'Power Honing', value: '' },
+                { label: 'Laser', value: '' },
+                { label: 'UT', value: '' },
+                { label: 'Cone Grinding', value: '' },
                 { label: 'Da lavare', value: '' },
                 { label: 'Finiti', value: '', type: 'green' },
                 { label: 'Box', value: '' },
@@ -577,7 +575,6 @@ const InventoryView = ({ showToast, macchine = [] }) => {
         {
             id: 'SGR', code: 'M162624-784', rackSize: '80 pz', primaryPart: 'M162623',
             rows: [
-                { label: 'Lavaggio ore33', value: '' },
                 { label: 'Laser W sca06 (151)', value: '' },
                 { label: 'UT mza05', value: '' },
                 { label: 'Hobbing frw79', value: '' },
@@ -595,7 +592,6 @@ const InventoryView = ({ showToast, macchine = [] }) => {
         {
             id: 'RG-FD1', code: 'M0162587-790', rackSize: '32 pz', primaryPart: 'M0162587 61A',
             rows: [
-                { label: 'Soft Turning dra44', value: '' },
                 { label: 'Hobbing frw15', value: '' },
                 { label: 'Deburring egw06', value: '' },
                 { label: 'Da Trattare', value: '', type: 'blue' },
@@ -612,7 +608,6 @@ const InventoryView = ({ showToast, macchine = [] }) => {
         {
             id: 'RG-FD2', code: 'M0162901-790', rackSize: '32 pz', primaryPart: 'M0162901 61E',
             rows: [
-                { label: 'Soft Turning dra44', value: '' },
                 { label: 'Hobbing frw15', value: '' },
                 { label: 'Deburring egw06', value: '' },
                 { label: 'Da Trattare', value: '', type: 'blue' },
@@ -628,9 +623,9 @@ const InventoryView = ({ showToast, macchine = [] }) => {
     ];
 
     const summaryDataEco = [
-        { label: 'wip + finiti', values: [2006, 2160, 3420, 2756, 2560, 128, 1376] },
-        { label: 'gg copertura wip + finiti', values: [1.2, 1.3, 2.0, 1.6, 1.5, 0.1, 0.8], colors: ['#FFFF00', null, '#FF0000', null, null, '#FFFF00', '#FF0000'] },
-        { label: 'gg copertura finiti', values: [0.05, 0.14, 0.28, 0.35, 0.42, 0.21, 0.42], colors: ['#FF0000', '#FFA500', '#FFA500', '#FFFF00', '#FFFF00', '#FFFF00', '#FFFF00'] }
+        { label: 'wip + finiti', values: Array(7).fill('') },
+        { label: 'gg copertura wip + finiti', values: Array(7).fill('') },
+        { label: 'gg copertura finiti', values: Array(7).fill('') }
     ];
 
 
@@ -639,16 +634,16 @@ const InventoryView = ({ showToast, macchine = [] }) => {
             id: 'SG1', code: 'LOW TORQUE M0140994', rackSize: ' ', primaryPart: 'M0140994',
             rows: [
                 { label: 'ORE 33', value: '' },
-                { label: 'LASER', value: '', type: 'yellow' },
+                { label: 'LASER', value: '' },
                 { label: 'PFAUTER', value: '', type: 'green' },
                 { label: 'SMUSSATURA', value: '' },
-                { label: 'DA TRATTARE', value: '', type: 'yellow' },
-                { label: 'IN TRATT.', value: '', type: 'orange' },
+                { label: 'DA TRATTARE', value: '', type: 'blue' },
+                { label: 'IN TRATT.', value: '', type: 'blue' },
                 { label: 'DA PALLINARE', value: '', type: 'orange' },
                 { label: 'EMAG', value: '' },
                 { label: 'RH160', value: '' },
                 { label: 'DA LAVARE', value: '', type: 'green' },
-                { label: 'FINITI', value: '', type: 'orange' }
+                { label: 'FINITI', value: '', type: 'green' }
             ],
             totWip: '', totFiniti: '', grandLabel: '', diff: '', footerNote: 'blister'
         },
@@ -656,19 +651,19 @@ const InventoryView = ({ showToast, macchine = [] }) => {
             id: 'DG2', code: 'LOW TORQUE M0156540', rackSize: ' ', primaryPart: 'M0156540',
             rows: [
                 { label: 'WS CORONCINA', value: '' },
-                { label: 'PFAUTER MOZZETTO', value: '', type: 'yellow' },
+                { label: 'PFAUTER MOZZETTO', value: '' },
                 { label: 'mozzetta SCA110/6', value: '', type: 'orange' },
                 { label: 'US', value: '' },
-                { label: 'DG car SCA110/6', value: '', type: 'yellow' },
+                { label: 'DG car SCA110/6', value: '' },
                 { label: 'PFAUTER DG', value: '', type: 'orange' },
-                { label: 'DA TRATTARE', value: '' },
-                { label: 'IN TRATT.', value: '' },
+                { label: 'DA TRATTARE', value: '', type: 'blue' },
+                { label: 'IN TRATT.', value: '', type: 'blue' },
                 { label: 'DA PALLINARE', value: '', type: 'green' },
-                { label: 'ore33', value: '', type: 'yellow' },
+                { label: 'ore33', value: '' },
                 { label: 'AC1', value: '', type: 'green' },
-                { label: 'RH160', value: '', type: 'yellow' },
-                { label: 'DA LAVARE', value: '', type: 'yellow' },
-                { label: 'FINITI', value: '', type: 'orange' }
+                { label: 'RH160', value: '' },
+                { label: 'DA LAVARE', value: '' },
+                { label: 'FINITI', value: '', type: 'green' }
             ],
             totWip: '', totFiniti: '', grandLabel: '', diff: ''
         },
@@ -676,16 +671,16 @@ const InventoryView = ({ showToast, macchine = [] }) => {
             id: 'SG5', code: '2511108851', rackSize: ' ', primaryPart: '2511108851',
             rows: [
                 { label: 'WEISSER', value: '' },
-                { label: 'PFAUTER', value: '', type: 'yellow' },
-                { label: 'DA TRATTARE', value: '' },
-                { label: 'IN TRATT.', value: '', type: 'green' },
-                { label: 'EMAG', value: '', type: 'yellow' },
-                { label: 'RH160', value: '', type: 'yellow' },
+                { label: 'PFAUTER', value: '' },
+                { label: 'DA TRATTARE', value: '', type: 'blue' },
+                { label: 'IN TRATT.', value: '', type: 'blue' },
+                { label: 'EMAG', value: '' },
+                { label: 'RH160', value: '' },
                 { label: 'LASER', value: '', type: 'red' },
-                { label: 'US', value: '', type: 'yellow' },
+                { label: 'US', value: '' },
                 { label: 'AC1', value: '', type: 'green' },
                 { label: 'DA LAVARE', value: '' },
-                { label: 'FINITI', value: '', type: 'yellow' }
+                { label: 'FINITI', value: '', type: 'green' }
             ],
             totWip: '', totFiniti: '', grandLabel: '', diff: ''
         },
@@ -693,15 +688,15 @@ const InventoryView = ({ showToast, macchine = [] }) => {
             id: 'SG6', code: '2511109250', rackSize: ' ', primaryPart: '2511109250',
             rows: [
                 { label: 'WEISSER', value: '' },
-                { label: 'DA TRATTARE', value: '', type: 'green' },
-                { label: 'IN TRATT.', value: '', type: 'yellow' },
+                { label: 'DA TRATTARE', value: '', type: 'blue' },
+                { label: 'IN TRATT.', value: '', type: 'blue' },
                 { label: 'EMAG', value: '' },
                 { label: 'RH160', value: '' },
                 { label: 'LASER', value: '', type: 'orange' },
                 { label: 'US', value: '' },
                 { label: 'AC1', value: '', type: 'green' },
-                { label: 'DA LAVARE', value: '', type: 'yellow' },
-                { label: 'FINITI', value: '', type: 'yellow' }
+                { label: 'DA LAVARE', value: '' },
+                { label: 'FINITI', value: '', type: 'green' }
             ],
             totWip: '', totFiniti: '', grandLabel: '', diff: ''
         }
@@ -715,12 +710,12 @@ const InventoryView = ({ showToast, macchine = [] }) => {
                 { label: 'PFAUTER WEIMA', value: '' },
                 { label: 'PFAUTER', value: '' },
                 { label: 'ORE 33', value: '' },
-                { label: 'DA TRATTARE', value: '', type: 'orange' },
-                { label: 'IN TRATT.', value: '' },
+                { label: 'DA TRATTARE', value: '', type: 'blue' },
+                { label: 'IN TRATT.', value: '', type: 'blue' },
                 { label: 'AC1', value: '' },
                 { label: 'RH160', value: '', type: 'green' },
-                { label: 'DA LAVARE', value: '', type: 'yellow' },
-                { label: 'FINITI', value: '', type: 'orange' }
+                { label: 'DA LAVARE', value: '' },
+                { label: 'FINITI', value: '', type: 'green' }
             ],
             totWip: '', totFiniti: '', grandLabel: '', diff: '', footerNote: 'blister'
         },
@@ -730,27 +725,27 @@ const InventoryView = ({ showToast, macchine = [] }) => {
                 { label: 'WEISSER', value: '' },
                 { label: 'LASER', value: '', type: 'orange' },
                 { label: 'PFAUTER', value: '', type: 'orange' },
-                { label: 'DA TRATTARE', value: '', type: 'yellow' },
-                { label: 'IN TRATT.', value: '' },
+                { label: 'DA TRATTARE', value: '', type: 'blue' },
+                { label: 'IN TRATT.', value: '', type: 'blue' },
                 { label: 'AC1', value: '', type: 'green' },
                 { label: 'RH160', value: '', type: 'green' },
-                { label: 'DA LAVARE', value: '', type: 'yellow' },
-                { label: 'FINITI', value: '', type: 'orange' }
+                { label: 'DA LAVARE', value: '' },
+                { label: 'FINITI', value: '', type: 'green' }
             ],
             totWip: '', totFiniti: '', grandLabel: '', diff: ''
         },
         {
             id: 'RG', code: 'LOW TORQUE M0140999', rackSize: ' ', primaryPart: 'M0140999',
             rows: [
-                { label: 'DA DENTARE', value: '', type: 'yellow' },
+                { label: 'DA DENTARE', value: '' },
                 { label: 'DA SBAVARE', value: '' },
-                { label: 'DA LAVARE', value: '', type: 'yellow' },
-                { label: 'IN TRATTAM.', value: '', type: 'yellow' },
+                { label: 'DA LAVARE', value: '' },
+                { label: 'IN TRATTAM.', value: '', type: 'blue' },
                 { label: 'DA PALLIN.', value: '', type: 'green' },
                 { label: 'EMAG', value: '', type: 'green' },
                 { label: 'RH250', value: '' },
                 { label: 'DA LAVARE', value: '', type: 'green' },
-                { label: 'FINITI', value: '', type: 'orange' }
+                { label: 'FINITI', value: '', type: 'green' }
             ],
             totWip: '', totFiniti: '', grandLabel: '', diff: '', footerNote: 'Blister'
         },
@@ -760,12 +755,12 @@ const InventoryView = ({ showToast, macchine = [] }) => {
                 { label: 'WEISSER', value: '' },
                 { label: 'STOZZA', value: '', type: 'green' },
                 { label: 'PFAUTER', value: '', type: 'green' },
-                { label: 'DA TRATTARE', value: '', type: 'yellow' },
-                { label: 'IN TRATTAM.', value: '', type: 'orange' },
+                { label: 'DA TRATTARE', value: '', type: 'blue' },
+                { label: 'IN TRATTAM.', value: '', type: 'blue' },
                 { label: 'EMAG', value: '' },
                 { label: 'RH160', value: '' },
-                { label: 'DA LAVARE', value: '', type: 'yellow' },
-                { label: 'FINITI', value: '', type: 'orange' }
+                { label: 'DA LAVARE', value: '' },
+                { label: 'FINITI', value: '', type: 'green' }
             ],
             totWip: '', totFiniti: '', grandLabel: '', diff: ''
         },
@@ -773,15 +768,15 @@ const InventoryView = ({ showToast, macchine = [] }) => {
             id: 'SGRW', code: '2511109451', rackSize: ' ', primaryPart: '2511109451',
             rows: [
                 { label: 'ORE33', value: '' },
-                { label: 'LASER', value: '', type: 'yellow' },
+                { label: 'LASER', value: '' },
                 { label: 'PFAUTER', value: '', type: 'orange' },
-                { label: 'DA TRATTAM', value: '', type: 'orange' },
-                { label: 'IN TRATTAM.', value: '', type: 'green' },
+                { label: 'DA TRATTAM', value: '', type: 'blue' },
+                { label: 'IN TRATTAM.', value: '', type: 'blue' },
                 { label: 'PALLINATURA', value: '', type: 'green' },
                 { label: 'EMAG', value: '', type: 'red' },
                 { label: 'RH160', value: '' },
                 { label: 'DA LAVARE', value: '', type: 'green' },
-                { label: 'FINITI', value: '', type: 'yellow' }
+                { label: 'FINITI', value: '', type: 'green' }
             ],
             totWip: '', totFiniti: '', grandLabel: '', diff: ''
         }
@@ -810,17 +805,17 @@ const InventoryView = ({ showToast, macchine = [] }) => {
                         </colgroup>
                         <tbody>
                             <tr style={{ height: 40 }}>
-                                <th colSpan="2" style={{ border: '1px solid #000', textAlign: 'center', fontSize: 20 }}>888 <span style={{ fontSize: 12 }}>domanda wk FD1</span></th>
-                                <th colSpan="2" style={{ border: '1px solid #000', textAlign: 'center', fontSize: 20 }}>1700 <span style={{ fontSize: 12 }}>domanda wk FD2</span></th>
-                                <th colSpan="2" style={{ border: '1px solid #000', textAlign: 'center', backgroundColor: '#FFFF00', fontSize: 20 }}>2650</th>
-                                <th colSpan="2" style={{ border: '1px solid #000', textAlign: 'center', fontSize: 20 }}>7188</th>
-                                <th colSpan="2" style={{ border: '1px solid #000', textAlign: 'center', fontSize: 20 }}>6976</th>
-                                <th colSpan="4" style={{ border: '1px solid #000', textAlign: 'center', fontSize: 20 }}>27/02/2026</th>
+                                <th contentEditable={true} suppressContentEditableWarning={true} colSpan="2" style={{ border: '1px solid #000', textAlign: 'center', fontSize: 14, fontWeight: 700, outline: 'none', cursor: 'text' }}><span style={{ fontSize: 11 }}>domanda wk FD1</span></th>
+                                <th contentEditable={true} suppressContentEditableWarning={true} colSpan="2" style={{ border: '1px solid #000', textAlign: 'center', fontSize: 14, fontWeight: 700, outline: 'none', cursor: 'text' }}><span style={{ fontSize: 11 }}>domanda wk FD2</span></th>
+                                <th contentEditable={true} suppressContentEditableWarning={true} colSpan="2" style={{ border: '1px solid #000', textAlign: 'center', fontSize: 14, fontWeight: 700, outline: 'none', cursor: 'text' }}></th>
+                                <th contentEditable={true} suppressContentEditableWarning={true} colSpan="2" style={{ border: '1px solid #000', textAlign: 'center', fontSize: 14, fontWeight: 700, outline: 'none', cursor: 'text' }}></th>
+                                <th contentEditable={true} suppressContentEditableWarning={true} colSpan="2" style={{ border: '1px solid #000', textAlign: 'center', fontSize: 14, fontWeight: 700, outline: 'none', cursor: 'text' }}></th>
+                                <th contentEditable={true} suppressContentEditableWarning={true} colSpan="4" style={{ border: '1px solid #000', textAlign: 'center', fontSize: 14, fontWeight: 700, outline: 'none', cursor: 'text' }}></th>
                             </tr>
                         </tbody>
                     </table>
                     {/* Eco Blocks */}
-                    <PivotTableGroup dataGroups={dataEcoRow1} macchine={macchine} />
+                    <PivotTableGroup dataGroups={dataEcoRow1} macchine={macchine} hideFooter={true} />
                     {/* Eco Summary */}
                     <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: 11, border: '2px solid #000', borderTop: 'none' }}>
                         <colgroup>
@@ -837,13 +832,14 @@ const InventoryView = ({ showToast, macchine = [] }) => {
                                     {row.values.map((val, vIdx) => (
                                         <React.Fragment key={vIdx}>
                                             <td style={{ fontSize: 9, border: '1px solid #000', padding: '4px 8px', fontWeight: 'bold' }}>{vIdx === 0 ? row.label : ''}</td>
-                                            <td style={{
+                                            <td contentEditable={true} suppressContentEditableWarning={true} style={{
                                                 fontSize: 9,
                                                 border: '1px solid #000',
                                                 padding: 4,
                                                 textAlign: 'center',
                                                 fontWeight: 'bold',
-                                                backgroundColor: row.colors && row.colors[vIdx] ? row.colors[vIdx] : 'transparent'
+                                                outline: 'none',
+                                                cursor: 'text'
                                             }}>
                                                 {val}
                                             </td>
@@ -870,8 +866,8 @@ const InventoryView = ({ showToast, macchine = [] }) => {
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 30, padding: 10, background: '#fff', borderRadius: 8, border: '1px solid var(--border)' }}>
-                    <PivotTableGroup dataGroups={data300Row1} macchine={macchine} />
-                    <PivotTableGroup dataGroups={data300Row2} macchine={macchine} />
+                    <PivotTableGroup dataGroups={data300Row1} macchine={macchine} hideFooter={true} />
+                    <PivotTableGroup dataGroups={data300Row2} macchine={macchine} hideFooter={true} />
                 </div>
             </div>
         );
@@ -910,13 +906,14 @@ const InventoryView = ({ showToast, macchine = [] }) => {
                             <tr key={rIdx}>
                                 <td style={{ fontSize: 9, border: '1px solid #000', padding: '4px 8px', fontWeight: 'bold' }}>{row.label}</td>
                                 {row.values.map((val, vIdx) => (
-                                    <td key={vIdx} style={{
+                                    <td key={vIdx} contentEditable={true} suppressContentEditableWarning={true} style={{
                                         fontSize: 9,
                                         border: '1px solid #000',
                                         padding: 4,
                                         textAlign: 'center',
                                         fontWeight: 'bold',
-                                        backgroundColor: row.colors && row.colors[vIdx] ? row.colors[vIdx] : 'transparent'
+                                        outline: 'none',
+                                        cursor: 'text'
                                     }}>
                                         {val}
                                     </td>
@@ -937,8 +934,8 @@ const InventoryView = ({ showToast, macchine = [] }) => {
                         <tbody>
                             {differentialHouse8Fe.map((row, idx) => (
                                 <tr key={idx}>
-                                    <td style={{ fontSize: 9, border: '1px solid #000', padding: 4 }}>{row.cat}</td>
-                                    <td style={{ fontSize: 9, border: '1px solid #000', padding: 4, textAlign: 'center' }}>{row.code}</td>
+                                    <td contentEditable={true} suppressContentEditableWarning={true} style={{ fontSize: 9, border: '1px solid #000', padding: 4, outline: 'none', cursor: 'text' }}>{row.cat}</td>
+                                    <td contentEditable={true} suppressContentEditableWarning={true} style={{ fontSize: 9, border: '1px solid #000', padding: 4, textAlign: 'center', outline: 'none', cursor: 'text' }}>{row.code}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -955,21 +952,22 @@ const InventoryView = ({ showToast, macchine = [] }) => {
                         <tbody>
                             {differentialHouse8Fe.map((row, idx) => (
                                 <tr key={idx}>
-                                    <td style={{ fontSize: 9, border: '1px solid #000', padding: 4 }}>{row.cat}</td>
-                                    <td style={{ fontSize: 9, border: '1px solid #000', padding: 4, textAlign: 'center' }}>{row.qta}</td>
-                                    <td style={{
+                                    <td contentEditable={true} suppressContentEditableWarning={true} style={{ fontSize: 9, border: '1px solid #000', padding: 4, outline: 'none', cursor: 'text' }}>{row.cat}</td>
+                                    <td contentEditable={true} suppressContentEditableWarning={true} style={{ fontSize: 9, border: '1px solid #000', padding: 4, textAlign: 'center', outline: 'none', cursor: 'text' }}>{row.qta}</td>
+                                    <td contentEditable={true} suppressContentEditableWarning={true} style={{
                                         fontSize: 9,
                                         border: '1px solid #000',
                                         padding: 4,
                                         textAlign: 'center',
-                                        backgroundColor: row.color || 'transparent',
-                                        fontWeight: 'bold'
+                                        fontWeight: 'bold',
+                                        outline: 'none',
+                                        cursor: 'text'
                                     }}>{row.gg}</td>
                                 </tr>
                             ))}
                             <tr>
                                 <td colSpan="2" style={{ fontSize: 9, border: '1px solid #000', padding: 4, textAlign: 'right', fontWeight: 'bold' }}></td>
-                                <td style={{ fontSize: 9, border: '1px solid #000', padding: 4, textAlign: 'center', borderTop: '2px solid #000' }}>0,6</td>
+                                <td contentEditable={true} suppressContentEditableWarning={true} style={{ fontSize: 9, border: '1px solid #000', padding: 4, textAlign: 'center', borderTop: '2px solid #000', outline: 'none', cursor: 'text' }}></td>
                             </tr>
                         </tbody>
                     </table>

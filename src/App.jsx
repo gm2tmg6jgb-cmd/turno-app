@@ -104,11 +104,20 @@ export default function App() {
 
         // --- AUTO-GENERATE PRESENCE FOR TODAY IF MISSING ---
         const today = getLocalDate(new Date());
+
+        // Process dipendenti to auto-deactivate those with expired contracts
+        const processedDipendenti = (dipHelper || []).map(d => {
+          if (d.data_fine_rapporto && d.data_fine_rapporto < today) {
+            return { ...d, attivo: false };
+          }
+          return d;
+        });
+
         const isSunday = new Date(today).getDay() === 0;
         const presenzeOggi = presHelper ? presHelper.filter(p => p.data === today) : [];
         let finalPresenze = presHelper || [];
 
-        if (!isSunday && presenzeOggi.length === 0 && dipHelper && dipHelper.length > 0) {
+        if (!isSunday && presenzeOggi.length === 0 && processedDipendenti.length > 0) {
           // Double-check DB to avoid race condition in React StrictMode
           const { count } = await supabase
             .from('presenze')
@@ -116,7 +125,7 @@ export default function App() {
             .eq('data', today);
 
           if (count === 0) {
-            const newPresenze = dipHelper
+            const newPresenze = processedDipendenti
               .filter(d => d.attivo !== false) // Filter out terminated workers
               .map(d => ({
                 dipendente_id: d.id,
@@ -142,7 +151,7 @@ export default function App() {
         }
         // ---------------------------------------------------
 
-        setDipendenti(dipHelper || []);
+        setDipendenti(processedDipendenti);
         setMacchine(macHelper || []);
         setZone(zoneHelper || []);
         setAttivita(attHelper || []);
