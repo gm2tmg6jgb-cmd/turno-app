@@ -81,6 +81,7 @@ export default function LimitazioniView({ dipendenti, presenze = [] }) {
     const limitazioniResults = useMemo(() => {
         return dipendenti
             .filter(d => {
+                if (d.attivo === false) return false;
                 if (!d.l104 || d.l104.trim() === "") return false;
                 if (userRole === "manager") return true;
                 const dsShift = d.turno || d.turno_default || "D";
@@ -112,6 +113,7 @@ export default function LimitazioniView({ dipendenti, presenze = [] }) {
         let filteredDipendenti = dipendenti;
         if (userRole !== "manager") {
             filteredDipendenti = dipendenti.filter(d => {
+                if (d.attivo === false) return false;
                 const dsShift = d.turno || d.turno_default || "D";
                 return dsShift === userRole;
             });

@@ -140,6 +140,7 @@ export default function AssegnazioniView({
 
     // --- FILTER LOGIC ---
     const dipRep = dipendenti.filter((d) =>
+        d.attivo !== false &&
         (!repartoCorrente || d.reparto_id === repartoCorrente) &&
         d.turno_default === turnoCorrente
     );

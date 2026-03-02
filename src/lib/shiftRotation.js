@@ -13,6 +13,7 @@ export const GROUPS = ["A", "B", "C", "D"];
 // B -> Notte (3)
 // C -> Mattina (0)
 // D -> Pomeriggio (1)
+// Verified: week of Mar 2-7, 2026 → D=Sera ✓
 const ANCHOR_DATE = new Date("2026-02-09T12:00:00Z"); // Use noon to avoid timezone edge cases on boundary
 const ANCHOR_MAPPING = {
     "A": 2, // Sera
@@ -21,8 +22,8 @@ const ANCHOR_MAPPING = {
     "D": 1  // Pomeriggio
 };
 
-// Logic: Rotation is FORWARD (Next week = Current Slot Index + 1)
-// Order: M(0) -> P(1) -> S(2) -> N(3) -> M(0) ...
+// Logic: Rotation is BACKWARD (Next week = Current Slot Index - 1)
+// Order: S(2) -> P(1) -> M(0) -> N(3) -> S(2) ...
 
 export function getWeekDiff(date) {
     const d = new Date(date);
@@ -39,9 +40,9 @@ export function getSlotIndexForGroup(groupId, date) {
     const weeksPassed = getWeekDiff(date);
     const initialIndex = ANCHOR_MAPPING[groupId];
 
-    // Forward rotation: index + weeks (handle negative weeks correctly)
+    // Backward rotation: index - weeks (handle negative weeks correctly)
     const slotsCount = SLOTS.length;
-    const rawIndex = initialIndex + weeksPassed;
+    const rawIndex = initialIndex - weeksPassed;
     const newIndex = ((rawIndex % slotsCount) + slotsCount) % slotsCount;
     return newIndex;
 }

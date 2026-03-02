@@ -11,12 +11,14 @@ const matchPhases = (label) => {
     if (l.match(/dmc/)) return 40;
     if (l.match(/broaching/)) return 50;
     if (l.match(/lavaggio ore 48/)) return 60;
-    if (l.match(/laser.w.*sca06|laser.w.*sca08|laser.w.*sca09|laser.w.*sca10|laser.w.*sca151|laser.w.*sca78|laser/)) return 70;
+    if (l.match(/laser.w.*sca78/)) return 186; // Assicura che sia DOPO Power Honing (185)
+    if (l.match(/laser.w.*sca06|laser.w.*sca08|laser.w.*sca09|laser.w.*sca10|laser.w.*sca151|laser/)) return 70;
     if (l.match(/shaping|stozza/)) return 80;
     if (l.match(/milling/)) return 90;
     if (l.match(/hobbing|pfauter|dentare/)) return 100;
     if (l.match(/deburr|sbav|smuss/)) return 110;
     if (l.match(/mozzetta sca/)) return 115;
+    if (l.match(/ut1 mza06/)) return 188; // Assicura che in SG5 resti dopo Laser (186)
     if (l.match(/ut |ut[123]? |mza/)) return 120;
     if (l.match(/dg car/)) return 125;
     if (l.match(/rh160/)) return 126;
@@ -53,7 +55,25 @@ const getBgColor = (type, diffVal) => {
     return 'transparent';
 };
 
-const PivotTableGroup = ({ dataGroups }) => {
+const PivotTableGroup = ({ dataGroups, macchine = [], hideFooter = false }) => {
+
+    // Dynamic Label Resolver
+    const resolveLabel = (row) => {
+        // Find by explicit ID
+        if (row.macchina_id && macchine && macchine.length > 0) {
+            const m = macchine.find(mac => mac.id === row.macchina_id);
+            if (m && m.nome) return m.nome;
+        }
+        // Find by explicit SAP Code
+        if (row.codice_sap && macchine && macchine.length > 0) {
+            const m = macchine.find(mac => mac.codice_sap === row.codice_sap);
+            if (m && m.nome) return m.nome;
+        }
+
+        // As a fallback/extra behavior, if the hardcoded label exactly matches a machine name (case-insensitive) we could return it
+        // but for safety we just return the hardcoded label if no explicit ID/SAP is provided yet.
+        return row.label;
+    };
     const getRowColor = (stepId, cellType) => {
         if (cellType) return getBgColor(cellType);
         // Dynamic backgrounds for specific phases (row-wide)
@@ -125,31 +145,41 @@ const PivotTableGroup = ({ dataGroups }) => {
                                         </React.Fragment>
                                     );
                                 }
-                                const bgColor = getBgColor(cellRow.type);
+                                const bgColor = getRowColor(stepId, cellRow.type);
                                 return (
                                     <React.Fragment key={"cell-" + stepId + "-" + col.id}>
-                                        <td style={{
-                                            fontSize: 9,
-                                            border: '1px solid #000',
-                                            borderRight: '1px solid #000',
-                                            padding: '0 4px',
-                                            backgroundColor: bgColor,
-                                            whiteSpace: 'nowrap',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            width: '110px'
-                                        }}>
-                                            {cellRow.label}
+                                        <td
+                                            contentEditable={true}
+                                            suppressContentEditableWarning={true}
+                                            style={{
+                                                fontSize: 9,
+                                                border: '1px solid #000',
+                                                borderRight: '1px solid #000',
+                                                padding: '0 4px',
+                                                backgroundColor: bgColor,
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                width: '110px',
+                                                cursor: 'text',
+                                                outline: 'none'
+                                            }}>
+                                            {resolveLabel(cellRow)}
                                         </td>
-                                        <td style={{
-                                            fontSize: 9,
-                                            border: '1px solid #000',
-                                            borderRight: '2px solid #000',
-                                            textAlign: 'center',
-                                            backgroundColor: bgColor,
-                                            fontWeight: cellRow.value ? 'bold' : 'normal',
-                                            width: '50px'
-                                        }}>
+                                        <td
+                                            contentEditable={true}
+                                            suppressContentEditableWarning={true}
+                                            style={{
+                                                fontSize: 9,
+                                                border: '1px solid #000',
+                                                borderRight: '2px solid #000',
+                                                textAlign: 'center',
+                                                backgroundColor: bgColor,
+                                                fontWeight: cellRow.value ? 'bold' : 'normal',
+                                                width: '50px',
+                                                cursor: 'text',
+                                                outline: 'none'
+                                            }}>
                                             {cellRow.value || ''}
                                         </td>
                                     </React.Fragment>
@@ -173,7 +203,7 @@ const PivotTableGroup = ({ dataGroups }) => {
                             </React.Fragment>
                         ))}
                     </tr>
-                    <tr style={{ height: 24 }}>
+                    {!hideFooter && <tr style={{ height: 24 }}>
                         {columnsWithSteps.map(col => (
                             <React.Fragment key={"diff-" + col.id}>
                                 <td style={{ fontSize: 9, border: '1px solid #000', borderRight: '1px solid #000', padding: '0 4px', fontWeight: 'bold' }}>{col.grandLabel || col.grandTotal}</td>
@@ -189,8 +219,8 @@ const PivotTableGroup = ({ dataGroups }) => {
                                 </td>
                             </React.Fragment>
                         ))}
-                    </tr>
-                    <tr>
+                    </tr>}
+                    {!hideFooter && <tr>
                         {columnsWithSteps.map(col => (
                             <td key={"note-" + col.id} colSpan="2" style={{
                                 fontSize: 9,
@@ -205,14 +235,14 @@ const PivotTableGroup = ({ dataGroups }) => {
                                 {col.footerNote || ''}
                             </td>
                         ))}
-                    </tr>
+                    </tr>}
                 </tbody>
             </table>
         </div>
     );
 };
 
-const InventoryView = ({ showToast }) => {
+const InventoryView = ({ showToast, macchine = [] }) => {
     const [activeTab, setActiveTab] = useState('8Fe');
 
     const tabs = ['DCT 300', '8Fe', 'DCT Eco'];
@@ -221,7 +251,11 @@ const InventoryView = ({ showToast }) => {
         {
             id: 'SG2', code: 'M0153390-790', rackSize: '60 pz', primaryPart: 'M0153389',
             rows: [
-                { label: 'Soft Turning dra60', value: '' },
+                // ESEMPIO DI CONFIGURAZIONE DINAMICA:
+                // Aggiungendo codice_sap o macchina_id, PivotTableGroup chiederà il nome all'Anagrafica Macchine.
+                // Es: Se in anagrafica c'è una macchina FRW14020 chiamata "WEISSER NUOVA", la label diventerà "WEISSER NUOVA".
+                // Se non viene trovata, userà la label scritta qua (es. "Soft Turning dra60") come fallback di sicurezza!
+                { label: 'Soft Turning dra60', codice_sap: 'FRW14020', value: '' },
                 { label: 'DMC zsa19', value: '' },
                 { label: 'Laser W sca10', value: '' },
                 { label: 'Hobbing frw193 (frw 217)', value: '' },
@@ -304,8 +338,8 @@ const InventoryView = ({ showToast }) => {
                 { label: 'DMC zsa19', value: '' },
                 { label: 'DA Trattare', value: '', type: 'blue' },
                 { label: 'HT - (360)', value: '' },
-                { label: 'Da lavare', value: '' },
                 { label: 'Ingranometro', value: '' },
+                { label: 'Da lavare', value: '' },
                 { label: 'Finiti', value: '', type: 'green' },
                 { label: 'Box', value: '' },
             ],
@@ -533,8 +567,6 @@ const InventoryView = ({ showToast }) => {
                 { label: 'Power Honing hmw40', value: '' },
                 { label: 'Laser W sca78(151)', value: '' },
                 { label: 'UT1 mza06 --> 0h', value: '' },
-                { label: 'UT2 mza06 --> 48h', value: '' },
-                { label: 'UT3 mza06 --> 96h', value: '' },
                 { label: 'Cone Grinding sla91', value: '' },
                 { label: 'Da lavare', value: '' },
                 { label: 'Finiti', value: '', type: 'green' },
@@ -601,7 +633,7 @@ const InventoryView = ({ showToast }) => {
         { label: 'gg copertura finiti', values: [0.05, 0.14, 0.28, 0.35, 0.42, 0.21, 0.42], colors: ['#FF0000', '#FFA500', '#FFA500', '#FFFF00', '#FFFF00', '#FFFF00', '#FFFF00'] }
     ];
 
-    
+
     const data300Row1 = [
         {
             id: 'SG1', code: 'LOW TORQUE M0140994', rackSize: ' ', primaryPart: 'M0140994',
@@ -628,7 +660,7 @@ const InventoryView = ({ showToast }) => {
                 { label: 'mozzetta SCA110/6', value: '', type: 'orange' },
                 { label: 'US', value: '' },
                 { label: 'DG car SCA110/6', value: '', type: 'yellow' },
-                { label: 'PFAUTER DG', value: '', type: 'orange'},
+                { label: 'PFAUTER DG', value: '', type: 'orange' },
                 { label: 'DA TRATTARE', value: '' },
                 { label: 'IN TRATT.', value: '' },
                 { label: 'DA PALLINARE', value: '', type: 'green' },
@@ -693,7 +725,7 @@ const InventoryView = ({ showToast }) => {
             totWip: '', totFiniti: '', grandLabel: '', diff: '', footerNote: 'blister'
         },
         {
-             id: 'SG4', code: '2511108750', rackSize: ' ', primaryPart: '2511108750',
+            id: 'SG4', code: '2511108750', rackSize: ' ', primaryPart: '2511108750',
             rows: [
                 { label: 'WEISSER', value: '' },
                 { label: 'LASER', value: '', type: 'orange' },
@@ -708,7 +740,7 @@ const InventoryView = ({ showToast }) => {
             totWip: '', totFiniti: '', grandLabel: '', diff: ''
         },
         {
-             id: 'RG', code: 'LOW TORQUE M0140999', rackSize: ' ', primaryPart: 'M0140999',
+            id: 'RG', code: 'LOW TORQUE M0140999', rackSize: ' ', primaryPart: 'M0140999',
             rows: [
                 { label: 'DA DENTARE', value: '', type: 'yellow' },
                 { label: 'DA SBAVARE', value: '' },
@@ -723,7 +755,7 @@ const InventoryView = ({ showToast }) => {
             totWip: '', totFiniti: '', grandLabel: '', diff: '', footerNote: 'Blister'
         },
         {
-             id: 'SG7', code: '2511109050', rackSize: ' ', primaryPart: '2511109050',
+            id: 'SG7', code: '2511109050', rackSize: ' ', primaryPart: '2511109050',
             rows: [
                 { label: 'WEISSER', value: '' },
                 { label: 'STOZZA', value: '', type: 'green' },
@@ -738,7 +770,7 @@ const InventoryView = ({ showToast }) => {
             totWip: '', totFiniti: '', grandLabel: '', diff: ''
         },
         {
-             id: 'SGRW', code: '2511109451', rackSize: ' ', primaryPart: '2511109451',
+            id: 'SGRW', code: '2511109451', rackSize: ' ', primaryPart: '2511109451',
             rows: [
                 { label: 'ORE33', value: '' },
                 { label: 'LASER', value: '', type: 'yellow' },
@@ -754,7 +786,7 @@ const InventoryView = ({ showToast }) => {
             totWip: '', totFiniti: '', grandLabel: '', diff: ''
         }
     ];
-if (activeTab === 'DCT Eco') {
+    if (activeTab === 'DCT Eco') {
         return (
             <div className="inventory-view" style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: '100%', overflowX: 'auto' }}>
                 <div className="card" style={{ padding: '8px', background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
@@ -777,7 +809,7 @@ if (activeTab === 'DCT Eco') {
                             ))}
                         </colgroup>
                         <tbody>
-                            <tr style={{ height: 40}}>
+                            <tr style={{ height: 40 }}>
                                 <th colSpan="2" style={{ border: '1px solid #000', textAlign: 'center', fontSize: 20 }}>888 <span style={{ fontSize: 12 }}>domanda wk FD1</span></th>
                                 <th colSpan="2" style={{ border: '1px solid #000', textAlign: 'center', fontSize: 20 }}>1700 <span style={{ fontSize: 12 }}>domanda wk FD2</span></th>
                                 <th colSpan="2" style={{ border: '1px solid #000', textAlign: 'center', backgroundColor: '#FFFF00', fontSize: 20 }}>2650</th>
@@ -788,7 +820,7 @@ if (activeTab === 'DCT Eco') {
                         </tbody>
                     </table>
                     {/* Eco Blocks */}
-                    <PivotTableGroup dataGroups={dataEcoRow1} />
+                    <PivotTableGroup dataGroups={dataEcoRow1} macchine={macchine} />
                     {/* Eco Summary */}
                     <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: 11, border: '2px solid #000', borderTop: 'none' }}>
                         <colgroup>
@@ -827,7 +859,7 @@ if (activeTab === 'DCT Eco') {
     }
 
     if (activeTab === 'DCT 300') {
-return (
+        return (
             <div className="inventory-view" style={{ display: 'flex', flexDirection: 'column', gap: 20, maxWidth: '100%', overflowX: 'auto' }}>
                 <div className="card" style={{ padding: '8px', background: 'var(--bg-secondary)', border: '1px solid var(--border)' }}>
                     <div style={{ display: 'flex', gap: 4 }}>
@@ -838,8 +870,8 @@ return (
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 30, padding: 10, background: '#fff', borderRadius: 8, border: '1px solid var(--border)' }}>
-                    <PivotTableGroup dataGroups={data300Row1} />
-                    <PivotTableGroup dataGroups={data300Row2} />
+                    <PivotTableGroup dataGroups={data300Row1} macchine={macchine} />
+                    <PivotTableGroup dataGroups={data300Row2} macchine={macchine} />
                 </div>
             </div>
         );
@@ -858,10 +890,10 @@ return (
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 30, padding: 10, background: '#fff', borderRadius: 8, border: '1px solid var(--border)' }}>
                 {/* Row 1 */}
-                <PivotTableGroup dataGroups={data8FeRow1} />
+                <PivotTableGroup dataGroups={data8FeRow1} macchine={macchine} hideFooter={true} />
 
                 {/* Row 2 */}
-                <PivotTableGroup dataGroups={data8FeRow2} />
+                <PivotTableGroup dataGroups={data8FeRow2} macchine={macchine} hideFooter={true} />
 
                 {/* Summary Table 1 */}
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, border: '2px solid #000' }}>

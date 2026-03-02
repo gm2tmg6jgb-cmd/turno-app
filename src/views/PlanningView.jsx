@@ -15,8 +15,10 @@ export default function PlanningView({ dipendenti, setDipendenti, presenze = [],
         for (let i = 1; i <= days; i++) {
             const d = new Date(year, month, i);
             const isRest = d.getDay() === 0; // domenica = riposo
+            // Usare data locale (non UTC) per evitare sfasamento timezone
+            const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(i).padStart(2, "0")}`;
             result.push({
-                date: d.toISOString().split("T")[0],
+                date: dateStr,
                 day: i,
                 weekday: d.toLocaleDateString("it-IT", { weekday: "narrow" }),
                 isWeekend: isRest
@@ -27,7 +29,9 @@ export default function PlanningView({ dipendenti, setDipendenti, presenze = [],
 
     const days = getDaysInMonth(currentDate);
     const monthName = currentDate.toLocaleDateString("it-IT", { month: "long", year: "numeric" });
-    const todayStr = new Date().toISOString().split("T")[0];
+    // Usare data locale (non UTC) per evitare sfasamento timezone
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
     // Tutti i dipendenti del turno corrente, ordinati per reparto poi cognome
     const sortedDipendenti = dipendenti

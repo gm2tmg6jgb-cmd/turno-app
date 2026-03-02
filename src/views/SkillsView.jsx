@@ -195,6 +195,7 @@ export default function SkillsView({ dipendenti, setDipendenti, macchine, showTo
                     .sort((a, b) => a.nome.localeCompare(b.nome));
                 const filteredDipendenti = dipendenti
                     .filter(d =>
+                        d.attivo !== false &&
                         d.reparto_id === reparto.id &&
                         (!turnoCorrente || d.turno === turnoCorrente || d.turno_default === turnoCorrente)
                     )

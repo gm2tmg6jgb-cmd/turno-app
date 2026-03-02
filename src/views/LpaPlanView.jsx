@@ -68,6 +68,7 @@ export default function LpaPlanView({ macchine, dipendenti, showToast, turnoCorr
     const activeTeams = useMemo(() => {
         return TEAMS_BASE.map(team => {
             const tl = dipendenti?.find(d =>
+                d.attivo !== false &&
                 (d.turno_default === turnoCorrente) &&
                 (d.reparto_id === team.id) &&
                 d.ruolo === "capoturno"

@@ -6,6 +6,7 @@ export default function FormazioneView({ dipendenti, assegnazioni, macchine, pre
     // Filtra i dipendenti che hanno almeno una competenza con valore "0=>2"
     const dipendentiInFormazione = useMemo(() => {
         return dipendenti.filter(d => {
+            if (d.attivo === false) return false;
             // Filtra per turno corrente se disponibile
             if (turnoCorrente && d.turno_default !== turnoCorrente) return false;
             const competenze = d.competenze || {};

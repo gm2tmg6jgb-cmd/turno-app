@@ -212,6 +212,7 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
     // 1. FILTRO per Turno Corrente
     // L'utente si aspetta di vedere solo i dipendenti appartenenti al turno selezionato (es. "D")
     const filteredDipendenti = dipendenti.filter(d => {
+        if (d.attivo === false) return false;
         if (!turnoCorrente) return true; // Mostra tutti se nessun turno è selezionato
         return d.turno_default === turnoCorrente;
     });

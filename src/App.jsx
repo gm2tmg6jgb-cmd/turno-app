@@ -492,7 +492,7 @@ export default function App() {
           {currentView === "limitazioni" && (
             <LimitazioniView dipendenti={dipendenti} presenze={presenze} />
           )}
-          {currentView === "inventory" && <InventoryView showToast={showToast} />}
+          {currentView === "inventory" && <InventoryView showToast={showToast} macchine={macchine} />}
         </div>
       </div>
 

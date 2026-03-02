@@ -217,7 +217,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
 
     // Filter by Turno (Consistency with Dashboard)
     const allDip = useMemo(() => {
-        return dipendenti.filter(d => !selectedTurno || d.turno_default === selectedTurno);
+        return dipendenti.filter(d => d.attivo !== false && (!selectedTurno || d.turno_default === selectedTurno));
     }, [dipendenti, selectedTurno]);
 
     const allPres = useMemo(() => {
@@ -457,12 +457,12 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
         return Object.values(map).sort((a, b) => b.total - a.total);
     }, [resolvedAnomalies, plannedAnomalies]);
 
-    
+
     const filteredMacchineList = useMemo(() => {
         if (!searchMacchina) return macchine;
         const q = searchMacchina.toLowerCase();
-        return macchine.filter(m => 
-            (m.id || "").toLowerCase().includes(q) || 
+        return macchine.filter(m =>
+            (m.id || "").toLowerCase().includes(q) ||
             (m.nome || "").toLowerCase().includes(q) ||
             (m.codice_sap || "").toLowerCase().includes(q)
         );
@@ -724,14 +724,14 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                     </div>
 
                     <div className="report-section">
-                        
+
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                             <h3>Assegnazioni Macchine per Reparto</h3>
                             <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--bg-secondary)", padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)" }}>
                                 <span style={{ color: "var(--text-muted)", display: "flex", alignItems: "center" }}>{Icons.grid}</span>
-                                <input 
-                                    type="text" 
-                                    placeholder="Cerca macchina..." 
+                                <input
+                                    type="text"
+                                    placeholder="Cerca macchina..."
                                     style={{ background: "transparent", border: "none", outline: "none", fontSize: 13, width: 200, color: "var(--text-primary)" }}
                                     value={searchMacchina}
                                     onChange={e => setSearchMacchina(e.target.value)}
