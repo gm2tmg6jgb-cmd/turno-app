@@ -181,12 +181,10 @@ export default function AnagraficaMacchineView({ macchine, setMacchine, tecnolog
                                 <thead>
                                     <tr style={{ background: "var(--bg-tertiary)" }}>
                                         <th style={{ textAlign: "left", padding: "10px 16px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>ID</th>
-                                        <th style={{ textAlign: "left", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Nome</th>
                                         <th style={{ textAlign: "left", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Reparto</th>
                                         <th style={{ textAlign: "left", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Zona</th>
                                         <th style={{ textAlign: "left", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Tecnologia Fermi</th>
                                         <th style={{ textAlign: "left", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Codice SAP</th>
-                                        <th style={{ textAlign: "center", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Min</th>
                                         <th style={{ width: 80, padding: "10px 16px" }}></th>
                                     </tr>
                                 </thead>
@@ -206,9 +204,6 @@ export default function AnagraficaMacchineView({ macchine, setMacchine, tecnolog
                                             >
                                                 <td style={{ padding: "10px 16px", fontFamily: "monospace", fontWeight: 700, fontSize: 13 }}>
                                                     {m.id}
-                                                </td>
-                                                <td style={{ padding: "10px 12px", fontSize: 13 }}>
-                                                    {m.nome !== m.id ? m.nome : <span style={{ color: "var(--text-muted)" }}>—</span>}
                                                 </td>
                                                 <td style={{ padding: "10px 12px", fontSize: 12, color: "var(--text-secondary)" }}>
                                                     {m.reparto_id || "—"}
@@ -232,9 +227,6 @@ export default function AnagraficaMacchineView({ macchine, setMacchine, tecnolog
                                                 </td>
                                                 <td style={{ padding: "10px 12px", fontSize: 13, fontFamily: "monospace", color: "var(--accent)" }}>
                                                     {m.codice_sap || <span style={{ color: "var(--text-lighter)", fontStyle: "italic", fontSize: 11 }}>—</span>}
-                                                </td>
-                                                <td style={{ textAlign: "center", padding: "10px 12px", fontSize: 13, color: "var(--text-secondary)" }}>
-                                                    {m.personale_minimo ?? 1}
                                                 </td>
                                                 <td style={{ padding: "10px 16px" }} onClick={e => e.stopPropagation()}>
                                                     <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>

@@ -41,7 +41,8 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
     const [fermiMacchina, setFermiMacchina] = useState([]);
     const [pezziProdotti, setPezziProdotti] = useState([]);
     const [confermeSap, setConfermeSap] = useState([]);
-    const [absencesViewMode, setAbsencesViewMode] = useState("aggregate"); // "detail" or "aggregate"
+    const [absencesViewMode, setAbsencesViewMode] = useState("aggregate");
+    const [searchMacchina, setSearchMacchina] = useState(""); // "detail" or "aggregate"
     const [pezziInputs, setPezziInputs] = useState({}); // { [machineId]: { qta: '', scarti: '', durata: '' } }
 
     // Fetch Fermi & Pezzi when Date or Turno changes
@@ -456,6 +457,17 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
         return Object.values(map).sort((a, b) => b.total - a.total);
     }, [resolvedAnomalies, plannedAnomalies]);
 
+    
+    const filteredMacchineList = useMemo(() => {
+        if (!searchMacchina) return macchine;
+        const q = searchMacchina.toLowerCase();
+        return macchine.filter(m => 
+            (m.id || "").toLowerCase().includes(q) || 
+            (m.nome || "").toLowerCase().includes(q) ||
+            (m.codice_sap || "").toLowerCase().includes(q)
+        );
+    }, [macchine, searchMacchina]);
+
     const allMacchine = macchine; // Machines might not strictly belong to a shift, but their operators do.
 
     // Calculate Assenti first
@@ -712,15 +724,33 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                     </div>
 
                     <div className="report-section">
-                        <h3>Assegnazioni Macchine per Reparto (Raggruppate per Zona)</h3>
+                        
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                            <h3>Assegnazioni Macchine per Reparto</h3>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--bg-secondary)", padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)" }}>
+                                <span style={{ color: "var(--text-muted)", display: "flex", alignItems: "center" }}>{Icons.grid}</span>
+                                <input 
+                                    type="text" 
+                                    placeholder="Cerca macchina..." 
+                                    style={{ background: "transparent", border: "none", outline: "none", fontSize: 13, width: 200, color: "var(--text-primary)" }}
+                                    value={searchMacchina}
+                                    onChange={e => setSearchMacchina(e.target.value)}
+                                />
+                                {searchMacchina && (
+                                    <button onClick={() => setSearchMacchina("")} style={{ background: "none", border: "none", color: "var(--text-muted)", cursor: "pointer", display: "flex", alignItems: "center" }}>
+                                        {Icons.x}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                         <div className="table-container">
                             {(() => {
                                 // 1. Group by Reparto first, then by Zone patterns
-                                const repartiInUse = [...new Set(macchine.map(m => m.reparto_id))];
+                                const repartiInUse = [...new Set(filteredMacchineList.map(m => m.reparto_id))];
 
                                 return repartiInUse.map(repId => {
                                     const repObj = REPARTI.find(r => r.id === repId);
-                                    const macchineDelReparto = macchine.filter(m => m.reparto_id === repId);
+                                    const macchineDelReparto = filteredMacchineList.filter(m => m.reparto_id === repId);
 
                                     // Filter zones belonging to this reparto
                                     const repZones = zones.filter(z => (z.repart_id || z.reparto) === repId);
@@ -755,6 +785,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                             return d ? `${d.cognome} ${d.nome}` : null;
                                                         }).filter(Boolean);
 
+                                                        if (searchMacchina && zoneMachines.length === 0) return null;
                                                         return (
                                                             <React.Fragment key={zone.id}>
                                                                 <tr style={{ background: "var(--bg-tertiary)", borderBottom: "2px solid var(--border)", borderTop: "2px solid var(--border)" }}>
