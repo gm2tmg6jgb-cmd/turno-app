@@ -92,7 +92,7 @@ function CustomTooltip({ active, payload, label }) {
 /* ═══════════════════════════════════════════════════════════
    MAIN COMPONENT
 ═══════════════════════════════════════════════════════════ */
-export default function FermiView({ macchine = [], initialReparto, initialTurno, motiviFermo: motiviFermoProp, tecnologie: tecnologieProp }) {
+export default function FermiView({ macchine = [], initialReparto, initialTurno, motiviFermo: motiviFermoProp, tecnologie: tecnologieProp, globalDate, setGlobalDate }) {
     const motiviFermo = motiviFermoProp || [];
     const tecnologie = useMemo(
         () => normalizeTecnologie(tecnologieProp?.length ? tecnologieProp : TECNOLOGIE_DEFAULT),
@@ -102,7 +102,8 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
     const [notification, setNotification] = useState(null);
 
     /* ── LISTA state ── */
-    const [date, setDate] = useState(getLocalDate(new Date()));
+    const date = globalDate || getLocalDate(new Date());
+    const setDate = setGlobalDate || (() => { });
     const [turno, setTurno] = useState(initialTurno || "A");
     useEffect(() => { if (initialTurno) setTurno(initialTurno); }, [initialTurno]);
     const [filterTec, setFilterTec] = useState("");

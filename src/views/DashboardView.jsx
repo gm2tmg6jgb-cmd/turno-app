@@ -5,10 +5,10 @@ import { supabase } from "../lib/supabase";
 import { getLocalDate } from "../lib/dateUtils";
 import { Icons } from "../components/ui/Icons";
 
-export default function DashboardView({ dipendenti, presenze, setPresenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, showToast, motivi, zones }) {
+export default function DashboardView({ dipendenti, presenze, setPresenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, showToast, motivi, zones, globalDate }) {
     if (!dipendenti) return <div className="p-4 text-center">Caricamento dipendenti...</div>;
 
-    const today = getLocalDate(new Date());
+    const today = globalDate || getLocalDate(new Date());
 
     // Default: yesterday as start
     const [dateStart, setDateStart] = useState(() => {

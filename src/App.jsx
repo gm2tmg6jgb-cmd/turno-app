@@ -34,6 +34,7 @@ export default function App() {
   const [currentView, setCurrentView] = useState("dashboard");
   const repartoCorrente = "";
   const [turnoCorrente, setTurnoCorrente] = useState(() => localStorage.getItem("turnoCorrente") || getActiveGroup());
+  const [globalDate, setGlobalDate] = useState(() => getLocalDate(new Date()));
 
   useEffect(() => {
     localStorage.setItem("turnoCorrente", turnoCorrente);
@@ -290,6 +291,26 @@ export default function App() {
               ))}
             </select>
             <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>{activeTurnoSlot ? activeTurnoSlot.nome : "..."} — {activeTurnoSlot ? activeTurnoSlot.orario : "..."}</div>
+
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", gap: 6 }}>
+              <div className="label" style={{ flex: 1, fontSize: 11 }}>Data Attiva</div>
+              {globalDate !== getLocalDate(new Date()) && (
+                <button
+                  onClick={() => setGlobalDate(getLocalDate(new Date()))}
+                  title="Torna a oggi"
+                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--accent)", fontSize: 11, padding: 0, lineHeight: 1 }}
+                >
+                  ↺ oggi
+                </button>
+              )}
+            </div>
+            <input
+              type="date"
+              value={globalDate}
+              onChange={(e) => setGlobalDate(e.target.value)}
+              style={{ background: "transparent", border: "none", color: "var(--text-primary)", fontWeight: 700, fontSize: 15, cursor: "pointer", padding: "4px 0", outline: "none", width: "100%", fontFamily: "inherit", marginTop: 4 }}
+            />
+
           </div>
         </div>
 
@@ -396,10 +417,10 @@ export default function App() {
 
         <div className="main-content">
           {currentView === "dashboard" && (
-            <DashboardView dipendenti={dipendenti} presenze={presenze} setPresenze={setPresenze} assegnazioni={assegnazioni} macchine={macchine} repartoCorrente={repartoCorrente} turnoCorrente={turnoCorrente} showToast={showToast} motivi={motivi} zones={zone} />
+            <DashboardView dipendenti={dipendenti} presenze={presenze} setPresenze={setPresenze} assegnazioni={assegnazioni} macchine={macchine} repartoCorrente={repartoCorrente} turnoCorrente={turnoCorrente} showToast={showToast} motivi={motivi} zones={zone} globalDate={globalDate} />
           )}
           {currentView === "planning" && (
-            <PlanningView dipendenti={dipendenti} setDipendenti={setDipendenti} presenze={presenze} turnoCorrente={turnoCorrente} />
+            <PlanningView dipendenti={dipendenti} setDipendenti={setDipendenti} presenze={presenze} turnoCorrente={turnoCorrente} globalDate={globalDate} />
           )}
           {currentView === "assegnazioni" && (
             <AssegnazioniView
@@ -414,6 +435,7 @@ export default function App() {
               turnoCorrente={turnoCorrente}
               showToast={showToast}
               zones={zone}
+              globalDate={globalDate}
             />
           )}
 
@@ -429,6 +451,8 @@ export default function App() {
               motivi={motivi}
               motiviFermo={motiviFermo}
               tecnologie={tecnologie}
+              globalDate={globalDate}
+              setGlobalDate={setGlobalDate}
             />
           )}
 
@@ -446,7 +470,7 @@ export default function App() {
             <SapSummaryView macchine={macchine} />
           )}
           {currentView === "fermi" && (
-            <FermiView macchine={macchine} initialReparto={repartoCorrente} initialTurno={turnoCorrente} motiviFermo={motiviFermo} tecnologie={tecnologie} />
+            <FermiView macchine={macchine} initialReparto={repartoCorrente} initialTurno={turnoCorrente} motiviFermo={motiviFermo} tecnologie={tecnologie} globalDate={globalDate} setGlobalDate={setGlobalDate} />
           )}
 
           {/* Anagrafiche protette da lucchetto */}
@@ -482,7 +506,7 @@ export default function App() {
             </AdminSecurityWrapper>
           )}
 
-          {currentView === "op10" && <Op10View />}
+          {currentView === "op10" && <Op10View globalDate={globalDate} setGlobalDate={setGlobalDate} />}
           {currentView === "skills" && (
             <SkillsView dipendenti={dipendenti} setDipendenti={setDipendenti} macchine={macchine} showToast={showToast} turnoCorrente={turnoCorrente} />
           )}

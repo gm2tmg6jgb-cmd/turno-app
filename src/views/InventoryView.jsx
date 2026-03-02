@@ -101,80 +101,96 @@ const PivotTableGroup = ({ dataGroups, macchine = [], hideFooter = false }) => {
         <div style={{ width: '100%', overflowX: 'auto', marginBottom: '20px' }}>
             <table style={{ borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: 9, width: '100%', border: '2px solid #000', backgroundColor: '#fff' }}>
                 <colgroup>
-                    {columnsWithSteps.map(col => (
-                        <React.Fragment key={"cg-" + col.id}>
-                            <col style={{ width: '120px' }} />
+                    {columnsWithSteps.map((col, idx) => (
+                        <React.Fragment key={"cg-" + idx}>
+                            {!col.isVariant && <col style={{ width: '120px' }} />}
                             <col style={{ width: '60px' }} />
                         </React.Fragment>
                     ))}
                 </colgroup>
                 <thead>
                     <tr>
-                        {columnsWithSteps.map(col => (
-                            <React.Fragment key={"h1-" + col.id}>
-                                <th style={{ fontSize: 9, border: '1px solid #000', borderRight: '1px solid #000', borderBottom: '2px solid #000', padding: 2, textAlign: 'center' }}>
-                                    {col.id}-{col.code}
-                                </th>
-                                <th style={{ fontSize: 9, border: '1px solid #000', borderRight: '2px solid #000', borderBottom: '2px solid #000', padding: 2, textAlign: 'center' }}>
-                                    {col.primaryPart}
-                                </th>
-                            </React.Fragment>
-                        ))}
+                        {columnsWithSteps.map((col, idx) => {
+                            const isLastInGroup = !columnsWithSteps[idx + 1] || !columnsWithSteps[idx + 1].isVariant;
+                            const rightBorder = isLastInGroup ? '2px solid #000' : '1px solid #000';
+                            return (
+                                <React.Fragment key={"h1-" + idx}>
+                                    {!col.isVariant && (
+                                        <th contentEditable={true} suppressContentEditableWarning={true} style={{ fontSize: 9, border: '1px solid #000', borderRight: '1px solid #000', borderBottom: '2px solid #000', padding: 2, textAlign: 'center', outline: 'none', cursor: 'text' }}>
+                                            {col.id}
+                                        </th>
+                                    )}
+                                    <th contentEditable={true} suppressContentEditableWarning={true} style={{ fontSize: 9, border: '1px solid #000', borderRight: rightBorder, borderBottom: '2px solid #000', padding: 2, textAlign: 'center', outline: 'none', cursor: 'text' }}>
+                                        {col.code || col.primaryPart}
+                                    </th>
+                                </React.Fragment>
+                            );
+                        })}
                     </tr>
                     <tr>
-                        {columnsWithSteps.map(col => (
-                            <React.Fragment key={"h2-" + col.id}>
-                                <th style={{ fontSize: 9, border: '1px solid #000', borderRight: '1px solid #000', padding: 2, textAlign: 'center', fontWeight: 'normal' }}>
-                                    rack size {col.rackSize}
-                                </th>
-                                <th style={{ fontSize: 9, border: '1px solid #000', borderRight: '2px solid #000', padding: 2, textAlign: 'center', fontWeight: 'bold' }}>
-                                    {col.primaryPart}/S
-                                </th>
-                            </React.Fragment>
-                        ))}
+                        {columnsWithSteps.map((col, idx) => {
+                            const isLastInGroup = !columnsWithSteps[idx + 1] || !columnsWithSteps[idx + 1].isVariant;
+                            const rightBorder = isLastInGroup ? '2px solid #000' : '1px solid #000';
+                            return (
+                                <React.Fragment key={"h2-" + idx}>
+                                    {!col.isVariant && (
+                                        <th contentEditable={true} suppressContentEditableWarning={true} style={{ fontSize: 9, border: '1px solid #000', borderRight: '1px solid #000', padding: 2, textAlign: 'center', fontWeight: 'normal', outline: 'none', cursor: 'text' }}>
+                                            {col.rackSize ? 'rack size ' + col.rackSize : ''}
+                                        </th>
+                                    )}
+                                    <th contentEditable={true} suppressContentEditableWarning={true} style={{ fontSize: 9, border: '1px solid #000', borderRight: rightBorder, padding: 2, textAlign: 'center', fontWeight: 'bold', outline: 'none', cursor: 'text' }}>
+                                        {col.primaryPart ? col.primaryPart + '/S' : ''}
+                                    </th>
+                                </React.Fragment>
+                            );
+                        })}
                     </tr>
                 </thead>
                 <tbody>
                     {allStepIds.map(stepId => (
                         <tr key={"step-" + stepId} style={{ borderBottom: '1px solid #000', height: 20 }}>
-                            {columnsWithSteps.map(col => {
+                            {columnsWithSteps.map((col, idx) => {
+                                const isLastInGroup = !columnsWithSteps[idx + 1] || !columnsWithSteps[idx + 1].isVariant;
+                                const rightBorder = isLastInGroup ? '2px solid #000' : '1px solid #000';
                                 const cellRow = col.rows.find(r => r.stepId === stepId);
                                 if (!cellRow) {
                                     return (
                                         <React.Fragment key={"empty-" + stepId + "-" + col.id}>
-                                            <td style={{ fontSize: 9, border: '1px solid #000', borderRight: '1px solid #000', padding: '0 4px', width: '110px' }}></td>
-                                            <td style={{ fontSize: 9, border: '1px solid #000', borderRight: '2px solid #000', width: '50px' }}></td>
+                                            {!col.isVariant && <td style={{ fontSize: 9, border: '1px solid #000', borderRight: '1px solid #000', padding: '0 4px', width: '110px' }}></td>}
+                                            <td style={{ fontSize: 9, border: '1px solid #000', borderRight: rightBorder, width: '50px' }}></td>
                                         </React.Fragment>
                                     );
                                 }
                                 const bgColor = getRowColor(stepId, cellRow.type);
                                 return (
                                     <React.Fragment key={"cell-" + stepId + "-" + col.id}>
+                                        {!col.isVariant && (
+                                            <td
+                                                contentEditable={true}
+                                                suppressContentEditableWarning={true}
+                                                style={{
+                                                    fontSize: 9,
+                                                    border: '1px solid #000',
+                                                    borderRight: '1px solid #000',
+                                                    padding: '0 4px',
+                                                    backgroundColor: bgColor,
+                                                    whiteSpace: 'nowrap',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    width: '110px',
+                                                    cursor: 'text',
+                                                    outline: 'none'
+                                                }}>
+                                                {resolveLabel(cellRow)}
+                                            </td>
+                                        )}
                                         <td
                                             contentEditable={true}
                                             suppressContentEditableWarning={true}
                                             style={{
                                                 fontSize: 9,
                                                 border: '1px solid #000',
-                                                borderRight: '1px solid #000',
-                                                padding: '0 4px',
-                                                backgroundColor: bgColor,
-                                                whiteSpace: 'nowrap',
-                                                overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
-                                                width: '110px',
-                                                cursor: 'text',
-                                                outline: 'none'
-                                            }}>
-                                            {resolveLabel(cellRow)}
-                                        </td>
-                                        <td
-                                            contentEditable={true}
-                                            suppressContentEditableWarning={true}
-                                            style={{
-                                                fontSize: 9,
-                                                border: '1px solid #000',
-                                                borderRight: '2px solid #000',
+                                                borderRight: rightBorder,
                                                 textAlign: 'center',
                                                 backgroundColor: bgColor,
                                                 fontWeight: cellRow.value ? 'bold' : 'normal',
@@ -629,157 +645,144 @@ const InventoryView = ({ showToast, macchine = [] }) => {
     ];
 
 
+    const sg1Rows = [
+        { label: 'ORE 33', value: '' },
+        { label: 'LASER', value: '' },
+        { label: 'PFAUTER', value: '', type: 'green' },
+        { label: 'SMUSSATURA', value: '' },
+        { label: 'DA TRATTARE', value: '', type: 'blue' },
+        { label: 'IN TRATT.', value: '', type: 'blue' },
+        { label: 'DA PALLINARE', value: '', type: 'orange' },
+        { label: 'EMAG', value: '' },
+        { label: 'RH160', value: '' },
+        { label: 'DA LAVARE', value: '', type: 'green' },
+        { label: 'FINITI', value: '', type: 'green' }
+    ];
+    const dg2Rows = [
+        { label: 'WS CORONCINA', value: '' },
+        { label: 'PFAUTER MOZZETTO', value: '' },
+        { label: 'mozzetta SCA110/6', value: '', type: 'orange' },
+        { label: 'US', value: '' },
+        { label: 'DG car SCA110/6', value: '' },
+        { label: 'PFAUTER DG', value: '', type: 'orange' },
+        { label: 'DA TRATTARE', value: '', type: 'blue' },
+        { label: 'IN TRATT.', value: '', type: 'blue' },
+        { label: 'DA PALLINARE', value: '', type: 'green' },
+        { label: 'ore33', value: '' },
+        { label: 'AC1', value: '', type: 'green' },
+        { label: 'RH160', value: '' },
+        { label: 'DA LAVARE', value: '' },
+        { label: 'FINITI', value: '', type: 'green' }
+    ];
+    const sg5Rows = [
+        { label: 'WEISSER', value: '' },
+        { label: 'PFAUTER', value: '' },
+        { label: 'DA TRATTARE', value: '', type: 'blue' },
+        { label: 'IN TRATT.', value: '', type: 'blue' },
+        { label: 'EMAG', value: '' },
+        { label: 'RH160', value: '' },
+        { label: 'LASER', value: '', type: 'red' },
+        { label: 'US', value: '' },
+        { label: 'AC1', value: '', type: 'green' },
+        { label: 'DA LAVARE', value: '' },
+        { label: 'FINITI', value: '', type: 'green' }
+    ];
+    const sg6Rows = [
+        { label: 'WEISSER', value: '' },
+        { label: 'DA TRATTARE', value: '', type: 'blue' },
+        { label: 'IN TRATT.', value: '', type: 'blue' },
+        { label: 'EMAG', value: '' },
+        { label: 'RH160', value: '' },
+        { label: 'LASER', value: '', type: 'orange' },
+        { label: 'US', value: '' },
+        { label: 'AC1', value: '', type: 'green' },
+        { label: 'DA LAVARE', value: '' },
+        { label: 'FINITI', value: '', type: 'green' }
+    ];
     const data300Row1 = [
-        {
-            id: 'SG1', code: 'LOW TORQUE M0140994', rackSize: ' ', primaryPart: 'M0140994',
-            rows: [
-                { label: 'ORE 33', value: '' },
-                { label: 'LASER', value: '' },
-                { label: 'PFAUTER', value: '', type: 'green' },
-                { label: 'SMUSSATURA', value: '' },
-                { label: 'DA TRATTARE', value: '', type: 'blue' },
-                { label: 'IN TRATT.', value: '', type: 'blue' },
-                { label: 'DA PALLINARE', value: '', type: 'orange' },
-                { label: 'EMAG', value: '' },
-                { label: 'RH160', value: '' },
-                { label: 'DA LAVARE', value: '', type: 'green' },
-                { label: 'FINITI', value: '', type: 'green' }
-            ],
-            totWip: '', totFiniti: '', grandLabel: '', diff: '', footerNote: 'blister'
-        },
-        {
-            id: 'DG2', code: 'LOW TORQUE M0156540', rackSize: ' ', primaryPart: 'M0156540',
-            rows: [
-                { label: 'WS CORONCINA', value: '' },
-                { label: 'PFAUTER MOZZETTO', value: '' },
-                { label: 'mozzetta SCA110/6', value: '', type: 'orange' },
-                { label: 'US', value: '' },
-                { label: 'DG car SCA110/6', value: '' },
-                { label: 'PFAUTER DG', value: '', type: 'orange' },
-                { label: 'DA TRATTARE', value: '', type: 'blue' },
-                { label: 'IN TRATT.', value: '', type: 'blue' },
-                { label: 'DA PALLINARE', value: '', type: 'green' },
-                { label: 'ore33', value: '' },
-                { label: 'AC1', value: '', type: 'green' },
-                { label: 'RH160', value: '' },
-                { label: 'DA LAVARE', value: '' },
-                { label: 'FINITI', value: '', type: 'green' }
-            ],
-            totWip: '', totFiniti: '', grandLabel: '', diff: ''
-        },
-        {
-            id: 'SG5', code: '2511108851', rackSize: ' ', primaryPart: '2511108851',
-            rows: [
-                { label: 'WEISSER', value: '' },
-                { label: 'PFAUTER', value: '' },
-                { label: 'DA TRATTARE', value: '', type: 'blue' },
-                { label: 'IN TRATT.', value: '', type: 'blue' },
-                { label: 'EMAG', value: '' },
-                { label: 'RH160', value: '' },
-                { label: 'LASER', value: '', type: 'red' },
-                { label: 'US', value: '' },
-                { label: 'AC1', value: '', type: 'green' },
-                { label: 'DA LAVARE', value: '' },
-                { label: 'FINITI', value: '', type: 'green' }
-            ],
-            totWip: '', totFiniti: '', grandLabel: '', diff: ''
-        },
-        {
-            id: 'SG6', code: '2511109250', rackSize: ' ', primaryPart: '2511109250',
-            rows: [
-                { label: 'WEISSER', value: '' },
-                { label: 'DA TRATTARE', value: '', type: 'blue' },
-                { label: 'IN TRATT.', value: '', type: 'blue' },
-                { label: 'EMAG', value: '' },
-                { label: 'RH160', value: '' },
-                { label: 'LASER', value: '', type: 'orange' },
-                { label: 'US', value: '' },
-                { label: 'AC1', value: '', type: 'green' },
-                { label: 'DA LAVARE', value: '' },
-                { label: 'FINITI', value: '', type: 'green' }
-            ],
-            totWip: '', totFiniti: '', grandLabel: '', diff: ''
-        }
+        { id: 'SG1',  code: 'LOW TORQUE M0140994', rackSize: ' ', primaryPart: 'M0140994', rows: sg1Rows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '', footerNote: 'blister' },
+        { id: 'SG1b', code: '', rackSize: '', primaryPart: '', rows: sg1Rows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '' },
+        { id: 'DG2',  code: 'LOW TORQUE M0156540', rackSize: ' ', primaryPart: 'M0156540', rows: dg2Rows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '' },
+        { id: 'DG2b', code: '', rackSize: '', primaryPart: '', rows: dg2Rows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '' },
+        { id: 'DG2c', code: '', rackSize: '', primaryPart: '', rows: dg2Rows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '' },
+        { id: 'SG5',  code: '2511108851', rackSize: ' ', primaryPart: '2511108851', rows: sg5Rows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '' },
+        { id: 'SG5b', code: '', rackSize: '', primaryPart: '', rows: sg5Rows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '' },
+        { id: 'SG5c', code: '', rackSize: '', primaryPart: '', rows: sg5Rows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '' },
+        { id: 'SG6',  code: '2511109250', rackSize: ' ', primaryPart: '2511109250', rows: sg6Rows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '' },
+        { id: 'SG6b', code: '', rackSize: '', primaryPart: '', rows: sg6Rows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '' },
+        { id: 'SG6c', code: '', rackSize: '', primaryPart: '', rows: sg6Rows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '' },
     ];
 
+    const sg3Rows = [
+        { label: 'LORENZ', value: '' },
+        { label: 'PFAUTER WEIMA', value: '' },
+        { label: 'PFAUTER', value: '' },
+        { label: 'ORE 33', value: '' },
+        { label: 'DA TRATTARE', value: '', type: 'blue' },
+        { label: 'IN TRATT.', value: '', type: 'blue' },
+        { label: 'AC1', value: '' },
+        { label: 'RH160', value: '', type: 'green' },
+        { label: 'DA LAVARE', value: '' },
+        { label: 'FINITI', value: '', type: 'green' }
+    ];
+    const sg4Rows = [
+        { label: 'WEISSER', value: '' },
+        { label: 'LASER', value: '', type: 'orange' },
+        { label: 'PFAUTER', value: '', type: 'orange' },
+        { label: 'DA TRATTARE', value: '', type: 'blue' },
+        { label: 'IN TRATT.', value: '', type: 'blue' },
+        { label: 'AC1', value: '', type: 'green' },
+        { label: 'RH160', value: '', type: 'green' },
+        { label: 'DA LAVARE', value: '' },
+        { label: 'FINITI', value: '', type: 'green' }
+    ];
+    const rgRows = [
+        { label: 'DA DENTARE', value: '' },
+        { label: 'DA SBAVARE', value: '' },
+        { label: 'DA LAVARE', value: '' },
+        { label: 'IN TRATTAM.', value: '', type: 'blue' },
+        { label: 'DA PALLIN.', value: '', type: 'green' },
+        { label: 'EMAG', value: '', type: 'green' },
+        { label: 'RH250', value: '' },
+        { label: 'DA LAVARE', value: '', type: 'green' },
+        { label: 'FINITI', value: '', type: 'green' }
+    ];
+    const sg7Rows = [
+        { label: 'WEISSER', value: '' },
+        { label: 'STOZZA', value: '', type: 'green' },
+        { label: 'PFAUTER', value: '', type: 'green' },
+        { label: 'DA TRATTARE', value: '', type: 'blue' },
+        { label: 'IN TRATTAM.', value: '', type: 'blue' },
+        { label: 'EMAG', value: '' },
+        { label: 'RH160', value: '' },
+        { label: 'DA LAVARE', value: '' },
+        { label: 'FINITI', value: '', type: 'green' }
+    ];
     const data300Row2 = [
-        {
-            id: 'SG3', code: '2511108850', rackSize: ' ', primaryPart: '2511108850',
-            rows: [
-                { label: 'LORENZ', value: '' },
-                { label: 'PFAUTER WEIMA', value: '' },
-                { label: 'PFAUTER', value: '' },
-                { label: 'ORE 33', value: '' },
-                { label: 'DA TRATTARE', value: '', type: 'blue' },
-                { label: 'IN TRATT.', value: '', type: 'blue' },
-                { label: 'AC1', value: '' },
-                { label: 'RH160', value: '', type: 'green' },
-                { label: 'DA LAVARE', value: '' },
-                { label: 'FINITI', value: '', type: 'green' }
-            ],
-            totWip: '', totFiniti: '', grandLabel: '', diff: '', footerNote: 'blister'
-        },
-        {
-            id: 'SG4', code: '2511108750', rackSize: ' ', primaryPart: '2511108750',
-            rows: [
-                { label: 'WEISSER', value: '' },
-                { label: 'LASER', value: '', type: 'orange' },
-                { label: 'PFAUTER', value: '', type: 'orange' },
-                { label: 'DA TRATTARE', value: '', type: 'blue' },
-                { label: 'IN TRATT.', value: '', type: 'blue' },
-                { label: 'AC1', value: '', type: 'green' },
-                { label: 'RH160', value: '', type: 'green' },
-                { label: 'DA LAVARE', value: '' },
-                { label: 'FINITI', value: '', type: 'green' }
-            ],
-            totWip: '', totFiniti: '', grandLabel: '', diff: ''
-        },
-        {
-            id: 'RG', code: 'LOW TORQUE M0140999', rackSize: ' ', primaryPart: 'M0140999',
-            rows: [
-                { label: 'DA DENTARE', value: '' },
-                { label: 'DA SBAVARE', value: '' },
-                { label: 'DA LAVARE', value: '' },
-                { label: 'IN TRATTAM.', value: '', type: 'blue' },
-                { label: 'DA PALLIN.', value: '', type: 'green' },
-                { label: 'EMAG', value: '', type: 'green' },
-                { label: 'RH250', value: '' },
-                { label: 'DA LAVARE', value: '', type: 'green' },
-                { label: 'FINITI', value: '', type: 'green' }
-            ],
-            totWip: '', totFiniti: '', grandLabel: '', diff: '', footerNote: 'Blister'
-        },
-        {
-            id: 'SG7', code: '2511109050', rackSize: ' ', primaryPart: '2511109050',
-            rows: [
-                { label: 'WEISSER', value: '' },
-                { label: 'STOZZA', value: '', type: 'green' },
-                { label: 'PFAUTER', value: '', type: 'green' },
-                { label: 'DA TRATTARE', value: '', type: 'blue' },
-                { label: 'IN TRATTAM.', value: '', type: 'blue' },
-                { label: 'EMAG', value: '' },
-                { label: 'RH160', value: '' },
-                { label: 'DA LAVARE', value: '' },
-                { label: 'FINITI', value: '', type: 'green' }
-            ],
-            totWip: '', totFiniti: '', grandLabel: '', diff: ''
-        },
-        {
-            id: 'SGRW', code: '2511109451', rackSize: ' ', primaryPart: '2511109451',
-            rows: [
-                { label: 'ORE33', value: '' },
-                { label: 'LASER', value: '' },
-                { label: 'PFAUTER', value: '', type: 'orange' },
-                { label: 'DA TRATTAM', value: '', type: 'blue' },
-                { label: 'IN TRATTAM.', value: '', type: 'blue' },
-                { label: 'PALLINATURA', value: '', type: 'green' },
-                { label: 'EMAG', value: '', type: 'red' },
-                { label: 'RH160', value: '' },
-                { label: 'DA LAVARE', value: '', type: 'green' },
-                { label: 'FINITI', value: '', type: 'green' }
-            ],
-            totWip: '', totFiniti: '', grandLabel: '', diff: ''
-        }
+        { id: 'SG3',  code: '2511108850', rackSize: ' ', primaryPart: '2511108850', rows: sg3Rows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '', footerNote: 'blister' },
+        { id: 'SG3b', code: '', rackSize: '', primaryPart: '', rows: sg3Rows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '' },
+        { id: 'SG3c', code: '', rackSize: '', primaryPart: '', rows: sg3Rows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '' },
+        { id: 'SG4',  code: '2511108750', rackSize: ' ', primaryPart: '2511108750', rows: sg4Rows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '' },
+        { id: 'SG4b', code: '', rackSize: '', primaryPart: '', rows: sg4Rows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '' },
+        { id: 'SG4c', code: '', rackSize: '', primaryPart: '', rows: sg4Rows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '' },
+        { id: 'RG',   code: 'LOW TORQUE M0140999', rackSize: ' ', primaryPart: 'M0140999', rows: rgRows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '', footerNote: 'Blister' },
+        { id: 'RGb',  code: '', rackSize: '', primaryPart: '', rows: rgRows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '' },
+        { id: 'RGc',  code: '', rackSize: '', primaryPart: '', rows: rgRows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '' },
+        { id: 'SG7',  code: '2511109050', rackSize: ' ', primaryPart: '2511109050', rows: sg7Rows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '' },
+        { id: 'SG7b', code: '', rackSize: '', primaryPart: '', rows: sg7Rows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '' },
+        { id: 'SG7c', code: '', rackSize: '', primaryPart: '', rows: sg7Rows.map(r => ({ ...r })), totWip: '', totFiniti: '', grandLabel: '', diff: '' },
+        { id: 'SGRW', code: '2511109451', rackSize: ' ', primaryPart: '2511109451', rows: [
+            { label: 'ORE33', value: '' },
+            { label: 'LASER', value: '' },
+            { label: 'PFAUTER', value: '', type: 'orange' },
+            { label: 'DA TRATTAM', value: '', type: 'blue' },
+            { label: 'IN TRATTAM.', value: '', type: 'blue' },
+            { label: 'PALLINATURA', value: '', type: 'green' },
+            { label: 'EMAG', value: '', type: 'red' },
+            { label: 'RH160', value: '' },
+            { label: 'DA LAVARE', value: '', type: 'green' },
+            { label: 'FINITI', value: '', type: 'green' }
+        ], totWip: '', totFiniti: '', grandLabel: '', diff: '' },
     ];
     if (activeTab === 'DCT Eco') {
         return (

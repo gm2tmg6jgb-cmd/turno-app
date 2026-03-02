@@ -29,8 +29,9 @@ const INITIAL_DATA = [
     { type: "300", id: "Pretornito 300 P2", progetto: "DCT 300", componente: "1223", racks: 0, ore: 0, note: "" },
 ];
 
-export default function Op10View({ turnoCorrente }) {
-    const [selectedDate, setSelectedDate] = useState(TODAY);
+export default function Op10View({ turnoCorrente, globalDate, setGlobalDate }) {
+    const selectedDate = globalDate || TODAY;
+    const setSelectedDate = setGlobalDate || (() => { });
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [allData, setAllData] = useState(INITIAL_DATA);

@@ -3,8 +3,12 @@ import { TURNI, REPARTI, MOTIVI_ASSENZA } from "../data/constants";
 import { Icons } from "../components/ui/Icons";
 import { getSlotForGroup } from "../lib/shiftRotation";
 
-export default function PlanningView({ dipendenti, setDipendenti, presenze = [], turnoCorrente }) {
-    const [currentDate, setCurrentDate] = useState(new Date());
+export default function PlanningView({ dipendenti, setDipendenti, presenze = [], turnoCorrente, globalDate }) {
+    const [currentDate, setCurrentDate] = useState(globalDate ? new Date(globalDate) : new Date());
+
+    React.useEffect(() => {
+        if (globalDate) setCurrentDate(new Date(globalDate));
+    }, [globalDate]);
 
     // Get days in month
     const getDaysInMonth = (date) => {

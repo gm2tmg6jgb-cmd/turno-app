@@ -8,13 +8,13 @@ import { getLocalDate } from "../lib/dateUtils";
 export default function AssegnazioniView({
     dipendenti, presenze, assegnazioni, setAssegnazioni,
     macchine, attivita, setAttivita,
-    repartoCorrente, turnoCorrente, showToast, zones
+    repartoCorrente, turnoCorrente, showToast, zones, globalDate
 }) {
     const [showModal, setShowModal] = useState(null); // { id, type: 'machine' | 'activity' }
     const [selectedDip, setSelectedDip] = useState("");
     const [newActivityName, setNewActivityName] = useState("");
 
-    const today = getLocalDate(new Date());
+    const today = globalDate || getLocalDate(new Date());
 
     // Presenze di oggi — defined early so getIsPresent can use it
     const presRep = presenze.filter((p) => p.data === today);

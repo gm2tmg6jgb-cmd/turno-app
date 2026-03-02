@@ -29,11 +29,12 @@ const GEMELLARI_CONFIG = {
     "DRA10096": "SLW11019",
 };
 
-export default function ReportView({ dipendenti, presenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, zones, motivi, motiviFermo: motiviFermoProp, tecnologie = [] }) {
+export default function ReportView({ dipendenti, presenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, zones, motivi, motiviFermo: motiviFermoProp, tecnologie = [], globalDate, setGlobalDate }) {
     const motiviFermo = motiviFermoProp?.length ? motiviFermoProp : MOTIVI_FERMO_DEFAULT;
     const [reportType, setReportType] = useState("turno");
 
-    const [selectedDate, setSelectedDate] = useState(getLocalDate(new Date()));
+    const selectedDate = globalDate || getLocalDate(new Date());
+    const setSelectedDate = setGlobalDate || (() => { });
     const [selectedTurno, setSelectedTurno] = useState(turnoCorrente || "");
     useEffect(() => { setSelectedTurno(turnoCorrente || ""); }, [turnoCorrente]);
 
