@@ -283,7 +283,7 @@ export default function ImportView({ showToast, macchine = [] }) {
                 if (delErr) throw delErr;
             }
 
-            const toSave = result.rows.map(({ matched, macchina_nome, ...r }) => ({
+            const toSave = result.rows.map(({ matched, macchina_nome, ora, ...r }) => ({
                 ...r,
                 data_import: new Date().toISOString(),
             }));
@@ -302,7 +302,7 @@ export default function ImportView({ showToast, macchine = [] }) {
             setDuplicateMode(null);
         } catch (err) {
             console.error("Errore import:", err);
-            showToast("Errore import: " + err.message, "error");
+            showToast("Errore import: " + (err.message || JSON.stringify(err)), "error");
         } finally {
             setSaving(false);
         }
@@ -443,7 +443,7 @@ export default function ImportView({ showToast, macchine = [] }) {
                                         style={{ borderColor: isRequired && !mapping[key] ? "var(--danger)" : undefined }}
                                     >
                                         <option value="">— Non mappata —</option>
-                                        {headers.map(h => <option key={h} value={h}>{h}</option>)}
+                                        {headers.map((h, i) => <option key={`${h}-${i}`} value={h}>{h}</option>)}
                                     </select>
                                 </div>
                             );
