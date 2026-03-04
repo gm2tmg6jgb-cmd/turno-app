@@ -108,7 +108,7 @@ export default function ProcessFlowView() {
             const weekDaysDates = getWeekDays(wWeek);
             const { data: dataRes } = await fetchAllRows(() =>
                 supabase.from("conferme_sap")
-                    .select("data, materiale, work_center_sap, qta_ottenuta")
+                    .select("data, materiale, work_center_sap, qta_ottenuta, turno_id")
                     .gte("data", weekDaysDates[0])
                     .lte("data", weekDaysDates[6])
             );
@@ -262,10 +262,23 @@ export default function ProcessFlowView() {
                                             flexDirection: "column",
                                             justifyContent: "center",
                                             transition: "transform 0.2s ease",
-                                            cursor: "default"
+                                            cursor: step.total > 0 ? "pointer" : "default"
                                         }}
-                                        onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.05)"}
-                                        onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+                                        onClick={() => {
+                                            if (step.total > 0) {
+                                                const allRecords = step.projects.reduce((acc, p) => acc.concat(p.records), []);
+                                                setSelectedDetail({
+                                                    title: `${title} - ${step.label} - Totale Generale`,
+                                                    records: allRecords
+                                                });
+                                            }
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            if (step.total > 0) e.currentTarget.style.transform = "scale(1.05)";
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.transform = "scale(1)";
+                                        }}
                                     >
                                         <div style={{ fontSize: "12px", opacity: 0.9, fontWeight: 700 }}>{step.code}</div>
                                         <div style={{ fontSize: "22px", fontWeight: "bold", margin: "4px 0", color: valueColor }}>
@@ -384,54 +397,75 @@ export default function ProcessFlowView() {
 
             {SECTIONS.map(section => renderFlow(section))}
 
-            {/* Modal Dettagli */}
-            {selectedDetail && (
-                <div style={{
-                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1000,
-                    display: "flex", justifyContent: "center", alignItems: "center",
-                    backdropFilter: "blur(4px)"
-                }} onClick={() => setSelectedDetail(null)}>
+            {selectedDetail && (() => {
+                // Raggruppa i record per data, turno, macchina e codice materiale
+                const grouped = selectedDetail.records.reduce((acc, r) => {
+                    const t_id = r.turno_id || "N/D";
+                    const key = `${r.data}_${t_id}_${r.macchina}_${r.matCode}`;
+                    if (!acc[key]) {
+                        acc[key] = { ...r, turno: t_id };
+                    } else {
+                        acc[key].qta_ottenuta += r.qta_ottenuta;
+                    }
+                    return acc;
+                }, {});
+
+                // Converti in array e ordina per data decrescente e poi macchina
+                const displayRecords = Object.values(grouped).sort((a, b) => {
+                    if (a.data !== b.data) return b.data.localeCompare(a.data);
+                    return a.macchina.localeCompare(b.macchina);
+                });
+
+                return (
                     <div style={{
-                        background: "var(--bg-card)",
-                        borderRadius: "16px",
-                        width: "90%",
-                        maxWidth: "600px",
-                        maxHeight: "80vh",
-                        display: "flex",
-                        flexDirection: "column",
-                        boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
-                        border: "1px solid var(--border)"
-                    }} onClick={e => e.stopPropagation()}>
-                        <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <h3 style={{ margin: 0, fontSize: "18px", color: "var(--text-primary)" }}>{selectedDetail.title}</h3>
-                            <button onClick={() => setSelectedDetail(null)} style={{ background: "transparent", border: "none", fontSize: "20px", cursor: "pointer", color: "var(--text-muted)" }}>✕</button>
-                        </div>
-                        <div style={{ padding: "20px 24px", overflowY: "auto" }}>
-                            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                                <thead>
-                                    <tr style={{ background: "var(--bg-tertiary)" }}>
-                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Data</th>
-                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Macchina</th>
-                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Materiale</th>
-                                        <th style={{ padding: "10px", textAlign: "right", fontSize: "12px", color: "var(--text-muted)" }}>Quantità</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {selectedDetail.records.map((r, i) => (
-                                        <tr key={i} style={{ borderBottom: "1px solid var(--border-light)" }}>
-                                            <td style={{ padding: "10px", fontSize: "13px" }}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
-                                            <td style={{ padding: "10px", fontSize: "13px", fontWeight: "bold" }}>{r.macchina}</td>
-                                            <td style={{ padding: "10px", fontSize: "13px" }}>{r.matCode}</td>
-                                            <td style={{ padding: "10px", fontSize: "14px", fontWeight: "bold", textAlign: "right" }}>{r.qta_ottenuta}</td>
+                        position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1000,
+                        display: "flex", justifyContent: "center", alignItems: "center",
+                        backdropFilter: "blur(4px)"
+                    }} onClick={() => setSelectedDetail(null)}>
+                        <div style={{
+                            background: "var(--bg-card)",
+                            borderRadius: "16px",
+                            width: "90%",
+                            maxWidth: "600px",
+                            maxHeight: "80vh",
+                            display: "flex",
+                            flexDirection: "column",
+                            boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+                            border: "1px solid var(--border)"
+                        }} onClick={e => e.stopPropagation()}>
+                            <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <h3 style={{ margin: 0, fontSize: "18px", color: "var(--text-primary)" }}>{selectedDetail.title}</h3>
+                                <button onClick={() => setSelectedDetail(null)} style={{ background: "transparent", border: "none", fontSize: "20px", cursor: "pointer", color: "var(--text-muted)" }}>✕</button>
+                            </div>
+                            <div style={{ padding: "20px 24px", overflowY: "auto" }}>
+                                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                                    <thead>
+                                        <tr style={{ background: "var(--bg-tertiary)" }}>
+                                            <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)", borderRadius: "6px 0 0 6px" }}>Data</th>
+                                            <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Turno</th>
+                                            <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Macchina</th>
+                                            <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Codice / Mat.</th>
+                                            <th style={{ padding: "10px", textAlign: "right", fontSize: "12px", color: "var(--text-muted)", borderRadius: "0 6px 6px 0" }}>Q.tà Totale</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        {displayRecords.map((r, i) => (
+                                            <tr key={i} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                                <td style={{ padding: "10px", fontSize: "13px" }}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
+                                                <td style={{ padding: "10px", fontSize: "13px" }}>{r.turno}</td>
+                                                <td style={{ padding: "10px", fontSize: "13px", fontWeight: "bold" }}>{r.macchina}</td>
+                                                <td style={{ padding: "10px", fontSize: "13px" }}>{r.matCode}</td>
+                                                <td style={{ padding: "10px", fontSize: "14px", fontWeight: "bold", textAlign: "right", color: "#3c6ef0" }}>{r.qta_ottenuta}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                );
+            })()}
         </div>
     );
 }
