@@ -69,16 +69,18 @@ export default function ProcessFlowView() {
         setLoading(true);
         try {
             // 1. Fetch material mappings
-            const anagraficaRes = await fetchAllRows(supabase.from("anagrafica_materiali").select("*"));
+            const { data: anagraficaRes } = await fetchAllRows(() => supabase.from("anagrafica_materiali").select("*"));
             const anagrafica = {};
-            anagraficaRes.forEach(row => {
-                if (row.codice) {
-                    anagrafica[row.codice.toUpperCase()] = row;
-                }
-            });
+            if (anagraficaRes) {
+                anagraficaRes.forEach(row => {
+                    if (row.codice) {
+                        anagrafica[row.codice.toUpperCase()] = row;
+                    }
+                });
+            }
 
             // 2. Fetch WC-Phases mapping to link work centers to phases
-            const wcFasiRes = await fetchAllRows(supabase.from("wc_fasi_mapping").select("*"));
+            const { data: wcFasiRes } = await fetchAllRows(() => supabase.from("wc_fasi_mapping").select("*"));
             const wcFasiMapping = wcFasiRes || [];
 
             const getStageFromWC = (wc) => {
@@ -94,7 +96,7 @@ export default function ProcessFlowView() {
 
             // 3. Fetch week's production data
             const weekDaysDates = getWeekDays(wWeek);
-            const dataRes = await fetchAllRows(
+            const { data: dataRes } = await fetchAllRows(() =>
                 supabase.from("conferme_sap")
                     .select("data, materiale, work_center_sap, qta_ottenuta")
                     .gte("data", weekDaysDates[0])
@@ -112,46 +114,48 @@ export default function ProcessFlowView() {
             };
 
             // Process records
-            dataRes.forEach(r => {
-                if (!r.qta_ottenuta || r.qta_ottenuta <= 0) return;
+            if (dataRes) {
+                dataRes.forEach(r => {
+                    if (!r.qta_ottenuta || r.qta_ottenuta <= 0) return;
 
-                const matCode = (r.materiale || "").toUpperCase();
-                const info = anagrafica[matCode];
-                let proj = "Other";
-                if (info && info.progetto) {
-                    proj = info.progetto;
-                    // Normalize project names
-                    if (proj === "DCT 300") proj = "DCT300";
-                    if (proj === "8Fe") proj = "8Fedct";
-                    if (proj === "DCT Eco") proj = "DCTeco";
-                }
-
-                if (!PROJECTS.includes(proj)) return;
-
-                const phase = getStageFromWC(r.work_center_sap);
-                if (!phase) return;
-
-                const dayIndex = weekDaysDates.indexOf(r.data);
-                let targetSection = null;
-                if (dayIndex >= 0 && dayIndex < 6) {
-                    targetSection = DAYS_NAMES[dayIndex];
-                }
-
-                const addValue = (sectionName) => {
-                    const sec = newFlowData[sectionName];
-                    const stepIdx = sec.findIndex(s => s.phase === phase);
-                    if (stepIdx !== -1) {
-                        const projIdx = sec[stepIdx].projects.findIndex(p => p.name === proj);
-                        if (projIdx !== -1) {
-                            sec[stepIdx].projects[projIdx].value += r.qta_ottenuta;
-                            sec[stepIdx].total = sec[stepIdx].projects.reduce((acc, p) => acc + p.value, 0);
-                        }
+                    const matCode = (r.materiale || "").toUpperCase();
+                    const info = anagrafica[matCode];
+                    let proj = "Other";
+                    if (info && info.progetto) {
+                        proj = info.progetto;
+                        // Normalize project names
+                        if (proj === "DCT 300") proj = "DCT300";
+                        if (proj === "8Fe") proj = "8Fedct";
+                        if (proj === "DCT Eco") proj = "DCTeco";
                     }
-                };
 
-                if (targetSection) addValue(targetSection);
-                addValue("Riepilogo Settimanale");
-            });
+                    if (!PROJECTS.includes(proj)) return;
+
+                    const phase = getStageFromWC(r.work_center_sap);
+                    if (!phase) return;
+
+                    const dayIndex = weekDaysDates.indexOf(r.data);
+                    let targetSection = null;
+                    if (dayIndex >= 0 && dayIndex < 6) {
+                        targetSection = DAYS_NAMES[dayIndex];
+                    }
+
+                    const addValue = (sectionName) => {
+                        const sec = newFlowData[sectionName];
+                        const stepIdx = sec.findIndex(s => s.phase === phase);
+                        if (stepIdx !== -1) {
+                            const projIdx = sec[stepIdx].projects.findIndex(p => p.name === proj);
+                            if (projIdx !== -1) {
+                                sec[stepIdx].projects[projIdx].value += r.qta_ottenuta;
+                                sec[stepIdx].total = sec[stepIdx].projects.reduce((acc, p) => acc + p.value, 0);
+                            }
+                        }
+                    };
+
+                    if (targetSection) addValue(targetSection);
+                    addValue("Riepilogo Settimanale");
+                });
+            }
 
             setFlowDataBySection(newFlowData);
 
