@@ -59,6 +59,7 @@ export default function ProcessFlowView() {
     const [wWeek, setWWeek] = useState(() => getCurrentWeekRange().monday);
     const [loading, setLoading] = useState(false);
     const [flowDataBySection, setFlowDataBySection] = useState({});
+    const [selectedDetail, setSelectedDetail] = useState(null);
 
     // Initialize empty structures for all sections
     const getInitFlow = () => PROCESS_STEPS.map(step => {
@@ -70,7 +71,7 @@ export default function ProcessFlowView() {
             total: 0,
             projects: PROJECTS
                 .filter(p => !exclusions.includes(p))
-                .map(p => ({ name: p, value: 0 }))
+                .map(p => ({ name: p, value: 0, records: [] }))
         };
     });
 
@@ -170,6 +171,11 @@ export default function ProcessFlowView() {
                             const projIdx = sec[stepIdx].projects.findIndex(p => p.name === proj);
                             if (projIdx !== -1) {
                                 sec[stepIdx].projects[projIdx].value += r.qta_ottenuta;
+                                sec[stepIdx].projects[projIdx].records.push({
+                                    ...r,
+                                    matCode,
+                                    macchina: r.work_center_sap
+                                });
                                 sec[stepIdx].total = sec[stepIdx].projects.reduce((acc, p) => acc + p.value, 0);
                             }
                         }
@@ -271,15 +277,33 @@ export default function ProcessFlowView() {
                                     {/* Sub-Projects Boxes */}
                                     <div style={{ display: "flex", gap: "6px", width: "100%", justifyContent: "center" }}>
                                         {step.projects.map((proj, pIdx) => (
-                                            <div key={pIdx} style={{
-                                                background: "var(--bg-tertiary)",
-                                                border: "1px solid var(--border)",
-                                                borderRadius: "8px",
-                                                padding: "6px 2px",
-                                                textAlign: "center",
-                                                flex: 1,
-                                                minWidth: 0
-                                            }}>
+                                            <div key={pIdx}
+                                                onClick={() => {
+                                                    if (proj.value > 0) {
+                                                        setSelectedDetail({
+                                                            title: `${title} - ${step.label} - ${proj.name}`,
+                                                            records: proj.records
+                                                        });
+                                                    }
+                                                }}
+                                                style={{
+                                                    background: "var(--bg-tertiary)",
+                                                    border: "1px solid var(--border)",
+                                                    borderRadius: "8px",
+                                                    padding: "6px 2px",
+                                                    textAlign: "center",
+                                                    flex: 1,
+                                                    minWidth: 0,
+                                                    cursor: proj.value > 0 ? "pointer" : "default",
+                                                    transition: "background 0.2s"
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    if (proj.value > 0) e.currentTarget.style.background = "var(--bg-hover)";
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.background = "var(--bg-tertiary)";
+                                                }}
+                                            >
                                                 <div style={{ fontSize: "9px", color: "var(--text-muted)", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={proj.name}>{proj.name}</div>
                                                 <div style={{ fontSize: "13px", color: "var(--text-primary)", fontWeight: 800 }}>{proj.value}</div>
                                             </div>
@@ -359,6 +383,55 @@ export default function ProcessFlowView() {
             </div>
 
             {SECTIONS.map(section => renderFlow(section))}
+
+            {/* Modal Dettagli */}
+            {selectedDetail && (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1000,
+                    display: "flex", justifyContent: "center", alignItems: "center",
+                    backdropFilter: "blur(4px)"
+                }} onClick={() => setSelectedDetail(null)}>
+                    <div style={{
+                        background: "var(--bg-card)",
+                        borderRadius: "16px",
+                        width: "90%",
+                        maxWidth: "600px",
+                        maxHeight: "80vh",
+                        display: "flex",
+                        flexDirection: "column",
+                        boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+                        border: "1px solid var(--border)"
+                    }} onClick={e => e.stopPropagation()}>
+                        <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <h3 style={{ margin: 0, fontSize: "18px", color: "var(--text-primary)" }}>{selectedDetail.title}</h3>
+                            <button onClick={() => setSelectedDetail(null)} style={{ background: "transparent", border: "none", fontSize: "20px", cursor: "pointer", color: "var(--text-muted)" }}>✕</button>
+                        </div>
+                        <div style={{ padding: "20px 24px", overflowY: "auto" }}>
+                            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                                <thead>
+                                    <tr style={{ background: "var(--bg-tertiary)" }}>
+                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Data</th>
+                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Macchina</th>
+                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Materiale</th>
+                                        <th style={{ padding: "10px", textAlign: "right", fontSize: "12px", color: "var(--text-muted)" }}>Quantità</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {selectedDetail.records.map((r, i) => (
+                                        <tr key={i} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                            <td style={{ padding: "10px", fontSize: "13px" }}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
+                                            <td style={{ padding: "10px", fontSize: "13px", fontWeight: "bold" }}>{r.macchina}</td>
+                                            <td style={{ padding: "10px", fontSize: "13px" }}>{r.matCode}</td>
+                                            <td style={{ padding: "10px", fontSize: "14px", fontWeight: "bold", textAlign: "right" }}>{r.qta_ottenuta}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
