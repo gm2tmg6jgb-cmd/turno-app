@@ -47,6 +47,7 @@ function getWeekDays(mondayStr) {
 }
 
 export default function ProcessFlowView() {
+    const [activeTab, setActiveTab] = useState("BAP1");
     const [wWeek, setWWeek] = useState(() => getCurrentWeekRange().monday);
     const [loading, setLoading] = useState(false);
     const [flowDataBySection, setFlowDataBySection] = useState({});
@@ -172,7 +173,8 @@ export default function ProcessFlowView() {
     }, [wWeek]);
 
     const renderFlow = (title) => {
-        const processData = flowDataBySection[title] || getInitFlow();
+        const isFunctional = activeTab === "BAP1";
+        const processData = (isFunctional && flowDataBySection[title]) ? flowDataBySection[title] : getInitFlow();
 
         return (
             <div key={title} style={{
@@ -181,9 +183,15 @@ export default function ProcessFlowView() {
                 borderRadius: "12px",
                 border: "1px solid var(--border)",
                 marginBottom: "24px",
-                opacity: loading ? 0.5 : 1,
-                transition: "opacity 0.2s ease"
+                opacity: (!isFunctional || loading) ? 0.5 : 1,
+                transition: "opacity 0.2s ease",
+                position: "relative"
             }}>
+                {!isFunctional && (
+                    <div style={{ position: "absolute", top: 10, right: 15, fontSize: 12, fontWeight: "bold", color: "var(--text-muted)", background: "var(--bg-tertiary)", padding: "4px 8px", borderRadius: 4 }}>
+                        Dati non ancora disponibili per {activeTab}
+                    </div>
+                )}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "25px" }}>
                     <h2 style={{ margin: 0, color: "var(--text-primary)", fontSize: "18px", fontWeight: "700" }}>
                         {title === "Riepilogo Settimanale" ? `📊 ${title}` : `📅 ${title}`}
@@ -276,6 +284,33 @@ export default function ProcessFlowView() {
                 <h1 style={{ fontSize: "24px", fontWeight: "800", color: "var(--text-primary)", margin: 0 }}>
                     Analisi Flusso Settimanale
                 </h1>
+            </div>
+
+            {/* Tabs per Reparto */}
+            <div style={{ display: "flex", gap: "12px", marginBottom: "20px", borderBottom: "1px solid var(--border)" }}>
+                {["BAP1", "BAP2", "BAP3"].map((tab) => (
+                    <button
+                        key={tab}
+                        onClick={() => setActiveTab(tab)}
+                        style={{
+                            padding: "10px 20px",
+                            border: "none",
+                            borderBottom: activeTab === tab ? "3px solid #3c6ef0" : "3px solid transparent",
+                            background: "transparent",
+                            color: activeTab === tab ? "#3c6ef0" : "var(--text-muted)",
+                            fontWeight: activeTab === tab ? "700" : "600",
+                            fontSize: "15px",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px"
+                        }}
+                    >
+                        {tab}
+                        {tab !== "BAP1" && <span style={{ fontSize: "10px", opacity: 0.6, background: "var(--bg-tertiary)", padding: "2px 6px", borderRadius: "10px" }}>Presto</span>}
+                    </button>
+                ))}
             </div>
 
             {/* Navigazione settimana */}
