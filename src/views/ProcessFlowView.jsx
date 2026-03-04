@@ -4,19 +4,18 @@ import { getCurrentWeekRange } from "../lib/dateUtils";
 import { Icons } from "../components/ui/Icons";
 
 const PROCESS_STEPS = [
-    { code: "TRN", label: "Turning", phase: "turning" },
     { code: "DRA", label: "Soft Turning", phase: "start_soft" },
     { code: "ZSA", label: "DMC", phase: "dmc" },
+    { code: "SCA", label: "Laser Welding", phase: "laser_welding" },
     { code: "SHP", label: "Shaping", phase: "shaping" },
-    { code: "EGW", label: "Deburring", phase: "deburring" },
     { code: "FRA", label: "Milling", phase: "milling" },
     { code: "BRC", label: "Broaching", phase: "broaching" },
-    { code: "SCA", label: "Laser Welding", phase: "laser_welding" },
-    { code: "SLA", label: "Grinding Cone", phase: "grinding_cone" },
     { code: "FRW", label: "Hobbing", phase: "hobbing" },
+    { code: "EGW", label: "Deburring", phase: "deburring" },
     { code: "HOK", label: "Heat Treatment", phase: "ht" },
     { code: "OKU", label: "Shot Peening", phase: "shot_peening" },
     { code: "DRA", label: "Hard Turning", phase: "start_hard" },
+    { code: "SLA", label: "Grinding Cone", phase: "grinding_cone" },
     { code: "SLW", label: "Teeth Grinding", phase: "teeth_grinding" },
     { code: "WSH", label: "Washing", phase: "washing" },
     { code: "MZA", label: "UT", phase: "ut" }
