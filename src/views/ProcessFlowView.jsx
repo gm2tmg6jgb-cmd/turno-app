@@ -35,6 +35,14 @@ const EXCLUDED_PROJECTS_BY_STEP = {
 const DAYS_NAMES = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"];
 const SECTIONS = ["Riepilogo Settimanale", ...DAYS_NAMES];
 
+// Specific materials for BAP1 under the DCTeco project
+const BAP1_DCTECO_MATERIALS = [
+    "M0162644", "M0162644/S", "M0162623", "M0162623/S",
+    "M0162637", "M0162639/S", "M0162621", "M0162622/S",
+    "M0162523", "M0162523/S", "M0162587", "M0162587/S",
+    "M0162901", "M0162901/S"
+];
+
 function getWeekDays(mondayStr) {
     const days = [];
     const base = new Date(mondayStr + "T12:00:00");
@@ -131,6 +139,13 @@ export default function ProcessFlowView() {
                     }
 
                     if (!PROJECTS.includes(proj)) return;
+
+                    // Apply BAP1 specific filter for DCTeco
+                    if (proj === "DCTeco") {
+                        if (!BAP1_DCTECO_MATERIALS.includes(matCode)) {
+                            return; // Skip if it's DCTeco but not in the BAP1 list
+                        }
+                    }
 
                     const phase = getStageFromWC(r.work_center_sap);
                     if (!phase) return;
