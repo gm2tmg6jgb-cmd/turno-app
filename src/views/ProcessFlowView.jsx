@@ -6,20 +6,20 @@ import { Icons } from "../components/ui/Icons";
 const PROCESS_STEPS = [
     { code: "TRN", label: "Turning", phase: "turning" },
     { code: "DRA", label: "Soft Turning", phase: "start_soft" },
-    { code: "DMC", label: "DMC", phase: "dmc" },
+    { code: "ZSA", label: "DMC", phase: "dmc" },
     { code: "SHP", label: "Shaping", phase: "shaping" },
     { code: "EGW", label: "Deburring", phase: "deburring" },
     { code: "FRA", label: "Milling", phase: "milling" },
     { code: "BRC", label: "Broaching", phase: "broaching" },
     { code: "SCA", label: "Laser Welding", phase: "laser_welding" },
-    { code: "GC", label: "Grinding Cone", phase: "grinding_cone" },
-    { code: "HOB", label: "Hobbing", phase: "hobbing" },
+    { code: "SLA", label: "Grinding Cone", phase: "grinding_cone" },
+    { code: "FRW", label: "Hobbing", phase: "hobbing" },
     { code: "HOK", label: "Heat Treatment", phase: "ht" },
-    { code: "SP", label: "Shot Peening", phase: "shot_peening" },
+    { code: "OKU", label: "Shot Peening", phase: "shot_peening" },
     { code: "DRA", label: "Hard Turning", phase: "start_hard" },
-    { code: "TG", label: "Teeth Grinding", phase: "teeth_grinding" },
+    { code: "SLW", label: "Teeth Grinding", phase: "teeth_grinding" },
     { code: "WSH", label: "Washing", phase: "washing" },
-    { code: "UT", label: "UT", phase: "ut" }
+    { code: "MZA", label: "UT", phase: "ut" }
 ];
 
 const PROJECTS = ["DCT300", "8Fedct", "DCTeco"];
@@ -27,7 +27,7 @@ const PROJECTS = ["DCT300", "8Fedct", "DCTeco"];
 // Mapping of step codes to an array of project names that should NOT be displayed
 const EXCLUDED_PROJECTS_BY_STEP = {
     "DRA": ["DCTeco"], // previously ST
-    "DMC": ["DCTeco", "DCT300"],
+    "ZSA": ["DCTeco", "DCT300"], // previously DMC
     "EGW": ["DCT300"], // previously DBR
     "FRA": ["DCT300"], // previously MIL
     "BRC": ["DCTeco", "DCT300"]
