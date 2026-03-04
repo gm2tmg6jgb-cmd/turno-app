@@ -95,7 +95,7 @@ export default function ProcessFlowView() {
             // 3. Fetch week's production data
             const weekDaysDates = getWeekDays(wWeek);
             const dataRes = await fetchAllRows(
-                supabase.from("import_export_dati")
+                supabase.from("conferme_sap")
                     .select("data, materiale, work_center_sap, qta_ottenuta")
                     .gte("data", weekDaysDates[0])
                     .lte("data", weekDaysDates[6])
