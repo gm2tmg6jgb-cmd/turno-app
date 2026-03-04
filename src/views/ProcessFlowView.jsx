@@ -147,6 +147,13 @@ export default function ProcessFlowView() {
                         }
                     }
 
+                    // Apply filter for DCT300
+                    if (proj === "DCT300") {
+                        if (!matCode.startsWith("2511")) {
+                            return; // Only consider DCT300 codes starting with 2511
+                        }
+                    }
+
                     const phase = getStageFromWC(r.work_center_sap);
                     if (!phase) return;
 
