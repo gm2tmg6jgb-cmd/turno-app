@@ -16,6 +16,7 @@ const PROCESS_STEPS = [
     { code: "HOK", label: "Heat Treatment", phase: "ht" },
     { code: "OKU", label: "Shot Peening", phase: "shot_peening" },
     { code: "DRA", label: "Hard Turning", phase: "start_hard" },
+    { code: "SCA", label: "Laser Welding 2", phase: "laser_welding_2" },
     { code: "SLA", label: "Grinding Cone", phase: "grinding_cone" },
     { code: "SLW", label: "Teeth Grinding", phase: "teeth_grinding" },
     { code: "WSH", label: "Washing", phase: "washing" }
