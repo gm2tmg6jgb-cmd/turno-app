@@ -7,6 +7,7 @@ const PROCESS_STEPS = [
     { code: "DRA", label: "Soft Turning", phase: "start_soft" },
     { code: "ZSA", label: "DMC", phase: "dmc" },
     { code: "SCA", label: "Laser Welding", phase: "laser_welding" },
+    { code: "MZA", label: "UT", phase: "ut" },
     { code: "SHP", label: "Shaping", phase: "shaping" },
     { code: "FRA", label: "Milling", phase: "milling" },
     { code: "BRC", label: "Broaching", phase: "broaching" },
@@ -17,8 +18,7 @@ const PROCESS_STEPS = [
     { code: "DRA", label: "Hard Turning", phase: "start_hard" },
     { code: "SLA", label: "Grinding Cone", phase: "grinding_cone" },
     { code: "SLW", label: "Teeth Grinding", phase: "teeth_grinding" },
-    { code: "WSH", label: "Washing", phase: "washing" },
-    { code: "MZA", label: "UT", phase: "ut" }
+    { code: "WSH", label: "Washing", phase: "washing" }
 ];
 
 const PROJECTS = ["DCT300", "8Fedct", "DCTeco"];
