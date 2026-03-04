@@ -72,8 +72,8 @@ export default function ProcessFlowView() {
             const anagraficaRes = await fetchAllRows(supabase.from("anagrafica_materiali").select("*"));
             const anagrafica = {};
             anagraficaRes.forEach(row => {
-                if (row.codice_sap) {
-                    anagrafica[row.codice_sap.toUpperCase()] = row;
+                if (row.codice) {
+                    anagrafica[row.codice.toUpperCase()] = row;
                 }
             });
 
