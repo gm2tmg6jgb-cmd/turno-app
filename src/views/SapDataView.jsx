@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { Icons } from "../components/ui/Icons";
-import { getCurrentWeekRange, formatItalianDate } from "../lib/dateUtils";
+import { formatItalianDate } from "../lib/dateUtils";
 
 export default function SapDataView({ macchine = [] }) {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
 
-    const week = getCurrentWeekRange();
-    const [startDate, setStartDate] = useState(week.monday);
-    const [endDate, setEndDate] = useState(week.sunday);
+    const [startDate, setStartDate] = useState("");
+    const [endDate, setEndDate] = useState("");
 
     const PAGE_SIZE = 100;
     const [page, setPage] = useState(0);

@@ -33,7 +33,7 @@ function autoDetect(headers) {
     return result;
 }
 
-function formatDate(val) {
+function formatDate(val, dateFormat = "DD/MM/YYYY") {
     if (!val) return null;
     if (val instanceof Date) {
         const y = val.getFullYear();
@@ -47,35 +47,40 @@ function formatDate(val) {
             if (d) return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
         } catch { /* ignore */ }
     }
-    const s = String(val).trim();
+    // Estrai solo la parte data (prima di eventuali spazi – es. "02/03/2026 08:00:00" → "02/03/2026")
+    const s = String(val).trim().split(/\s+/)[0];
+
+    // Pattern yyyy-mm-dd (ISO) — check prima per non confonderlo con dd/mm/yyyy
+    const mIso = s.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);
+    if (mIso) {
+        return `${mIso[1]}-${mIso[2].padStart(2, "0")}-${mIso[3].padStart(2, "0")}`;
+    }
 
     // Pattern dd.mm.yyyy or dd/mm/yyyy or dd-mm-yyyy
     const m = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
     if (m) {
-        let day = m[1].padStart(2, "0");
-        let month = m[2].padStart(2, "0");
+        let part1 = m[1].padStart(2, "0");
+        let part2 = m[2].padStart(2, "0");
         let year = m[3];
         if (year.length === 2) year = "20" + year;
 
-        // Italian context: usually DD/MM/YYYY. 
-        // If first part > 12, it MUST be the day (unless it's MM/DD/YYYY, but that's rare here)
-        // If second part > 12, it MUST be the day (so it was MM/DD/YYYY)
+        let day = part1;
+        let month = part2;
+
+        if (dateFormat === "MM/DD/YYYY") {
+            month = part1;
+            day = part2;
+        }
+
+        // Italian context fallback: if it's explicitly impossible, swap them
         if (parseInt(month) > 12 && parseInt(day) <= 12) {
-            // Probably MM/DD/YYYY -> convert to DD/MM/YYYY for our purposes or just swap
             [day, month] = [month, day];
         }
 
         return `${year}-${month}-${day}`;
     }
 
-    // Pattern yyyy-mm-dd
-    const mIso = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-    if (mIso) {
-        const parts = s.split(/[-/]/);
-        return `${parts[0]}-${parts[1].padStart(2, "0")}-${parts[2].padStart(2, "0")}`;
-    }
-
-    return s.slice(0, 10) || null;
+    return null;
 }
 
 function formatTime(val) {
@@ -111,7 +116,7 @@ function mapTurno(val) {
     return v; // mantieni originale
 }
 
-export default function ImportView({ showToast, macchine = [] }) {
+export default function ImportView({ showToast, macchine = [], setCurrentView }) {
     const [dragOver, setDragOver] = useState(false);
     const [fileName, setFileName] = useState(null);
     const [headers, setHeaders] = useState([]);
@@ -123,6 +128,7 @@ export default function ImportView({ showToast, macchine = [] }) {
     const [saving, setSaving] = useState(false);
     const [duplicateMode, setDuplicateMode] = useState(null); // 'ask' | 'replace' | 'append'
     const [existingCount, setExistingCount] = useState(0);
+    const [dateFormat, setDateFormat] = useState("DD/MM/YYYY");
     const inputRef = useRef();
 
     /* ── parse ── */
@@ -216,7 +222,7 @@ export default function ImportView({ showToast, macchine = [] }) {
                 macchina_id: mac?.id || null,
                 macchina_nome: mac?.nome || mac?.id || null,
                 matched: !!mac,
-                data: formatDate(get(row, mapping.acquisito)),
+                data: formatDate(get(row, mapping.acquisito), dateFormat),
                 materiale: String(get(row, mapping.materiale) || "").trim() || null,
                 qta_ottenuta: parseFloat(get(row, mapping.qta_ottenuta)) || null,
                 qta_scarto: parseFloat(get(row, mapping.qta_scarto)) || null,
@@ -245,7 +251,7 @@ export default function ImportView({ showToast, macchine = [] }) {
 
     /* ── salva ── */
     const handleImport = async (mode = null) => {
-        const distinctDates = [...new Set(result.rows.map(r => r.data).filter(Boolean))];
+        const distinctDates = [...new Set(result.rows.map(r => r.data).filter(Boolean))].sort();
         if (distinctDates.length === 0) {
             showToast("Nessuna data valida trovata nelle righe", "error");
             return;
@@ -283,10 +289,16 @@ export default function ImportView({ showToast, macchine = [] }) {
                 if (delErr) throw delErr;
             }
 
-            const toSave = result.rows.map(({ matched, macchina_nome, ora, ...r }) => ({
-                ...r,
-                data_import: new Date().toISOString(),
-            }));
+            const toSave = result.rows.map(item => {
+                const r = { ...item };
+                delete r.matched;
+                delete r.macchina_nome;
+                delete r.ora;
+                return {
+                    ...r,
+                    data_import: new Date().toISOString(),
+                };
+            });
 
             if (!toSave.length) {
                 showToast("Nessuna riga da importare", "error");
@@ -294,15 +306,22 @@ export default function ImportView({ showToast, macchine = [] }) {
                 return;
             }
 
-            const { error: insErr } = await supabase.from("conferme_sap").insert(toSave);
-            if (insErr) throw insErr;
+            // Chunk in lotti da 500 per evitare Payload Too Large o limiti PG
+            const CHUNK_SIZE = 500;
+            for (let i = 0; i < toSave.length; i += CHUNK_SIZE) {
+                const chunk = toSave.slice(i, i + CHUNK_SIZE);
+                const { error: insErr } = await supabase.from("conferme_sap").insert(chunk);
+                if (insErr) throw insErr;
+            }
 
             showToast(`${toSave.length} righe importate (${mode === "replace" ? "Sostituito" : "Aggiunto"})`, "success");
             setStep("done");
             setDuplicateMode(null);
         } catch (err) {
             console.error("Errore import:", err);
-            showToast("Errore import: " + (err.message || JSON.stringify(err)), "error");
+            // Estrai campi noti di Supabase error, opzionale stringify
+            const msg = err.message || err.details || err.hint || JSON.stringify(err);
+            showToast("Errore import: " + msg, "error");
         } finally {
             setSaving(false);
         }
@@ -410,6 +429,30 @@ export default function ImportView({ showToast, macchine = [] }) {
                     </p>
 
                     {/* Debug: mostra codici SAP caricati */}
+                    <div style={{ marginBottom: 20, padding: 10, background: "var(--bg-tertiary)", borderRadius: 6, fontSize: 13, border: "1px solid var(--border-light)" }}>
+                        <div style={{ fontWeight: 700, marginBottom: 8, color: "var(--text-primary)" }}>Formato Data nel file SAP:</div>
+                        <select className="select-input" value={dateFormat} onChange={e => setDateFormat(e.target.value)} style={{ width: 300 }}>
+                            <option value="DD/MM/YYYY">GG/MM/AAAA (es. 02/03/2026 = 2 Marzo)</option>
+                            <option value="MM/DD/YYYY">MM/GG/AAAA (es. 03/02/2026 = 2 Marzo)</option>
+                        </select>
+                        {mapping.acquisito && rawRows.length > 0 && (() => {
+                            const sampleRaws = rawRows.slice(0, 3).map(r => r[hdrIndexMap[mapping.acquisito]]).filter(v => v !== undefined && v !== "");
+                            const sampleParsed = sampleRaws.map(v => formatDate(v, dateFormat));
+                            return sampleRaws.length > 0 ? (
+                                <div style={{ marginTop: 10, fontSize: 11, color: "var(--text-secondary)" }}>
+                                    <span style={{ fontWeight: 700 }}>Valori grezzi rilevati → interpretati:</span>
+                                    <div style={{ fontFamily: "monospace", marginTop: 4, display: "flex", flexDirection: "column", gap: 2 }}>
+                                        {sampleRaws.map((raw, i) => (
+                                            <span key={i} style={{ color: sampleParsed[i] ? "var(--success)" : "var(--danger)" }}>
+                                                "{String(raw)}" → {sampleParsed[i] ? sampleParsed[i] : "❌ non riconosciuto"}
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : null;
+                        })()}
+                    </div>
+
                     <div style={{ marginBottom: 20, padding: 10, background: "var(--bg-tertiary)", borderRadius: 6, fontSize: 11, border: "1px solid var(--border-light)" }}>
                         <div style={{ fontWeight: 700, marginBottom: 4, textTransform: "uppercase", color: "var(--text-secondary)" }}>Codici SAP configurati nell'anagrafica:</div>
                         <div style={{ color: "var(--accent)", fontFamily: "monospace", display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -600,10 +643,24 @@ export default function ImportView({ showToast, macchine = [] }) {
                 <div className="card" style={{ textAlign: "center", padding: 48 }}>
                     <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
                     <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Import completato</div>
-                    <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 24 }}>
-                        {result?.rows?.length} righe salvate nella tabella <code>conferme_sap</code>
+                    <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 8 }}>
+                        <strong>{result?.rows?.length}</strong> righe salvate nella tabella <code>conferme_sap</code>
                     </div>
-                    <button className="btn btn-primary" onClick={reset}>Importa un altro file</button>
+                    {result?.dateRange?.start && (
+                        <div style={{ fontSize: 13, marginBottom: 24, padding: "10px 20px", background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 8, display: "inline-block" }}>
+                            📅 Date importate: <strong>{result.dateRange.start.split("-").reverse().join("/")}</strong>
+                            {result.dateRange.start !== result.dateRange.end && <> — <strong>{result.dateRange.end.split("-").reverse().join("/")}</strong></>}
+                            <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                                In Storico usa il filtro data o clicca "Tutti i dati" per visualizzarle
+                            </div>
+                        </div>
+                    )}
+                    <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+                        <button className="btn btn-primary" onClick={() => setCurrentView?.("sapData")}>
+                            Vai allo Storico SAP →
+                        </button>
+                        <button className="btn btn-secondary" onClick={reset}>Importa un altro file</button>
+                    </div>
                 </div>
             )}
         </div>
