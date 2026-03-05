@@ -56,6 +56,8 @@ function getWeekDays(mondayStr) {
 }
 
 export default function ProcessFlowView() {
+    const [viewMode, setViewMode] = useState("weekly"); // "weekly" | "daily"
+    const [wDate, setWDate] = useState(() => new Date().toISOString().split("T")[0]);
     const [activeTab, setActiveTab] = useState("BAP1");
     const [wWeek, setWWeek] = useState(() => getCurrentWeekRange().monday);
     const [loading, setLoading] = useState(false);
@@ -105,24 +107,25 @@ export default function ProcessFlowView() {
                 return null;
             };
 
-            // 3. Fetch week's production data
-            const weekDaysDates = getWeekDays(wWeek);
-            const { data: dataRes } = await fetchAllRows(() =>
-                supabase.from("conferme_sap")
-                    .select("data, materiale, work_center_sap, qta_ottenuta, turno_id")
-                    .gte("data", weekDaysDates[0])
-                    .lte("data", weekDaysDates[6])
-            );
+            // 3. Fetch production data based on ViewMode
+            let query = supabase.from("conferme_sap").select("data, materiale, work_center_sap, qta_ottenuta, turno_id");
+            let weekDaysDates = [];
+            if (viewMode === "weekly") {
+                weekDaysDates = getWeekDays(wWeek);
+                query = query.gte("data", weekDaysDates[0]).lte("data", weekDaysDates[6]);
+            } else {
+                query = query.eq("data", wDate);
+            }
+            const { data: dataRes } = await fetchAllRows(() => query);
 
-            const newFlowData = {
-                "Riepilogo Settimanale": getInitFlow(),
-                "Lunedì": getInitFlow(),
-                "Martedì": getInitFlow(),
-                "Mercoledì": getInitFlow(),
-                "Giovedì": getInitFlow(),
-                "Venerdì": getInitFlow(),
-                "Sabato": getInitFlow()
-            };
+            const SEZIONI = viewMode === "weekly"
+                ? ["Riepilogo Settimanale", ...DAYS_NAMES]
+                : ["Totale Giorno", "Turno A", "Turno B", "Turno C", "Turno D"];
+
+            const newFlowData = {};
+            SEZIONI.forEach(sec => {
+                newFlowData[sec] = getInitFlow();
+            });
 
             // Process records
             if (dataRes) {
@@ -159,14 +162,9 @@ export default function ProcessFlowView() {
                     const phase = getStageFromWC(r.work_center_sap);
                     if (!phase) return;
 
-                    const dayIndex = weekDaysDates.indexOf(r.data);
-                    let targetSection = null;
-                    if (dayIndex >= 0 && dayIndex < 6) {
-                        targetSection = DAYS_NAMES[dayIndex];
-                    }
-
                     const addValue = (sectionName) => {
                         const sec = newFlowData[sectionName];
+                        if (!sec) return;
                         const stepIdx = sec.findIndex(s => s.phase === phase);
                         if (stepIdx !== -1) {
                             const projIdx = sec[stepIdx].projects.findIndex(p => p.name === proj);
@@ -182,8 +180,23 @@ export default function ProcessFlowView() {
                         }
                     };
 
-                    if (targetSection) addValue(targetSection);
-                    addValue("Riepilogo Settimanale");
+                    if (viewMode === "weekly") {
+                        const dayIndex = weekDaysDates.indexOf(r.data);
+                        let targetSection = null;
+                        if (dayIndex >= 0 && dayIndex < 6) {
+                            targetSection = DAYS_NAMES[dayIndex];
+                        }
+                        if (targetSection) addValue(targetSection);
+                        addValue("Riepilogo Settimanale");
+                    } else {
+                        const t_id = r.turno_id || "N/D";
+                        const targetSection = `Turno ${t_id}`;
+                        if (!newFlowData[targetSection]) {
+                            newFlowData[targetSection] = getInitFlow();
+                        }
+                        addValue(targetSection);
+                        addValue("Totale Giorno");
+                    }
                 });
             }
 
@@ -199,7 +212,7 @@ export default function ProcessFlowView() {
     useEffect(() => {
         fetchData();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [wWeek]);
+    }, [wWeek, viewMode, wDate]);
 
     const renderFlow = (title) => {
         const isFunctional = activeTab === "BAP1";
@@ -342,8 +355,34 @@ export default function ProcessFlowView() {
         <div className="fade-in" style={{ height: "100%", overflowY: "auto", padding: "16px 20px", paddingBottom: 32 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
                 <h1 style={{ fontSize: "24px", fontWeight: "800", color: "var(--text-primary)", margin: 0 }}>
-                    Analisi Flusso Settimanale
+                    {viewMode === "weekly" ? "Analisi Flusso Settimanale" : "Analisi Flusso Giornaliero"}
                 </h1>
+
+                {/* View Mode Toggle */}
+                <div style={{ display: "flex", background: "var(--bg-tertiary)", padding: "4px", borderRadius: "10px", border: "1px solid var(--border)" }}>
+                    <button
+                        onClick={() => setViewMode("weekly")}
+                        style={{
+                            padding: "6px 16px", background: viewMode === "weekly" ? "var(--bg-card)" : "transparent",
+                            color: viewMode === "weekly" ? "var(--text-primary)" : "var(--text-muted)",
+                            border: "none", borderRadius: "6px", fontWeight: "600", fontSize: "14px",
+                            boxShadow: viewMode === "weekly" ? "0 2px 4px rgba(0,0,0,0.1)" : "none", cursor: "pointer", transition: "all 0.2s ease"
+                        }}
+                    >
+                        Settimanale
+                    </button>
+                    <button
+                        onClick={() => setViewMode("daily")}
+                        style={{
+                            padding: "6px 16px", background: viewMode === "daily" ? "var(--bg-card)" : "transparent",
+                            color: viewMode === "daily" ? "var(--text-primary)" : "var(--text-muted)",
+                            border: "none", borderRadius: "6px", fontWeight: "600", fontSize: "14px",
+                            boxShadow: viewMode === "daily" ? "0 2px 4px rgba(0,0,0,0.1)" : "none", cursor: "pointer", transition: "all 0.2s ease"
+                        }}
+                    >
+                        Giornaliero
+                    </button>
+                </div>
             </div>
 
             {/* Tabs per Reparto */}
@@ -373,36 +412,59 @@ export default function ProcessFlowView() {
                 ))}
             </div>
 
-            {/* Navigazione settimana */}
+            {/* Navigazione date */}
             <div style={{ display: "flex", gap: 10, marginBottom: 20, alignItems: "center", flexWrap: "wrap" }}>
-                <button className="btn btn-secondary btn-sm" onClick={() => {
-                    const d = new Date(wWeek + "T12:00:00");
-                    d.setDate(d.getDate() - 7);
-                    setWWeek(d.toISOString().split("T")[0]);
-                }}>← Prec.</button>
-                <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", background: "var(--bg-tertiary)", padding: "6px 12px", borderRadius: "8px" }}>
-                    {new Date(wWeek + "T12:00:00").toLocaleDateString("it-IT", { day: "2-digit", month: "short" })}
-                    {" — "}
-                    {new Date(getWeekDays(wWeek)[6] + "T12:00:00").toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric" })}
-                </span>
-                <button className="btn btn-secondary btn-sm" onClick={() => {
-                    const d = new Date(wWeek + "T12:00:00");
-                    d.setDate(d.getDate() + 7);
-                    setWWeek(d.toISOString().split("T")[0]);
-                }}>Succ. →</button>
-                <button className="btn btn-secondary btn-sm" onClick={() => setWWeek(getCurrentWeekRange().monday)}>Questa settimana</button>
+                {viewMode === "weekly" ? (
+                    <>
+                        <button className="btn btn-secondary btn-sm" onClick={() => {
+                            const d = new Date(wWeek + "T12:00:00");
+                            d.setDate(d.getDate() - 7);
+                            setWWeek(d.toISOString().split("T")[0]);
+                        }}>← Prec.</button>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", background: "var(--bg-tertiary)", padding: "6px 12px", borderRadius: "8px" }}>
+                            {new Date(wWeek + "T12:00:00").toLocaleDateString("it-IT", { day: "2-digit", month: "short" })}
+                            {" — "}
+                            {new Date(getWeekDays(wWeek)[6] + "T12:00:00").toLocaleDateString("it-IT", { day: "2-digit", month: "short", year: "numeric" })}
+                        </span>
+                        <button className="btn btn-secondary btn-sm" onClick={() => {
+                            const d = new Date(wWeek + "T12:00:00");
+                            d.setDate(d.getDate() + 7);
+                            setWWeek(d.toISOString().split("T")[0]);
+                        }}>Succ. →</button>
+                        <button className="btn btn-secondary btn-sm" onClick={() => setWWeek(getCurrentWeekRange().monday)}>Questa settimana</button>
+                    </>
+                ) : (
+                    <>
+                        <button className="btn btn-secondary btn-sm" onClick={() => {
+                            const d = new Date(wDate + "T12:00:00");
+                            d.setDate(d.getDate() - 1);
+                            setWDate(d.toISOString().split("T")[0]);
+                        }}>← Prec.</button>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)", background: "var(--bg-tertiary)", padding: "6px 12px", borderRadius: "8px" }}>
+                            {new Date(wDate + "T12:00:00").toLocaleDateString("it-IT", { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+                        </span>
+                        <button className="btn btn-secondary btn-sm" onClick={() => {
+                            const d = new Date(wDate + "T12:00:00");
+                            d.setDate(d.getDate() + 1);
+                            setWDate(d.toISOString().split("T")[0]);
+                        }}>Succ. →</button>
+                        <button className="btn btn-secondary btn-sm" onClick={() => setWDate(new Date().toISOString().split("T")[0])}>Oggi</button>
+                    </>
+                )}
+
                 <button className="btn btn-secondary btn-sm" onClick={fetchData} disabled={loading} style={{ marginLeft: "auto" }}>
                     {Icons.history} Aggiorna
                 </button>
             </div>
 
-            {SECTIONS.map(section => renderFlow(section))}
+            {Object.keys(flowDataBySection).map(section => renderFlow(section))}
 
             {selectedDetail && (() => {
-                // Raggruppa i record per data, turno, macchina e codice materiale
+                // Raggruppa i record per data, macchina e codice materiale (ignorando il turno_id nel weekly mode)
                 const grouped = selectedDetail.records.reduce((acc, r) => {
-                    const t_id = r.turno_id || "N/D";
-                    const key = `${r.data}_${t_id}_${r.macchina}_${r.matCode}`;
+                    const t_id = viewMode === "daily" ? (r.turno_id || "N/D") : null;
+                    const key = viewMode === "daily" ? `${r.data}_${t_id}_${r.macchina}_${r.matCode}` : `${r.data}_${r.macchina}_${r.matCode}`;
+
                     if (!acc[key]) {
                         acc[key] = { ...r, turno: t_id };
                     } else {
@@ -411,10 +473,10 @@ export default function ProcessFlowView() {
                     return acc;
                 }, {});
 
-                // Converti in array e ordina per data decrescente, poi turno, e poi macchina
+                // Converti in array e ordina
                 const displayRecords = Object.values(grouped).sort((a, b) => {
                     if (a.data !== b.data) return b.data.localeCompare(a.data);
-                    if (a.turno !== b.turno) return (a.turno || "").localeCompare(b.turno || "");
+                    if (viewMode === "daily" && a.turno !== b.turno) return (a.turno || "").localeCompare(b.turno || "");
                     return (a.macchina || "").localeCompare(b.macchina || "");
                 });
 
@@ -445,7 +507,7 @@ export default function ProcessFlowView() {
                                     <thead>
                                         <tr style={{ background: "var(--bg-tertiary)" }}>
                                             <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)", borderRadius: "6px 0 0 6px" }}>Data</th>
-                                            <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Turno</th>
+                                            {viewMode === "daily" && <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Turno</th>}
                                             <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Macchina</th>
                                             <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Codice / Mat.</th>
                                             <th style={{ padding: "10px", textAlign: "right", fontSize: "12px", color: "var(--text-muted)", borderRadius: "0 6px 6px 0" }}>Q.tà Totale</th>
@@ -455,7 +517,7 @@ export default function ProcessFlowView() {
                                         {displayRecords.map((r, i) => (
                                             <tr key={i} style={{ borderBottom: "1px solid var(--border-light)" }}>
                                                 <td style={{ padding: "10px", fontSize: "13px" }}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
-                                                <td style={{ padding: "10px", fontSize: "13px" }}>{r.turno}</td>
+                                                {viewMode === "daily" && <td style={{ padding: "10px", fontSize: "13px" }}>{r.turno}</td>}
                                                 <td style={{ padding: "10px", fontSize: "13px", fontWeight: "bold" }}>{r.macchina}</td>
                                                 <td style={{ padding: "10px", fontSize: "13px" }}>{r.matCode}</td>
                                                 <td style={{ padding: "10px", fontSize: "14px", fontWeight: "bold", textAlign: "right", color: "#3c6ef0" }}>{r.qta_ottenuta}</td>
