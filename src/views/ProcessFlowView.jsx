@@ -411,10 +411,11 @@ export default function ProcessFlowView() {
                     return acc;
                 }, {});
 
-                // Converti in array e ordina per data decrescente e poi macchina
+                // Converti in array e ordina per data decrescente, poi turno, e poi macchina
                 const displayRecords = Object.values(grouped).sort((a, b) => {
                     if (a.data !== b.data) return b.data.localeCompare(a.data);
-                    return a.macchina.localeCompare(b.macchina);
+                    if (a.turno !== b.turno) return (a.turno || "").localeCompare(b.turno || "");
+                    return (a.macchina || "").localeCompare(b.macchina || "");
                 });
 
                 return (
