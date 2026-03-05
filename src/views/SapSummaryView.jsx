@@ -287,13 +287,14 @@ export default function SapSummaryView({ macchine = [] }) {
 
     const loadGiornaliero = async () => {
         setGLoading(true);
+        try {
         const { data: rows, error: gErr } = await fetchAllRows(() =>
             supabase
                 .from("conferme_sap")
                 .select("materiale, work_center_sap, qta_ottenuta, macchina_id")
                 .eq("data", gDate)
         );
-        if (gErr) { console.error("Errore loadGiornaliero:", gErr); setGLoading(false); return; }
+        if (gErr) { console.error("Errore loadGiornaliero:", gErr); return; }
 
         if (rows) {
             const map = {};
@@ -346,7 +347,9 @@ export default function SapSummaryView({ macchine = [] }) {
             setGData(map);
             setGDiag({ total: rows.length, mapped, unmapped: [...unmappedMateriali] });
         }
-        setGLoading(false);
+        } finally {
+            setGLoading(false);
+        }
     };
 
     const getProduzione = (row) => {
@@ -373,6 +376,7 @@ export default function SapSummaryView({ macchine = [] }) {
 
     const loadSettimanale = async () => {
         setWLoading(true);
+        try {
         const days = getWeekDays(wWeek);
         const sunday = days[6];
         const { data: rows, error: wErr } = await fetchAllRows(() =>
@@ -382,7 +386,7 @@ export default function SapSummaryView({ macchine = [] }) {
                 .gte("data", wWeek)
                 .lte("data", sunday)
         );
-        if (wErr) { console.error("Errore loadSettimanale:", wErr); setWLoading(false); return; }
+        if (wErr) { console.error("Errore loadSettimanale:", wErr); return; }
 
         if (rows) {
             const map = {};
@@ -428,7 +432,9 @@ export default function SapSummaryView({ macchine = [] }) {
 
             setWData(map);
         }
-        setWLoading(false);
+        } finally {
+            setWLoading(false);
+        }
     };
 
     const fetchTAvailableTurni = async () => {
@@ -447,6 +453,7 @@ export default function SapSummaryView({ macchine = [] }) {
     const loadTurno = async () => {
         if (!tTurnoId) return;
         setTLoading(true);
+        try {
         const { data: rows, error: tErr } = await fetchAllRows(() =>
             supabase
                 .from("conferme_sap")
@@ -454,7 +461,7 @@ export default function SapSummaryView({ macchine = [] }) {
                 .eq("data", tDate)
                 .eq("turno_id", tTurnoId)
         );
-        if (tErr) { console.error("Errore loadTurno:", tErr); setTLoading(false); return; }
+        if (tErr) { console.error("Errore loadTurno:", tErr); return; }
         if (rows) {
             const map = {};
             // Pre-fill with manual mappings from PHASE_MACHINE_MAPPING
@@ -499,7 +506,9 @@ export default function SapSummaryView({ macchine = [] }) {
 
             setTData(map);
         }
-        setTLoading(false);
+        } finally {
+            setTLoading(false);
+        }
     };
 
     const fetchData = async () => {

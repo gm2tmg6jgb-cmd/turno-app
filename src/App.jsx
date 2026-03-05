@@ -481,7 +481,7 @@ export default function App() {
             <ProcessFlowView />
           )}
           {currentView === "weisserPriorities" && (
-            <WeisserPrioritiesView />
+            <WeisserPrioritiesView turnoCorrente={turnoCorrente} />
           )}
           {currentView === "fermi" && (
             <FermiView macchine={macchine} initialReparto={repartoCorrente} initialTurno={turnoCorrente} motiviFermo={motiviFermo} tecnologie={tecnologie} globalDate={globalDate} setGlobalDate={setGlobalDate} />
