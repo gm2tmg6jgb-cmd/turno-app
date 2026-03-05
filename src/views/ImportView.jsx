@@ -50,6 +50,17 @@ function formatDate(val, dateFormat = "DD/MM/YYYY") {
     // Estrai solo la parte data (prima di eventuali spazi – es. "02/03/2026 08:00:00" → "02/03/2026")
     const s = String(val).trim().split(/\s+/)[0];
 
+    // Stringa numerica pura (es. "46056") — numero seriale Excel da formato "Generale"
+    if (/^\d{4,6}$/.test(s)) {
+        const serial = parseInt(s, 10);
+        if (serial >= 36526 && serial <= 73050) { // range ragionevole: 2000-2099
+            try {
+                const d = XLSX.SSF.parse_date_code(serial);
+                if (d && d.y > 2000) return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`;
+            } catch { /* ignore */ }
+        }
+    }
+
     // Pattern yyyy-mm-dd (ISO) — check prima per non confonderlo con dd/mm/yyyy
     const mIso = s.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);
     if (mIso) {
@@ -57,22 +68,22 @@ function formatDate(val, dateFormat = "DD/MM/YYYY") {
     }
 
     // Pattern dd.mm.yyyy or dd/mm/yyyy or dd-mm-yyyy
-    const m = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
+    // Cattura il separatore: punto (.) → sempre DD.MM.YYYY (standard SAP europeo)
+    const m = s.match(/^(\d{1,2})([./-])(\d{1,2})\2(\d{2,4})$/);
     if (m) {
+        const sep = m[2];
         let part1 = m[1].padStart(2, "0");
-        let part2 = m[2].padStart(2, "0");
-        let year = m[3];
+        let part2 = m[3].padStart(2, "0");
+        let year = m[4];
         if (year.length === 2) year = "20" + year;
 
-        let day = part1;
-        let month = part2;
+        // Punto → sempre DD.MM (SAP europeo non ambiguo)
+        // Slash/trattino → usa il formato selezionato dall'utente
+        const useDDMM = sep === "." || dateFormat === "DD/MM/YYYY";
+        let day   = useDDMM ? part1 : part2;
+        let month = useDDMM ? part2 : part1;
 
-        if (dateFormat === "MM/DD/YYYY") {
-            month = part1;
-            day = part2;
-        }
-
-        // Italian context fallback: if it's explicitly impossible, swap them
+        // Ultimo tentativo: se il mese risulta impossibile, inverti
         if (parseInt(month) > 12 && parseInt(day) <= 12) {
             [day, month] = [month, day];
         }
@@ -149,20 +160,24 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                 const isUtf16LE = bytes[0] === 0xFF && bytes[1] === 0xFE;
                 const isUtf16BE = bytes[0] === 0xFE && bytes[1] === 0xFF;
 
-                let wb;
+                let json;
                 if (isUtf16LE || isUtf16BE) {
-                    // CSV UTF-16: decodifica e passa a xlsx come stringa
+                    // CSV UTF-16 (SAP): parsing manuale — evita che XLSX auto-converta
+                    // "04.03.2026" come MM/DD e produca una Date sbagliata (Aprile 3).
+                    // SAP esporta tipicamente con tab come separatore.
                     const text = new TextDecoder(isUtf16BE ? "utf-16be" : "utf-16le").decode(buffer);
-                    wb = XLSX.read(text, { type: "string" });
+                    const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+                    json = lines
+                        .map(line => line.split("\t").map(v => v.replace(/^"|"$/g, "")))
+                        .filter(row => row.some(v => v.trim() !== ""));
                 } else {
                     // Formato binario standard (.xls BIFF8, .xlsx, CSV UTF-8)
                     let bstr = "";
                     for (let i = 0; i < bytes.length; i++) bstr += String.fromCharCode(bytes[i]);
-                    wb = XLSX.read(bstr, { type: "binary", cellDates: false });
+                    const wb = XLSX.read(bstr, { type: "binary", cellDates: false });
+                    const ws = wb.Sheets[wb.SheetNames[0]];
+                    json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
                 }
-
-                const ws = wb.Sheets[wb.SheetNames[0]];
-                const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
                 if (json.length < 2) { showToast("File vuoto o troppo corto", "error"); return; }
 
                 // Trova la riga intestazioni: scansiona le prime 20 righe

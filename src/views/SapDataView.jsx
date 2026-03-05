@@ -158,7 +158,7 @@ export default function SapDataView({ macchine = [] }) {
                     <div style={{ marginBottom: 16, padding: "14px 18px", background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.3)", borderRadius: 8, fontSize: 13, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
                         <div>
                             <strong style={{ color: "var(--accent)" }}>ℹ️ Nessun dato nel periodo selezionato</strong><br />
-                            Il DB contiene <strong>{totalCount.toLocaleString("it-IT")}</strong> record, ma nessuno ricade tra <strong>{startDate || "—"}</strong> e <strong>{endDate || "—"}</strong>.
+                            Il DB contiene <strong>{totalCount.toLocaleString("it-IT")}</strong> record, ma nessuno ricade tra <strong>{startDate ? formatItalianDate(startDate) : "—"}</strong> e <strong>{endDate ? formatItalianDate(endDate) : "—"}</strong>.
                             I dati potrebbero avere date diverse (es. future o passate).
                         </div>
                         <button
