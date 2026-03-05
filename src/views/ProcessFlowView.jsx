@@ -6,7 +6,7 @@ import { Icons } from "../components/ui/Icons";
 const PROCESS_STEPS = [
     { code: "DRA", label: "Soft Turning", phase: "start_soft" },
     { code: "ZSA", label: "DMC", phase: "dmc" },
-    { code: "SCA", label: "Laser Welding", phase: "laser_welding" },
+    { code: "SCA", label: "Laser prima di HT e Soft", phase: "laser_welding" },
     { code: "MZA", label: "UT", phase: "ut" },
     { code: "SHP", label: "Shaping", phase: "shaping" },
     { code: "FRA", label: "Milling", phase: "milling" },
@@ -16,7 +16,7 @@ const PROCESS_STEPS = [
     { code: "HOK", label: "Heat Treatment", phase: "ht" },
     { code: "OKU", label: "Shot Peening", phase: "shot_peening" },
     { code: "DRA", label: "Hard Turning", phase: "start_hard" },
-    { code: "SCA", label: "Laser Welding 2", phase: "laser_welding_2" },
+    { code: "SCA", label: "Laser dopo HT e Hard", phase: "laser_welding_2" },
     { code: "SLA", label: "Grinding Cone", phase: "grinding_cone" },
     { code: "SLW", label: "Teeth Grinding", phase: "teeth_grinding" },
     { code: "WSH", label: "Washing", phase: "washing" }
