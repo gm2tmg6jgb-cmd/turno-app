@@ -20,15 +20,24 @@ const COL_DEFS = [
     { key: "qta_ottenuta", label: "Quantità ottenuta", patterns: ["quantità ottenuta", "qtà ottenuta", "qta ottenuta", "yield", "qtà conf", "qta conf"] },
     { key: "qta_scarto", label: "Qtà scarto", patterns: ["scarto", "qtà scarto", "qta scarto", "scrap"] },
     { key: "turno", label: "Turno", patterns: ["turno", "shift", "turn"] },
-    { key: "ora", label: "Ora", patterns: ["ora", "time", "orario", "time of confirmation"] },
+    { key: "ora", label: "Ora Time", patterns: ["time", "ora", "orario", "time of confirmation"] },
 ];
 
 function autoDetect(headers) {
     const lower = headers.map(h => (h || "").toLowerCase().trim());
     const result = {};
     for (const { key, patterns } of COL_DEFS) {
-        const idx = lower.findIndex(h => patterns.some(p => h.includes(p)));
-        result[key] = idx >= 0 ? headers[idx] : "";
+        let matchIdx = -1;
+        // 1. Try exact matches first for higher priority patterns
+        for (const p of patterns) {
+            matchIdx = lower.findIndex(h => h === p);
+            if (matchIdx >= 0) break;
+        }
+        // 2. Fallback to includes
+        if (matchIdx === -1) {
+            matchIdx = lower.findIndex(h => patterns.some(p => h.includes(p)));
+        }
+        result[key] = matchIdx >= 0 ? headers[matchIdx] : "";
     }
     return result;
 }
@@ -80,7 +89,7 @@ function formatDate(val, dateFormat = "DD/MM/YYYY") {
         // Punto → sempre DD.MM (SAP europeo non ambiguo)
         // Slash/trattino → usa il formato selezionato dall'utente
         const useDDMM = sep === "." || dateFormat === "DD/MM/YYYY";
-        let day   = useDDMM ? part1 : part2;
+        let day = useDDMM ? part1 : part2;
         let month = useDDMM ? part2 : part1;
 
         // Ultimo tentativo: se il mese risulta impossibile, inverti

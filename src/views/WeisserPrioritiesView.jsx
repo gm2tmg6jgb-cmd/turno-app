@@ -1,284 +1,569 @@
-import React from "react";
+import { useState, useEffect } from "react";
 
+// ── Dati di default ──────────────────────────────────────────────────────────
 const SECTIONS = [
     {
-        label: "Weisser",
-        color: "#3c6ef0",
+        label: "Weisser", color: "#3c6ef0",
         machines: [
-            {
-                id: "DRA10060",
-                priorities: [
-                    { n: 1, component: "SGR",   material: "M0153391/s",  current: false, cancelled: false },
-                    { n: 2, component: "SG2",   material: "M0153389/s",  current: true,  cancelled: false },
-                ]
-            },
-            {
-                id: "DRA10061",
-                priorities: [
-                    { n: 1, component: "SG5",   material: "M0155199/s",  current: false, cancelled: false },
-                    { n: 2, component: "FG5-7", material: "M0155197/s",  current: true,  cancelled: false },
-                ]
-            },
-            {
-                id: "DRA10062",
-                priorities: [
-                    { n: 1, component: "P.G.", material: "M0154996/s",  current: true,  cancelled: false },
-                    { n: 2, component: "SG8",  material: "M0153397/s",  current: false, cancelled: false },
-                ]
-            },
-            {
-                id: "DRA10065/66",
-                priorities: [
-                    { n: 1, component: "SG4", material: "M0170686/s",   current: false, cancelled: false },
-                    { n: 2, component: "SG5", material: "2511109051/s", current: true,  cancelled: false },
-                    { n: 3, component: "SG5", material: "2511122951/s", current: false, cancelled: false },
-                ]
-            },
-            {
-                id: "DRA10067/68",
-                priorities: [
-                    { n: 1, component: "SG3", material: "M0133401/s",   current: false, cancelled: true  },
-                    { n: 2, component: "DG2", material: "2511108350/s", current: false, cancelled: false },
-                    { n: 3, component: "DG2", material: "2511122350/s", current: true,  cancelled: false },
-                ]
-            },
-            {
-                id: "DRA10069/70",
-                priorities: [
-                    { n: 1, component: "SG6", material: "2511109250/s", current: false, cancelled: false },
-                    { n: 2, component: "SG7", material: "M0155201/s",   current: false, cancelled: false },
-                    { n: 3, component: "SG6", material: "2511123150/s", current: true,  cancelled: false },
-                    { n: 4, component: "SG6", material: "M0153387/s",   current: false, cancelled: false },
-                ]
-            },
-            {
-                id: "DRA10071",
-                priorities: [
-                    { n: 1,   component: "SG3", material: "8Fe",          current: true,  cancelled: false },
-                    { n: "-", component: "",    material: "2511109350/s", current: false, cancelled: true  },
-                    { n: 2,   component: "SGR", material: "M0153391/s",   current: false, cancelled: false },
-                    { n: 3,   component: "",    material: "2511123250/s", current: false, cancelled: false },
-                ]
-            },
+            { id: "DRA10060", priorities: [
+                { component: "SGR",   material: "M0153391/s",  cancelled: false },
+                { component: "SG2",   material: "M0153389/s",  cancelled: false, defaultCurrent: true },
+            ]},
+            { id: "DRA10061", priorities: [
+                { component: "SG5",   material: "M0155199/s",  cancelled: false },
+                { component: "FG5-7", material: "M0155197/s",  cancelled: false, defaultCurrent: true },
+            ]},
+            { id: "DRA10062", priorities: [
+                { component: "P.G.", material: "M0154996/s",  cancelled: false, defaultCurrent: true },
+                { component: "SG8",  material: "M0153397/s",  cancelled: false },
+            ]},
+            { id: "DRA10065/66", priorities: [
+                { component: "SG4", material: "M0170686/s",   cancelled: false },
+                { component: "SG5", material: "2511109051/s", cancelled: false, defaultCurrent: true },
+                { component: "SG5", material: "2511122951/s", cancelled: false },
+            ]},
+            { id: "DRA10067/68", priorities: [
+                { component: "SG3", material: "M0133401/s",   cancelled: true },
+                { component: "DG2", material: "2511108350/s", cancelled: false },
+                { component: "DG2", material: "2511122350/s", cancelled: false, defaultCurrent: true },
+            ]},
+            { id: "DRA10069/70", priorities: [
+                { component: "SG6", material: "2511109250/s", cancelled: false },
+                { component: "SG7", material: "M0155201/s",   cancelled: false },
+                { component: "SG6", material: "2511123150/s", cancelled: false, defaultCurrent: true },
+                { component: "SG6", material: "M0153387/s",   cancelled: false },
+            ]},
+            { id: "DRA10071", priorities: [
+                { component: "SG3", material: "8Fe",          cancelled: false, defaultCurrent: true },
+                { component: "",    material: "2511109350/s", cancelled: true },
+                { component: "SGR", material: "M0153391/s",   cancelled: false },
+                { component: "",    material: "2511123250/s", cancelled: false },
+            ]},
         ]
     },
     {
-        label: "Laser",
-        color: "#e05c2a",
+        label: "Laser", color: "#e05c2a",
         machines: [
-            {
-                id: "SCA11006",
-                priorities: [
-                    { n: 1, component: "DG2", material: "2511124650/s", current: false, cancelled: false },
-                    { n: 2, component: "SGR", material: "M0162523/s",   current: false, cancelled: false },
-                    { n: 3, component: "DG2", material: "2511108350/s", current: false, cancelled: false },
-                    { n: 4, component: "SG2", material: "M0153389/s",   current: false, cancelled: false },
-                    { n: 5, component: "DG2", material: "2511122350/s", current: true,  cancelled: false },
-                ]
-            },
-            {
-                id: "SCA11008",
-                note: "Fine C",
-                priorities: [
-                    { n: 1, component: "SG3", material: "M0153401/s",   current: false, cancelled: false },
-                    { n: 2, component: "SG1", material: "2511108150/s", current: true,  cancelled: false },
-                    { n: 3, component: "SG1", material: "2511124450/s", current: false, cancelled: false },
-                    { n: 4, component: "SGR", material: "M0153391/s",   current: false, cancelled: false },
-                ]
-            },
-            {
-                id: "SCA11010",
-                priorities: [
-                    { n: 1, component: "SG3", material: "M0153401/s",   current: true,  cancelled: false },
-                    { n: 2, component: "SGR", material: "2511109451/s", current: false, cancelled: false },
-                    { n: 3, component: "SG2", material: "M0153389/s",   current: false, cancelled: false },
-                ]
-            },
-            {
-                id: "SCA10151",
-                priorities: [
-                    { n: 1, component: "SG7", material: "M0155201/s",  current: false, cancelled: false },
-                    { n: 2, component: "SG6", material: "M0153387/s",  current: true,  cancelled: false },
-                    { n: 3, component: "SG8", material: "M0153397/s",  current: false, cancelled: false },
-                ]
-            },
-            {
-                id: "SCA11009",
-                note: "Fine C",
-                priorities: [
-                    { n: 1, component: "SG4", material: "2511124953/s", current: false, cancelled: false },
-                    { n: 2, component: "SG4", material: "M0170686/s",   current: false, cancelled: false },
-                    { n: 3, component: "SG5", material: "M0155199/s",   current: false, cancelled: false },
-                    { n: 4, component: "SG4", material: "2511122651/s", current: false, cancelled: false },
-                    { n: 5, component: "SG4", material: "2511108751/s", current: true,  cancelled: false },
-                ]
-            },
-            {
-                id: "SCA11078",
-                note: "Chamos — BAP3",
-                priorities: [
-                    { n: 1, component: "SG6", material: "2511125351",   current: false, cancelled: false },
-                    { n: 2, component: "SG5", material: "2511125150",   current: false, cancelled: false },
-                    { n: 3, component: "SG3", material: "M0162623/S",   current: false, cancelled: false },
-                    { n: 4, component: "SG5", material: "M0162621",     current: false, cancelled: false },
-                    { n: 5, component: "SG5", material: "2511108952",   current: false, cancelled: false },
-                    { n: 6, component: "SG6", material: "2511109151",   current: false, cancelled: false },
-                    { n: 7, component: "SG4", material: "M0162637",     current: false, cancelled: false },
-                    { n: 8, component: "SG5", material: "2511122851",   current: true,  cancelled: false },
-                    { n: 9, component: "SG6", material: "2511123050",   current: false, cancelled: false },
-                ]
-            },
+            { id: "SCA11006", priorities: [
+                { component: "DG2", material: "2511124650/s", cancelled: false },
+                { component: "SGR", material: "M0162523/s",   cancelled: false },
+                { component: "DG2", material: "2511108350/s", cancelled: false },
+                { component: "SG2", material: "M0153389/s",   cancelled: false },
+                { component: "DG2", material: "2511122350/s", cancelled: false, defaultCurrent: true },
+            ]},
+            { id: "SCA11008", note: "Fine C", priorities: [
+                { component: "SG3", material: "M0153401/s",   cancelled: false },
+                { component: "SG1", material: "2511108150/s", cancelled: false, defaultCurrent: true },
+                { component: "SG1", material: "2511124450/s", cancelled: false },
+                { component: "SGR", material: "M0153391/s",   cancelled: false },
+            ]},
+            { id: "SCA11010", priorities: [
+                { component: "SG3", material: "M0153401/s",   cancelled: false, defaultCurrent: true },
+                { component: "SGR", material: "2511109451/s", cancelled: false },
+                { component: "SG2", material: "M0153389/s",   cancelled: false },
+            ]},
+            { id: "SCA10151", priorities: [
+                { component: "SG7", material: "M0155201/s",  cancelled: false },
+                { component: "SG6", material: "M0153387/s",  cancelled: false, defaultCurrent: true },
+                { component: "SG8", material: "M0153397/s",  cancelled: false },
+            ]},
+            { id: "SCA11009", note: "Fine C", priorities: [
+                { component: "SG4", material: "2511124953/s", cancelled: false },
+                { component: "SG4", material: "M0170686/s",   cancelled: false },
+                { component: "SG5", material: "M0155199/s",   cancelled: false },
+                { component: "SG4", material: "2511122651/s", cancelled: false },
+                { component: "SG4", material: "2511108751/s", cancelled: false, defaultCurrent: true },
+            ]},
+            { id: "SCA11078", note: "Chamos — BAP3", priorities: [
+                { component: "SG6", material: "2511125351",   cancelled: false },
+                { component: "SG5", material: "2511125150",   cancelled: false },
+                { component: "SG3", material: "M0162623/S",   cancelled: false },
+                { component: "SG5", material: "M0162621",     cancelled: false },
+                { component: "SG5", material: "2511108952",   cancelled: false },
+                { component: "SG6", material: "2511109151",   cancelled: false },
+                { component: "SG4", material: "M0162637",     cancelled: false },
+                { component: "SG5", material: "2511122851",   cancelled: false, defaultCurrent: true },
+                { component: "SG6", material: "2511123050",   cancelled: false },
+            ]},
         ]
     },
     {
-        label: "Pfauter",
-        color: "#2a9e6e",
+        label: "Pfauter", color: "#2a9e6e",
         machines: [
-            {
-                id: "FRW11010",
-                priorities: [
-                    { n: 1, component: "SG7", material: "M0155201/s",  current: false, cancelled: false },
-                    { n: 2, component: "SG6", material: "M0153387/s",  current: true,  cancelled: false },
-                ]
-            },
-            {
-                id: "FRW10074",
-                priorities: [
-                    { n: 1, component: "SG5", material: "2511125250/s", current: false, cancelled: false },
-                    { n: 2, component: "SG5", material: "2511122951/s", current: false, cancelled: false },
-                    { n: 3, component: "SG5", material: "2511109051/s", current: true,  cancelled: false },
-                ]
-            },
-            {
-                id: "FRW10075",
-                priorities: [
-                    { n: 1, component: "SG6", material: "2511125451/s", current: false, cancelled: false },
-                    { n: 2, component: "SG6", material: "2511109250/s", current: false, cancelled: false },
-                    { n: 3, component: "SG6", material: "2511123150/s", current: true,  cancelled: false },
-                ]
-            },
-            {
-                id: "FRW10076",
-                note: "Saldap — SG3 Eco",
-                priorities: [
-                    { n: 1, component: "DG2", material: "2511124650/s", current: false, cancelled: false },
-                    { n: 2, component: "SG3", material: "M0162623/S",   current: false, cancelled: false },
-                    { n: 3, component: "DG2", material: "2511108350/s", current: true,  cancelled: false },
-                    { n: 4, component: "DG2", material: "2511122350/s", current: false, cancelled: false },
-                ]
-            },
-            {
-                id: "FRW10078",
-                priorities: [
-                    { n: 1, component: "SG4",   material: "2511124953/s", current: false, cancelled: false },
-                    { n: 2, component: "SG2",   material: "M0162644/s",   current: false, cancelled: false },
-                    { n: 3, component: "FG5-7", material: "M0155197/s",   current: true,  cancelled: false },
-                    { n: 4, component: "SG4",   material: "2511122651/s", current: false, cancelled: false },
-                    { n: 5, component: "SG4",   material: "2511108751/s", current: false, cancelled: false },
-                ]
-            },
-            {
-                id: "FRW10079",
-                note: "Turno C",
-                priorities: [
-                    { n: 1, component: "SG4", material: "M0170686/s",  current: false, cancelled: false },
-                    { n: 2, component: "SGR", material: "M0162523/s",  current: false, cancelled: false },
-                    { n: 3, component: "SG3", material: "M0153401/s",  current: false, cancelled: false },
-                ]
-            },
-            {
-                id: "FRW82",
-                priorities: [
-                    { n: 1, component: "SG5",  material: "M0162622/s",  current: true,  cancelled: false },
-                    { n: 2, component: "SG5",  material: "M0155199/s",  current: false, cancelled: false },
-                    { n: 3, component: "P.G.", material: "M0154996/s",  current: false, cancelled: false },
-                ]
-            },
+            { id: "FRW11010", priorities: [
+                { component: "SG7", material: "M0155201/s",  cancelled: false },
+                { component: "SG6", material: "M0153387/s",  cancelled: false, defaultCurrent: true },
+            ]},
+            { id: "FRW10074", priorities: [
+                { component: "SG5", material: "2511125250/s", cancelled: false },
+                { component: "SG5", material: "2511122951/s", cancelled: false },
+                { component: "SG5", material: "2511109051/s", cancelled: false, defaultCurrent: true },
+            ]},
+            { id: "FRW10075", priorities: [
+                { component: "SG6", material: "2511125451/s", cancelled: false },
+                { component: "SG6", material: "2511109250/s", cancelled: false },
+                { component: "SG6", material: "2511123150/s", cancelled: false, defaultCurrent: true },
+            ]},
+            { id: "FRW10076", note: "Saldap — SG3 Eco", priorities: [
+                { component: "DG2", material: "2511124650/s", cancelled: false },
+                { component: "SG3", material: "M0162623/S",   cancelled: false },
+                { component: "DG2", material: "2511108350/s", cancelled: false, defaultCurrent: true },
+                { component: "DG2", material: "2511122350/s", cancelled: false },
+            ]},
+            { id: "FRW10078", priorities: [
+                { component: "SG4",   material: "2511124953/s", cancelled: false },
+                { component: "SG2",   material: "M0162644/s",   cancelled: false },
+                { component: "FG5-7", material: "M0155197/s",   cancelled: false, defaultCurrent: true },
+                { component: "SG4",   material: "2511122651/s", cancelled: false },
+                { component: "SG4",   material: "2511108751/s", cancelled: false },
+            ]},
+            { id: "FRW10079", note: "Turno C", priorities: [
+                { component: "SG4", material: "M0170686/s",  cancelled: false },
+                { component: "SGR", material: "M0162523/s",  cancelled: false },
+                { component: "SG3", material: "M0153401/s",  cancelled: false },
+            ]},
+            { id: "FRW82", priorities: [
+                { component: "SG5",  material: "M0162622/s",  cancelled: false, defaultCurrent: true },
+                { component: "SG5",  material: "M0155199/s",  cancelled: false },
+                { component: "P.G.", material: "M0154996/s",  cancelled: false },
+            ]},
         ]
     },
 ];
 
-function MachineCard({ machine, accentColor }) {
+// ── Helpers ──────────────────────────────────────────────────────────────────
+const STORAGE_KEY = "weisser-priorities-v2"; // v2 = struttura per data
+
+function getTodayStr() {
+    return new Date().toISOString().slice(0, 10);
+}
+
+function formatDateLabel(dateStr) {
+    const [y, m, d] = dateStr.split("-");
+    return `${d}/${m}/${y}`;
+}
+
+/** Costruisce lo stato iniziale per una macchina */
+function initMachine(machine) {
+    const items = machine.priorities.map(p => ({
+        component: p.component,
+        material:  p.material,
+        cancelled:  p.cancelled || false,
+        completed:  false,
+        lotto:      "",
+        turno:      "",
+    }));
+    const curIdx = machine.priorities.findIndex(p => p.defaultCurrent && !p.cancelled);
+    if (curIdx > 0) {
+        const [cur] = items.splice(curIdx, 1);
+        items.unshift(cur);
+    }
+    return { items };
+}
+
+/** Stato di default per tutte le macchine */
+function buildDefaultStates() {
+    const s = {};
+    SECTIONS.forEach(sec => sec.machines.forEach(m => { s[m.id] = initMachine(m); }));
+    return s;
+}
+
+/**
+ * Ritorna lo stato per una data.
+ * Se non esiste, clona dal giorno più recente disponibile (senza lotto/turno/completed).
+ * Se non c'è nessun giorno, usa i default.
+ */
+function getOrInitDate(allData, dateStr) {
+    if (allData[dateStr]) return allData[dateStr];
+
+    const sortedDates = Object.keys(allData).sort().reverse();
+    if (sortedDates.length > 0) {
+        const prev = allData[sortedDates[0]];
+        const cloned = {};
+        Object.entries(prev).forEach(([machineId, ms]) => {
+            cloned[machineId] = {
+                items: ms.items
+                    .filter(it => !it.completed)
+                    .map(it => ({ ...it, completed: false, lotto: "", turno: "" })),
+            };
+        });
+        return cloned;
+    }
+
+    return buildDefaultStates();
+}
+
+/** Calcola n e isCurrent in base alla posizione */
+function withRanks(items) {
+    const firstActive = items.findIndex(x => !x.cancelled && !x.completed);
+    let rank = 0;
+    return items.map((item, idx) => {
+        if (!item.cancelled && !item.completed) {
+            rank++;
+            return { ...item, n: rank, isCurrent: idx === firstActive };
+        }
+        return { ...item, n: "—", isCurrent: false };
+    });
+}
+
+// ── Componente card singola macchina ─────────────────────────────────────────
+function MachineCard({ machineId, machineNote, state, accentColor, readOnly, onMoveUp, onComplete, onUpdate, onReset, onAddItem }) {
+    const displayed = withRanks(state.items);
+    const [adding, setAdding] = useState(false);
+    const [newComp, setNewComp] = useState("");
+    const [newMat, setNewMat] = useState("");
+
+    function handleAdd() {
+        if (!newMat.trim()) return;
+        onAddItem(machineId, { component: newComp.trim(), material: newMat.trim() });
+        setNewComp("");
+        setNewMat("");
+        setAdding(false);
+    }
+
     return (
         <div style={{ background: "var(--bg-card)", borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
-            <div style={{ padding: "10px 16px", background: accentColor, color: "#fff", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontWeight: 700, fontSize: 15, letterSpacing: 0.5 }}>{machine.id}</span>
-                {machine.note && (
-                    <span style={{ fontSize: 11, background: "rgba(255,255,255,0.2)", padding: "2px 8px", borderRadius: 4 }}>{machine.note}</span>
-                )}
+            {/* Header */}
+            <div style={{ padding: "8px 12px", background: accentColor, color: "#fff", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontWeight: 700, fontSize: 13, letterSpacing: 0.5 }}>{machineId}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {machineNote && (
+                        <span style={{ fontSize: 11, background: "rgba(255,255,255,0.2)", padding: "2px 7px", borderRadius: 4 }}>{machineNote}</span>
+                    )}
+                    {!readOnly && (
+                        <>
+                            <button
+                                onClick={() => setAdding(a => !a)}
+                                title="Aggiungi nuova priorità"
+                                style={{ background: "rgba(255,255,255,0.2)", border: "none", color: "#fff", borderRadius: 4, padding: "2px 7px", fontSize: 14, cursor: "pointer", fontWeight: 700, lineHeight: 1.4 }}
+                            >+</button>
+                            <button
+                                onClick={() => onReset(machineId)}
+                                title="Ripristina ordine originale"
+                                style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", borderRadius: 4, padding: "2px 7px", fontSize: 12, cursor: "pointer" }}
+                            >↺</button>
+                        </>
+                    )}
+                </div>
             </div>
-            <div style={{ padding: "6px 0" }}>
-                {machine.priorities.map((p, i) => (
-                    <div key={i} style={{
-                        display: "flex", alignItems: "center", gap: 10,
-                        padding: "8px 16px",
-                        background: p.current ? "rgba(255, 214, 0, 0.15)" : "transparent",
-                        borderLeft: p.current ? "3px solid #FFD600" : "3px solid transparent",
-                        borderBottom: i < machine.priorities.length - 1 ? "1px solid var(--border-light)" : "none",
-                    }}>
-                        <span style={{
-                            minWidth: 24, height: 24, borderRadius: "50%",
-                            background: p.current ? "#FFD600" : "var(--bg-tertiary)",
-                            border: "1px solid var(--border)",
-                            color: p.current ? "#333" : "var(--text-muted)",
-                            fontSize: 11, fontWeight: 700,
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            flexShrink: 0
-                        }}>{p.n}</span>
-                        <div style={{ display: "flex", flexDirection: "column", minWidth: 0, flex: 1 }}>
-                            {p.component && (
-                                <span style={{
-                                    fontSize: 11, fontWeight: 700, textTransform: "uppercase",
-                                    color: p.cancelled ? "var(--text-lighter)" : "var(--text-secondary)",
-                                    textDecoration: p.cancelled ? "line-through" : "none",
-                                }}>{p.component}</span>
-                            )}
+
+            {/* Lista priorità */}
+            <div>
+                {displayed.map((p, i) => (
+                    <div
+                        key={i}
+                        style={{
+                            padding: "7px 10px",
+                            background: p.isCurrent ? "rgba(255,214,0,0.13)" : "transparent",
+                            borderLeft: p.isCurrent ? "3px solid #FFD600" : "3px solid transparent",
+                            borderBottom: i < displayed.length - 1 ? "1px solid var(--border-light)" : "none",
+                            opacity: p.completed ? 0.45 : 1,
+                        }}
+                    >
+                        {/* Riga principale */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
                             <span style={{
-                                fontSize: 12, fontFamily: "monospace",
-                                fontWeight: p.current ? 700 : 500,
-                                color: p.cancelled ? "var(--text-lighter)" : p.current ? "var(--text-primary)" : "var(--text-secondary)",
+                                minWidth: 22, height: 22, borderRadius: "50%",
+                                background: p.isCurrent ? "#FFD600" : "var(--bg-tertiary)",
+                                border: "1px solid var(--border)",
+                                color: p.isCurrent ? "#333" : "var(--text-muted)",
+                                fontSize: 11, fontWeight: 700,
+                                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
+                            }}>{p.n}</span>
+
+                            <span style={{
+                                fontSize: 12, fontFamily: "monospace", fontWeight: p.isCurrent ? 700 : 500,
+                                color: p.cancelled ? "var(--text-lighter)" : p.isCurrent ? "var(--text-primary)" : "var(--text-secondary)",
                                 textDecoration: p.cancelled ? "line-through" : "none",
-                            }}>{p.material}</span>
-                        </div>
-                        {p.current && (
-                            <span style={{ fontSize: 10, fontWeight: 700, color: "#b8860b", background: "rgba(255,214,0,0.3)", padding: "2px 7px", borderRadius: 4, whiteSpace: "nowrap" }}>
-                                IN CORSO
+                                flex: 1, minWidth: 0,
+                            }}>
+                                {p.component ? `${p.component} - ${p.material}` : p.material}
                             </span>
+
+                            {!readOnly && (p.isCurrent ? (
+                                <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                                    <span style={{ fontSize: 10, fontWeight: 700, color: "#b8860b", background: "rgba(255,214,0,0.3)", padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap" }}>
+                                        IN CORSO
+                                    </span>
+                                    <button
+                                        onClick={() => onComplete(machineId, i)}
+                                        title="Segna come completato"
+                                        style={{ background: "#22c55e", border: "none", color: "#fff", borderRadius: 4, padding: "2px 7px", fontSize: 12, cursor: "pointer", fontWeight: 700, lineHeight: 1.4 }}
+                                    >✓</button>
+                                </div>
+                            ) : (!p.cancelled && !p.completed && i > 0 && (
+                                <button
+                                    onClick={() => onMoveUp(machineId, i)}
+                                    title="Sposta su di una posizione"
+                                    style={{ background: "none", border: "1px solid var(--border)", color: "var(--text-muted)", borderRadius: 4, padding: "1px 6px", fontSize: 13, cursor: "pointer", flexShrink: 0, lineHeight: 1.4 }}
+                                >↑</button>
+                            )))}
+                        </div>
+
+                        {/* Lotto + Turno (solo se non completato e non readOnly) */}
+                        {!p.completed && !readOnly && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, paddingLeft: 30 }}>
+                            <span style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap" }}>Lotto</span>
+                            <input
+                                type="number" min="0" placeholder="pz."
+                                value={p.lotto}
+                                onClick={e => e.stopPropagation()}
+                                onChange={e => onUpdate(machineId, i, "lotto", e.target.value)}
+                                style={{ width: 64, padding: "3px 6px", fontSize: 11, borderRadius: 5, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", outline: "none" }}
+                            />
+                            <span style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap" }}>Turno C/O</span>
+                            <select
+                                value={p.turno}
+                                onClick={e => e.stopPropagation()}
+                                onChange={e => onUpdate(machineId, i, "turno", e.target.value)}
+                                style={{ padding: "3px 6px", fontSize: 11, borderRadius: 5, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: p.turno ? "var(--text-primary)" : "var(--text-muted)", outline: "none" }}
+                            >
+                                <option value="">—</option>
+                                <option value="A">A</option>
+                                <option value="B">B</option>
+                                <option value="C">C</option>
+                                <option value="D">D</option>
+                            </select>
+                        </div>
                         )}
                     </div>
                 ))}
             </div>
+
+            {/* Form aggiungi nuova priorità */}
+            {adding && (
+                <div style={{ padding: "8px 10px", borderTop: "1px solid var(--border)", background: "var(--bg-secondary)", display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                    <input
+                        autoFocus
+                        placeholder="Componente"
+                        value={newComp}
+                        onChange={e => setNewComp(e.target.value)}
+                        style={{ width: 80, padding: "4px 7px", fontSize: 11, borderRadius: 5, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)", outline: "none" }}
+                    />
+                    <input
+                        placeholder="Codice materiale"
+                        value={newMat}
+                        onChange={e => setNewMat(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") handleAdd(); if (e.key === "Escape") setAdding(false); }}
+                        style={{ flex: 1, minWidth: 100, padding: "4px 7px", fontSize: 11, borderRadius: 5, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)", outline: "none" }}
+                    />
+                    <button onClick={handleAdd} style={{ background: accentColor, border: "none", color: "#fff", borderRadius: 5, padding: "4px 10px", fontSize: 11, cursor: "pointer", fontWeight: 700 }}>
+                        Aggiungi
+                    </button>
+                    <button onClick={() => setAdding(false)} style={{ background: "none", border: "1px solid var(--border)", color: "var(--text-muted)", borderRadius: 5, padding: "4px 8px", fontSize: 11, cursor: "pointer" }}>
+                        ✕
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
 
+// ── View principale ───────────────────────────────────────────────────────────
 export default function WeisserPrioritiesView() {
+    const today = getTodayStr();
+
+    // Tutto il dato storico: { "2026-03-05": { machineId: { items } }, ... }
+    const [allData, setAllData] = useState(() => {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) return JSON.parse(raw);
+        } catch {}
+        // Migrazione da v1 (senza date)
+        try {
+            const old = localStorage.getItem("weisser-priorities");
+            if (old) {
+                const parsed = JSON.parse(old);
+                return { [today]: parsed };
+            }
+        } catch {}
+        return {};
+    });
+
+    const [currentDate, setCurrentDate] = useState(today);
+
+    // Stato per la data corrente (lazy init se non esiste)
+    const states = allData[currentDate] ?? getOrInitDate(allData, currentDate);
+
+    // Se la data corrente non è ancora nell'allData, la salviamo subito
+    useEffect(() => {
+        if (!allData[currentDate]) {
+            setAllData(prev => ({ ...prev, [currentDate]: states }));
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentDate]);
+
+    // Persiste ad ogni modifica
+    useEffect(() => {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(allData));
+    }, [allData]);
+
+    const isToday = currentDate === today;
+    const readOnly = !isToday;
+
+    // Navigazione date
+    function prevDate() {
+        const d = new Date(currentDate);
+        d.setDate(d.getDate() - 1);
+        const str = d.toISOString().slice(0, 10);
+        setCurrentDate(str);
+    }
+    function nextDate() {
+        const d = new Date(currentDate);
+        d.setDate(d.getDate() + 1);
+        const str = d.toISOString().slice(0, 10);
+        if (str <= today) setCurrentDate(str);
+    }
+
+    function updateStates(updater) {
+        setAllData(prev => ({
+            ...prev,
+            [currentDate]: updater(prev[currentDate] ?? getOrInitDate(prev, currentDate)),
+        }));
+    }
+
+    const moveUp = (machineId, idx) => {
+        if (idx === 0) return;
+        updateStates(prev => {
+            const ms = prev[machineId];
+            if (ms.items[idx].cancelled) return prev;
+            const newItems = [...ms.items];
+            [newItems[idx - 1], newItems[idx]] = [newItems[idx], newItems[idx - 1]];
+            return { ...prev, [machineId]: { ...ms, items: newItems } };
+        });
+    };
+
+    const complete = (machineId, idx) => {
+        updateStates(prev => {
+            const ms = prev[machineId];
+            const newItems = [...ms.items];
+            const [done] = newItems.splice(idx, 1);
+            newItems.push({ ...done, completed: true, lotto: "", turno: "" });
+            return { ...prev, [machineId]: { ...ms, items: newItems } };
+        });
+    };
+
+    const update = (machineId, itemIdx, field, value) => {
+        updateStates(prev => {
+            const ms = prev[machineId];
+            const newItems = ms.items.map((it, i) => i === itemIdx ? { ...it, [field]: value } : it);
+            return { ...prev, [machineId]: { ...ms, items: newItems } };
+        });
+    };
+
+    const reset = (machineId) => {
+        const machine = SECTIONS.flatMap(s => s.machines).find(m => m.id === machineId);
+        if (machine) updateStates(prev => ({ ...prev, [machineId]: initMachine(machine) }));
+    };
+
+    const addItem = (machineId, { component, material }) => {
+        updateStates(prev => {
+            const ms = prev[machineId];
+            const newItem = { component, material, cancelled: false, completed: false, lotto: "", turno: "" };
+            return { ...prev, [machineId]: { ...ms, items: [...ms.items, newItem] } };
+        });
+    };
+
+    const availableDates = Object.keys(allData).sort().reverse();
+
     return (
         <div className="fade-in" style={{ height: "100%", overflowY: "auto", padding: "16px 20px", paddingBottom: 32 }}>
-            <div style={{ marginBottom: 24 }}>
-                <h1 style={{ fontSize: 24, fontWeight: 800, color: "var(--text-primary)", margin: 0 }}>
-                    Priorità Macchine
-                </h1>
-                <p style={{ margin: "6px 0 0 0", fontSize: 13, color: "var(--text-muted)" }}>
-                    Ordine di lavorazione per macchina — la riga evidenziata indica la priorità in corso.
-                </p>
+            {/* Header */}
+            <div style={{ marginBottom: 20, display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+                <div>
+                    <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--text-primary)", margin: 0 }}>Priorità Macchine</h1>
+                    <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--text-muted)" }}>
+                        {readOnly ? "Vista storica — sola lettura" : "↑ sposta su · ✓ completato · + aggiungi · ↺ ripristina"}
+                    </p>
+                </div>
+
+                {/* Navigatore data */}
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <button
+                        onClick={prevDate}
+                        style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)", borderRadius: 6, padding: "5px 10px", fontSize: 14, cursor: "pointer" }}
+                    >‹</button>
+
+                    <div style={{
+                        padding: "5px 14px", borderRadius: 6, fontSize: 13, fontWeight: 700,
+                        background: isToday ? "var(--accent, #3c6ef0)" : "var(--bg-secondary)",
+                        color: isToday ? "#fff" : "var(--text-primary)",
+                        border: "1px solid var(--border)",
+                        minWidth: 110, textAlign: "center",
+                    }}>
+                        {isToday ? "Oggi" : formatDateLabel(currentDate)}
+                        {!isToday && (
+                            <div style={{ fontSize: 10, fontWeight: 400, opacity: 0.7, marginTop: 1 }}>
+                                {formatDateLabel(currentDate)}
+                            </div>
+                        )}
+                    </div>
+
+                    <button
+                        onClick={nextDate}
+                        disabled={currentDate >= today}
+                        style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: currentDate >= today ? "var(--text-lighter)" : "var(--text-primary)", borderRadius: 6, padding: "5px 10px", fontSize: 14, cursor: currentDate >= today ? "default" : "pointer" }}
+                    >›</button>
+
+                    {!isToday && (
+                        <button
+                            onClick={() => setCurrentDate(today)}
+                            style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-muted)", borderRadius: 6, padding: "5px 10px", fontSize: 11, cursor: "pointer" }}
+                        >Oggi</button>
+                    )}
+
+                    {/* Selettore data da lista giorni disponibili */}
+                    {availableDates.length > 1 && (
+                        <select
+                            value={currentDate}
+                            onChange={e => setCurrentDate(e.target.value)}
+                            style={{ padding: "5px 8px", fontSize: 11, borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", outline: "none", cursor: "pointer" }}
+                        >
+                            {availableDates.map(d => (
+                                <option key={d} value={d}>{d === today ? `Oggi (${formatDateLabel(d)})` : formatDateLabel(d)}</option>
+                            ))}
+                        </select>
+                    )}
+                </div>
             </div>
 
-            {SECTIONS.map(section => (
-                <div key={section.label} style={{ marginBottom: 32 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-                        <div style={{ width: 4, height: 24, borderRadius: 2, background: section.color }} />
-                        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--text-primary)" }}>
-                            {section.label}
-                        </h2>
-                    </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 14 }}>
+            {/* Banner sola lettura */}
+            {readOnly && (
+                <div style={{ marginBottom: 16, padding: "8px 14px", background: "rgba(255,200,0,0.12)", border: "1px solid rgba(255,200,0,0.35)", borderRadius: 8, fontSize: 12, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 8 }}>
+                    <span>📅</span>
+                    <span>Stai visualizzando le priorità del <strong>{formatDateLabel(currentDate)}</strong> — modalità sola lettura.</span>
+                    <button onClick={() => setCurrentDate(today)} style={{ marginLeft: "auto", background: "none", border: "none", color: "var(--accent, #3c6ef0)", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
+                        Torna ad oggi →
+                    </button>
+                </div>
+            )}
+
+            {/* Griglia macchine */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, alignItems: "start" }}>
+                {SECTIONS.map(section => (
+                    <div key={section.label} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <div style={{ width: 4, height: 20, borderRadius: 2, background: section.color }} />
+                            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>{section.label}</h2>
+                        </div>
                         {section.machines.map(machine => (
-                            <MachineCard key={machine.id} machine={machine} accentColor={section.color} />
+                            <MachineCard
+                                key={machine.id}
+                                machineId={machine.id}
+                                machineNote={machine.note}
+                                state={states[machine.id] || initMachine(machine)}
+                                accentColor={section.color}
+                                readOnly={readOnly}
+                                onMoveUp={moveUp}
+                                onComplete={complete}
+                                onUpdate={update}
+                                onReset={reset}
+                                onAddItem={addItem}
+                            />
                         ))}
                     </div>
-                </div>
-            ))}
+                ))}
+            </div>
         </div>
     );
 }
