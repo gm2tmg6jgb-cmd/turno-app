@@ -5,128 +5,168 @@ const SECTIONS = [
     {
         label: "Weisser", color: "#3c6ef0",
         machines: [
-            { id: "DRA10060", priorities: [
-                { component: "SGR",   material: "M0153391/s",  cancelled: false },
-                { component: "SG2",   material: "M0153389/s",  cancelled: false, defaultCurrent: true },
-            ]},
-            { id: "DRA10061", priorities: [
-                { component: "SG5",   material: "M0155199/s",  cancelled: false },
-                { component: "FG5-7", material: "M0155197/s",  cancelled: false, defaultCurrent: true },
-            ]},
-            { id: "DRA10062", priorities: [
-                { component: "P.G.", material: "M0154996/s",  cancelled: false, defaultCurrent: true },
-                { component: "SG8",  material: "M0153397/s",  cancelled: false },
-            ]},
-            { id: "DRA10065/66", priorities: [
-                { component: "SG4", material: "M0170686/s",   cancelled: false },
-                { component: "SG5", material: "2511109051/s", cancelled: false, defaultCurrent: true },
-                { component: "SG5", material: "2511122951/s", cancelled: false },
-            ]},
-            { id: "DRA10067/68", priorities: [
-                { component: "SG3", material: "M0133401/s",   cancelled: true },
-                { component: "DG2", material: "2511108350/s", cancelled: false },
-                { component: "DG2", material: "2511122350/s", cancelled: false, defaultCurrent: true },
-            ]},
-            { id: "DRA10069/70", priorities: [
-                { component: "SG6", material: "2511109250/s", cancelled: false },
-                { component: "SG7", material: "M0155201/s",   cancelled: false },
-                { component: "SG6", material: "2511123150/s", cancelled: false, defaultCurrent: true },
-                { component: "SG6", material: "M0153387/s",   cancelled: false },
-            ]},
-            { id: "DRA10071", priorities: [
-                { component: "SG3", material: "8Fe",          cancelled: false, defaultCurrent: true },
-                { component: "",    material: "2511109350/s", cancelled: true },
-                { component: "SGR", material: "M0153391/s",   cancelled: false },
-                { component: "",    material: "2511123250/s", cancelled: false },
-            ]},
+            {
+                id: "DRA10060", priorities: [
+                    { component: "SGR", material: "M0153391/s", cancelled: false },
+                    { component: "SG2", material: "M0153389/s", cancelled: false, defaultCurrent: true },
+                ]
+            },
+            {
+                id: "DRA10061", priorities: [
+                    { component: "SG5", material: "M0155199/s", cancelled: false },
+                    { component: "FG5-7", material: "M0155197/s", cancelled: false, defaultCurrent: true },
+                ]
+            },
+            {
+                id: "DRA10062", priorities: [
+                    { component: "P.G.", material: "M0154996/s", cancelled: false, defaultCurrent: true },
+                    { component: "SG8", material: "M0153397/s", cancelled: false },
+                ]
+            },
+            {
+                id: "DRA10065/66", priorities: [
+                    { component: "SG4", material: "M0170686/s", cancelled: false },
+                    { component: "SG5", material: "2511109051/s", cancelled: false, defaultCurrent: true },
+                    { component: "SG5", material: "2511122951/s", cancelled: false },
+                ]
+            },
+            {
+                id: "DRA10067/68", priorities: [
+                    { component: "SG3", material: "M0133401/s", cancelled: true },
+                    { component: "DG2", material: "2511108350/s", cancelled: false },
+                    { component: "DG2", material: "2511122350/s", cancelled: false, defaultCurrent: true },
+                ]
+            },
+            {
+                id: "DRA10069/70", priorities: [
+                    { component: "SG6", material: "2511109250/s", cancelled: false },
+                    { component: "SG7", material: "M0155201/s", cancelled: false },
+                    { component: "SG6", material: "2511123150/s", cancelled: false, defaultCurrent: true },
+                    { component: "SG6", material: "M0153387/s", cancelled: false },
+                ]
+            },
+            {
+                id: "DRA10071", priorities: [
+                    { component: "SG3", material: "8Fe", cancelled: false, defaultCurrent: true },
+                    { component: "", material: "2511109350/s", cancelled: true },
+                    { component: "SGR", material: "M0153391/s", cancelled: false },
+                    { component: "", material: "2511123250/s", cancelled: false },
+                ]
+            },
         ]
     },
     {
         label: "Laser", color: "#e05c2a",
         machines: [
-            { id: "SCA11006", priorities: [
-                { component: "DG2", material: "2511124650/s", cancelled: false },
-                { component: "SGR", material: "M0162523/s",   cancelled: false },
-                { component: "DG2", material: "2511108350/s", cancelled: false },
-                { component: "SG2", material: "M0153389/s",   cancelled: false },
-                { component: "DG2", material: "2511122350/s", cancelled: false, defaultCurrent: true },
-            ]},
-            { id: "SCA11008", note: "Fine C", priorities: [
-                { component: "SG3", material: "M0153401/s",   cancelled: false },
-                { component: "SG1", material: "2511108150/s", cancelled: false, defaultCurrent: true },
-                { component: "SG1", material: "2511124450/s", cancelled: false },
-                { component: "SGR", material: "M0153391/s",   cancelled: false },
-            ]},
-            { id: "SCA11010", priorities: [
-                { component: "SG3", material: "M0153401/s",   cancelled: false, defaultCurrent: true },
-                { component: "SGR", material: "2511109451/s", cancelled: false },
-                { component: "SG2", material: "M0153389/s",   cancelled: false },
-            ]},
-            { id: "SCA10151", priorities: [
-                { component: "SG7", material: "M0155201/s",  cancelled: false },
-                { component: "SG6", material: "M0153387/s",  cancelled: false, defaultCurrent: true },
-                { component: "SG8", material: "M0153397/s",  cancelled: false },
-            ]},
-            { id: "SCA11009", note: "Fine C", priorities: [
-                { component: "SG4", material: "2511124953/s", cancelled: false },
-                { component: "SG4", material: "M0170686/s",   cancelled: false },
-                { component: "SG5", material: "M0155199/s",   cancelled: false },
-                { component: "SG4", material: "2511122651/s", cancelled: false },
-                { component: "SG4", material: "2511108751/s", cancelled: false, defaultCurrent: true },
-            ]},
-            { id: "SCA11078", note: "Chamos — BAP3", priorities: [
-                { component: "SG6", material: "2511125351",   cancelled: false },
-                { component: "SG5", material: "2511125150",   cancelled: false },
-                { component: "SG3", material: "M0162623/S",   cancelled: false },
-                { component: "SG5", material: "M0162621",     cancelled: false },
-                { component: "SG5", material: "2511108952",   cancelled: false },
-                { component: "SG6", material: "2511109151",   cancelled: false },
-                { component: "SG4", material: "M0162637",     cancelled: false },
-                { component: "SG5", material: "2511122851",   cancelled: false, defaultCurrent: true },
-                { component: "SG6", material: "2511123050",   cancelled: false },
-            ]},
+            {
+                id: "SCA11006", priorities: [
+                    { component: "DG2", material: "2511124650/s", cancelled: false },
+                    { component: "SGR", material: "M0162523/s", cancelled: false },
+                    { component: "DG2", material: "2511108350/s", cancelled: false },
+                    { component: "SG2", material: "M0153389/s", cancelled: false },
+                    { component: "DG2", material: "2511122350/s", cancelled: false, defaultCurrent: true },
+                ]
+            },
+            {
+                id: "SCA11008", note: "Fine C", priorities: [
+                    { component: "SG3", material: "M0153401/s", cancelled: false },
+                    { component: "SG1", material: "2511108150/s", cancelled: false, defaultCurrent: true },
+                    { component: "SG1", material: "2511124450/s", cancelled: false },
+                    { component: "SGR", material: "M0153391/s", cancelled: false },
+                ]
+            },
+            {
+                id: "SCA11010", priorities: [
+                    { component: "SG3", material: "M0153401/s", cancelled: false, defaultCurrent: true },
+                    { component: "SGR", material: "2511109451/s", cancelled: false },
+                    { component: "SG2", material: "M0153389/s", cancelled: false },
+                ]
+            },
+            {
+                id: "SCA10151", priorities: [
+                    { component: "SG7", material: "M0155201/s", cancelled: false },
+                    { component: "SG6", material: "M0153387/s", cancelled: false, defaultCurrent: true },
+                    { component: "SG8", material: "M0153397/s", cancelled: false },
+                ]
+            },
+            {
+                id: "SCA11009", note: "Fine C", priorities: [
+                    { component: "SG4", material: "2511124953/s", cancelled: false },
+                    { component: "SG4", material: "M0170686/s", cancelled: false },
+                    { component: "SG5", material: "M0155199/s", cancelled: false },
+                    { component: "SG4", material: "2511122651/s", cancelled: false },
+                    { component: "SG4", material: "2511108751/s", cancelled: false, defaultCurrent: true },
+                ]
+            },
+            {
+                id: "SCA11078", priorities: [
+                    { component: "SG6", material: "2511125351", cancelled: false },
+                    { component: "SG5", material: "2511125150", cancelled: false },
+                    { component: "SG3", material: "M0162623/S", cancelled: false },
+                    { component: "SG5", material: "M0162621", cancelled: false },
+                    { component: "SG5", material: "2511108952", cancelled: false },
+                    { component: "SG6", material: "2511109151", cancelled: false },
+                    { component: "SG4", material: "M0162637", cancelled: false },
+                    { component: "SG5", material: "2511122851", cancelled: false, defaultCurrent: true },
+                    { component: "SG6", material: "2511123050", cancelled: false },
+                ]
+            },
         ]
     },
     {
         label: "Pfauter", color: "#2a9e6e",
         machines: [
-            { id: "FRW11010", priorities: [
-                { component: "SG7", material: "M0155201/s",  cancelled: false },
-                { component: "SG6", material: "M0153387/s",  cancelled: false, defaultCurrent: true },
-            ]},
-            { id: "FRW10074", priorities: [
-                { component: "SG5", material: "2511125250/s", cancelled: false },
-                { component: "SG5", material: "2511122951/s", cancelled: false },
-                { component: "SG5", material: "2511109051/s", cancelled: false, defaultCurrent: true },
-            ]},
-            { id: "FRW10075", priorities: [
-                { component: "SG6", material: "2511125451/s", cancelled: false },
-                { component: "SG6", material: "2511109250/s", cancelled: false },
-                { component: "SG6", material: "2511123150/s", cancelled: false, defaultCurrent: true },
-            ]},
-            { id: "FRW10076", note: "Saldap — SG3 Eco", priorities: [
-                { component: "DG2", material: "2511124650/s", cancelled: false },
-                { component: "SG3", material: "M0162623/S",   cancelled: false },
-                { component: "DG2", material: "2511108350/s", cancelled: false, defaultCurrent: true },
-                { component: "DG2", material: "2511122350/s", cancelled: false },
-            ]},
-            { id: "FRW10078", priorities: [
-                { component: "SG4",   material: "2511124953/s", cancelled: false },
-                { component: "SG2",   material: "M0162644/s",   cancelled: false },
-                { component: "FG5-7", material: "M0155197/s",   cancelled: false, defaultCurrent: true },
-                { component: "SG4",   material: "2511122651/s", cancelled: false },
-                { component: "SG4",   material: "2511108751/s", cancelled: false },
-            ]},
-            { id: "FRW10079", note: "Turno C", priorities: [
-                { component: "SG4", material: "M0170686/s",  cancelled: false },
-                { component: "SGR", material: "M0162523/s",  cancelled: false },
-                { component: "SG3", material: "M0153401/s",  cancelled: false },
-            ]},
-            { id: "FRW82", priorities: [
-                { component: "SG5",  material: "M0162622/s",  cancelled: false, defaultCurrent: true },
-                { component: "SG5",  material: "M0155199/s",  cancelled: false },
-                { component: "P.G.", material: "M0154996/s",  cancelled: false },
-            ]},
+            {
+                id: "FRW11010", priorities: [
+                    { component: "SG7", material: "M0155201/s", cancelled: false },
+                    { component: "SG6", material: "M0153387/s", cancelled: false, defaultCurrent: true },
+                ]
+            },
+            {
+                id: "FRW10074", priorities: [
+                    { component: "SG5", material: "2511125250/s", cancelled: false },
+                    { component: "SG5", material: "2511122951/s", cancelled: false },
+                    { component: "SG5", material: "2511109051/s", cancelled: false, defaultCurrent: true },
+                ]
+            },
+            {
+                id: "FRW10075", priorities: [
+                    { component: "SG6", material: "2511125451/s", cancelled: false },
+                    { component: "SG6", material: "2511109250/s", cancelled: false },
+                    { component: "SG6", material: "2511123150/s", cancelled: false, defaultCurrent: true },
+                ]
+            },
+            {
+                id: "FRW10076", priorities: [
+                    { component: "DG2", material: "2511124650/s", cancelled: false },
+                    { component: "SG3", material: "M0162623/S", cancelled: false },
+                    { component: "DG2", material: "2511108350/s", cancelled: false, defaultCurrent: true },
+                    { component: "DG2", material: "2511122350/s", cancelled: false },
+                ]
+            },
+            {
+                id: "FRW10078", priorities: [
+                    { component: "SG4", material: "2511124953/s", cancelled: false },
+                    { component: "SG2", material: "M0162644/s", cancelled: false },
+                    { component: "FG5-7", material: "M0155197/s", cancelled: false, defaultCurrent: true },
+                    { component: "SG4", material: "2511122651/s", cancelled: false },
+                    { component: "SG4", material: "2511108751/s", cancelled: false },
+                ]
+            },
+            {
+                id: "FRW10079", note: "Turno C", priorities: [
+                    { component: "SG4", material: "M0170686/s", cancelled: false },
+                    { component: "SGR", material: "M0162523/s", cancelled: false },
+                    { component: "SG3", material: "M0153401/s", cancelled: false },
+                ]
+            },
+            {
+                id: "FRW82", priorities: [
+                    { component: "SG5", material: "M0162622/s", cancelled: false, defaultCurrent: true },
+                    { component: "SG5", material: "M0155199/s", cancelled: false },
+                    { component: "P.G.", material: "M0154996/s", cancelled: false },
+                ]
+            },
         ]
     },
 ];
@@ -147,11 +187,11 @@ function formatDateLabel(dateStr) {
 function initMachine(machine) {
     const items = machine.priorities.map(p => ({
         component: p.component,
-        material:  p.material,
-        cancelled:  p.cancelled || false,
-        completed:  false,
-        lotto:      "",
-        turno:      "",
+        material: p.material,
+        cancelled: p.cancelled || false,
+        completed: false,
+        lotto: "",
+        turno: "",
     }));
     const curIdx = machine.priorities.findIndex(p => p.defaultCurrent && !p.cancelled);
     if (curIdx > 0) {
@@ -207,7 +247,7 @@ function withRanks(items) {
 }
 
 // ── Componente card singola macchina ─────────────────────────────────────────
-function MachineCard({ machineId, machineNote, state, accentColor, readOnly, onMoveUp, onComplete, onUpdate, onReset, onAddItem }) {
+function MachineCard({ machineId, machineNote, state, accentColor, readOnly, turnoCorrente, onMoveUp, onMoveDown, onComplete, onUpdate, onReset, onAddItem, onConfirm, onPostpone }) {
     const displayed = withRanks(state.items);
     const [adding, setAdding] = useState(false);
     const [newComp, setNewComp] = useState("");
@@ -225,7 +265,9 @@ function MachineCard({ machineId, machineNote, state, accentColor, readOnly, onM
         <div style={{ background: "var(--bg-card)", borderRadius: 10, border: "1px solid var(--border)", overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
             {/* Header */}
             <div style={{ padding: "8px 12px", background: accentColor, color: "#fff", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontWeight: 700, fontSize: 13, letterSpacing: 0.5 }}>{machineId}</span>
+                <span style={{ fontWeight: 700, fontSize: 13, letterSpacing: 0.5 }}>
+                    {machineId} {displayed.find(p => p.isCurrent) ? ` — ${displayed.find(p => p.isCurrent).component} ${displayed.find(p => p.isCurrent).material}` : ""}
+                </span>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     {machineNote && (
                         <span style={{ fontSize: 11, background: "rgba(255,255,255,0.2)", padding: "2px 7px", borderRadius: 4 }}>{machineNote}</span>
@@ -249,85 +291,104 @@ function MachineCard({ machineId, machineNote, state, accentColor, readOnly, onM
 
             {/* Lista priorità */}
             <div>
-                {displayed.map((p, i) => (
-                    <div
-                        key={i}
-                        style={{
-                            padding: "7px 10px",
-                            background: p.isCurrent ? "rgba(255,214,0,0.13)" : "transparent",
-                            borderLeft: p.isCurrent ? "3px solid #FFD600" : "3px solid transparent",
-                            borderBottom: i < displayed.length - 1 ? "1px solid var(--border-light)" : "none",
-                            opacity: p.completed ? 0.45 : 1,
-                        }}
-                    >
-                        {/* Riga principale */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
-                            <span style={{
-                                minWidth: 22, height: 22, borderRadius: "50%",
-                                background: p.isCurrent ? "#FFD600" : "var(--bg-tertiary)",
-                                border: "1px solid var(--border)",
-                                color: p.isCurrent ? "#333" : "var(--text-muted)",
-                                fontSize: 11, fontWeight: 700,
-                                display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
-                            }}>{p.n}</span>
+                {displayed.map((p, i) => {
+                    const isTurnoAttivo = turnoCorrente && p.turno === turnoCorrente && !p.completed && !p.cancelled;
+                    return (
+                        <div
+                            key={i}
+                            style={{
+                                padding: "7px 10px",
+                                background: isTurnoAttivo ? "rgba(239,68,68,0.08)" : p.isCurrent ? "rgba(255,214,0,0.13)" : "transparent",
+                                borderLeft: isTurnoAttivo ? "3px solid #EF4444" : p.isCurrent ? "3px solid #FFD600" : "3px solid transparent",
+                                borderBottom: i < displayed.length - 1 ? "1px solid var(--border-light)" : "none",
+                                opacity: p.completed ? 0.45 : 1,
+                            }}
+                        >
+                            {/* Riga principale */}
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
+                                <span style={{
+                                    minWidth: 22, height: 22, borderRadius: "50%",
+                                    background: p.isCurrent ? "#FFD600" : "var(--bg-tertiary)",
+                                    border: "1px solid var(--border)",
+                                    color: p.isCurrent ? "#333" : "var(--text-muted)",
+                                    fontSize: 11, fontWeight: 700,
+                                    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
+                                }}>{p.n}</span>
 
-                            <span style={{
-                                fontSize: 12, fontFamily: "monospace", fontWeight: p.isCurrent ? 700 : 500,
-                                color: p.cancelled ? "var(--text-lighter)" : p.isCurrent ? "var(--text-primary)" : "var(--text-secondary)",
-                                textDecoration: p.cancelled ? "line-through" : "none",
-                                flex: 1, minWidth: 0,
-                            }}>
-                                {p.component ? `${p.component} - ${p.material}` : p.material}
-                            </span>
+                                <span style={{
+                                    fontSize: 12, fontFamily: "monospace", fontWeight: p.isCurrent ? 700 : 500,
+                                    color: p.cancelled ? "var(--text-lighter)" : p.isCurrent ? "var(--text-primary)" : "var(--text-secondary)",
+                                    textDecoration: p.cancelled ? "line-through" : "none",
+                                    flex: 1, minWidth: 0,
+                                }}>
+                                    {p.component ? `${p.component} - ${p.material}` : p.material}
+                                </span>
 
-                            {!readOnly && (p.isCurrent ? (
-                                <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
-                                    <span style={{ fontSize: 10, fontWeight: 700, color: "#b8860b", background: "rgba(255,214,0,0.3)", padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap" }}>
-                                        IN CORSO
+                                {isTurnoAttivo && (
+                                    <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", background: "#EF4444", padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap", flexShrink: 0 }}>
+                                        ⚠ Cambia!
                                     </span>
-                                    <button
-                                        onClick={() => onComplete(machineId, i)}
-                                        title="Segna come completato"
-                                        style={{ background: "#22c55e", border: "none", color: "#fff", borderRadius: 4, padding: "2px 7px", fontSize: 12, cursor: "pointer", fontWeight: 700, lineHeight: 1.4 }}
-                                    >✓</button>
-                                </div>
-                            ) : (!p.cancelled && !p.completed && i > 0 && (
-                                <button
-                                    onClick={() => onMoveUp(machineId, i)}
-                                    title="Sposta su di una posizione"
-                                    style={{ background: "none", border: "1px solid var(--border)", color: "var(--text-muted)", borderRadius: 4, padding: "1px 6px", fontSize: 13, cursor: "pointer", flexShrink: 0, lineHeight: 1.4 }}
-                                >↑</button>
-                            )))}
-                        </div>
+                                )}
+                                {!readOnly && (p.isCurrent ? (
+                                    <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                                        <span style={{ fontSize: 10, fontWeight: 700, color: "#b8860b", background: "rgba(255,214,0,0.3)", padding: "2px 6px", borderRadius: 4, whiteSpace: "nowrap" }}>
+                                            IN CORSO
+                                        </span>
+                                        <button
+                                            onClick={() => onComplete(machineId, i)}
+                                            title="Segna come completato"
+                                            style={{ background: "#22c55e", border: "none", color: "#fff", borderRadius: 4, padding: "2px 7px", fontSize: 12, cursor: "pointer", fontWeight: 700, lineHeight: 1.4 }}
+                                        >✓</button>
+                                    </div>
+                                ) : (!p.cancelled && !p.completed && (
+                                    <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                                        {i > 0 && (
+                                            <button
+                                                onClick={() => onMoveUp(machineId, i)}
+                                                title="Sposta su di una posizione"
+                                                style={{ background: "none", border: "1px solid var(--border)", color: "var(--text-muted)", borderRadius: 4, padding: "1px 6px", fontSize: 13, cursor: "pointer", flexShrink: 0, lineHeight: 1.4 }}
+                                            >↑</button>
+                                        )}
+                                        {i < displayed.length - 1 && (
+                                            <button
+                                                onClick={() => onMoveDown(machineId, i)}
+                                                title="Sposta giù di una posizione"
+                                                style={{ background: "none", border: "1px solid var(--border)", color: "var(--text-muted)", borderRadius: 4, padding: "1px 6px", fontSize: 13, cursor: "pointer", flexShrink: 0, lineHeight: 1.4 }}
+                                            >↓</button>
+                                        )}
+                                    </div>
+                                )))}
+                            </div>
 
-                        {/* Lotto + Turno (solo se non completato e non readOnly) */}
-                        {!p.completed && !readOnly && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, paddingLeft: 30 }}>
-                            <span style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap" }}>Lotto</span>
-                            <input
-                                type="number" min="0" placeholder="pz."
-                                value={p.lotto}
-                                onClick={e => e.stopPropagation()}
-                                onChange={e => onUpdate(machineId, i, "lotto", e.target.value)}
-                                style={{ width: 64, padding: "3px 6px", fontSize: 11, borderRadius: 5, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", outline: "none" }}
-                            />
-                            <span style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap" }}>Turno C/O</span>
-                            <select
-                                value={p.turno}
-                                onClick={e => e.stopPropagation()}
-                                onChange={e => onUpdate(machineId, i, "turno", e.target.value)}
-                                style={{ padding: "3px 6px", fontSize: 11, borderRadius: 5, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: p.turno ? "var(--text-primary)" : "var(--text-muted)", outline: "none" }}
-                            >
-                                <option value="">—</option>
-                                <option value="A">A</option>
-                                <option value="B">B</option>
-                                <option value="C">C</option>
-                                <option value="D">D</option>
-                            </select>
+                            {/* Lotto + Turno (solo se non completato, non readOnly e NON è l'item in attesa di cambio turno) */}
+                            {!p.completed && !readOnly && (!isTurnoAttivo || p.isCurrent) && (
+                                <div style={{ display: "flex", alignItems: "center", gap: 10, paddingLeft: 30 }}>
+                                    <span style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap" }}>Lotto</span>
+                                    <input
+                                        type="number" min="0" placeholder="pz."
+                                        value={p.lotto}
+                                        onClick={e => e.stopPropagation()}
+                                        onChange={e => onUpdate(machineId, i, "lotto", e.target.value)}
+                                        style={{ width: 64, padding: "3px 6px", fontSize: 11, borderRadius: 5, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", outline: "none" }}
+                                    />
+                                    <span style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap" }}>Turno C/O</span>
+                                    <select
+                                        value={p.turno}
+                                        onClick={e => e.stopPropagation()}
+                                        onChange={e => onUpdate(machineId, i, "turno", e.target.value)}
+                                        style={{ padding: "3px 6px", fontSize: 11, borderRadius: 5, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: p.turno ? "var(--text-primary)" : "var(--text-muted)", outline: "none" }}
+                                    >
+                                        <option value="">—</option>
+                                        <option value="A">A</option>
+                                        <option value="B">B</option>
+                                        <option value="C">C</option>
+                                        <option value="D">D</option>
+                                    </select>
+                                </div>
+                            )}
                         </div>
-                        )}
-                    </div>
-                ))}
+                    );
+                })}
             </div>
 
             {/* Form aggiungi nuova priorità */}
@@ -360,7 +421,7 @@ function MachineCard({ machineId, machineNote, state, accentColor, readOnly, onM
 }
 
 // ── View principale ───────────────────────────────────────────────────────────
-export default function WeisserPrioritiesView() {
+export default function WeisserPrioritiesView({ turnoCorrente }) {
     const today = getTodayStr();
 
     // Tutto il dato storico: { "2026-03-05": { machineId: { items } }, ... }
@@ -368,7 +429,7 @@ export default function WeisserPrioritiesView() {
         try {
             const raw = localStorage.getItem(STORAGE_KEY);
             if (raw) return JSON.parse(raw);
-        } catch {}
+        } catch { }
         // Migrazione da v1 (senza date)
         try {
             const old = localStorage.getItem("weisser-priorities");
@@ -376,7 +437,7 @@ export default function WeisserPrioritiesView() {
                 const parsed = JSON.parse(old);
                 return { [today]: parsed };
             }
-        } catch {}
+        } catch { }
         return {};
     });
 
@@ -390,7 +451,7 @@ export default function WeisserPrioritiesView() {
         if (!allData[currentDate]) {
             setAllData(prev => ({ ...prev, [currentDate]: states }));
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [currentDate]);
 
     // Persiste ad ogni modifica
@@ -400,6 +461,17 @@ export default function WeisserPrioritiesView() {
 
     const isToday = currentDate === today;
     const readOnly = !isToday;
+
+    // Macchine che hanno almeno un item con turno === turnoCorrente (non completato, non cancellato)
+    const reminders = turnoCorrente
+        ? SECTIONS.flatMap(s => s.machines).map(m => {
+            const ms = states[m.id];
+            if (!ms) return null;
+            const item = ms.items.find(it => it.turno === turnoCorrente && !it.completed && !it.cancelled);
+            if (!item) return null;
+            return { id: m.id, component: item.component, material: item.material };
+        }).filter(Boolean)
+        : [];
 
     // Navigazione date
     function prevDate() {
@@ -433,6 +505,19 @@ export default function WeisserPrioritiesView() {
         });
     };
 
+    // Move a priority down one position (if not last)
+    const moveDown = (machineId, idx) => {
+        updateStates(prev => {
+            const ms = prev[machineId];
+            // Ensure not last item and not cancelled
+            if (idx >= ms.items.length - 1) return prev;
+            if (ms.items[idx].cancelled) return prev;
+            const newItems = [...ms.items];
+            [newItems[idx], newItems[idx + 1]] = [newItems[idx + 1], newItems[idx]];
+            return { ...prev, [machineId]: { ...ms, items: newItems } };
+        });
+    };
+
     const complete = (machineId, idx) => {
         updateStates(prev => {
             const ms = prev[machineId];
@@ -461,6 +546,37 @@ export default function WeisserPrioritiesView() {
             const ms = prev[machineId];
             const newItem = { component, material, cancelled: false, completed: false, lotto: "", turno: "" };
             return { ...prev, [machineId]: { ...ms, items: [...ms.items, newItem] } };
+        });
+    };
+
+    const confirmChange = (machineId, itemIdx) => {
+        updateStates(prev => {
+            const ms = prev[machineId];
+            if (!ms) return prev;
+            const newItems = ms.items.map((it, i) => {
+                if (i < itemIdx && !it.completed && !it.cancelled) {
+                    return { ...it, completed: true, lotto: "", turno: "" };
+                }
+                return it;
+            });
+            return { ...prev, [machineId]: { ...ms, items: newItems } };
+        });
+    };
+
+    const postponeChange = (machineId, itemIdx) => {
+        const shifts = ["A", "B", "C", "D"];
+        updateStates(prev => {
+            const ms = prev[machineId];
+            if (!ms) return prev;
+            const newItems = ms.items.map((it, i) => {
+                if (i === itemIdx) {
+                    const currentShiftIdx = shifts.indexOf(it.turno || "A");
+                    const nextShift = shifts[(currentShiftIdx + 1) % shifts.length];
+                    return { ...it, turno: nextShift };
+                }
+                return it;
+            });
+            return { ...prev, [machineId]: { ...ms, items: newItems } };
         });
     };
 
@@ -538,29 +654,93 @@ export default function WeisserPrioritiesView() {
                 </div>
             )}
 
-            {/* Griglia macchine */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20, alignItems: "start" }}>
+            {/* Banner "Ricordati di Cambiare" */}
+            {reminders.length > 0 && (
+                <div style={{
+                    marginBottom: 24,
+                    padding: "16px 20px",
+                    background: "rgba(239,68,68,0.12)",
+                    border: "2px solid #EF4444",
+                    borderRadius: 12,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 12
+                }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 24 }}>⚠</span>
+                        <span style={{ fontSize: 18, fontWeight: 800, color: "#b91c1c" }}>
+                            RICORDATI DI CAMBIARE (Turno {turnoCorrente})
+                        </span>
+                    </div>
+                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                        {reminders.map(rem => (
+                            <div key={rem.id} style={{
+                                background: "#EF4444",
+                                color: "#fff",
+                                padding: "10px 16px",
+                                borderRadius: 10,
+                                display: "flex",
+                                flexDirection: "column",
+                                minWidth: 180,
+                                boxShadow: "0 4px 12px rgba(239,68,68,0.25)"
+                            }}>
+                                <span style={{ fontSize: 14, fontWeight: 800, borderBottom: "1px solid rgba(255,255,255,0.3)", marginBottom: 4, paddingBottom: 2 }}>
+                                    {rem.id}
+                                </span>
+                                <span style={{ fontSize: 12, fontWeight: 600 }}>
+                                    {rem.component}
+                                </span>
+                                <span style={{ fontSize: 12, fontWeight: 500, opacity: 0.9, fontFamily: "monospace" }}>
+                                    {rem.material}
+                                </span>
+                                <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
+                                    <button
+                                        onClick={() => confirmChange(rem.id, states[rem.id].items.findIndex(it => it.material === rem.material && it.turno === turnoCorrente))}
+                                        style={{ flex: 1, background: "#fff", color: "#EF4444", border: "none", borderRadius: 6, padding: "4px 0", fontSize: 10, fontWeight: 800, cursor: "pointer" }}
+                                    >CONFERMA</button>
+                                    <button
+                                        onClick={() => postponeChange(rem.id, states[rem.id].items.findIndex(it => it.material === rem.material && it.turno === turnoCorrente))}
+                                        style={{ flex: 1, background: "rgba(255,255,255,0.2)", color: "#fff", border: "none", borderRadius: 6, padding: "4px 0", fontSize: 10, fontWeight: 800, cursor: "pointer" }}
+                                    >RIMANDA</button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Sezioni per tecnologia — layout orizzontale */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
                 {SECTIONS.map(section => (
-                    <div key={section.label} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div key={section.label}>
+                        {/* Intestazione sezione */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                             <div style={{ width: 4, height: 20, borderRadius: 2, background: section.color }} />
                             <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>{section.label}</h2>
                         </div>
-                        {section.machines.map(machine => (
-                            <MachineCard
-                                key={machine.id}
-                                machineId={machine.id}
-                                machineNote={machine.note}
-                                state={states[machine.id] || initMachine(machine)}
-                                accentColor={section.color}
-                                readOnly={readOnly}
-                                onMoveUp={moveUp}
-                                onComplete={complete}
-                                onUpdate={update}
-                                onReset={reset}
-                                onAddItem={addItem}
-                            />
-                        ))}
+                        {/* Macchine in riga orizzontale */}
+                        <div style={{ display: "flex", flexDirection: "row", gap: 12, overflowX: "auto", paddingBottom: 4 }}>
+                            {section.machines.map(machine => (
+                                <div key={machine.id} style={{ minWidth: 260, flex: "0 0 auto" }}>
+                                    <MachineCard
+                                        machineId={machine.id}
+                                        machineNote={machine.note}
+                                        state={states[machine.id] || initMachine(machine)}
+                                        accentColor={section.color}
+                                        readOnly={readOnly}
+                                        turnoCorrente={turnoCorrente}
+                                        onMoveUp={moveUp}
+                                        onMoveDown={moveDown}
+                                        onComplete={complete}
+                                        onUpdate={update}
+                                        onReset={reset}
+                                        onAddItem={addItem}
+                                        onConfirm={confirmChange}
+                                        onPostpone={postponeChange}
+                                    />
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 ))}
             </div>
