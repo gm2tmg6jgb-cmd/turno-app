@@ -57,8 +57,10 @@ export default function ProductionReportView({
   // Configuration for Twin Machines (macchine gemellari)
   // Primary Machine -> Array of all machines in the group
   const TWIN_MACHINES = {
+    DRA10063: ["DRA10063", "DRA10064"],
+    DRA10065: ["DRA10065", "DRA10066"],
+    DRA10067: ["DRA10067", "DRA10068"],
     DRA10069: ["DRA10069", "DRA10070"],
-    // Add other twin groups here if needed
   };
 
   // Helper to find the primary machine ID for a given machine ID
@@ -1316,19 +1318,19 @@ export default function ProductionReportView({
                           </div>
                           {anagrafica[p.materiale?.toUpperCase()]
                             ?.descrizione && (
-                            <div
-                              style={{
-                                fontSize: "12px",
-                                color: "var(--text-muted)",
-                                marginTop: "2px",
-                              }}
-                            >
-                              {
-                                anagrafica[p.materiale?.toUpperCase()]
-                                  .descrizione
-                              }
-                            </div>
-                          )}
+                              <div
+                                style={{
+                                  fontSize: "12px",
+                                  color: "var(--text-muted)",
+                                  marginTop: "2px",
+                                }}
+                              >
+                                {
+                                  anagrafica[p.materiale?.toUpperCase()]
+                                    .descrizione
+                                }
+                              </div>
+                            )}
                         </td>
                         <td
                           style={{
