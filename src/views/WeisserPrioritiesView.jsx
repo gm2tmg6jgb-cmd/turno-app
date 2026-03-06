@@ -174,8 +174,12 @@ const SECTIONS = [
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const STORAGE_KEY = "weisser-priorities-v2"; // v2 = struttura per data
 
+function localDateStr(d) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function getTodayStr() {
-    return new Date().toISOString().slice(0, 10);
+    return localDateStr(new Date());
 }
 
 function formatDateLabel(dateStr) {
@@ -185,7 +189,8 @@ function formatDateLabel(dateStr) {
 
 /** Costruisce lo stato iniziale per una macchina */
 function initMachine(machine) {
-    const items = machine.priorities.map(p => ({
+    const items = machine.priorities.map((p, i) => ({
+        id: `${machine.id}-${i}`,
         component: p.component,
         material: p.material,
         cancelled: p.cancelled || false,
@@ -247,7 +252,7 @@ function withRanks(items) {
 }
 
 // ── Componente card singola macchina ─────────────────────────────────────────
-function MachineCard({ machineId, machineNote, state, accentColor, readOnly, turnoCorrente, onMoveUp, onMoveDown, onComplete, onUpdate, onReset, onAddItem, onConfirm, onPostpone }) {
+function MachineCard({ machineId, machineNote, state, accentColor, readOnly, turnoCorrente, onMoveUp, onMoveDown, onComplete, onUpdate, onReset, onAddItem }) {
     const displayed = withRanks(state.items);
     const [adding, setAdding] = useState(false);
     const [newComp, setNewComp] = useState("");
@@ -295,7 +300,7 @@ function MachineCard({ machineId, machineNote, state, accentColor, readOnly, tur
                     const isTurnoAttivo = turnoCorrente && p.turno === turnoCorrente && !p.completed && !p.cancelled;
                     return (
                         <div
-                            key={i}
+                            key={p.id ?? `${p.material}-${i}`}
                             style={{
                                 padding: "7px 10px",
                                 background: isTurnoAttivo ? "rgba(239,68,68,0.08)" : p.isCurrent ? "rgba(255,214,0,0.13)" : "transparent",
@@ -475,15 +480,12 @@ export default function WeisserPrioritiesView({ turnoCorrente }) {
 
     // Navigazione date
     function prevDate() {
-        const d = new Date(currentDate);
-        d.setDate(d.getDate() - 1);
-        const str = d.toISOString().slice(0, 10);
-        setCurrentDate(str);
+        const [y, m, d] = currentDate.split("-").map(Number);
+        setCurrentDate(localDateStr(new Date(y, m - 1, d - 1)));
     }
     function nextDate() {
-        const d = new Date(currentDate);
-        d.setDate(d.getDate() + 1);
-        const str = d.toISOString().slice(0, 10);
+        const [y, m, d] = currentDate.split("-").map(Number);
+        const str = localDateStr(new Date(y, m - 1, d + 1));
         if (str <= today) setCurrentDate(str);
     }
 
@@ -544,7 +546,7 @@ export default function WeisserPrioritiesView({ turnoCorrente }) {
     const addItem = (machineId, { component, material }) => {
         updateStates(prev => {
             const ms = prev[machineId];
-            const newItem = { component, material, cancelled: false, completed: false, lotto: "", turno: "" };
+            const newItem = { id: `${machineId}-add-${Date.now()}`, component, material, cancelled: false, completed: false, lotto: "", turno: "" };
             return { ...prev, [machineId]: { ...ms, items: [...ms.items, newItem] } };
         });
     };
@@ -735,8 +737,6 @@ export default function WeisserPrioritiesView({ turnoCorrente }) {
                                         onUpdate={update}
                                         onReset={reset}
                                         onAddItem={addItem}
-                                        onConfirm={confirmChange}
-                                        onPostpone={postponeChange}
                                     />
                                 </div>
                             ))}

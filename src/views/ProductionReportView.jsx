@@ -54,6 +54,23 @@ export default function ProductionReportView({
     "RG_ECO", // Eco (6)
   ];
 
+  // Configuration for Twin Machines (macchine gemellari)
+  // Primary Machine -> Array of all machines in the group
+  const TWIN_MACHINES = {
+    DRA10069: ["DRA10069", "DRA10070"],
+    // Add other twin groups here if needed
+  };
+
+  // Helper to find the primary machine ID for a given machine ID
+  const getPrimaryMachineId = (machineId) => {
+    for (const [primary, group] of Object.entries(TWIN_MACHINES)) {
+      if (group.includes(machineId)) {
+        return primary;
+      }
+    }
+    return machineId; // Return itself if not part of a twin group
+  };
+
   // Fetch anagrafica once
   useEffect(() => {
     const fetchAnagrafica = async () => {
@@ -95,8 +112,11 @@ export default function ProductionReportView({
       const newDetailedProduction = {};
       if (resProd.data) {
         resProd.data.forEach((row) => {
-          const machineId = row.macchina_id || row.work_center_sap;
-          if (!machineId) return;
+          const rawMachineId = row.macchina_id || row.work_center_sap;
+          if (!rawMachineId) return;
+
+          // Map to primary twin if applicable
+          const machineId = getPrimaryMachineId(rawMachineId);
 
           const info = anagrafica[row.materiale?.toUpperCase()];
           const project =
@@ -122,7 +142,12 @@ export default function ProductionReportView({
               newDetailedProduction[machineId] = {};
             if (!newDetailedProduction[machineId][key])
               newDetailedProduction[machineId][key] = [];
-            newDetailedProduction[machineId][key].push(row);
+
+            // Keep the original machine ID in the details for clarity if it's a twin
+            newDetailedProduction[machineId][key].push({
+              ...row,
+              _original_machine: rawMachineId,
+            });
           }
         });
       }
@@ -134,13 +159,22 @@ export default function ProductionReportView({
       const newDetailedDowntime = {};
       if (resDowntime.data) {
         resDowntime.data.forEach((row) => {
-          const mId = row.macchina_id;
-          if (!mId) return;
+          const rawMachineId = row.macchina_id;
+          if (!rawMachineId) return;
+
+          // Map to primary twin if applicable
+          const mId = getPrimaryMachineId(rawMachineId);
+
           newDowntimeMap[mId] =
             (newDowntimeMap[mId] || 0) + (row.durata_minuti || 0);
 
           if (!newDetailedDowntime[mId]) newDetailedDowntime[mId] = [];
-          newDetailedDowntime[mId].push(row);
+
+          // Keep original machine ID
+          newDetailedDowntime[mId].push({
+            ...row,
+            _original_machine: rawMachineId,
+          });
         });
       }
       setDowntimeMap(newDowntimeMap);
@@ -332,7 +366,15 @@ export default function ProductionReportView({
           return false;
         }
 
+        // Exclude secondary machines of a twin group from being rendered as their own row
+        const isSecondaryTwin = Object.entries(TWIN_MACHINES).some(
+          ([primary, group]) =>
+            primary !== machineId && group.includes(machineId),
+        );
+        if (isSecondaryTwin) return false;
+
         if (!activeTech || activeTech === "TUTTO") return true;
+
         const tec = tecnologie.find(
           (t) =>
             t.id === activeTech ||
@@ -406,10 +448,16 @@ export default function ProductionReportView({
       const productionTotal = getRowSum(machineId);
       const downtimeTotal = downtimeMap[machineId] || 0;
 
+      // Determine if this is a twin group to adjust the label
+      let displayLabel = machineLabel;
+      if (TWIN_MACHINES[machineId]) {
+        displayLabel = TWIN_MACHINES[machineId].join(" + ");
+      }
+
       // Only include machines with activity to keep email concise
       if (productionTotal > 0 || downtimeTotal > 0) {
         hasData = true;
-        emailBody += `${machineLabel}\n`;
+        emailBody += `${displayLabel}\n`;
         emailBody += `- Produzione: ${productionTotal} pz\n`;
         emailBody += `- Fermi: ${downtimeTotal} min\n`;
 
@@ -813,44 +861,54 @@ export default function ProductionReportView({
               </tr>
             </thead>
             <tbody>
-              {activeTechMachines.map((machineId, ridx) => {
+              {activeTechMachines.map((machineId) => {
                 const mObj = macchine.find((m) => m.id === machineId);
-                const machineLabel = mObj?.nome || machineId;
+                const originalName = mObj?.nome || machineId;
+
+                // Determine if this is a twin group to adjust the label appropriately
+                let displayLabel = originalName;
+                if (TWIN_MACHINES[machineId]) {
+                  displayLabel = TWIN_MACHINES[machineId].join(" + ");
+                }
+
                 const downtime = downtimeMap[machineId] || 0;
                 const isRowHovered = hoveredRow === machineId;
+
                 return (
                   <tr
-                    key={ridx}
-                    style={{
-                      borderBottom: "1px solid var(--border)",
-                      backgroundColor: isRowHovered ? "#eef2ff" : "transparent",
-                    }}
+                    key={machineId}
                     onMouseEnter={() => setHoveredRow(machineId)}
                     onMouseLeave={() => setHoveredRow(null)}
+                    style={{
+                      borderBottom: "1px solid var(--border-light)",
+                      backgroundColor: isRowHovered ? "#eef2ff" : "transparent",
+                      transition: "background-color 0.1s",
+                    }}
                   >
                     <td
                       style={{
-                        border: "1px solid var(--border)",
-                        padding: "8px",
-                        textAlign: "center",
+                        padding: "12px 16px",
+                        fontWeight: "600",
+                        color: "var(--text-primary)",
+                        borderRight: "1px solid var(--border)",
+                        position: "sticky",
+                        left: 0,
                         backgroundColor: isRowHovered
                           ? "#eef2ff"
                           : "var(--bg-card)",
-                        fontWeight: "600",
-                        minWidth: "100px",
-                        position: "sticky",
-                        left: 0,
-                        zIndex: 5,
+                        zIndex: 10,
+                        whiteSpace: "nowrap",
+                        transition: "background-color 0.1s",
                       }}
                     >
-                      {machineLabel}
+                      {displayLabel}
                     </td>
                     <td
                       onClick={() =>
                         downtime > 0 &&
                         setSelectedMachineDowntime({
                           id: machineId,
-                          label: machineLabel,
+                          label: displayLabel,
                           details: detailedDowntime[machineId] || [],
                         })
                       }
@@ -897,7 +955,11 @@ export default function ProductionReportView({
                           onMouseEnter={() => setHoveredCol(comp)}
                           onMouseLeave={() => setHoveredCol(null)}
                           onClick={() => {
-                            if (val) {
+                            if (
+                              val !== undefined &&
+                              val !== "" &&
+                              Number(val) > 0
+                            ) {
                               const rawDetails =
                                 detailedProduction[machineId]?.[comp] || [];
                               const groupedDetails = Object.values(
@@ -914,7 +976,7 @@ export default function ProductionReportView({
 
                               setSelectedProduction({
                                 machineId,
-                                machineLabel,
+                                label: displayLabel,
                                 componentName: comp
                                   .replace("_ECO", "")
                                   .replace("_8FE", ""),
@@ -1026,7 +1088,7 @@ export default function ProductionReportView({
                         textTransform: "uppercase",
                       }}
                     >
-                      Causale
+                      Motivo
                     </th>
                     <th
                       style={{
@@ -1057,9 +1119,10 @@ export default function ProductionReportView({
                               color: "var(--text-primary)",
                             }}
                           >
-                            {motiviFermo.find((m) => m.id === f.causale_id)
-                              ?.nome ||
-                              f.causale_id ||
+                            {motiviFermo.find(
+                              (m) => String(m.id) === String(f.motivo),
+                            )?.label ||
+                              f.motivo ||
                               "N/A"}
                           </div>
                           {f.note && (
@@ -1164,7 +1227,7 @@ export default function ProductionReportView({
             style={{
               backgroundColor: "white",
               borderRadius: "16px",
-              width: "500px",
+              width: "550px", // Slightly wider to accommodate "DRA10069 + DRA10070"
               maxHeight: "80vh",
               display: "flex",
               flexDirection: "column",
@@ -1183,7 +1246,7 @@ export default function ProductionReportView({
               }}
             >
               <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "bold" }}>
-                Dettaglio Produzione: {selectedProduction.machineLabel} -{" "}
+                Dettaglio Produzione: {selectedProduction.label} -{" "}
                 {selectedProduction.componentName}
               </h3>
               <button
