@@ -488,7 +488,13 @@ export default function App() {
             <WeisserPrioritiesView turnoCorrente={turnoCorrente} />
           )}
           {currentView === "productionReport" && (
-            <ProductionReportView />
+            <ProductionReportView
+              macchine={macchine}
+              globalDate={globalDate}
+              turnoCorrente={turnoCorrente}
+              motiviFermo={motiviFermo}
+              tecnologie={tecnologie}
+            />
           )}
           {currentView === "fermi" && (
             <FermiView macchine={macchine} initialReparto={repartoCorrente} initialTurno={turnoCorrente} motiviFermo={motiviFermo} tecnologie={tecnologie} globalDate={globalDate} setGlobalDate={setGlobalDate} />
