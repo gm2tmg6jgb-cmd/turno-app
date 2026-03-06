@@ -1,0 +1,66 @@
+{
+    "version": "1.0",
+    "data_creazione": "2026-03-06",
+    "configurazione_tab": [
+        "TUTTO",
+        "DRA SOFT",
+        "DRA HARD",
+        "FRW",
+        "SCA"
+    ],
+    "soglie": {
+        "ottimale_minimo": 80,
+        "avvertenza_minimo": 50
+    },
+    "colori_stato": {
+        "ottimale": "#10B981",
+        "avvertenza": "#F59E0B",
+        "critico": "#EF4444"
+    },
+    "dati": {
+        "DRA10060": {
+            "SG2": 85,
+            "SGR": 45
+        },
+        "DRA10061": {
+            "FG5-7": 90,
+            "SG5": 30
+        },
+        "DRA10062": {
+            "P.G.": 75,
+            "SG8": 60
+        },
+        "DRA10065/66": {
+            "SG4": 95,
+            "SG5": 82
+        },
+        "DRA10067/68": {
+            "DG2": 0,
+            "SG3": 40
+        },
+        "DRA10069/70": {
+            "SG6": 88,
+            "SG7": 70
+        },
+        "DRA10071": {
+            "SG3": 55,
+            "SGR": 65
+        },
+        "SCA11006": {
+            "DG2": 78,
+            "SGR": 92
+        },
+        "SCA11008": {
+            "SG3": 48,
+            "SG1": 85
+        },
+        "SCA11010": {
+            "SG3": 90,
+            "SGR": 33
+        },
+        "FRW11010": {
+            "SG7": 100,
+            "SG6": 85
+        }
+    }
+}

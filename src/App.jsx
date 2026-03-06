@@ -30,6 +30,7 @@ import LpaPlanView from "./views/LpaPlanView";
 import InventoryView from "./views/InventoryView";
 import ProcessFlowView from "./views/ProcessFlowView";
 import WeisserPrioritiesView from "./views/WeisserPrioritiesView";
+import ProductionReportView from "./views/ProductionReportView";
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 export default function App() {
@@ -208,6 +209,7 @@ export default function App() {
     { id: "sapSummary", label: "Analisi Produzione SAP", icon: Icons.dashboard },
     { id: "processFlow", label: "Flusso di Processo", icon: Icons.users },
     { id: "weisserPriorities", label: "Priorità Macchine", icon: Icons.filter },
+    { id: "productionReport", label: "Report Produzione", icon: Icons.report },
     { id: "fermi", label: "Report Fermi", icon: Icons.alert },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings },
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine },
@@ -229,6 +231,7 @@ export default function App() {
     sapSummary: "Analisi Produzione SAP",
     processFlow: "Flusso di Processo",
     weisserPriorities: "Priorità Macchine",
+    productionReport: "Report Produzione",
     fermi: "Report Fermi",
     anagraficaFermi: "Anagrafica Fermi Macchine",
     anagraficaMacchine: "Anagrafica Macchine",
@@ -348,6 +351,7 @@ export default function App() {
                 {renderItem(ni("sapSummary"))}
                 {renderItem(ni("processFlow"))}
                 {renderItem(ni("weisserPriorities"))}
+                {renderItem(ni("productionReport"))}
                 {renderItem(ni("lpaPlan"))}
                 {renderItem(ni("import"))}
                 {renderItem(ni("sapData"))}
@@ -482,6 +486,9 @@ export default function App() {
           )}
           {currentView === "weisserPriorities" && (
             <WeisserPrioritiesView turnoCorrente={turnoCorrente} />
+          )}
+          {currentView === "productionReport" && (
+            <ProductionReportView />
           )}
           {currentView === "fermi" && (
             <FermiView macchine={macchine} initialReparto={repartoCorrente} initialTurno={turnoCorrente} motiviFermo={motiviFermo} tecnologie={tecnologie} globalDate={globalDate} setGlobalDate={setGlobalDate} />
