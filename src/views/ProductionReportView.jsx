@@ -61,6 +61,12 @@ export default function ProductionReportView({
     DRA10065: ["DRA10065", "DRA10066"],
     DRA10067: ["DRA10067", "DRA10068"],
     DRA10069: ["DRA10069", "DRA10070"],
+    DRA10097: ["DRA10097", "DRA10098"],
+    DRA10099: ["DRA10099", "DRA10100"],
+    DRA10101: ["DRA10101", "DRA10107"],
+    DRA10102: ["DRA10102", "DRA10108"],
+    DRA10110: ["DRA10110", "DRA10111"],
+    DRA10113: ["DRA10113", "DRA10114"],
   };
 
   // Helper to find the primary machine ID for a given machine ID
