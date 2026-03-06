@@ -1,175 +1,188 @@
-import { useState, useEffect } from "react";
+import React, { useState } from 'react';
 
-const ProductionReportView = () => {
-    const [config, setConfig] = useState(null);
-    const [activeTab, setActiveTab] = useState("TUTTO");
-    const [loading, setLoading] = useState(true);
+export default function ProductionReportView() {
+    const matrice = { "DRA10060": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA10061": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA10062": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA10063/64": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA10065/66": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA10067/68": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA10069/70": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA10071": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA10072": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA11042": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRW10193": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRW10217": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRW10076": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRW10078": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRW12464": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRW10074": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRW10075": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRW10082": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRW10140": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRW10079": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRW11980": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRW10081": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRW11010": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRW11022": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRW11016": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRW11017": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "EGW11005": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "EGW11008": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "EGW11014": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "EGW11015": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "EGW11016": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SCA11008": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SCA11009": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SCA11010": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SCA10151": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SCA11006": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "MZA11005": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "MZA11006": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "MZA11008": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "STW11002": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "STW11007": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "STW19069": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "STW12177": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRD19013": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRD19060": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "ORE19068": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "RAA11009": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRA11023": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRA11025": { "SG1": "", "DG": "", "SG3": "", "Software": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA10110/111": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA10116": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA10106": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA10102/108": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA10099/100": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA19009": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA10097/98": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA10101/107": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA11016": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA10113/114": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA10109": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "" }, "SLW11011": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLW11012": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLW11046": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLW11126": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLW11044": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLW11009": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLW11010": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLW11017": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLW11014": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLW11027": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLW11026": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLW11028": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLW11013": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLW11048": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "HNW16040": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLA11083": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLA11084": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLA11085": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLA11086": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLA11087": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLA11088": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLA11089": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLA11090": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLA11091": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLA11092": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLA11108": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLA11109": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLA11110": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SCA10078": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA10058": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA10059": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA11044": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRW10189": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRW10073": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "FRW11015": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "EGW11006": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "EGW11007": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "" }, "BOA394": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA10096": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA10190": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA11837": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLW11018": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLW11019": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SLW11029": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA11130": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA11131": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA11132": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "DRA11133": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "ORE11103": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "MON12551": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" }, "SCA11051": { "SG1": "", "DG": "", "SG3": "", "SG4": "", "SG5": "", "SG6": "", "SG7": "", "RW": "", "RG": "", "SG2": "", "SG8": "", "5/7": "", "PG": "", "Diff mach": "", "Diff Asm": "", "Diff LW": "", "Rw": "" } };
+    const components = ["SG1", "DG", "SG3", "SG4", "SG5", "SG6", "SG7", "RW", "RG", "SG2", "SG8", "5/7", "PG", "Diff mach", "Diff Asm", "Diff LW", "Rw"];
+    const all_machines = ["DRA10060", "DRA10061", "DRA10062", "DRA10063/64", "DRA10065/66", "DRA10067/68", "DRA10069/70", "DRA10071", "DRA10072", "DRA11042", "FRW10193", "FRW10217", "FRW10076", "FRW10078", "FRW12464", "FRW10074", "FRW10075", "FRW10082", "FRW10140", "FRW10079", "FRW11980", "FRW10081", "FRW11010", "FRW11022", "FRW11016", "FRW11017", "EGW11005", "EGW11008", "EGW11014", "EGW11015", "EGW11016", "SCA11008", "SCA11009", "SCA11010", "SCA10151", "SCA11006", "MZA11005", "MZA11006", "MZA11008", "STW11002", "STW11007", "STW19069", "STW12177", "FRD19013", "FRD19060", "ORE19068", "RAA11009", "FRA11023", "FRA11025", "DRA10110/111", "DRA10116", "DRA10106", "DRA10102/108", "DRA10099/100", "DRA19009", "DRA10097/98", "DRA10101/107", "DRA11016", "DRA10113/114", "DRA10109", "SLW11011", "SLW11012", "SLW11046", "SLW11126", "SLW11044", "SLW11009", "SLW11010", "SLW11017", "SLW11014", "SLW11027", "SLW11026", "SLW11028", "SLW11013", "SLW11048", "HNW16040", "SLA11083", "SLA11084", "SLA11085", "SLA11086", "SLA11087", "SLA11088", "SLA11089", "SLA11090", "SLA11091", "SLA11092", "SLA11108", "SLA11109", "SLA11110", "SCA10078", "DRA10058", "DRA10059", "DRA11044", "FRW10189", "FRW10073", "FRW11015", "EGW11006", "EGW11007", "BOA394", "DRA10096", "DRA10190", "DRA11837", "SLW11018", "SLW11019", "SLW11029", "DRA11130", "DRA11131", "DRA11132", "DRA11133", "ORE11103", "MON12551", "SCA11051"];
+    const dra_soft = ["DRA10060", "DRA10061", "DRA10062", "DRA10063/64", "DRA10065/66", "DRA10067/68", "DRA10069/70", "DRA10071", "DRA10072", "DRA11042", "DRA10058", "DRA10059", "DRA11044"];
+    const dra_hard = ["DRA10110/111", "DRA10116", "DRA10106", "DRA10102/108", "DRA10099/100", "DRA19009", "DRA10097/98", "DRA10101/107", "DRA11016", "DRA10113/114", "DRA10109", "DRA10096", "DRA10190", "DRA11837", "DRA11130", "DRA11131", "DRA11132", "DRA11133"];
+    const frw_machines = ["FRW10193", "FRW10217", "FRW10076", "FRW10078", "FRW12464", "FRW10074", "FRW10075", "FRW10082", "FRW10140", "FRW10079", "FRW11980", "FRW10081", "FRW11010", "FRW11022", "FRW11016", "FRW11017", "FRW10189", "FRW10073", "FRW11015"];
+    const egw_machines = ["EGW11005", "EGW11008", "EGW11014", "EGW11015", "EGW11016", "EGW11006", "EGW11007"];
+    const sca_machines = ["SCA11008", "SCA11009", "SCA11010", "SCA10151", "SCA11006", "SCA10078", "SCA11051"];
+    const mza_machines = ["MZA11005", "MZA11006", "MZA11008"];
+    const stw_machines = ["STW11002", "STW11007", "STW19069", "STW12177"];
+    const frd_machines = ["FRD19013", "FRD19060"];
+    const ore_machines = ["ORE19068", "ORE11103"];
+    const raa_machines = ["RAA11009"];
+    const fra_machines = ["FRA11023", "FRA11025"];
+    const slw_machines = ["SLW11011", "SLW11012", "SLW11046", "SLW11126", "SLW11044", "SLW11009", "SLW11010", "SLW11017", "SLW11014", "SLW11027", "SLW11026", "SLW11028", "SLW11013", "SLW11048", "SLW11018", "SLW11019", "SLW11029"];
+    const hnw_machines = ["HNW16040"];
+    const sla_machines = ["SLA11083", "SLA11084", "SLA11085", "SLA11086", "SLA11087", "SLA11088", "SLA11089", "SLA11090", "SLA11091", "SLA11092", "SLA11108", "SLA11109", "SLA11110"];
+    const boa_machines = ["BOA394"];
+    const mon_machines = ["MON12551"];
 
-    useEffect(() => {
-        fetch("/report_produzione_config.json")
-            .then(res => res.json())
-            .then(data => {
-                setConfig(data);
-                setLoading(false);
-            })
-            .catch(err => {
-                console.error("Errore caricamento config:", err);
-                setLoading(false);
-            });
-    }, []);
+    const [activeTech, setActiveTech] = useState('TUTTO');
 
-    if (loading) return <div style={{ padding: 20 }}>Caricamento...</div>;
-    if (!config) return <div style={{ padding: 20 }}>Errore nel caricamento del report.</div>;
-
-    const { dati, soglie, colori_stato, configurazione_tab } = config;
-
-    const getMacchineByTecnologia = (tecnologia) => {
-        const macchine = Object.keys(dati);
-        if (tecnologia === "TUTTO") return macchine;
-
-        if (tecnologia === "DRA SOFT") {
-            const draSoft = [
-                'DRA10060', 'DRA10061', 'DRA10062', 'DRA10063/64', 'DRA10065/66',
-                'DRA10067/68', 'DRA10069/70', 'DRA10071', 'DRA10072', 'DRA11042',
-                'DRA10058', 'DRA10059', 'DRA11044'
-            ];
-            return macchine.filter(m => draSoft.includes(m));
-        }
-
-        if (tecnologia === "DRA HARD") {
-            const draSoft = [
-                'DRA10060', 'DRA10061', 'DRA10062', 'DRA10063/64', 'DRA10065/66',
-                'DRA10067/68', 'DRA10069/70', 'DRA10071', 'DRA10072', 'DRA11042',
-                'DRA10058', 'DRA10059', 'DRA11044'
-            ];
-            return macchine.filter(m => m.startsWith('DRA') && !draSoft.includes(m));
-        }
-
-        return macchine.filter(m => m.startsWith(tecnologia.split(' ')[0]));
+    const getBackgroundColor = (value) => {
+        if (value === '' || value === 0) return 'white';
+        if (value > 100) return '#D1FAE5';
+        if (value > 50) return '#FEF3C7';
+        return '#FEE2E2';
     };
 
-    const getColorStato = (value) => {
-        if (value === "" || value === 0) return "#FFFFFF";
-        if (value > soglie.ottimale_minimo) return colori_stato.ottimale;
-        if (value > soglie.avvertenza_minimo) return colori_stato.avvertenza;
-        return colori_stato.critico;
+    const getRowSum = (machine) => {
+        return components.reduce((sum, comp) => {
+            const val = matrice[machine][comp];
+            return sum + (val !== "" ? Number(val) || 0 : 0);
+        }, 0);
     };
 
-    const getSommaRiga = (macchina) => {
-        return Object.values(dati[macchina] || {}).reduce((sum, val) => sum + (typeof val === 'number' ? val : 0), 0);
-    };
+    const currentMachines =
+        activeTech === 'TUTTO' ? all_machines :
+            activeTech === 'DRA SOFT' ? dra_soft :
+                activeTech === 'DRA HARD' ? dra_hard :
+                    activeTech === 'FRW' ? frw_machines :
+                        activeTech === 'EGW' ? egw_machines :
+                            activeTech === 'SCA' ? sca_machines :
+                                activeTech === 'MZA' ? mza_machines :
+                                    activeTech === 'STW' ? stw_machines :
+                                        activeTech === 'FRD' ? frd_machines :
+                                            activeTech === 'ORE' ? ore_machines :
+                                                activeTech === 'RAA' ? raa_machines :
+                                                    activeTech === 'FRA' ? fra_machines :
+                                                        activeTech === 'SLW' ? slw_machines :
+                                                            activeTech === 'HNW' ? hnw_machines :
+                                                                activeTech === 'SLA' ? sla_machines :
+                                                                    activeTech === 'BOA' ? boa_machines :
+                                                                        mon_machines;
 
-    const macchineFiltrate = getMacchineByTecnologia(activeTab);
-    const tuttiComponenti = Array.from(new Set(Object.values(dati).flatMap(m => Object.keys(m)))).sort();
+    const tabStyle = (tech) => ({
+        padding: '8px 14px',
+        backgroundColor: activeTech === tech ? '#3B82F6' : '#E5E7EB',
+        color: activeTech === tech ? 'white' : '#111827',
+        border: 'none',
+        borderRadius: '6px',
+        fontWeight: '600',
+        cursor: 'pointer',
+        fontSize: '11px',
+        transition: 'all 0.2s',
+        whiteSpace: 'nowrap'
+    });
 
     return (
-        <div className="fade-in" style={{ padding: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <div>
-                    <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0 }}>Report Produzione</h1>
-                    <p style={{ margin: "4px 0 0", fontSize: 12, color: "var(--text-muted)" }}>Matrice produzione componenti per macchina</p>
+        <div className="fade-in" style={{ minHeight: '100vh', backgroundColor: 'var(--bg-secondary)', padding: '32px' }}>
+            <div style={{ maxWidth: '100%' }}>
+                <div style={{ marginBottom: '32px' }}>
+                    <h1 style={{ fontSize: '36px', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '8px' }}>Report Produzione</h1>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Matrice Macchine x Componenti (dati SAP)</p>
                 </div>
-                <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: 14, fontWeight: 700 }}>v{config.version}</div>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{config.data_creazione}</div>
+
+                {/* Tab Selector */}
+                <div style={{ marginBottom: '24px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <button onClick={() => setActiveTech('TUTTO')} style={tabStyle('TUTTO')}>TUTTO ({all_machines.length})</button>
+                    <button onClick={() => setActiveTech('DRA SOFT')} style={tabStyle('DRA SOFT')}>DRA SOFT ({dra_soft.length})</button>
+                    <button onClick={() => setActiveTech('DRA HARD')} style={tabStyle('DRA HARD')}>DRA HARD ({dra_hard.length})</button>
+                    <button onClick={() => setActiveTech('FRW')} style={tabStyle('FRW')}>FRW ({frw_machines.length})</button>
+                    <button onClick={() => setActiveTech('EGW')} style={tabStyle('EGW')}>EGW ({egw_machines.length})</button>
+                    <button onClick={() => setActiveTech('SCA')} style={tabStyle('SCA')}>SCA ({sca_machines.length})</button>
+                    <button onClick={() => setActiveTech('MZA')} style={tabStyle('MZA')}>MZA ({mza_machines.length})</button>
+                    <button onClick={() => setActiveTech('STW')} style={tabStyle('STW')}>STW ({stw_machines.length})</button>
+                    <button onClick={() => setActiveTech('FRD')} style={tabStyle('FRD')}>FRD ({frd_machines.length})</button>
+                    <button onClick={() => setActiveTech('ORE')} style={tabStyle('ORE')}>ORE ({ore_machines.length})</button>
+                    <button onClick={() => setActiveTech('RAA')} style={tabStyle('RAA')}>RAA ({raa_machines.length})</button>
+                    <button onClick={() => setActiveTech('FRA')} style={tabStyle('FRA')}>FRA ({fra_machines.length})</button>
+                    <button onClick={() => setActiveTech('SLW')} style={tabStyle('SLW')}>SLW ({slw_machines.length})</button>
+                    <button onClick={() => setActiveTech('HNW')} style={tabStyle('HNW')}>HNW ({hnw_machines.length})</button>
+                    <button onClick={() => setActiveTech('SLA')} style={tabStyle('SLA')}>SLA ({sla_machines.length})</button>
+                    <button onClick={() => setActiveTech('BOA')} style={tabStyle('BOA')}>BOA ({boa_machines.length})</button>
+                    <button onClick={() => setActiveTech('MON')} style={tabStyle('MON')}>MON ({mon_machines.length})</button>
                 </div>
-            </div>
 
-            <div style={{ display: "flex", gap: 10, marginBottom: 20, overflowX: "auto", paddingBottom: 10 }}>
-                {configurazione_tab.map(tab => (
-                    <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        style={{
-                            padding: "8px 16px",
-                            borderRadius: 8,
-                            border: "1px solid var(--border)",
-                            background: activeTab === tab ? "var(--accent)" : "var(--bg-card)",
-                            color: activeTab === tab ? "white" : "var(--text-primary)",
-                            cursor: "pointer",
-                            fontWeight: 600,
-                            whiteSpace: "nowrap",
-                            transition: "all 0.2s"
-                        }}
-                    >
-                        {tab}
-                    </button>
-                ))}
-            </div>
-
-            <div style={{ background: "var(--bg-card)", borderRadius: 12, border: "1px solid var(--border)", overflow: "hidden", boxShadow: "0 4px 20px rgba(0,0,0,0.08)" }}>
-                <div style={{ overflowX: "auto" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                        <thead>
-                            <tr style={{ background: "var(--bg-secondary)", borderBottom: "2px solid var(--border)" }}>
-                                <th style={{ padding: 15, textAlign: "left", width: 140, position: "sticky", left: 0, background: "var(--bg-secondary)", zIndex: 10 }}>Macchina</th>
-                                <th style={{ padding: 15, textAlign: "center", fontWeight: 800, borderRight: "2px solid var(--border)", background: "rgba(0,0,0,0.05)", width: 100 }}>TOTALE</th>
-                                {tuttiComponenti.map(comp => (
-                                    <th key={comp} style={{ padding: 15, textAlign: "center", minWidth: 90 }}>{comp}</th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {macchineFiltrate.map(m => (
-                                <tr key={m} style={{ borderBottom: "1px solid var(--border)", transition: "background 0.2s" }}>
-                                    <td style={{ padding: 15, fontWeight: 700, position: "sticky", left: 0, background: "var(--bg-card)", zIndex: 5, borderRight: "1px solid var(--border)" }}>{m}</td>
-                                    <td style={{ padding: 15, textAlign: "center", fontWeight: 800, background: "rgba(0,0,0,0.02)", borderRight: "2px solid var(--border)" }}>
-                                        {getSommaRiga(m)}
-                                    </td>
-                                    {tuttiComponenti.map(comp => {
-                                        const val = (dati[m] || {})[comp];
-                                        return (
-                                            <td
-                                                key={comp}
-                                                style={{
-                                                    padding: 15,
-                                                    textAlign: "center",
-                                                    background: val ? getColorStato(val) : "transparent",
-                                                    color: val ? "white" : "var(--text-primary)",
-                                                    fontWeight: val ? 700 : 400,
-                                                    opacity: val ? 1 : 0.3
-                                                }}
-                                            >
-                                                {val || "0"}
-                                            </td>
-                                        );
-                                    })}
+                <div style={{ borderRadius: '8px', overflow: 'hidden', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', border: '1px solid var(--border)', backgroundColor: 'var(--bg-card)' }}>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ borderCollapse: 'collapse', fontSize: '12px', width: '100%' }}>
+                            <tbody>
+                                {/* Header Row - DCT 300, 8Fe, Eco */}
+                                <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                                    <th colSpan={2} style={{ border: '1px solid var(--border)', padding: '10px', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', fontWeight: 'bold' }}></th>
+                                    <th colSpan={9} style={{ border: '1px solid var(--border)', padding: '10px', textAlign: 'center', backgroundColor: '#EFF6FF22', fontWeight: 'bold', fontSize: '14px', color: '#3B82F6' }}>DCT 300</th>
+                                    <th colSpan={14} style={{ border: '1px solid var(--border)', padding: '10px', textAlign: 'center', backgroundColor: '#F3E8FF22', fontWeight: 'bold', fontSize: '14px', color: '#A855F7' }}>8Fe</th>
+                                    <th colSpan={6} style={{ border: '1px solid var(--border)', padding: '10px', textAlign: 'center', backgroundColor: '#CCFBF122', fontWeight: 'bold', fontSize: '14px', color: '#10B981' }}>Eco</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
 
-            <div style={{ marginTop: 24, padding: 16, background: "var(--bg-secondary)", borderRadius: 10, display: "flex", flexWrap: "wrap", gap: 24, fontSize: 12 }}>
-                <div style={{ fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 1 }}>Legenda Soglie:</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 16, height: 16, borderRadius: 4, background: colori_stato.ottimale }} />
-                    <span style={{ fontWeight: 600 }}>Ottimale</span> (&gt;{soglie.ottimale_minimo})
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 16, height: 16, borderRadius: 4, background: colori_stato.avvertenza }} />
-                    <span style={{ fontWeight: 600 }}>Avvertenza</span> (&gt;{soglie.avvertenza_minimo})
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ width: 16, height: 16, borderRadius: 4, background: colori_stato.critico }} />
-                    <span style={{ fontWeight: 600 }}>Critico</span> (&le;{soglie.avvertenza_minimo})
-                </div>
-            </div>
+                                {/* Header Row - Componenti (SG1, SG2, ecc.) */}
+                                <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                                    <th style={{ border: '1px solid var(--border)', padding: '10px', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', fontWeight: 'bold', minWidth: '100px', position: 'sticky', left: 0, zIndex: 10 }}>Macchina</th>
+                                    <th style={{ border: '1px solid var(--border)', padding: '10px', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', fontWeight: 'bold', minWidth: '80px' }}>Totale</th>
+                                    {components.map((comp, idx) => (
+                                        <th key={idx} style={{ border: '1px solid var(--border)', padding: '10px', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', fontWeight: 'bold', fontSize: '11px', minWidth: '80px' }}>
+                                            {comp}
+                                        </th>
+                                    ))}
+                                </tr>
 
-            <div style={{ marginTop: 30, padding: 20, borderRadius: 12, border: "1px dashed var(--border)", textAlign: "center", color: "var(--text-muted)" }}>
-                <p style={{ margin: 0, fontSize: 13 }}>
-                    I dati in questa tabella sono sincronizzati con l'ultimo export SAP caricato nel sistema.
-                </p>
-                <button
-                    onClick={() => window.location.reload()}
-                    style={{ marginTop: 12, background: "none", border: "1px solid var(--border)", padding: "6px 16px", borderRadius: 6, fontSize: 12, cursor: "pointer", color: "var(--text-primary)" }}
-                >
-                    Forza Sincronizzazione
-                </button>
+                                {/* Data Rows - Macchine filtrate */}
+                                {currentMachines.map((machine, ridx) => (
+                                    <tr key={ridx} style={{ borderBottom: '1px solid var(--border)' }}>
+                                        <td style={{ border: '1px solid var(--border)', padding: '8px', textAlign: 'center', backgroundColor: 'var(--bg-card)', fontWeight: '600', minWidth: '100px', position: 'sticky', left: 0, zIndex: 5 }}>
+                                            {machine}
+                                        </td>
+                                        <td style={{ border: '1px solid var(--border)', padding: '8px', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', fontWeight: '700', minWidth: '80px' }}>
+                                            {getRowSum(machine)}
+                                        </td>
+
+                                        {components.map((comp, cidx) => {
+                                            const val = matrice[machine] ? matrice[machine][comp] : "";
+                                            return (
+                                                <td
+                                                    key={cidx}
+                                                    style={{
+                                                        border: '1px solid var(--border)',
+                                                        padding: '8px',
+                                                        textAlign: 'center',
+                                                        backgroundColor: getBackgroundColor(val),
+                                                        color: '#111827',
+                                                        fontWeight: '600',
+                                                        fontSize: '12px',
+                                                        minWidth: '80px',
+                                                        opacity: val === "" ? 0.2 : 1
+                                                    }}
+                                                >
+                                                    {val || "0"}
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div style={{ marginTop: '32px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                    <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                            <div style={{ width: '12px', height: '12px', backgroundColor: '#EF4444', borderRadius: '50%' }}></div>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Critico</span>
+                        </div>
+                        <p style={{ color: 'var(--text-primary)', fontWeight: '600' }}>Status Rosso</p>
+                    </div>
+                    <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                            <div style={{ width: '12px', height: '12px', backgroundColor: '#10B981', borderRadius: '50%' }}></div>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Ottimale</span>
+                        </div>
+                        <p style={{ color: 'var(--text-primary)', fontWeight: '600' }}>Status Verde</p>
+                    </div>
+                    <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                            <div style={{ width: '12px', height: '12px', backgroundColor: '#F59E0B', borderRadius: '50%' }}></div>
+                            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Avvertenza</span>
+                        </div>
+                        <p style={{ color: 'var(--text-primary)', fontWeight: '600' }}>Status Giallo</p>
+                    </div>
+                </div>
             </div>
         </div>
     );
-};
-
-export default ProductionReportView;
+}
