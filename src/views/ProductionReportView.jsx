@@ -898,14 +898,27 @@ export default function ProductionReportView({
                           onMouseLeave={() => setHoveredCol(null)}
                           onClick={() => {
                             if (val) {
+                              const rawDetails =
+                                detailedProduction[machineId]?.[comp] || [];
+                              const groupedDetails = Object.values(
+                                rawDetails.reduce((acc, curr) => {
+                                  const mat = curr.materiale || "N/A";
+                                  if (!acc[mat]) {
+                                    acc[mat] = { ...curr, qta_ottenuta: 0 };
+                                  }
+                                  acc[mat].qta_ottenuta +=
+                                    curr.qta_ottenuta || 0;
+                                  return acc;
+                                }, {}),
+                              );
+
                               setSelectedProduction({
                                 machineId,
                                 machineLabel,
                                 componentName: comp
                                   .replace("_ECO", "")
                                   .replace("_8FE", ""),
-                                details:
-                                  detailedProduction[machineId]?.[comp] || [],
+                                details: groupedDetails,
                               });
                             }
                           }}
