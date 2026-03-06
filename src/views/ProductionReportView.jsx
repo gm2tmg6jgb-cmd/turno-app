@@ -120,8 +120,8 @@ export default function ProductionReportView() {
                             <tr style={{ borderBottom: '2px solid var(--border)' }}>
                                 <th colSpan={2} style={{ border: '1px solid var(--border)', padding: '8px', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', fontWeight: 'bold' }}></th>
                                 <th colSpan={9} style={{ border: '1px solid var(--border)', padding: '8px', textAlign: 'center', backgroundColor: '#EFF6FF', fontWeight: 'bold', fontSize: '13px', color: '#3B82F6' }}>DCT 300</th>
-                                <th colSpan={14} style={{ border: '1px solid var(--border)', padding: '8px', textAlign: 'center', backgroundColor: '#F3E8FF', fontWeight: 'bold', fontSize: '13px', color: '#A855F7' }}>8Fe</th>
-                                <th colSpan={6} style={{ border: '1px solid var(--border)', padding: '8px', textAlign: 'center', backgroundColor: '#CCFBF1', fontWeight: 'bold', fontSize: '13px', color: '#10B981' }}>Eco</th>
+                                <th colSpan={8} style={{ border: '1px solid var(--border)', padding: '8px', textAlign: 'center', backgroundColor: '#F3E8FF', fontWeight: 'bold', fontSize: '13px', color: '#A855F7' }}>8Fe</th>
+                                <th colSpan={6} style={{ border: '1px solid var(--border)', padding: '8px', textAlign: 'center', backgroundColor: '#CCFBF1', fontWeight: 'bold', fontSize: '13px', color: '#10B981' }}>DCT ECO</th>
                             </tr>
 
                             {/* Header Row - Componenti (SG1, SG2, ecc.) */}
