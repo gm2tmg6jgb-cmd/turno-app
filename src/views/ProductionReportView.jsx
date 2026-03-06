@@ -70,8 +70,8 @@ export default function ProductionReportView() {
     });
 
     return (
-        <div className="fade-in" style={{ minHeight: '100vh', backgroundColor: 'var(--bg-secondary)', padding: '32px' }}>
-            <div style={{ maxWidth: '100%' }}>
+        <div className="fade-in" style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', backgroundColor: 'var(--bg-secondary)', padding: '32px' }}>
+            <div style={{ marginBottom: '16px', padding: '0 4px' }}>
                 <div style={{ marginBottom: '32px' }}>
                     <h1 style={{ fontSize: '36px', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '8px' }}>Report Produzione</h1>
                     <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Matrice Macchine x Componenti (dati SAP)</p>
@@ -97,90 +97,100 @@ export default function ProductionReportView() {
                     <button onClick={() => setActiveTech('BOA')} style={tabStyle('BOA')}>BOA ({boa_machines.length})</button>
                     <button onClick={() => setActiveTech('MON')} style={tabStyle('MON')}>MON ({mon_machines.length})</button>
                 </div>
+            </div>
 
-                <div style={{ borderRadius: '8px', overflow: 'hidden', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', border: '1px solid var(--border)', backgroundColor: 'var(--bg-card)' }}>
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ borderCollapse: 'collapse', fontSize: '12px', width: '100%' }}>
-                            <tbody>
-                                {/* Header Row - DCT 300, 8Fe, Eco */}
-                                <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                                    <th colSpan={2} style={{ border: '1px solid var(--border)', padding: '10px', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', fontWeight: 'bold' }}></th>
-                                    <th colSpan={9} style={{ border: '1px solid var(--border)', padding: '10px', textAlign: 'center', backgroundColor: '#EFF6FF22', fontWeight: 'bold', fontSize: '14px', color: '#3B82F6' }}>DCT 300</th>
-                                    <th colSpan={14} style={{ border: '1px solid var(--border)', padding: '10px', textAlign: 'center', backgroundColor: '#F3E8FF22', fontWeight: 'bold', fontSize: '14px', color: '#A855F7' }}>8Fe</th>
-                                    <th colSpan={6} style={{ border: '1px solid var(--border)', padding: '10px', textAlign: 'center', backgroundColor: '#CCFBF122', fontWeight: 'bold', fontSize: '14px', color: '#10B981' }}>Eco</th>
-                                </tr>
+            <div style={{
+                flex: 1,
+                borderRadius: '12px',
+                overflow: 'hidden',
+                boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--bg-card)',
+                display: 'flex',
+                flexDirection: 'column'
+            }}>
+                <div style={{ overflow: 'auto', flex: 1 }}>
+                    <table style={{ borderCollapse: 'separate', borderSpacing: 0, fontSize: '11px', width: '100%' }}>
+                        <thead style={{ position: 'sticky', top: 0, zIndex: 100 }}>
+                            {/* Header Row - DCT 300, 8Fe, Eco */}
+                            <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                                <th colSpan={2} style={{ border: '1px solid var(--border)', padding: '8px', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', fontWeight: 'bold' }}></th>
+                                <th colSpan={9} style={{ border: '1px solid var(--border)', padding: '8px', textAlign: 'center', backgroundColor: '#EFF6FF', fontWeight: 'bold', fontSize: '13px', color: '#3B82F6' }}>DCT 300</th>
+                                <th colSpan={14} style={{ border: '1px solid var(--border)', padding: '8px', textAlign: 'center', backgroundColor: '#F3E8FF', fontWeight: 'bold', fontSize: '13px', color: '#A855F7' }}>8Fe</th>
+                                <th colSpan={6} style={{ border: '1px solid var(--border)', padding: '8px', textAlign: 'center', backgroundColor: '#CCFBF1', fontWeight: 'bold', fontSize: '13px', color: '#10B981' }}>Eco</th>
+                            </tr>
 
-                                {/* Header Row - Componenti (SG1, SG2, ecc.) */}
-                                <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                                    <th style={{ border: '1px solid var(--border)', padding: '10px', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', fontWeight: 'bold', minWidth: '100px', position: 'sticky', left: 0, zIndex: 10 }}>Macchina</th>
-                                    <th style={{ border: '1px solid var(--border)', padding: '10px', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', fontWeight: 'bold', minWidth: '80px' }}>Totale</th>
-                                    {components.map((comp, idx) => (
-                                        <th key={idx} style={{ border: '1px solid var(--border)', padding: '10px', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', fontWeight: 'bold', fontSize: '11px', minWidth: '80px' }}>
-                                            {comp}
-                                        </th>
-                                    ))}
-                                </tr>
-
-                                {/* Data Rows - Macchine filtrate */}
-                                {currentMachines.map((machine, ridx) => (
-                                    <tr key={ridx} style={{ borderBottom: '1px solid var(--border)' }}>
-                                        <td style={{ border: '1px solid var(--border)', padding: '8px', textAlign: 'center', backgroundColor: 'var(--bg-card)', fontWeight: '600', minWidth: '100px', position: 'sticky', left: 0, zIndex: 5 }}>
-                                            {machine}
-                                        </td>
-                                        <td style={{ border: '1px solid var(--border)', padding: '8px', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', fontWeight: '700', minWidth: '80px' }}>
-                                            {getRowSum(machine)}
-                                        </td>
-
-                                        {components.map((comp, cidx) => {
-                                            const val = matrice[machine] ? matrice[machine][comp] : "";
-                                            return (
-                                                <td
-                                                    key={cidx}
-                                                    style={{
-                                                        border: '1px solid var(--border)',
-                                                        padding: '8px',
-                                                        textAlign: 'center',
-                                                        backgroundColor: getBackgroundColor(val),
-                                                        color: '#111827',
-                                                        fontWeight: '600',
-                                                        fontSize: '12px',
-                                                        minWidth: '80px',
-                                                        opacity: val === "" ? 0.2 : 1
-                                                    }}
-                                                >
-                                                    {val || "0"}
-                                                </td>
-                                            );
-                                        })}
-                                    </tr>
+                            {/* Header Row - Componenti (SG1, SG2, ecc.) */}
+                            <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                                <th style={{ border: '1px solid var(--border)', padding: '8px', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', fontWeight: 'bold', minWidth: '100px', position: 'sticky', left: 0, zIndex: 110 }}>Macchina</th>
+                                <th style={{ border: '1px solid var(--border)', padding: '8px', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', fontWeight: 'bold', minWidth: '70px' }}>Totale</th>
+                                {components.map((comp, idx) => (
+                                    <th key={idx} style={{ border: '1px solid var(--border)', padding: '8px', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', fontWeight: 'bold', fontSize: '10px', minWidth: '70px' }}>
+                                        {comp}
+                                    </th>
                                 ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {/* Data Rows - Macchine filtrate */}
+                            {currentMachines.map((machine, ridx) => (
+                                <tr key={ridx} style={{ borderBottom: '1px solid var(--border)' }}>
+                                    <td style={{ border: '1px solid var(--border)', padding: '8px', textAlign: 'center', backgroundColor: 'var(--bg-card)', fontWeight: '600', minWidth: '100px', position: 'sticky', left: 0, zIndex: 5 }}>
+                                        {machine}
+                                    </td>
+                                    <td style={{ border: '1px solid var(--border)', padding: '8px', textAlign: 'center', backgroundColor: 'var(--bg-secondary)', fontWeight: '700', minWidth: '80px' }}>
+                                        {getRowSum(machine)}
+                                    </td>
 
-                <div style={{ marginTop: '32px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
-                    <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                            <div style={{ width: '12px', height: '12px', backgroundColor: '#EF4444', borderRadius: '50%' }}></div>
-                            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Critico</span>
-                        </div>
-                        <p style={{ color: 'var(--text-primary)', fontWeight: '600' }}>Status Rosso</p>
+                                    {components.map((comp, cidx) => {
+                                        const val = matrice[machine] ? matrice[machine][comp] : "";
+                                        return (
+                                            <td
+                                                key={cidx}
+                                                style={{
+                                                    border: '1px solid var(--border)',
+                                                    padding: '8px',
+                                                    textAlign: 'center',
+                                                    backgroundColor: getBackgroundColor(val),
+                                                    color: '#111827',
+                                                    fontWeight: '600',
+                                                    fontSize: '12px',
+                                                    minWidth: '80px',
+                                                    opacity: val === "" ? 0.2 : 1
+                                                }}
+                                            >
+                                                {val || "0"}
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div style={{ marginTop: '16px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <div style={{ width: '12px', height: '12px', backgroundColor: '#EF4444', borderRadius: '50%' }}></div>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Critico</span>
                     </div>
-                    <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                            <div style={{ width: '12px', height: '12px', backgroundColor: '#10B981', borderRadius: '50%' }}></div>
-                            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Ottimale</span>
-                        </div>
-                        <p style={{ color: 'var(--text-primary)', fontWeight: '600' }}>Status Verde</p>
+                    <p style={{ color: 'var(--text-primary)', fontWeight: '600' }}>Status Rosso</p>
+                </div>
+                <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <div style={{ width: '12px', height: '12px', backgroundColor: '#10B981', borderRadius: '50%' }}></div>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Ottimale</span>
                     </div>
-                    <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                            <div style={{ width: '12px', height: '12px', backgroundColor: '#F59E0B', borderRadius: '50%' }}></div>
-                            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Avvertenza</span>
-                        </div>
-                        <p style={{ color: 'var(--text-primary)', fontWeight: '600' }}>Status Giallo</p>
+                    <p style={{ color: 'var(--text-primary)', fontWeight: '600' }}>Status Verde</p>
+                </div>
+                <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px', padding: '16px', boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <div style={{ width: '12px', height: '12px', backgroundColor: '#F59E0B', borderRadius: '50%' }}></div>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Avvertenza</span>
                     </div>
+                    <p style={{ color: 'var(--text-primary)', fontWeight: '600' }}>Status Giallo</p>
                 </div>
             </div>
         </div>
