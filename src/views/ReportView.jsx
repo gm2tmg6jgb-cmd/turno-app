@@ -45,8 +45,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
     const [confermeSap, setConfermeSap] = useState([]);
     const [absencesViewMode, setAbsencesViewMode] = useState("aggregate");
     const [searchMacchina, setSearchMacchina] = useState(""); // "detail" or "aggregate"
-    const [pezziInputs, setPezziInputs] = useState({}); // { [machineId]: { qta: '', scarti: '', durata: '' } }
-    const [autoFermiActive, setAutoFermiActive] = useState({}); // { [machineId]: boolean }
+    const [pezziInputs, setPezziInputs] = useState({}); // { [machineId]: { qta: '', scarti: '', durata: '', durata_auto: '' } }
 
     // Fetch Fermi & Pezzi when Date or Turno changes
     useEffect(() => {
@@ -235,6 +234,68 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
     const allAss = useMemo(() => {
         return assegnazioni.filter(a => a.data === selectedDate && (!selectedTurno || a.turno_id === selectedTurno));
     }, [assegnazioni, selectedDate, selectedTurno]);
+
+    // Helper to render Automation Box
+    const renderAutomationBox = (machine) => {
+        if (!machine.automazione) return null;
+
+        const automationFermi = currentMachineFermi.filter(f => f.macchina_id === machine.id && f.is_automazione);
+        const pm = machine; // local alias
+
+        return (
+            <div key={`auto-box-${pm.id}`} style={{ 
+                marginTop: 8, 
+                padding: "6px 8px", 
+                background: "var(--bg-secondary)", 
+                borderRadius: 6, 
+                border: "1px dashed var(--border)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 4
+            }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, fontWeight: 700, color: "var(--accent)" }}>
+                    <span>🤖 {pm.automazione}</span>
+                </div>
+
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {automationFermi.map(f => (
+                        <div key={f.id} className="tag" style={{ fontSize: 9, padding: "1px 4px", background: "rgba(139, 92, 246, 0.1)", color: "#8B5CF6", border: "1px solid rgba(139, 92, 246, 0.2)", display: "flex", alignItems: "center", gap: 2 }}>
+                            <span>{f.motivo}</span>
+                            <button onClick={() => handleDeleteFermi(f.id)} style={{ border: "none", background: "none", color: "inherit", cursor: "pointer", padding: 0 }}>{Icons.x}</button>
+                        </div>
+                    ))}
+                    {automationFermi.length === 0 && <span style={{ fontSize: 9, color: "var(--text-lighter)", fontStyle: "italic" }}>Nessun fermo registrato</span>}
+                </div>
+
+                <div style={{ display: "flex", gap: 2, marginTop: 2 }}>
+                    <input
+                        type="number" className="input" placeholder="Min"
+                        style={{ width: 35, height: 20, fontSize: 9, padding: 2 }}
+                        value={pezziInputs[pm.id]?.durata_auto || ""}
+                        onChange={e => setPezziInputs(prev => ({ ...prev, [pm.id]: { ...(prev[pm.id] || {}), durata_auto: e.target.value } }))}
+                    />
+                    <select
+                        className="select-input" style={{ height: 20, fontSize: 9, padding: "0 2px", flex: 1, border: "1px solid var(--accent-light, #DDD)" }}
+                        onChange={(e) => {
+                            if (e.target.value) {
+                                handlePostFermi(pm.id, e.target.value, pezziInputs[pm.id]?.durata_auto, true);
+                                setPezziInputs(prev => ({ ...prev, [pm.id]: { ...(prev[pm.id] || {}), durata_auto: "" } }));
+                                e.target.value = "";
+                            }
+                        }}
+                    >
+                        <option value="">+ Fermo Robot</option>
+                        {(() => {
+                            const tecId = pm.tecnologia_id || tecnologie.find(t => t.prefissi?.split(',').some(p => pm.id.startsWith(p)))?.id;
+                            return motiviFermo.filter(mot => !tecId || mot.tecnologia_id === tecId).map(mot => (
+                                <option key={mot.id} value={mot.label}>{mot.label}</option>
+                            ));
+                        })()}
+                    </select>
+                </div>
+            </div>
+        );
+    };
 
     // Trend Data Calculation (Next 14 Days from Selected Date)
     const trendData = useMemo(() => {
@@ -915,69 +976,62 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                     </div>
                                                                                 </td>
                                                                                 <td style={{ padding: "8px 12px" }}>
-                                                                                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                                                                                        {pairMachines.map(pm => {
-                                                                                            const machineFermiRecords = currentMachineFermi.filter(f => f.macchina_id === pm.id);
-                                                                                            return (
-                                                                                                <div key={`fermi-box-${pm.id}`} style={{ borderLeft: secondaryMachine ? "2px solid var(--border-light)" : "none", paddingLeft: secondaryMachine ? 6 : 0 }}>
-                                                                                                    {secondaryMachine && <div style={{ fontSize: 9, fontWeight: 700, color: "var(--text-muted)", marginBottom: 2 }}>{pm.nome}</div>}
-                                                                                                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
-                                                                                                        {machineFermiRecords.map(f => (
-                                                                                                                <div key={f.id} className="tag tag-red" style={{ fontSize: 9, padding: "1px 4px", display: "flex", alignItems: "center", gap: 2 }}>
-                                                                                                                    {f.is_automazione && <span title="Automazione/Robot">🤖</span>}
-                                                                                                                    <span>{f.motivo}</span>
-                                                                                                                    <button onClick={() => handleDeleteFermi(f.id)} style={{ border: "none", background: "none", color: "inherit", cursor: "pointer", padding: 0 }}>{Icons.x}</button>
-                                                                                                                </div>
-                                                                                                        ))}
-                                                                                                        {currentMachineFermiSap.filter(fs => fs.macchina_id === pm.id).map(fs => (
-                                                                                                            <div key={fs.id} className="tag" style={{ fontSize: 9, padding: "1px 4px", background: "rgba(249, 115, 22, 0.1)", color: "#F97316", border: "1px solid rgba(249, 115, 22, 0.2)", display: "flex", alignItems: "center", gap: 2 }}>
-                                                                                                                <span title={fs.descrizione_fermo}>SAP: {fs.descrizione_fermo || fs.codice_fermo}</span>
+                                                                                        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                                                                            {pairMachines.map((pm, idx) => {
+                                                                                                const machineFermiRecords = currentMachineFermi.filter(f => f.macchina_id === pm.id && !f.is_automazione);
+                                                                                                const isLast = idx === pairMachines.length - 1;
+                                                                                                const showCentralAuto = secondaryMachine && idx === 0;
+
+                                                                                                return (
+                                                                                                    <React.Fragment key={`fermi-box-wrapper-${pm.id}`}>
+                                                                                                        <div key={`fermi-box-${pm.id}`} style={{ borderLeft: secondaryMachine ? "2px solid var(--border-light)" : "none", paddingLeft: secondaryMachine ? 4 : 0 }}>
+                                                                                                            {secondaryMachine && <div style={{ fontSize: 9, fontWeight: 700, color: "var(--text-muted)", marginBottom: 2 }}>{pm.nome}</div>}
+                                                                                                            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
+                                                                                                                {machineFermiRecords.map(f => (
+                                                                                                                        <div key={f.id} className="tag tag-red" style={{ fontSize: 9, padding: "1px 4px", display: "flex", alignItems: "center", gap: 2 }}>
+                                                                                                                            <span>{f.motivo}</span>
+                                                                                                                            <button onClick={() => handleDeleteFermi(f.id)} style={{ border: "none", background: "none", color: "inherit", cursor: "pointer", padding: 0 }}>{Icons.x}</button>
+                                                                                                                        </div>
+                                                                                                                ))}
+                                                                                                                {currentMachineFermiSap.filter(fs => fs.macchina_id === pm.id).map(fs => (
+                                                                                                                    <div key={fs.id} className="tag" style={{ fontSize: 9, padding: "1px 4px", background: "rgba(249, 115, 22, 0.1)", color: "#F97316", border: "1px solid rgba(249, 115, 22, 0.2)", display: "flex", alignItems: "center", gap: 2 }}>
+                                                                                                                        <span title={fs.descrizione_fermo}>SAP: {fs.descrizione_fermo || fs.codice_fermo}</span>
+                                                                                                                    </div>
+                                                                                                                ))}
                                                                                                             </div>
-                                                                                                        ))}
-                                                                                                    </div>
-                                                                                                    <div style={{ display: "flex", gap: 2 }}>
-                                                                                                        <input
-                                                                                                            type="number" className="input" placeholder="Min"
-                                                                                                            style={{ width: 35, height: 20, fontSize: 9, padding: 2 }}
-                                                                                                            value={pezziInputs[pm.id]?.durata || ""}
-                                                                                                            onChange={e => setPezziInputs(prev => ({ ...prev, [pm.id]: { ...(prev[pm.id] || {}), durata: e.target.value } }))}
-                                                                                                        />
-                                                                                                        <button 
-                                                                                                            onClick={() => setAutoFermiActive(prev => ({ ...prev, [pm.id]: !prev[pm.id] }))}
-                                                                                                            style={{ 
-                                                                                                                border: "1px solid var(--border)", 
-                                                                                                                background: autoFermiActive[pm.id] ? "var(--accent-muted)" : "var(--bg-tertiary)", 
-                                                                                                                color: autoFermiActive[pm.id] ? "var(--accent)" : "var(--text-muted)",
-                                                                                                                borderRadius: 4, cursor: "pointer", fontSize: 10, padding: "0 4px", height: 20
-                                                                                                            }}
-                                                                                                            title={pm.automazione ? `Attiva fermo per ${pm.automazione}` : "Attiva fermo automazione"}
-                                                                                                        >
-                                                                                                            🤖
-                                                                                                        </button>
-                                                                                                        <select
-                                                                                                            className="select-input" style={{ height: 20, fontSize: 9, padding: "0 2px", flex: 1, border: autoFermiActive[pm.id] ? "1px solid var(--accent)" : "1px solid var(--border)" }}
-                                                                                                            onChange={(e) => {
-                                                                                                                if (e.target.value) {
-                                                                                                                    handlePostFermi(pm.id, e.target.value, pezziInputs[pm.id]?.durata, autoFermiActive[pm.id]);
-                                                                                                                    setPezziInputs(prev => ({ ...prev, [pm.id]: { ...(prev[pm.id] || {}), durata: "" } }));
-                                                                                                                    setAutoFermiActive(prev => ({ ...prev, [pm.id]: false }));
-                                                                                                                    e.target.value = "";
-                                                                                                                }
-                                                                                                            }}
-                                                                                                        >
-                                                                                                            <option value="">+</option>
-                                                                                                            {(() => {
-                                                                                                                const tecId = pm.tecnologia_id || tecnologie.find(t => t.prefissi?.split(',').some(p => pm.id.startsWith(p)))?.id;
-                                                                                                                return motiviFermo.filter(mot => !tecId || mot.tecnologia_id === tecId).map(mot => (
-                                                                                                                    <option key={mot.id} value={mot.label}>{mot.label}</option>
-                                                                                                                ));
-                                                                                                            })()}
-                                                                                                        </select>
-                                                                                                    </div>
-                                                                                                </div>
-                                                                                            );
-                                                                                        })}
-                                                                                    </div>
+                                                                                                            <div style={{ display: "flex", gap: 2 }}>
+                                                                                                                <input
+                                                                                                                    type="number" className="input" placeholder="Min"
+                                                                                                                    style={{ width: 35, height: 20, fontSize: 9, padding: 2 }}
+                                                                                                                    value={pezziInputs[pm.id]?.durata || ""}
+                                                                                                                    onChange={e => setPezziInputs(prev => ({ ...prev, [pm.id]: { ...(prev[pm.id] || {}), durata: e.target.value } }))}
+                                                                                                                />
+                                                                                                                <select
+                                                                                                                    className="select-input" style={{ height: 20, fontSize: 9, padding: "0 2px", flex: 1 }}
+                                                                                                                    onChange={(e) => {
+                                                                                                                        if (e.target.value) {
+                                                                                                                            handlePostFermi(pm.id, e.target.value, pezziInputs[pm.id]?.durata, false);
+                                                                                                                            setPezziInputs(prev => ({ ...prev, [pm.id]: { ...(prev[pm.id] || {}), durata: "" } }));
+                                                                                                                            e.target.value = "";
+                                                                                                                        }
+                                                                                                                    }}
+                                                                                                                >
+                                                                                                                    <option value="">+ Fermo Macchina</option>
+                                                                                                                    {(() => {
+                                                                                                                        const tecId = pm.tecnologia_id || tecnologie.find(t => t.prefissi?.split(',').some(p => pm.id.startsWith(p)))?.id;
+                                                                                                                        return motiviFermo.filter(mot => !tecId || mot.tecnologia_id === tecId).map(mot => (
+                                                                                                                            <option key={mot.id} value={mot.label}>{mot.label}</option>
+                                                                                                                        ));
+                                                                                                                    })()}
+                                                                                                                </select>
+                                                                                                            </div>
+                                                                                                        </div>
+                                                                                                        {showCentralAuto && renderAutomationBox(pm)}
+                                                                                                        {!secondaryMachine && renderAutomationBox(pm)}
+                                                                                                    </React.Fragment>
+                                                                                                );
+                                                                                            })}
+                                                                                        </div>
                                                                                 </td>
                                                                             </tr>
                                                                         );
@@ -1084,65 +1138,57 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                             </td>
                                                                             <td style={{ padding: "8px 12px" }}>
                                                                                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                                                                                    {pairMachines.map(pm => {
-                                                                                        const machineFermiRecords = currentMachineFermi.filter(f => f.macchina_id === pm.id);
+                                                                                    {pairMachines.map((pm, idx) => {
+                                                                                        const machineFermiRecords = currentMachineFermi.filter(f => f.macchina_id === pm.id && !f.is_automazione);
+                                                                                        const showCentralAuto = secondaryMachine && idx === 0;
+
                                                                                         return (
-                                                                                            <div key={`fermi-box-${pm.id}`} style={{ borderLeft: secondaryMachine ? "2px solid var(--border-light)" : "none", paddingLeft: secondaryMachine ? 6 : 0 }}>
-                                                                                                {secondaryMachine && <div style={{ fontSize: 9, fontWeight: 700, color: "var(--text-muted)", marginBottom: 2 }}>{pm.nome}</div>}
-                                                                                                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
-                                                                                                    {machineFermiRecords.map(f => (
-                                                                                                        <div key={f.id} className="tag tag-red" style={{ fontSize: 9, padding: "1px 4px", display: "flex", alignItems: "center", gap: 2 }}>
-                                                                                                            {f.is_automazione && <span title="Automazione/Robot">🤖</span>}
-                                                                                                            <span>{f.motivo}</span>
-                                                                                                            <button onClick={() => handleDeleteFermi(f.id)} style={{ border: "none", background: "none", color: "inherit", cursor: "pointer", padding: 0 }}>{Icons.x}</button>
-                                                                                                        </div>
-                                                                                                    ))}
-                                                                                                    {currentMachineFermiSap.filter(fs => fs.macchina_id === pm.id).map(fs => (
-                                                                                                        <div key={fs.id} className="tag" style={{ fontSize: 9, padding: "1px 4px", background: "rgba(249, 115, 22, 0.1)", color: "#F97316", border: "1px solid rgba(249, 115, 22, 0.2)", display: "flex", alignItems: "center", gap: 2 }}>
-                                                                                                            <span title={fs.descrizione_fermo}>SAP: {fs.descrizione_fermo || fs.codice_fermo}</span>
-                                                                                                        </div>
-                                                                                                    ))}
+                                                                                            <React.Fragment key={`fermi-box-wrapper-${pm.id}`}>
+                                                                                                <div key={`fermi-box-${pm.id}`} style={{ borderLeft: secondaryMachine ? "2px solid var(--border-light)" : "none", paddingLeft: secondaryMachine ? 4 : 0 }}>
+                                                                                                    {secondaryMachine && <div style={{ fontSize: 9, fontWeight: 700, color: "var(--text-muted)", marginBottom: 2 }}>{pm.nome}</div>}
+                                                                                                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
+                                                                                                        {machineFermiRecords.map(f => (
+                                                                                                            <div key={f.id} className="tag tag-red" style={{ fontSize: 9, padding: "1px 4px", display: "flex", alignItems: "center", gap: 2 }}>
+                                                                                                                <span>{f.motivo}</span>
+                                                                                                                <button onClick={() => handleDeleteFermi(f.id)} style={{ border: "none", background: "none", color: "inherit", cursor: "pointer", padding: 0 }}>{Icons.x}</button>
+                                                                                                            </div>
+                                                                                                        ))}
+                                                                                                        {currentMachineFermiSap.filter(fs => fs.macchina_id === pm.id).map(fs => (
+                                                                                                            <div key={fs.id} className="tag" style={{ fontSize: 9, padding: "1px 4px", background: "rgba(249, 115, 22, 0.1)", color: "#F97316", border: "1px solid rgba(249, 115, 22, 0.2)", display: "flex", alignItems: "center", gap: 2 }}>
+                                                                                                                <span title={fs.descrizione_fermo}>SAP: {fs.descrizione_fermo || fs.codice_fermo}</span>
+                                                                                                            </div>
+                                                                                                        ))}
+                                                                                                    </div>
+                                                                                                    <div style={{ display: "flex", gap: 2 }}>
+                                                                                                        <input
+                                                                                                            type="number" className="input" placeholder="Min"
+                                                                                                            style={{ width: 35, height: 20, fontSize: 9, padding: 2 }}
+                                                                                                            value={pezziInputs[pm.id]?.durata || ""}
+                                                                                                            onChange={e => setPezziInputs(prev => ({ ...prev, [pm.id]: { ...(prev[pm.id] || {}), durata: e.target.value } }))}
+                                                                                                        />
+                                                                                                        <select
+                                                                                                            className="select-input" style={{ height: 20, fontSize: 9, padding: "0 2px", flex: 1 }}
+                                                                                                            onChange={(e) => {
+                                                                                                                if (e.target.value) {
+                                                                                                                    handlePostFermi(pm.id, e.target.value, pezziInputs[pm.id]?.durata, false);
+                                                                                                                    setPezziInputs(prev => ({ ...prev, [pm.id]: { ...(prev[pm.id] || {}), durata: "" } }));
+                                                                                                                    e.target.value = "";
+                                                                                                                }
+                                                                                                            }}
+                                                                                                        >
+                                                                                                            <option value="">+ Fermo Macchina</option>
+                                                                                                            {(() => {
+                                                                                                                const tecId = pm.tecnologia_id || tecnologie.find(t => t.prefissi?.split(',').some(p => pm.id.startsWith(p)))?.id;
+                                                                                                                return motiviFermo.filter(mot => !tecId || mot.tecnologia_id === tecId).map(mot => (
+                                                                                                                    <option key={mot.id} value={mot.label}>{mot.label}</option>
+                                                                                                                ));
+                                                                                                            })()}
+                                                                                                        </select>
+                                                                                                    </div>
                                                                                                 </div>
-                                                                                                <div style={{ display: "flex", gap: 2 }}>
-                                                                                                    <input
-                                                                                                        type="number" className="input" placeholder="Min"
-                                                                                                        style={{ width: 35, height: 20, fontSize: 9, padding: 2 }}
-                                                                                                        value={pezziInputs[pm.id]?.durata || ""}
-                                                                                                        onChange={e => setPezziInputs(prev => ({ ...prev, [pm.id]: { ...(prev[pm.id] || {}), durata: e.target.value } }))}
-                                                                                                    />
-                                                                                                    <button 
-                                                                                                        onClick={() => setAutoFermiActive(prev => ({ ...prev, [pm.id]: !prev[pm.id] }))}
-                                                                                                        style={{ 
-                                                                                                            border: "1px solid var(--border)", 
-                                                                                                            background: autoFermiActive[pm.id] ? "var(--accent-muted)" : "var(--bg-tertiary)", 
-                                                                                                            color: autoFermiActive[pm.id] ? "var(--accent)" : "var(--text-muted)",
-                                                                                                            borderRadius: 4, cursor: "pointer", fontSize: 10, padding: "0 4px", height: 20
-                                                                                                        }}
-                                                                                                        title={pm.automazione ? `Attiva fermo per ${pm.automazione}` : "Attiva fermo automazione"}
-                                                                                                    >
-                                                                                                        🤖
-                                                                                                    </button>
-                                                                                                    <select
-                                                                                                        className="select-input" style={{ height: 20, fontSize: 9, padding: "0 2px", flex: 1, border: autoFermiActive[pm.id] ? "1px solid var(--accent)" : "1px solid var(--border)" }}
-                                                                                                        onChange={(e) => {
-                                                                                                            if (e.target.value) {
-                                                                                                                handlePostFermi(pm.id, e.target.value, pezziInputs[pm.id]?.durata, autoFermiActive[pm.id]);
-                                                                                                                setPezziInputs(prev => ({ ...prev, [pm.id]: { ...(prev[pm.id] || {}), durata: "" } }));
-                                                                                                                setAutoFermiActive(prev => ({ ...prev, [pm.id]: false }));
-                                                                                                                e.target.value = "";
-                                                                                                            }
-                                                                                                        }}
-                                                                                                    >
-                                                                                                        <option value="">+</option>
-                                                                                                        {(() => {
-                                                                                                            const tecId = pm.tecnologia_id || tecnologie.find(t => t.prefissi?.split(',').some(p => pm.id.startsWith(p)))?.id;
-                                                                                                            return motiviFermo.filter(mot => !tecId || mot.tecnologia_id === tecId).map(mot => (
-                                                                                                                <option key={mot.id} value={mot.label}>{mot.label}</option>
-                                                                                                            ));
-                                                                                                        })()}
-                                                                                                    </select>
-                                                                                                </div>
-                                                                                            </div>
+                                                                                                {showCentralAuto && renderAutomationBox(pm)}
+                                                                                                {!secondaryMachine && renderAutomationBox(pm)}
+                                                                                            </React.Fragment>
                                                                                         );
                                                                                     })}
                                                                                 </div>
