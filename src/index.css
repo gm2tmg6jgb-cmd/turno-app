@@ -243,6 +243,29 @@ body {
   text-align: center;
 }
 
+.nav-status-badge {
+  font-size: 8px;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  margin-left: 6px;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.nav-status-badge.new {
+  background: var(--success);
+  color: white;
+}
+
+.nav-status-badge.mod {
+  background: var(--info);
+  color: white;
+}
+
 .sidebar-footer {
   padding: 16px 20px;
   border-top: 1px solid var(--border);

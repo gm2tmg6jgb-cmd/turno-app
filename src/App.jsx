@@ -203,16 +203,16 @@ export default function App() {
     { id: "op10", label: "Asservimento OP10", icon: Icons.check },
     { id: "skills", label: "Competenze", icon: Icons.brain },
     { id: "formazione", label: "Formazione", icon: Icons.academic },
-    { id: "report", label: "Report Fine Turno", icon: Icons.report },
+    { id: "report", label: "Report Fine Turno", icon: Icons.report, status: "mod" },
     { id: "lpaPlan", label: "Piano LPA", icon: Icons.calendar },
     { id: "motivi", label: "Motivi Assenza", icon: Icons.filter },
     { id: "import", label: "Import SAP", icon: Icons.upload },
     { id: "sapData", label: "Storico Produzione SAP", icon: Icons.report },
-    { id: "sapFermi", label: "Storico Fermi SAP", icon: Icons.alert },
+    { id: "sapFermi", label: "Storico Fermi SAP", icon: Icons.alert, status: "new" },
     { id: "sapSummary", label: "Analisi Produzione SAP", icon: Icons.dashboard },
     { id: "processFlow", label: "Flusso di Processo", icon: Icons.users },
     { id: "weisserPriorities", label: "Priorità Macchine", icon: Icons.filter },
-    { id: "prioritiesSummary", label: "Riepilogo Priorità", icon: Icons.dashboard },
+    { id: "prioritiesSummary", label: "Riepilogo Priorità", icon: Icons.dashboard, status: "new" },
     { id: "productionReport", label: "Report Produzione", icon: Icons.report },
     { id: "fermi", label: "Report Fermi", icon: Icons.alert },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings },
@@ -335,7 +335,11 @@ export default function App() {
             const ni = (id) => navItems.find(i => i.id === id);
             const renderItem = (item) => item ? (
               <div key={item.id} className={`nav-item ${currentView === item.id ? "active" : ""}`} onClick={() => setCurrentView(item.id)}>
-                {item.icon}{item.label}
+                {item.icon}
+                <span style={{ display: "flex", alignItems: "center", flex: 1 }}>
+                  {item.label}
+                  {item.status && <span className={`nav-status-badge ${item.status}`}>{item.status}</span>}
+                </span>
                 {item.badge && <span className="badge">{item.badge}</span>}
               </div>
             ) : null;
