@@ -40,6 +40,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
 
     // State for Machine Details (Fermi & Pezzi)
     const [fermiMacchina, setFermiMacchina] = useState([]);
+    const [fermiSap, setFermiSap] = useState([]);
     const [pezziProdotti, setPezziProdotti] = useState([]);
     const [confermeSap, setConfermeSap] = useState([]);
     const [absencesViewMode, setAbsencesViewMode] = useState("aggregate");
@@ -52,15 +53,19 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
             if (!selectedDate) return;
 
             let queryFermi = supabase.from('fermi_macchina').select('*').eq('data', selectedDate);
+            let queryFermiSap = supabase.from('fermi_sap').select('*').eq('data_inizio', selectedDate);
             let queryPezzi = supabase.from('pezzi_prodotti').select('*').eq('data', selectedDate);
             let querySap = supabase.from('conferme_sap').select('*').eq('data', selectedDate);
 
             // Fetch all day data (A, B, C, D) to allow full-day summaries
 
-            const [fermiRes, pezziRes, sapRes] = await Promise.all([queryFermi, queryPezzi, querySap]);
+            const [fermiRes, fermiSapRes, pezziRes, sapRes] = await Promise.all([queryFermi, queryFermiSap, queryPezzi, querySap]);
 
             if (fermiRes.error) console.error("Error fetching fermi:", fermiRes.error);
             else setFermiMacchina(fermiRes.data || []);
+
+            if (fermiSapRes.error) console.error("Error fetching SAP fermi:", fermiSapRes.error);
+            else setFermiSap(fermiSapRes.data || []);
 
             if (pezziRes.error) console.error("Error fetching pezzi:", pezziRes.error);
             else setPezziProdotti(pezziRes.data || []);
@@ -828,6 +833,10 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
 
                                                                         // Filter production and downtime data based on selected shift for the main table
                                                                         const currentMachineFermi = fermiMacchina.filter(f => pairMachines.some(pm => pm.id === f.macchina_id) && (!selectedTurno || f.turno_id === selectedTurno));
+                                                                        const currentMachineFermiSap = fermiSap.filter(f => 
+                                                                            pairMachines.some(pm => pm.id === f.macchina_id) && 
+                                                                            (!selectedTurno || f.turno_id === selectedTurno)
+                                                                        );
                                                                         const currentMachinePezzi = pezziProdotti.filter(p => pairMachines.some(pm => pm.id === p.macchina_id) && (!selectedTurno || p.turno_id === selectedTurno));
                                                                         const currentMachineSap = confermeSap.filter(s =>
                                                                             pairMachines.some(pm =>
@@ -916,6 +925,11 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                                                 <button onClick={() => handleDeleteFermi(f.id)} style={{ border: "none", background: "none", color: "inherit", cursor: "pointer", padding: 0 }}>{Icons.x}</button>
                                                                                                             </div>
                                                                                                         ))}
+                                                                                                        {currentMachineFermiSap.filter(fs => fs.macchina_id === pm.id).map(fs => (
+                                                                                                            <div key={fs.id} className="tag" style={{ fontSize: 9, padding: "1px 4px", background: "rgba(249, 115, 22, 0.1)", color: "#F97316", border: "1px solid rgba(249, 115, 22, 0.2)", display: "flex", alignItems: "center", gap: 2 }}>
+                                                                                                                <span title={fs.descrizione_fermo}>SAP: {fs.descrizione_fermo || fs.codice_fermo}</span>
+                                                                                                            </div>
+                                                                                                        ))}
                                                                                                     </div>
                                                                                                     <div style={{ display: "flex", gap: 2 }}>
                                                                                                         <input
@@ -984,6 +998,10 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
 
                                                                     // Filter production and downtime data based on selected shift for the main table
                                                                     const currentMachineFermi = fermiMacchina.filter(f => pairMachines.some(pm => pm.id === f.macchina_id) && (!selectedTurno || f.turno_id === selectedTurno));
+                                                                    const currentMachineFermiSap = fermiSap.filter(f => 
+                                                                        pairMachines.some(pm => pm.id === f.macchina_id) && 
+                                                                        (!selectedTurno || f.turno_id === selectedTurno)
+                                                                    );
                                                                     const currentMachinePezzi = pezziProdotti.filter(p => pairMachines.some(pm => pm.id === p.macchina_id) && (!selectedTurno || p.turno_id === selectedTurno));
                                                                     const currentMachineSap = confermeSap.filter(s =>
                                                                         pairMachines.some(pm =>
@@ -1059,6 +1077,11 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                                         <div key={f.id} className="tag tag-red" style={{ fontSize: 9, padding: "1px 4px", display: "flex", alignItems: "center", gap: 2 }}>
                                                                                                             <span>{f.motivo}</span>
                                                                                                             <button onClick={() => handleDeleteFermi(f.id)} style={{ border: "none", background: "none", color: "inherit", cursor: "pointer", padding: 0 }}>{Icons.x}</button>
+                                                                                                        </div>
+                                                                                                    ))}
+                                                                                                    {currentMachineFermiSap.filter(fs => fs.macchina_id === pm.id).map(fs => (
+                                                                                                        <div key={fs.id} className="tag" style={{ fontSize: 9, padding: "1px 4px", background: "rgba(249, 115, 22, 0.1)", color: "#F97316", border: "1px solid rgba(249, 115, 22, 0.2)", display: "flex", alignItems: "center", gap: 2 }}>
+                                                                                                            <span title={fs.descrizione_fermo}>SAP: {fs.descrizione_fermo || fs.codice_fermo}</span>
                                                                                                         </div>
                                                                                                     ))}
                                                                                                 </div>

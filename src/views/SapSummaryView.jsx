@@ -44,14 +44,28 @@ function ChartTooltip({ active, payload, label }) {
 
 function ParetoTooltip({ active, payload, label }) {
     if (!active || !payload?.length) return null;
+    const data = payload[0].payload;
     return (
         <div style={{ background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px", fontSize: 12, maxWidth: 220 }}>
-            <div style={{ fontWeight: 700, marginBottom: 6, wordBreak: "break-all" }}>{label}</div>
-            {payload.map(p => (
-                <div key={p.dataKey} style={{ color: p.color, marginBottom: 2 }}>
-                    {p.name}: <strong>{p.dataKey === "cumPct" ? `${p.value}%` : p.value?.toLocaleString("it-IT")}</strong>
+            <div style={{ fontWeight: 700, marginBottom: 8, color: "var(--text-primary)", borderBottom: "1px solid var(--border)", paddingBottom: 4 }}>{label}</div>
+            
+            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                <div style={{ color: "#EF4444", fontWeight: 700 }}>
+                    Scarti: <span style={{ float: "right" }}>{data.scarti.toLocaleString("it-IT")}</span>
                 </div>
-            ))}
+                <div style={{ color: "var(--success)", fontWeight: 600 }}>
+                    Buoni (Ott.): <span style={{ float: "right" }}>{data.buoni.toLocaleString("it-IT")}</span>
+                </div>
+                <div style={{ color: "var(--warning)", fontWeight: 700, marginTop: 4 }}>
+                    PPM: <span style={{ float: "right" }}>{data.ppm.toLocaleString("it-IT")}</span>
+                </div>
+                <div style={{ color: "var(--text-secondary)", fontSize: 11 }}>
+                    Scrap %: <span style={{ float: "right" }}>{data.scrapPct}%</span>
+                </div>
+                <div style={{ color: "#F59E0B", fontSize: 11, marginTop: 4, paddingTop: 4, borderTop: "1px solid var(--border-light)" }}>
+                    Cumulato %: <span style={{ float: "right" }}>{data.cumPct}%</span>
+                </div>
+            </div>
         </div>
     );
 }
@@ -319,11 +333,16 @@ export default function SapSummaryView({ macchine = [] }) {
             const unmappedMateriali = new Set();
             rows.forEach(r => {
                 const info = anagrafica[(r.materiale || "").toUpperCase()];
+                const componente = info?.componente || r.materiale || "sconosciuto";
+                const progetto = info?.progetto || getProjectFromCode(r.materiale) || "Sconosciuto";
+                
                 if (!info?.componente || !info?.progetto) {
                     unmappedMateriali.add(`${r.materiale || "?"} (WC: ${r.work_center_sap || "?"})`);
-                    return;
+                    // Non ritorniamo; proviamo a mappare comunque se abbiamo un progetto fallback
+                    if (progetto === "Sconosciuto") return;
                 }
-                const key = `${info.progetto}::${info.componente}`;
+                
+                const key = `${progetto}::${componente}`;
                 if (!map[key]) map[key] = {
                     start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0,
                     machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), washing: new Set() }
@@ -354,9 +373,17 @@ export default function SapSummaryView({ macchine = [] }) {
 
     const getProduzione = (row) => {
         if (!row) return null;
-        const soft = Math.max(0, (row.end_soft || 0) - (row.start_soft || 0));
-        const hard = Math.max(0, (row.end_hard || 0) - (row.start_hard || 0));
-        return soft + hard || null;
+        // La produzione è la quantità massima raggiunta in una qualsiasi delle fasi mappate
+        const vals = [
+            row.start_soft || 0,
+            row.end_soft || 0,
+            row.ht || 0,
+            row.start_hard || 0,
+            row.end_hard || 0,
+            row.washing || 0
+        ];
+        const max = Math.max(...vals);
+        return max || null;
     };
 
     useEffect(() => {
@@ -692,7 +719,7 @@ export default function SapSummaryView({ macchine = [] }) {
         const groups = {};
         data.forEach(r => {
             const scarti = r.qta_scarto || 0;
-            if (scarti === 0) return;
+            const buoni = r.qta_ottenuta || 0;
 
             // Filtro progetto
             if (paretoProj !== "tutti") {
@@ -702,33 +729,54 @@ export default function SapSummaryView({ macchine = [] }) {
             }
 
             let key, nome;
+            const info = anagrafica[(r.materiale || "").toUpperCase()];
+            const proj = info?.progetto || getProjectFromCode(r.materiale) || "Sconosciuto";
+
             if (paretoGroupBy === "macchina") {
                 const m = macchine.find(m =>
                     m.id === r.macchina_id ||
                     (r.work_center_sap && (m.codice_sap || "").toUpperCase() === r.work_center_sap.toUpperCase())
                 );
-                key = m ? m.id : (r.work_center_sap || "non_collegata");
-                nome = m ? m.nome : (r.work_center_sap || "Non collegata");
+                const mId = m ? m.id : (r.work_center_sap || "non_collegata");
+                const mNome = m ? m.nome : (r.work_center_sap || "Non collegata");
+                
+                if (paretoProj === "tutti") {
+                    key = `${proj}::${mId}`;
+                    nome = `${proj} - ${mNome}`;
+                } else {
+                    key = mId;
+                    nome = mNome;
+                }
             } else {
-                const info = anagrafica[(r.materiale || "").toUpperCase()];
-                key = info?.componente || r.materiale || "sconosciuto";
-                nome = key;
+                const comp = info?.componente || r.materiale || "sconosciuto";
+                if (paretoProj === "tutti") {
+                    key = `${proj}::${comp}`;
+                    nome = `${proj} - ${comp}`;
+                } else {
+                    key = comp;
+                    nome = comp;
+                }
             }
 
             if (!groups[key]) groups[key] = { name: nome, scarti: 0, buoni: 0 };
             groups[key].scarti += scarti;
-            groups[key].buoni += (r.qta_ottenuta || 0);
+            groups[key].buoni += buoni;
         });
 
-        const sorted = Object.values(groups).sort((a, b) => b.scarti - a.scarti).slice(0, 20);
+        // Prendiamo solo quelli che hanno effettivamente degli scarti
+        const filtered = Object.values(groups).filter(g => g.scarti > 0);
+        const sorted = filtered.sort((a, b) => b.scarti - a.scarti).slice(0, 20);
         const totalScarti = sorted.reduce((s, g) => s + g.scarti, 0);
         let cumulative = 0;
         return sorted.map(g => {
             cumulative += g.scarti;
-            const scrapPct = (g.buoni + g.scarti) > 0 ? (g.scarti / (g.buoni + g.scarti) * 100) : 0;
+            const tot = g.buoni + g.scarti;
+            const scrapPct = tot > 0 ? (g.scarti / tot * 100) : 0;
+            const ppm = tot > 0 ? Math.round((g.scarti / tot) * 1000000) : 0;
             return {
                 ...g,
                 scrapPct: parseFloat(scrapPct.toFixed(1)),
+                ppm,
                 cumPct: totalScarti > 0 ? parseFloat((cumulative / totalScarti * 100).toFixed(1)) : 0,
             };
         });
@@ -774,8 +822,17 @@ export default function SapSummaryView({ macchine = [] }) {
                                 {Icons.history} Aggiorna
                             </button>
                         </div>
-                        <div style={{ marginLeft: "auto", paddingTop: 20, fontSize: 12, color: "var(--text-muted)", maxWidth: 500 }}>
-                            {/* Diagnostica materiali nascosta su richiesta utente */}
+                        <div style={{ marginLeft: "auto", paddingTop: 20, fontSize: 12, color: "var(--text-muted)", maxWidth: 600 }}>
+                            {gDiag?.unmapped?.length > 0 && (
+                                <details>
+                                    <summary style={{ cursor: "pointer", color: "var(--danger)", fontWeight: 700 }}>
+                                        ⚠️ {gDiag.unmapped.length} materiali/WC non riconosciuti
+                                    </summary>
+                                    <div style={{ marginTop: 8, padding: 10, background: "var(--bg-tertiary)", borderRadius: 6, maxHeight: 120, overflowY: "auto", fontFamily: "monospace", fontSize: 11 }}>
+                                        {gDiag.unmapped.map((m, i) => <div key={i}>• {m}</div>)}
+                                    </div>
+                                </details>
+                            )}
                         </div>
                     </div>
 
@@ -849,7 +906,7 @@ export default function SapSummaryView({ macchine = [] }) {
 
                                                 {/* Intestazioni colonne */}
                                                 <tr style={{ background: "var(--bg-tertiary)", borderBottom: "1px solid var(--border)" }}>
-                                                    <th style={thStyle}>Component</th>
+                                                    <th style={thStyle}>Progetto - Componente</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>Start Soft</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>End Soft</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>HT</th>
@@ -913,7 +970,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                                     return (
                                                         <tr key={componente} style={{ background: rowBg, borderBottom: isSummaryRow ? "2px solid var(--accent)" : "1px solid var(--border-light)", fontWeight: isSummaryRow ? 800 : 400 }}>
                                                             <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: isSummaryRow ? "var(--accent)" : "inherit", borderRight: "1px solid var(--border-light)" }}>
-                                                                {componente}
+                                                                {proj.nome} - {componente}
                                                             </td>
                                                             {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => {
                                                                 const value = row[field];
@@ -1039,7 +1096,7 @@ export default function SapSummaryView({ macchine = [] }) {
 
                                                 {/* Intestazioni colonne */}
                                                 <tr style={{ background: "var(--bg-tertiary)", borderBottom: "1px solid var(--border)" }}>
-                                                    <th style={thStyle}>Component</th>
+                                                    <th style={thStyle}>Progetto - Componente</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>Start Soft</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>End Soft</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>HT</th>
@@ -1103,7 +1160,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                                     return (
                                                         <tr key={componente} style={{ background: rowBg, borderBottom: isSummaryRow ? "2px solid var(--accent)" : "1px solid var(--border-light)", fontWeight: isSummaryRow ? 800 : 400 }}>
                                                             <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: isSummaryRow ? "var(--accent)" : "inherit", borderRight: "1px solid var(--border-light)" }}>
-                                                                {componente}
+                                                                {proj.nome} - {componente}
                                                             </td>
                                                             {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => {
                                                                 const value = row[field];
@@ -1246,7 +1303,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                                     </tr>
                                                     {/* Intestazioni colonne */}
                                                     <tr style={{ background: "var(--bg-tertiary)", borderBottom: "1px solid var(--border)" }}>
-                                                        <th style={thStyle}>Component</th>
+                                                        <th style={thStyle}>Progetto - Componente</th>
                                                         <th style={{ ...thStyle, textAlign: "center" }}>Start Soft</th>
                                                         <th style={{ ...thStyle, textAlign: "center" }}>End Soft</th>
                                                         <th style={{ ...thStyle, textAlign: "center" }}>HT</th>
@@ -1309,7 +1366,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                                         return (
                                                             <tr key={componente} style={{ background: rowBg, borderBottom: isSummaryRow ? "2px solid var(--accent)" : "1px solid var(--border-light)", fontWeight: isSummaryRow ? 800 : 400 }}>
                                                                 <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: isSummaryRow ? "var(--accent)" : "inherit", borderRight: "1px solid var(--border-light)" }}>
-                                                                    {componente}
+                                                                    {proj.nome} - {componente}
                                                                 </td>
                                                                 {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => {
                                                                     const value = row[field];
@@ -1420,15 +1477,17 @@ export default function SapSummaryView({ macchine = [] }) {
                                 <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 16 }}>
                                     Top {paretoData.length} ordinati per scarti decrescenti · Linea gialla = % cumulata
                                 </div>
-                                <ResponsiveContainer width="100%" height={340}>
-                                    <ComposedChart data={paretoData} margin={{ top: 4, right: 48, left: 0, bottom: 72 }}>
+                                <ResponsiveContainer width="100%" height={380}>
+                                    <ComposedChart data={paretoData} margin={{ top: 10, right: 48, left: 0, bottom: 120 }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                                         <XAxis
                                             dataKey="name"
-                                            tick={{ fontSize: 10, fill: "var(--text-muted)" }}
-                                            angle={-42}
+                                            tick={{ fontSize: 9, fill: "var(--text-muted)" }}
+                                            angle={-45}
                                             textAnchor="end"
                                             interval={0}
+                                            height={110}
+                                            tickMargin={12}
                                         />
                                         <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "var(--text-muted)" }} width={48} />
                                         <YAxis yAxisId="right" orientation="right" domain={[0, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 11, fill: "var(--text-muted)" }} width={44} />
@@ -1459,7 +1518,8 @@ export default function SapSummaryView({ macchine = [] }) {
                                                 <th style={thStyle}>#</th>
                                                 <th style={thStyle}>{paretoGroupBy === "macchina" ? "Macchina" : "Componente"}</th>
                                                 <th style={{ ...thStyle, textAlign: "right" }}>Scarti</th>
-                                                <th style={{ ...thStyle, textAlign: "right" }}>Buoni</th>
+                                                <th style={{ ...thStyle, textAlign: "right" }}>PPM</th>
+                                                <th style={{ ...thStyle, textAlign: "right" }}>Buoni (Ott.)</th>
                                                 <th style={{ ...thStyle, textAlign: "right" }}>Scrap %</th>
                                                 <th style={{ ...thStyle, textAlign: "right" }}>Cum. %</th>
                                             </tr>
@@ -1474,6 +1534,9 @@ export default function SapSummaryView({ macchine = [] }) {
                                                     <td style={{ padding: "9px 12px", fontSize: 13, fontWeight: 600 }}>{row.name}</td>
                                                     <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, color: "var(--danger)", fontSize: 14 }}>
                                                         {row.scarti.toLocaleString("it-IT")}
+                                                    </td>
+                                                    <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700, color: "var(--warning)", fontSize: 13 }}>
+                                                        {row.ppm.toLocaleString("it-IT")}
                                                     </td>
                                                     <td style={{ padding: "9px 12px", textAlign: "right", fontSize: 13, color: "var(--text-secondary)" }}>
                                                         {row.buoni.toLocaleString("it-IT")}

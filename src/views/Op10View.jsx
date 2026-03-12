@@ -3,30 +3,35 @@ import { Icons } from "../components/ui/Icons";
 import { supabase } from "../lib/supabase";
 import { getLocalDate, TODAY } from "../lib/dateUtils";
 
+const COMPONENT_CONFIG = {
+    "SG2": { rackSize: 60, jph: 39 },
+    "SGR": { rackSize: 66, jph: 27 }
+};
+
 const INITIAL_DATA = [
     // WEISSER
-    { type: "WEISSER", id: "DRA60", progetto: "8Fe", componente: "SG2", racks: 6, ore: 12, note: "" },
-    { type: "WEISSER", id: "DRA61", progetto: "8Fe", componente: "SG5", racks: 1, ore: 2, note: "" },
-    { type: "WEISSER", id: "DRA62", progetto: "8Fe", componente: "PG", racks: 2, ore: 6, note: "" },
-    { type: "WEISSER", id: "DRA63/64", progetto: "8Fe", componente: "1086", racks: 2, ore: 1, note: "" },
-    { type: "WEISSER", id: "DRA65/66", progetto: "DCT 300", componente: "SG4", racks: 1, ore: 1, note: "" },
-    { type: "WEISSER", id: "DRA67/68", progetto: "DCT 300", componente: "1223", racks: 3, ore: 2, note: "" },
-    { type: "WEISSER", id: "DRA69/70", progetto: "8Fe", componente: "SG7", racks: 7, ore: 9, note: "" },
-    { type: "WEISSER", id: "DRA71", progetto: "8Fe", componente: "SG3", racks: 6, ore: 22, note: "" },
-    { type: "WEISSER", id: "DRA72", progetto: "DCT 300", componente: "1232", racks: 3, ore: 4, note: "" },
-    { type: "WEISSER", id: "DRA42", progetto: "DCT 300", componente: "1226", racks: 38, ore: 53, note: "" },
-    { type: "WEISSER", id: "DRA58", progetto: "DCT 300", componente: "407", racks: 0, ore: 0, note: "Mancanza grezzo fine turno" },
-    { type: "WEISSER", id: "DRA59", progetto: "DCT 300", componente: "1080", racks: 8, ore: 3, note: "" },
-    { type: "WEISSER", id: "DRA44", progetto: "DCT 300", componente: "1243", racks: 2, ore: 1, note: "Dopo cambia a 901" },
+    { type: "WEISSER", id: "DRA60", progetto: "8Fe", componente: "SG2", racks: 0, racksChiusura: 0, ore: 0, note: "" },
+    { type: "WEISSER", id: "DRA61", progetto: "8Fe", componente: "SG5", racks: 0, racksChiusura: 0, ore: 0, note: "" },
+    { type: "WEISSER", id: "DRA62", progetto: "8Fe", componente: "PG", racks: 0, racksChiusura: 0, ore: 0, note: "" },
+    { type: "WEISSER", id: "DRA63/64", progetto: "8Fe", componente: "1086", racks: 0, racksChiusura: 0, ore: 0, note: "" },
+    { type: "WEISSER", id: "DRA65/66", progetto: "DCT 300", componente: "SG4", racks: 0, racksChiusura: 0, ore: 0, note: "" },
+    { type: "WEISSER", id: "DRA67/68", progetto: "DCT 300", componente: "1223", racks: 0, racksChiusura: 0, ore: 0, note: "" },
+    { type: "WEISSER", id: "DRA69/70", progetto: "8Fe", componente: "SG7", racks: 0, racksChiusura: 0, ore: 0, note: "" },
+    { type: "WEISSER", id: "DRA71", progetto: "8Fe", componente: "SG3", racks: 0, racksChiusura: 0, ore: 0, note: "" },
+    { type: "WEISSER", id: "DRA72", progetto: "DCT 300", componente: "1232", racks: 0, racksChiusura: 0, ore: 0, note: "" },
+    { type: "WEISSER", id: "DRA42", progetto: "DCT 300", componente: "1226", racks: 0, racksChiusura: 0, ore: 0, note: "" },
+    { type: "WEISSER", id: "DRA58", progetto: "DCT 300", componente: "407", racks: 0, racksChiusura: 0, ore: 0, note: "Mancanza grezzo fine turno" },
+    { type: "WEISSER", id: "DRA59", progetto: "DCT 300", componente: "1080", racks: 0, racksChiusura: 0, ore: 0, note: "" },
+    { type: "WEISSER", id: "DRA44", progetto: "DCT 300", componente: "1243", racks: 0, racksChiusura: 0, ore: 0, note: "Dopo cambia a 901" },
     // PRETORNITO ECO
-    { type: "ECO", id: "Pretornito Eco SG2", progetto: "DCT Eco", componente: "SG2", racks: 2, ore: 0, note: "" },
-    { type: "ECO", id: "Pretornito Eco SG3", progetto: "DCT Eco", componente: "SG3", racks: 6, ore: 0, note: "" },
-    { type: "ECO", id: "Pretornito Eco SG4", progetto: "DCT Eco", componente: "SG4", racks: 0, ore: 0, note: "" },
-    { type: "ECO", id: "Pretornito Eco SG5", progetto: "DCT Eco", componente: "SG5", racks: 0, ore: 0, note: "" },
-    { type: "ECO", id: "Pretornito Eco SGR", progetto: "DCT Eco", componente: "SGR", racks: 0, ore: 0, note: "" },
+    { type: "ECO", id: "Pretornito Eco SG2", progetto: "DCT Eco", componente: "SG2", racks: 0, racksChiusura: 0, ore: 0, note: "" },
+    { type: "ECO", id: "Pretornito Eco SG3", progetto: "DCT Eco", componente: "SG3", racks: 0, racksChiusura: 0, ore: 0, note: "" },
+    { type: "ECO", id: "Pretornito Eco SG4", progetto: "DCT Eco", componente: "SG4", racks: 0, racksChiusura: 0, ore: 0, note: "" },
+    { type: "ECO", id: "Pretornito Eco SG5", progetto: "DCT Eco", componente: "SG5", racks: 0, racksChiusura: 0, ore: 0, note: "" },
+    { type: "ECO", id: "Pretornito Eco SGR", progetto: "DCT Eco", componente: "SGR", racks: 0, racksChiusura: 0, ore: 0, note: "" },
     // PRETORNITO 300
-    { type: "300", id: "Pretornito 300 P1", progetto: "DCT 300", componente: "SG4", racks: 0, ore: 0, note: "" },
-    { type: "300", id: "Pretornito 300 P2", progetto: "DCT 300", componente: "1223", racks: 0, ore: 0, note: "" },
+    { type: "300", id: "Pretornito 300 P1", progetto: "DCT 300", componente: "SG4", racks: 0, racksChiusura: 0, ore: 0, note: "" },
+    { type: "300", id: "Pretornito 300 P2", progetto: "DCT 300", componente: "1223", racks: 0, racksChiusura: 0, ore: 0, note: "" },
 ];
 
 export default function Op10View({ turnoCorrente, globalDate, setGlobalDate }) {
@@ -95,15 +100,43 @@ export default function Op10View({ turnoCorrente, globalDate, setGlobalDate }) {
 
     const handleSendEmail = () => {
         const critical = allData.filter(d => d.racks === 0);
-        let body = `Situazione Asservimento OP10 - Giorno: ${selectedDate} - Turno: ${turnoCorrente}\n\n`;
-        body += `RIASSUNTO CRITICITÀ (0 Racks):\n`;
-        critical.forEach(c => {
-            body += `- ${c.id}: ${c.progetto} / ${c.componente} ${c.note ? '(' + c.note + ')' : ''}\n`;
-        });
-        body += `\nDETTAGLIO COMPLETO:\n`;
+        const low = allData.filter(d => d.racks > 0 && d.ore < 4);
+        const healthy = allData.filter(d => d.racks > 0 && d.ore >= 4);
+
+        let body = `📊 REPORT ASSERVIMENTO OP10\n`;
+        body += `📅 Giorno: ${selectedDate} | 🕒 Turno: ${turnoCorrente}\n`;
+        body += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+
+        if (critical.length > 0) {
+            body += `🔴 CRITICITÀ IMMEDIATA (0 RACK):\n`;
+            critical.forEach(c => {
+                const config = COMPONENT_CONFIG[c.componente];
+                const pz = config ? ` (${c.racks * config.rackSize} pz)` : "";
+                body += `• ${c.id}: ${c.progetto} / ${c.componente}${pz} ${c.note ? '➜ ' + c.note : ''}\n`;
+            });
+            body += `\n`;
+        }
+
+        if (low.length > 0) {
+            body += `🟡 COPERTURA BASSA (<4h):\n`;
+            low.forEach(c => {
+                const config = COMPONENT_CONFIG[c.componente];
+                const pz = config ? ` (${c.racks * config.rackSize} pz)` : "";
+                body += `• ${c.id}: ${c.progetto} / ${c.componente}${pz} | Ore: ${c.ore}h ${c.note ? '➜ ' + c.note : ''}\n`;
+            });
+            body += `\n`;
+        }
+
+        body += `━━━━━ DETTAGLIO COMPLETO ━━━━━\n`;
         allData.forEach(d => {
-            body += `${d.id} | ${d.progetto} | ${d.componente} | Racks: ${d.racks} | Ore: ${d.ore} | Note: ${d.note}\n`;
+            const config = COMPONENT_CONFIG[d.componente];
+            const pz = config ? ` (${d.racks * config.rackSize} pz)` : "";
+            const status = d.racks === 0 ? "🔴" : (d.ore < 4 ? "🟡" : "🟢");
+            body += `${status} ${d.id.padEnd(12)} | ${d.componente.padEnd(10)} | Racks: ${String(d.racks).padStart(2)}${pz.padEnd(8)} | Chiusura: ${String(d.racksChiusura || 0).padStart(2)} | Copertura: ${String(d.ore).padStart(2)}h\n`;
         });
+
+        body += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+        body += `Inviato da: Turno App - ${new Date().toLocaleString('it-IT')}`;
 
         const mailtoLink = `mailto:?subject=Situazione Asservimento OP10 ${selectedDate}&body=${encodeURIComponent(body)}`;
         window.location.href = mailtoLink;
@@ -112,6 +145,17 @@ export default function Op10View({ turnoCorrente, globalDate, setGlobalDate }) {
     const updateRow = (index, field, value) => {
         const newData = [...allData];
         newData[index][field] = value;
+
+        // Auto-calculate ore if racks or componente change
+        if (field === "racks" || field === "componente") {
+            const row = newData[index];
+            const config = COMPONENT_CONFIG[row.componente];
+            if (config && config.jph && config.rackSize) {
+                const totalPz = row.racks * config.rackSize;
+                newData[index].ore = Math.round(totalPz / config.jph);
+            }
+        }
+
         setAllData(newData);
     };
 
@@ -151,7 +195,8 @@ export default function Op10View({ turnoCorrente, globalDate, setGlobalDate }) {
                                 <th style={{ padding: "12px", textAlign: "left", width: 140 }}>Macchina</th>
                                 <th style={{ padding: "12px", textAlign: "left", width: 120 }}>Progetto</th>
                                 <th style={{ padding: "12px", textAlign: "left", width: 120 }}>Componente</th>
-                                <th style={{ padding: "12px", textAlign: "center", width: 90 }}>Buffer (Racks)</th>
+                                <th style={{ padding: "12px", textAlign: "center", width: 90 }}>Racks Attuali</th>
+                                <th style={{ padding: "12px", textAlign: "center", width: 90 }}>Racks Chiusura</th>
                                 <th style={{ padding: "12px", textAlign: "center", width: 90 }}>Copertura (h)</th>
                                 <th style={{ padding: "12px", textAlign: "left" }}>Note / Osservazioni</th>
                             </tr>
@@ -161,20 +206,61 @@ export default function Op10View({ turnoCorrente, globalDate, setGlobalDate }) {
                                 <tr key={idx} style={{ borderBottom: "1px solid var(--border-light)", background: row.racks === 0 ? "rgba(239, 68, 68, 0.05)" : "transparent" }}>
                                     <td style={{ padding: "10px 12px", fontWeight: 700, color: "var(--text-secondary)" }}>{row.id}</td>
                                     <td style={{ padding: "6px 12px" }}>
-                                        <select className="select-input" value={row.progetto} onChange={e => updateRow(idx, 'progetto', e.target.value)} style={{ height: 32, fontSize: 12 }}>
+                                        <select 
+                                            className="select-input" 
+                                            value={row.progetto} 
+                                            onChange={e => updateRow(idx, 'progetto', e.target.value)} 
+                                            style={{ height: 32, fontSize: 12 }}
+                                            disabled={row.id === "DRA60"}
+                                        >
                                             <option value="8Fe">8Fe</option>
                                             <option value="DCT 300">DCT 300</option>
                                             <option value="DCT Eco">DCT Eco</option>
                                         </select>
                                     </td>
                                     <td style={{ padding: "6px 12px" }}>
-                                        <input className="input" value={row.componente} onChange={e => updateRow(idx, 'componente', e.target.value)} style={{ height: 32, fontSize: 12 }} />
+                                        {row.id === "DRA60" ? (
+                                            <select 
+                                                className="select-input" 
+                                                value={row.componente} 
+                                                onChange={e => updateRow(idx, 'componente', e.target.value)} 
+                                                style={{ height: 32, fontSize: 12, width: "100%" }}
+                                            >
+                                                <option value="SG2">SG2</option>
+                                                <option value="SGR">SGR</option>
+                                            </select>
+                                        ) : (
+                                            <input className="input" value={row.componente} onChange={e => updateRow(idx, 'componente', e.target.value)} style={{ height: 32, fontSize: 12 }} />
+                                        )}
                                     </td>
                                     <td style={{ padding: "6px 12px", textAlign: "center" }}>
-                                        <input type="number" className="input" value={row.racks} onChange={e => updateRow(idx, 'racks', parseInt(e.target.value) || 0)} style={{ height: 32, width: 60, textAlign: "center", fontWeight: 700, background: row.racks === 0 ? "rgba(239, 68, 68, 0.15)" : "var(--bg-secondary)" }} />
+                                        <input 
+                                            type="text" 
+                                            inputMode="numeric"
+                                            className="input" 
+                                            value={row.racks} 
+                                            onChange={e => updateRow(idx, 'racks', parseInt(e.target.value.replace(/\D/g, '')) || 0)} 
+                                            style={{ height: 32, width: 60, textAlign: "center", fontWeight: 700, background: row.racks === 0 ? "rgba(239, 68, 68, 0.15)" : "var(--bg-secondary)" }} 
+                                        />
                                     </td>
                                     <td style={{ padding: "6px 12px", textAlign: "center" }}>
-                                        <input type="number" className="input" value={row.ore} onChange={e => updateRow(idx, 'ore', parseInt(e.target.value) || 0)} style={{ height: 32, width: 60, textAlign: "center", fontWeight: 700, color: row.ore === 0 ? "var(--danger)" : "var(--accent)" }} />
+                                        <input 
+                                            type="text" 
+                                            inputMode="numeric"
+                                            className="input" 
+                                            value={row.racksChiusura || 0} 
+                                            onChange={e => updateRow(idx, 'racksChiusura', parseInt(e.target.value.replace(/\D/g, '')) || 0)} 
+                                            style={{ height: 32, width: 60, textAlign: "center", fontWeight: 700, background: "var(--bg-secondary)" }} 
+                                        />
+                                    </td>
+                                    <td style={{ padding: "6px 12px", textAlign: "center" }}>
+                                        <input 
+                                            type="number" 
+                                            className="input" 
+                                            value={row.ore} 
+                                            readOnly
+                                            style={{ height: 32, width: 60, textAlign: "center", fontWeight: 700, color: row.ore === 0 ? "var(--danger)" : "var(--accent)", cursor: "not-allowed", opacity: 0.8 }} 
+                                        />
                                     </td>
                                     <td style={{ padding: "6px 12px" }}>
                                         <input className="input" value={row.note} onChange={e => updateRow(idx, 'note', e.target.value)} style={{ height: 32, fontSize: 11 }} />

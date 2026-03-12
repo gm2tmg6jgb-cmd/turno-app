@@ -142,17 +142,23 @@ export default function ProductionReportView({
             if (project === "DCT Eco") key += "_ECO";
             else if (project === "8Fe") key += "_8FE";
 
-            if (!newMatrice[machineId]) newMatrice[machineId] = {};
-            newMatrice[machineId][key] =
-              (newMatrice[machineId][key] || 0) + (row.qta_ottenuta || 0);
+            let targetMachineId = machineId;
+            // Applica correzioni per errata allocazione in SAP (es. FRW10193 -> FRW10079 per SG3/SG4 8Fe)
+            if (rawMachineId === "FRW10193" && (key === "SG3_8FE" || key === "SG4_8FE")) {
+              targetMachineId = "FRW10079";
+            }
 
-            if (!newDetailedProduction[machineId])
-              newDetailedProduction[machineId] = {};
-            if (!newDetailedProduction[machineId][key])
-              newDetailedProduction[machineId][key] = [];
+            if (!newMatrice[targetMachineId]) newMatrice[targetMachineId] = {};
+            newMatrice[targetMachineId][key] =
+              (newMatrice[targetMachineId][key] || 0) + (row.qta_ottenuta || 0);
+
+            if (!newDetailedProduction[targetMachineId])
+              newDetailedProduction[targetMachineId] = {};
+            if (!newDetailedProduction[targetMachineId][key])
+              newDetailedProduction[targetMachineId][key] = [];
 
             // Keep the original machine ID in the details for clarity if it's a twin
-            newDetailedProduction[machineId][key].push({
+            newDetailedProduction[targetMachineId][key].push({
               ...row,
               _original_machine: rawMachineId,
             });

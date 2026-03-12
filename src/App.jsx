@@ -24,12 +24,14 @@ import Op10View from "./views/Op10View";
 import AnagraficaFermiView from "./views/AnagraficaFermiView";
 import AnagraficaMacchineView from "./views/AnagraficaMacchineView";
 import SapDataView from "./views/SapDataView";
+import SapFermiView from "./views/SapFermiView";
 import SapSummaryView from "./views/SapSummaryView";
 import AnagraficaMaterialiView from "./views/AnagraficaMaterialiView";
 import LpaPlanView from "./views/LpaPlanView";
 import InventoryView from "./views/InventoryView";
 import ProcessFlowView from "./views/ProcessFlowView";
 import WeisserPrioritiesView from "./views/WeisserPrioritiesView";
+import PrioritiesSummaryView from "./views/PrioritiesSummaryView";
 import ProductionReportView from "./views/ProductionReportView";
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
@@ -205,10 +207,12 @@ export default function App() {
     { id: "lpaPlan", label: "Piano LPA", icon: Icons.calendar },
     { id: "motivi", label: "Motivi Assenza", icon: Icons.filter },
     { id: "import", label: "Import SAP", icon: Icons.upload },
-    { id: "sapData", label: "Storico Dati SAP", icon: Icons.report },
+    { id: "sapData", label: "Storico Produzione SAP", icon: Icons.report },
+    { id: "sapFermi", label: "Storico Fermi SAP", icon: Icons.alert },
     { id: "sapSummary", label: "Analisi Produzione SAP", icon: Icons.dashboard },
     { id: "processFlow", label: "Flusso di Processo", icon: Icons.users },
     { id: "weisserPriorities", label: "Priorità Macchine", icon: Icons.filter },
+    { id: "prioritiesSummary", label: "Riepilogo Priorità", icon: Icons.dashboard },
     { id: "productionReport", label: "Report Produzione", icon: Icons.report },
     { id: "fermi", label: "Report Fermi", icon: Icons.alert },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings },
@@ -227,10 +231,12 @@ export default function App() {
     report: "Report Fine Turno",
     motivi: "Gestione Motivi Assenza",
     import: "Import Dati SAP",
-    sapData: "Storico Dati SAP",
+    sapData: "Storico Produzione SAP",
+    sapFermi: "Storico Fermi SAP",
     sapSummary: "Analisi Produzione SAP",
     processFlow: "Flusso di Processo",
     weisserPriorities: "Priorità Macchine",
+    prioritiesSummary: "Riepilogo Priorità Macchine",
     productionReport: "Report Produzione",
     fermi: "Report Fermi",
     anagraficaFermi: "Anagrafica Fermi Macchine",
@@ -351,10 +357,12 @@ export default function App() {
                 {renderItem(ni("sapSummary"))}
                 {renderItem(ni("processFlow"))}
                 {renderItem(ni("weisserPriorities"))}
+                {renderItem(ni("prioritiesSummary"))}
                 {renderItem(ni("productionReport"))}
                 {renderItem(ni("lpaPlan"))}
                 {renderItem(ni("import"))}
                 {renderItem(ni("sapData"))}
+                {renderItem(ni("sapFermi"))}
                 {renderItem(ni("inventory"))}
 
                 <div className="nav-section-label">Anagrafiche</div>
@@ -478,6 +486,9 @@ export default function App() {
           {currentView === "sapData" && (
             <SapDataView macchine={macchine} />
           )}
+          {currentView === "sapFermi" && (
+            <SapFermiView macchine={macchine} />
+          )}
           {currentView === "sapSummary" && (
             <SapSummaryView macchine={macchine} />
           )}
@@ -486,6 +497,9 @@ export default function App() {
           )}
           {currentView === "weisserPriorities" && (
             <WeisserPrioritiesView turnoCorrente={turnoCorrente} />
+          )}
+          {currentView === "prioritiesSummary" && (
+            <PrioritiesSummaryView turnoCorrente={turnoCorrente} />
           )}
           {currentView === "productionReport" && (
             <ProductionReportView

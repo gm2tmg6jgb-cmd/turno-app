@@ -13,7 +13,7 @@ import { supabase } from "../lib/supabase";
   - Turno            → turno_sap (TEXT, mappato a turno_id A/B/C/D)
 */
 
-const COL_DEFS = [
+const COL_DEFS_PROD = [
     { key: "acquisito", label: "Acquisito", patterns: ["acquisito", "data conf", "posting date", "data posting", "data", "data prod"] },
     { key: "work_center", label: "Centro di lavoro", patterns: ["centro di lavoro", "ctrlav", "work center", "workcenter", "centro lav"] },
     { key: "materiale", label: "Materiale", patterns: ["materiale", "matr.", "material", "articolo", "art."] },
@@ -23,17 +23,29 @@ const COL_DEFS = [
     { key: "ora", label: "Ora Time", patterns: ["time", "ora", "orario", "time of confirmation"] },
 ];
 
-function autoDetect(headers) {
+const COL_DEFS_FERMI = [
+    { key: "data_inizio", label: "Data Inizio", patterns: ["in. guasto", "data inizio", "inizio data", "start date", "da data", "acquisito", "data"] },
+    { key: "ora_inizio", label: "Ora Inizio", patterns: ["inguasto", "ora inizio", "inizio ora", "start time", "da ora", "ora iniz.", "ora"] },
+    { key: "data_fine", label: "Data Fine", patterns: ["data fine", "fine data", "end date", "a data"] },
+    { key: "ora_fine", label: "Ora Fine", patterns: ["ora fine", "fine ora", "end time", "a ora", "ora fine"] },
+    { key: "durata", label: "Durata (min)", patterns: ["durata", "duration", "durata minuti", "dur. min."] },
+    { key: "work_center", label: "Centro di lavoro", patterns: ["attrezz.", "centro di lavoro", "ctrlav", "work center", "workcenter", "centro lav"] },
+    { key: "codice_fermo", label: "Codice Fermi", patterns: ["codice", "reason code", "codice fermo", "causale"] },
+    { key: "descrizione_fermo", label: "Descrizione", patterns: ["descrizione", "reason description", "descrizione fermo", "testo causale"] },
+    { key: "oggetto_tecnico", label: "Definizione oggetto tecnico", patterns: ["definizione oggetto tecnico", "oggetto tecnico", "tech object", "oggetto"] },
+    { key: "autore", label: "Autore", patterns: ["autore", "author", "created by", "eseguito da"] },
+    { key: "turno", label: "Turno", patterns: ["turno", "shift", "turn"] },
+];
+
+function autoDetect(headers, colDefs) {
     const lower = headers.map(h => (h || "").toLowerCase().trim());
     const result = {};
-    for (const { key, patterns } of COL_DEFS) {
+    for (const { key, patterns } of colDefs) {
         let matchIdx = -1;
-        // 1. Try exact matches first for higher priority patterns
         for (const p of patterns) {
             matchIdx = lower.findIndex(h => h === p);
             if (matchIdx >= 0) break;
         }
-        // 2. Fallback to includes
         if (matchIdx === -1) {
             matchIdx = lower.findIndex(h => patterns.some(p => h.includes(p)));
         }
@@ -143,7 +155,8 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
     const [hdrIndexMap, setHdrIndexMap] = useState({}); // header name → indice originale nella riga
     const [rawRows, setRawRows] = useState([]);
     const [mapping, setMapping] = useState({});
-    const [step, setStep] = useState("upload"); // upload | map | preview | done
+    const [importType, setImportType] = useState("produzione"); // produzione | fermi
+    const [step, setStep] = useState("upload"); 
     const [result, setResult] = useState(null);
     const [saving, setSaving] = useState(false);
     const [duplicateMode, setDuplicateMode] = useState(null); // 'ask' | 'replace' | 'append'
@@ -189,15 +202,19 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                 }
                 if (json.length < 2) { showToast("File vuoto o troppo corto", "error"); return; }
 
-                // Trova la riga intestazioni: scansiona le prime 20 righe
-                // e cerca quella che contiene almeno 2 parole chiave note
-                const ALL_PATTERNS = COL_DEFS.flatMap(c => c.patterns);
+                // Trova la riga intestazioni: scansiona le prime 50 righe
+                // e cerca quella che contiene più parole chiave note
+                const ALL_PATTERNS = [...COL_DEFS_PROD, ...COL_DEFS_FERMI].flatMap(c => c.patterns);
                 let hdrRowIdx = 0;
                 let bestScore = 0;
-                for (let i = 0; i < Math.min(20, json.length); i++) {
+                for (let i = 0; i < Math.min(50, json.length); i++) {
                     const row = json[i].map(h => String(h || "").toLowerCase().trim());
                     const score = row.filter(h => ALL_PATTERNS.some(p => h.includes(p))).length;
-                    if (score > bestScore) { bestScore = score; hdrRowIdx = i; }
+                    // Se troviamo un match perfetto o molto alto (almeno 3 colonne), usalo
+                    if (score > bestScore) { 
+                        bestScore = score; 
+                        hdrRowIdx = i; 
+                    }
                 }
 
                 // Mappa nome-colonna → indice originale (preserva colonne vuote)
@@ -210,7 +227,24 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                 setHeaders(hdrs);
                 setHdrIndexMap(hdrIndexMap);
                 setRawRows(rows);
-                setMapping(autoDetect(hdrs));
+                
+                // Auto-detect + Sticky Mapping (localStorage)
+                const colDefs = importType === "produzione" ? COL_DEFS_PROD : COL_DEFS_FERMI;
+                const autoMapping = autoDetect(hdrs, colDefs);
+                
+                // Load sticky mapping from localStorage
+                const storageKey = `sap_mapping_${importType}`;
+                const stickyMapping = JSON.parse(localStorage.getItem(storageKey) || "{}");
+                
+                // Merge: autoMapping values take precedence ONLY IF found, otherwise sticky
+                const finalMapping = { ...autoMapping };
+                Object.keys(autoMapping).forEach(key => {
+                    if (!finalMapping[key] && stickyMapping[key] && hdrs.includes(stickyMapping[key])) {
+                        finalMapping[key] = stickyMapping[key];
+                    }
+                });
+
+                setMapping(finalMapping);
                 setStep("map");
                 showToast(`File letto: ${rows.length} righe`, "success");
             } catch (err) {
@@ -241,27 +275,48 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
         const parsed = rawRows.map(row => {
             const wc = String(get(row, mapping.work_center) || "").trim().toUpperCase();
             const mac = macchineMap[wc] || null;
-            return {
-                work_center_sap: wc,
-                macchina_id: mac?.id || null,
-                macchina_nome: mac?.nome || mac?.id || null,
-                matched: !!mac,
-                data: formatDate(get(row, mapping.acquisito), dateFormat),
-                materiale: String(get(row, mapping.materiale) || "").trim() || null,
-                qta_ottenuta: parseFloat(get(row, mapping.qta_ottenuta)) || null,
-                qta_scarto: parseFloat(get(row, mapping.qta_scarto)) || null,
-                turno_id: mapTurno(get(row, mapping.turno)),
-                ora: formatTime(get(row, mapping.ora)),
-            };
-        }).filter(r => r.work_center_sap); // salta righe senza WC
+            
+            if (importType === "produzione") {
+                return {
+                    work_center_sap: wc,
+                    macchina_id: mac?.id || null,
+                    macchina_nome: mac?.nome || mac?.id || null,
+                    matched: !!mac,
+                    data: formatDate(get(row, mapping.acquisito), dateFormat),
+                    materiale: String(get(row, mapping.materiale) || "").trim() || null,
+                    qta_ottenuta: parseFloat(get(row, mapping.qta_ottenuta)) || null,
+                    qta_scarto: parseFloat(get(row, mapping.qta_scarto)) || null,
+                    turno_id: mapTurno(get(row, mapping.turno)),
+                    ora: formatTime(get(row, mapping.ora)),
+                };
+            } else {
+                return {
+                    work_center_sap: wc,
+                    macchina_id: mac?.id || null,
+                    macchina_nome: mac?.nome || mac?.id || null,
+                    matched: !!mac,
+                    data_inizio: formatDate(get(row, mapping.data_inizio), dateFormat),
+                    ora_inizio: formatTime(get(row, mapping.ora_inizio)),
+                    data_fine: formatDate(get(row, mapping.data_fine), dateFormat),
+                    ora_fine: formatTime(get(row, mapping.ora_fine)),
+                    durata_minuti: parseInt(get(row, mapping.durata)) || 0,
+                    codice_fermo: String(get(row, mapping.codice_fermo) || "").trim(),
+                    descrizione_fermo: String(get(row, mapping.descrizione_fermo) || "").trim(),
+                    oggetto_tecnico: String(get(row, mapping.oggetto_tecnico) || "").trim(),
+                    autore: String(get(row, mapping.autore) || "").trim(),
+                    turno_id: mapTurno(get(row, mapping.turno)),
+                };
+            }
+        }).filter(r => r.work_center_sap);
 
         const matched = parsed.filter(r => r.matched).length;
         const wcsUnmatched = [...new Set(parsed.filter(r => !r.matched).map(r => r.work_center_sap))];
 
         // Date Check
         const today = new Date().toISOString().slice(0, 10);
-        const hasFutureDates = parsed.some(r => r.data && r.data > today);
-        const distinctDates = [...new Set(parsed.map(r => r.data).filter(Boolean))].sort();
+        const dateKey = importType === "produzione" ? "data" : "data_inizio";
+        const hasFutureDates = parsed.some(r => r[dateKey] && r[dateKey] > today);
+        const distinctDates = [...new Set(parsed.map(r => r[dateKey]).filter(Boolean))].sort();
 
         setResult({
             rows: parsed,
@@ -270,28 +325,33 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
             hasFutureDates,
             dateRange: { start: distinctDates[0], end: distinctDates[distinctDates.length - 1] }
         });
+
+        // Save mapping to localStorage for sticky behavior
+        localStorage.setItem(`sap_mapping_${importType}`, JSON.stringify(mapping));
+
         setStep("preview");
     };
 
     /* ── salva ── */
     const handleImport = async (mode = null) => {
-        const distinctDates = [...new Set(result.rows.map(r => r.data).filter(Boolean))].sort();
+        const dateKey = importType === "produzione" ? "data" : "data_inizio";
+        const distinctDates = [...new Set(result.rows.map(r => r[dateKey]).filter(Boolean))].sort();
         if (distinctDates.length === 0) {
             showToast("Nessuna data valida trovata nelle righe", "error");
             return;
         }
 
+        const tableName = importType === "produzione" ? "conferme_sap" : "fermi_sap";
         const start = distinctDates[0];
         const end = distinctDates[distinctDates.length - 1];
 
-        // Se non abbiamo ancora controllato i duplicati e non è stato forzato un modo
         if (!mode) {
             setSaving(true);
             const { count, error: countErr } = await supabase
-                .from("conferme_sap")
+                .from(tableName)
                 .select("*", { count: "exact", head: true })
-                .gte("data", start)
-                .lte("data", end);
+                .gte(dateKey, start)
+                .lte(dateKey, end);
 
             setSaving(false);
             if (!countErr && count > 0) {
@@ -302,14 +362,15 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
             mode = "append";
         }
 
+        
         setSaving(true);
         try {
             if (mode === "replace") {
                 const { error: delErr } = await supabase
-                    .from("conferme_sap")
+                    .from(tableName)
                     .delete()
-                    .gte("data", start)
-                    .lte("data", end);
+                    .gte(dateKey, start)
+                    .lte(dateKey, end);
                 if (delErr) throw delErr;
             }
 
@@ -317,7 +378,7 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                 const r = { ...item };
                 delete r.matched;
                 delete r.macchina_nome;
-                delete r.ora;
+                if (importType === "produzione") delete r.ora;
                 return {
                     ...r,
                     data_import: new Date().toISOString(),
@@ -330,11 +391,10 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                 return;
             }
 
-            // Chunk in lotti da 500 per evitare Payload Too Large o limiti PG
             const CHUNK_SIZE = 500;
             for (let i = 0; i < toSave.length; i += CHUNK_SIZE) {
                 const chunk = toSave.slice(i, i + CHUNK_SIZE);
-                const { error: insErr } = await supabase.from("conferme_sap").insert(chunk);
+                const { error: insErr } = await supabase.from(tableName).insert(chunk);
                 if (insErr) throw insErr;
             }
 
@@ -352,16 +412,19 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
     };
 
     const handleClearHistory = async () => {
-        if (!window.confirm("Sei SICURO di voler cancellare TUTTO lo storico SAP? Questa operazione non è reversibile.")) return;
+        const tableName = importType === "produzione" ? "conferme_sap" : "fermi_sap";
+        const label = importType === "produzione" ? "storico PRODUZIONE" : "storico FERMI";
+        
+        if (!window.confirm(`Sei SICURO di voler cancellare TUTTO lo ${label} SAP? Questa operazione non è reversibile.`)) return;
 
         setSaving(true);
-        const { error } = await supabase.from("conferme_sap").delete().neq("id", 0); // Cancella tutto
+        const { error } = await supabase.from(tableName).delete().neq("work_center_sap", "FORCE_DELETE_ALL_XYZ"); 
         setSaving(false);
 
         if (error) {
             showToast("Errore durante la pulizia: " + error.message, "error");
         } else {
-            showToast("Storico SAP svuotato con successo", "success");
+            showToast("Storico svuotato con successo", "success");
         }
     };
 
@@ -396,11 +459,32 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
             {step === "upload" && (
                 <div className="card">
                     <div className="card-header" style={{ marginBottom: 12 }}>
-                        <div className="card-title">📊 Import Conferme SAP</div>
+                        <div className="card-title">📊 Import Dati SAP</div>
                     </div>
+                    
+                    <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+                        <button 
+                            className={`btn ${importType === 'produzione' ? 'btn-primary' : 'btn-secondary'}`}
+                            onClick={() => setImportType('produzione')}
+                            style={{ flex: 1 }}
+                        >
+                            📦 Conferme Produzione
+                        </button>
+                        <button 
+                            className={`btn ${importType === 'fermi' ? 'btn-primary' : 'btn-secondary'}`}
+                            onClick={() => setImportType('fermi')}
+                            style={{ flex: 1 }}
+                        >
+                            🚫 Fermi Macchina
+                        </button>
+                    </div>
+
                     <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 20 }}>
-                        Importa le conferme di produzione SAP. Colonne riconosciute automaticamente:
-                        <strong> Acquisito · Centro di lavoro · Materiale · Quantità ottenuta · Qtà scarto · Turno</strong>
+                        {importType === 'produzione' ? (
+                            <>Importa le conferme di produzione. Colonne: <strong>Acquisito · Centro · Materiale · Quantità · Scarto</strong></>
+                        ) : (
+                            <>Importa i fermi macchina. Colonne: <strong>Inizio · Fine · Durata · Centro · Codice/Descrizione</strong></>
+                        )}
                     </p>
                     <div
                         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
@@ -491,8 +575,8 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                     </div>
 
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12, marginBottom: 24 }}>
-                        {COL_DEFS.map(({ key, label }) => {
-                            const isRequired = key === "work_center";
+                        {(importType === 'produzione' ? COL_DEFS_PROD : COL_DEFS_FERMI).map(({ key, label }) => {
+                            const isRequired = key === "work_center" || key === "acquisito" || key === "data_inizio";
                             const found = !!mapping[key];
                             return (
                                 <div key={key} className="form-group" style={{ marginBottom: 0 }}>
@@ -574,38 +658,48 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                             <table style={{ width: "100%" }}>
                                 <thead>
                                     <tr style={{ background: "var(--bg-tertiary)" }}>
-                                        {["Data", "Ora", "Centro SAP", "Macchina", "Materiale", "Qtà Ott.", "Qtà Scarto", "Turno"].map(h => (
-                                            <th key={h} style={{ padding: "8px 12px", textAlign: h === "Qtà Ott." || h === "Qtà Scarto" ? "right" : "left", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", whiteSpace: "nowrap" }}>{h}</th>
-                                        ))}
+                                        {importType === "produzione" ? (
+                                            ["Data", "Ora", "Centro SAP", "Macchina", "Materiale", "Qtà Ott.", "Qtà Scarto", "Turno"].map(h => (
+                                                <th key={h} style={{ padding: "8px 12px", textAlign: h.includes("Qtà") ? "right" : "left", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", whiteSpace: "nowrap" }}>{h}</th>
+                                            ))
+                                        ) : (
+                                            ["Inizio", "Fine", "Durata", "Autore", "Centro SAP", "Oggetto Tecnico", "Descrizione"].map(h => (
+                                                <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", whiteSpace: "nowrap" }}>{h}</th>
+                                            ))
+                                        )}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {result.rows.slice(0, 100).map((r, i) => (
                                         <tr key={i} style={{ borderBottom: "1px solid var(--border-light)", opacity: r.matched ? 1 : 0.45 }}>
-                                            <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", whiteSpace: "nowrap" }}>{formatItalianDate(r.data)}</td>
-                                            <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", color: "var(--text-muted)" }}>{r.ora || "—"}</td>
-                                            <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", fontWeight: 600 }}>{r.work_center_sap}</td>
-                                            <td style={{ padding: "7px 12px", fontSize: 12 }}>
-                                                {r.matched ? (
-                                                    <div style={{ display: "flex", flexDirection: "column" }}>
-                                                        <span style={{ color: "var(--success)", fontWeight: 600 }}>{r.macchina_nome}</span>
-                                                    </div>
-                                                ) : (
-                                                    <span style={{ color: "var(--danger)", fontSize: 11 }}>Non trovata</span>
-                                                )}
-                                            </td>
-                                            <td style={{ padding: "7px 12px", fontSize: 12 }}>{r.materiale || "—"}</td>
-                                            <td style={{ padding: "7px 12px", fontSize: 12, textAlign: "right", fontWeight: r.qta_ottenuta ? 600 : 400 }}>
-                                                {r.qta_ottenuta != null ? r.qta_ottenuta.toLocaleString("it-IT") : "—"}
-                                            </td>
-                                            <td style={{ padding: "7px 12px", fontSize: 12, textAlign: "right", color: r.qta_scarto > 0 ? "var(--danger)" : "inherit" }}>
-                                                {r.qta_scarto != null && r.qta_scarto > 0 ? r.qta_scarto.toLocaleString("it-IT") : "—"}
-                                            </td>
-                                            <td style={{ padding: "7px 12px", fontSize: 12, textAlign: "center" }}>
-                                                {r.turno_id
-                                                    ? <span style={{ background: "var(--bg-tertiary)", border: "1px solid var(--border)", borderRadius: 10, padding: "1px 8px", fontWeight: 700, fontSize: 11 }}>{r.turno_id}</span>
-                                                    : "—"}
-                                            </td>
+                                            {importType === "produzione" ? (
+                                                <>
+                                                    <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", whiteSpace: "nowrap" }}>{formatItalianDate(r.data)}</td>
+                                                    <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", color: "var(--text-muted)" }}>{r.ora || "—"}</td>
+                                                    <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", fontWeight: 600 }}>{r.work_center_sap}</td>
+                                                    <td style={{ padding: "7px 12px", fontSize: 12 }}>
+                                                        {r.matched ? <span style={{ color: "var(--success)", fontWeight: 600 }}>{r.macchina_nome}</span> : <span style={{ color: "var(--danger)", fontSize: 11 }}>Non trovata</span>}
+                                                    </td>
+                                                    <td style={{ padding: "7px 12px", fontSize: 12 }}>{r.materiale || "—"}</td>
+                                                    <td style={{ padding: "7px 12px", fontSize: 12, textAlign: "right", fontWeight: r.qta_ottenuta ? 600 : 400 }}>{r.qta_ottenuta != null ? r.qta_ottenuta.toLocaleString("it-IT") : "—"}</td>
+                                                    <td style={{ padding: "7px 12px", fontSize: 12, textAlign: "right", color: r.qta_scarto > 0 ? "var(--danger)" : "inherit" }}>{r.qta_scarto != null && r.qta_scarto > 0 ? r.qta_scarto.toLocaleString("it-IT") : "—"}</td>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <td style={{ padding: "7px 12px", fontSize: 11, whiteSpace: "nowrap" }}>{formatItalianDate(r.data_inizio)} {r.ora_inizio}</td>
+                                                    <td style={{ padding: "7px 12px", fontSize: 11, whiteSpace: "nowrap" }}>{formatItalianDate(r.data_fine)} {r.ora_fine}</td>
+                                                    <td style={{ padding: "7px 12px", fontSize: 12, fontWeight: 700 }}>{r.durata_minuti}m</td>
+                                                    <td style={{ padding: "7px 12px", fontSize: 12 }}>{r.autore || "—"}</td>
+                                                    <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", fontWeight: 600 }}>{r.work_center_sap}</td>
+                                                    <td style={{ padding: "7px 12px", fontSize: 12 }}>{r.oggetto_tecnico || "—"}</td>
+                                                    <td style={{ padding: "7px 12px", fontSize: 12 }}>{r.descrizione_fermo}</td>
+                                                </>
+                                            )}
+                                            {importType === "produzione" && (
+                                                <td style={{ padding: "7px 12px", fontSize: 12, textAlign: "center" }}>
+                                                    {r.turno_id ? <span className="tag tag-sm tag-blue">{r.turno_id}</span> : "—"}
+                                                </td>
+                                            )}
                                         </tr>
                                     ))}
                                 </tbody>
@@ -667,8 +761,8 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                 <div className="card" style={{ textAlign: "center", padding: 48 }}>
                     <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
                     <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Import completato</div>
-                    <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 8 }}>
-                        <strong>{result?.rows?.length}</strong> righe salvate nella tabella <code>conferme_sap</code>
+                     <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 8 }}>
+                        <strong>{result?.rows?.length}</strong> righe salvate nella tabella <code>{importType === "produzione" ? "conferme_sap" : "fermi_sap"}</code>
                     </div>
                     {result?.dateRange?.start && (
                         <div style={{ fontSize: 13, marginBottom: 24, padding: "10px 20px", background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 8, display: "inline-block" }}>
@@ -680,7 +774,7 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                         </div>
                     )}
                     <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-                        <button className="btn btn-primary" onClick={() => setCurrentView?.("sapData")}>
+                        <button className="btn btn-primary" onClick={() => setCurrentView?.(importType === "produzione" ? "sapData" : "sapFermi")}>
                             Vai allo Storico SAP →
                         </button>
                         <button className="btn btn-secondary" onClick={reset}>Importa un altro file</button>
