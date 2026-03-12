@@ -236,63 +236,66 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
     }, [assegnazioni, selectedDate, selectedTurno]);
 
     // Helper to render Automation Box
-    const renderAutomationBox = (machine) => {
-        if (!machine.automazione) return null;
-
-        const automationFermi = currentMachineFermi.filter(f => f.macchina_id === machine.id && f.is_automazione);
-        const pm = machine; // local alias
+    const renderAutomationBox = (targetMachines, machineFermi) => {
+        const targets = Array.isArray(targetMachines) ? targetMachines : [targetMachines];
+        const machinesWithAuto = targets.filter(m => m.automazione);
+        
+        if (machinesWithAuto.length === 0) return null;
 
         return (
-            <div key={`auto-box-${pm.id}`} style={{ 
-                marginTop: 8, 
-                padding: "6px 8px", 
-                background: "var(--bg-secondary)", 
-                borderRadius: 6, 
-                border: "1px dashed var(--border)",
-                display: "flex",
-                flexDirection: "column",
-                gap: 4
-            }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, fontWeight: 700, color: "var(--accent)" }}>
-                    <span>🤖 {pm.automazione}</span>
-                </div>
+            <div key={`auto-box-${targets.map(m => m.id).join('-')}`} className="automation-box" style={{ marginTop: 8, padding: "8px 10px", borderRadius: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+                {machinesWithAuto.map(pm => {
+                    const automationFermi = (machineFermi || []).filter(f => f.macchina_id === pm.id && f.is_automazione);
+                    return (
+                        <div key={`auto-inner-${pm.id}`} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, fontWeight: 700, color: "var(--accent)" }}>
+                                    <span style={{ fontSize: 12 }}>🤖</span>
+                                    <span>{pm.automazione}</span>
+                                    {targets.length > 1 && <span style={{ opacity: 0.5, fontSize: 8 }}>({pm.id})</span>}
+                                </div>
+                            </div>
 
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                    {automationFermi.map(f => (
-                        <div key={f.id} className="tag" style={{ fontSize: 9, padding: "1px 4px", background: "rgba(139, 92, 246, 0.1)", color: "#8B5CF6", border: "1px solid rgba(139, 92, 246, 0.2)", display: "flex", alignItems: "center", gap: 2 }}>
-                            <span>{f.motivo}</span>
-                            <button onClick={() => handleDeleteFermi(f.id)} style={{ border: "none", background: "none", color: "inherit", cursor: "pointer", padding: 0 }}>{Icons.x}</button>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                {automationFermi.map(f => (
+                                    <div key={f.id} className="tag automation-tag" style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, display: "flex", alignItems: "center", gap: 2 }}>
+                                        <span style={{ fontWeight: 600 }}>{f.durata_minuti}'</span>
+                                        <span>{f.motivo}</span>
+                                        <button onClick={() => handleDeleteFermi(f.id)} style={{ border: "none", background: "none", color: "inherit", cursor: "pointer", padding: 0, opacity: 0.6, display: "flex" }}>{Icons.x}</button>
+                                    </div>
+                                ))}
+                                {automationFermi.length === 0 && <span style={{ fontSize: 9, color: "var(--text-lighter)", fontStyle: "italic", marginLeft: 18 }}>Nessun fermo</span>}
+                            </div>
+
+                            <div style={{ display: "flex", gap: 2, marginTop: 2 }}>
+                                <input
+                                    type="number" className="input" placeholder="Min"
+                                    style={{ width: 35, height: 20, fontSize: 9, padding: 2, background: "white" }}
+                                    value={pezziInputs[pm.id]?.durata_auto || ""}
+                                    onChange={e => setPezziInputs(prev => ({ ...prev, [pm.id]: { ...(prev[pm.id] || {}), durata_auto: e.target.value } }))}
+                                />
+                                <select
+                                    className="select-input" style={{ height: 20, fontSize: 9, padding: "0 2px", flex: 1, border: "1px solid rgba(139, 92, 246, 0.2)", background: "white" }}
+                                    onChange={(e) => {
+                                        if (e.target.value) {
+                                            handlePostFermi(pm.id, e.target.value, pezziInputs[pm.id]?.durata_auto, true);
+                                            setPezziInputs(prev => ({ ...prev, [pm.id]: { ...(prev[pm.id] || {}), durata_auto: "" } }));
+                                            e.target.value = "";
+                                        }
+                                    }}
+                                >
+                                    <option value="">+ {pm.automazione.split(' ')[0]}</option>
+                                    {(() => {
+                                        const tecId = pm.tecnologia_id || tecnologie.find(t => t.prefissi?.split(',').some(p => pm.id.startsWith(p)))?.id;
+                                        return motiviFermo.filter(mot => !tecId || mot.tecnologia_id === tecId).map(mot => (
+                                            <option key={mot.id} value={mot.label}>{mot.label}</option>
+                                        ));
+                                    })()}
+                                </select>
+                            </div>
                         </div>
-                    ))}
-                    {automationFermi.length === 0 && <span style={{ fontSize: 9, color: "var(--text-lighter)", fontStyle: "italic" }}>Nessun fermo registrato</span>}
-                </div>
-
-                <div style={{ display: "flex", gap: 2, marginTop: 2 }}>
-                    <input
-                        type="number" className="input" placeholder="Min"
-                        style={{ width: 35, height: 20, fontSize: 9, padding: 2 }}
-                        value={pezziInputs[pm.id]?.durata_auto || ""}
-                        onChange={e => setPezziInputs(prev => ({ ...prev, [pm.id]: { ...(prev[pm.id] || {}), durata_auto: e.target.value } }))}
-                    />
-                    <select
-                        className="select-input" style={{ height: 20, fontSize: 9, padding: "0 2px", flex: 1, border: "1px solid var(--accent-light, #DDD)" }}
-                        onChange={(e) => {
-                            if (e.target.value) {
-                                handlePostFermi(pm.id, e.target.value, pezziInputs[pm.id]?.durata_auto, true);
-                                setPezziInputs(prev => ({ ...prev, [pm.id]: { ...(prev[pm.id] || {}), durata_auto: "" } }));
-                                e.target.value = "";
-                            }
-                        }}
-                    >
-                        <option value="">+ Fermo Robot</option>
-                        {(() => {
-                            const tecId = pm.tecnologia_id || tecnologie.find(t => t.prefissi?.split(',').some(p => pm.id.startsWith(p)))?.id;
-                            return motiviFermo.filter(mot => !tecId || mot.tecnologia_id === tecId).map(mot => (
-                                <option key={mot.id} value={mot.label}>{mot.label}</option>
-                            ));
-                        })()}
-                    </select>
-                </div>
+                    );
+                })}
             </div>
         );
     };
@@ -1026,8 +1029,8 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                                                 </select>
                                                                                                             </div>
                                                                                                         </div>
-                                                                                                        {showCentralAuto && renderAutomationBox(pm)}
-                                                                                                        {!secondaryMachine && renderAutomationBox(pm)}
+                                                                                                        {showCentralAuto && renderAutomationBox(pairMachines, currentMachineFermi)}
+                                                                                                        {!secondaryMachine && renderAutomationBox(pm, currentMachineFermi)}
                                                                                                     </React.Fragment>
                                                                                                 );
                                                                                             })}
@@ -1186,8 +1189,8 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                                         </select>
                                                                                                     </div>
                                                                                                 </div>
-                                                                                                {showCentralAuto && renderAutomationBox(pm)}
-                                                                                                {!secondaryMachine && renderAutomationBox(pm)}
+                                                                                                {showCentralAuto && renderAutomationBox(pairMachines, currentMachineFermi)}
+                                                                                                {!secondaryMachine && renderAutomationBox(pm, currentMachineFermi)}
                                                                                             </React.Fragment>
                                                                                         );
                                                                                     })}

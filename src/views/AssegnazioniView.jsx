@@ -25,9 +25,8 @@ export default function AssegnazioniView({
         const record = presRep.find(p => p.dipendente_id === dipId);
         if (record) return record.presente;
 
-        // No record? Default logic
-        const d = new Date();
-        const isSunday = d.getDay() === 0;
+        // No record? Default logic — usa `today` (che riflette globalDate) non new Date()
+        const isSunday = new Date(today + "T12:00:00").getDay() === 0;
         return !isSunday;
     };
 
@@ -138,7 +137,7 @@ export default function AssegnazioniView({
         const timer = setTimeout(manageAssignments, 1500); // Slight delay to let props settle
         return () => clearTimeout(timer);
 
-    }, [turnoCorrente, today, dipendenti.length, presenze]); // Re-run if shift or presences change
+    }, [turnoCorrente, today, dipendenti.length]); // presenze escluso: ogni cambio presenza ri-triggerava la copia
 
     // --- FILTER LOGIC ---
     const dipRep = dipendenti.filter((d) =>

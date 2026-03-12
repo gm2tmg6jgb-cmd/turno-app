@@ -1,8 +1,8 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { Icons } from "../components/ui/Icons";
 import { LIVELLI_COMPETENZA } from "../data/constants";
 
-export default function FormazioneView({ dipendenti, assegnazioni, macchine, presenze = [], turnoCorrente }) {
+export default function FormazioneView({ dipendenti, turnoCorrente }) {
     // Filtra i dipendenti che hanno almeno una competenza con valore "0=>2"
     const dipendentiInFormazione = useMemo(() => {
         return dipendenti.filter(d => {
@@ -13,14 +13,6 @@ export default function FormazioneView({ dipendenti, assegnazioni, macchine, pre
             return Object.values(competenze).some(val => String(val).includes("=>"));
         });
     }, [dipendenti, turnoCorrente]);
-
-    const getIsPresent = (dipId) => {
-        const today = new Date().toISOString().split('T')[0];
-        const record = presenze.find(p => p.dipendente_id === dipId && p.data === today);
-        return record ? record.presente : true; // Default to true if no record
-    };
-
-    const skillInFormazione = LIVELLI_COMPETENZA.find(l => l.value === "0=>2");
 
     return (
         <div className="fade-in">
@@ -42,17 +34,16 @@ export default function FormazioneView({ dipendenti, assegnazioni, macchine, pre
                     <tbody>
                         {dipendentiInFormazione.length === 0 ? (
                             <tr>
-                                <td colSpan="4" style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>
+                                <td colSpan="3" style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>
                                     Nessun operatore attualmente in formazione.
                                 </td>
                             </tr>
                         ) : (
                             dipendentiInFormazione.map(d => {
-                                const isPresent = getIsPresent(d.id);
                                 // Trova tutte le macchine per cui ha competenza 0=>2
                                 const macchineFormazione = Object.entries(d.competenze || {})
                                     .filter(([_, val]) => String(val).includes("=>"))
-                                    .map(([mId, val]) => ({ mId, m: macchine.find(m => m.id === mId), val }));
+                                    .map(([mId, val]) => ({ mId, val }));
                                 // NON filtriamo per item.m: mostriamo sempre il mId anche se la macchina non è in DB
 
                                 return (
