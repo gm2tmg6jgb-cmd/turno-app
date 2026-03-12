@@ -46,6 +46,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
     const [absencesViewMode, setAbsencesViewMode] = useState("aggregate");
     const [searchMacchina, setSearchMacchina] = useState(""); // "detail" or "aggregate"
     const [pezziInputs, setPezziInputs] = useState({}); // { [machineId]: { qta: '', scarti: '', durata: '' } }
+    const [autoFermiActive, setAutoFermiActive] = useState({}); // { [machineId]: boolean }
 
     // Fetch Fermi & Pezzi when Date or Turno changes
     useEffect(() => {
@@ -131,7 +132,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
         fetchData();
     }, [selectedDate, selectedTurno, macchine]);
 
-    const handlePostFermi = async (machineId, motivo, durataMin = null) => {
+    const handlePostFermi = async (machineId, motivo, durataMin = null, isAutomazione = false) => {
         if (!selectedDate) return;
         try {
             const newFermo = {
@@ -141,7 +142,8 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                 motivo: motivo,
                 ora_inizio: new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
                 ora_fine: null,
-                durata_minuti: durataMin ? parseInt(durataMin) : null
+                durata_minuti: durataMin ? parseInt(durataMin) : null,
+                is_automazione: isAutomazione
             };
 
             const { data, error } = await supabase
@@ -851,6 +853,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                                                                                         <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
                                                                                             {secondaryMachine ? `${m.nome} - ${secondaryMachine.nome}` : m.nome}
+                                                                                            {m.automazione && <span style={{ fontSize: 9, opacity: 0.6, marginLeft: 6 }}>({m.automazione})</span>}
                                                                                         </div>
                                                                                         {!secondaryMachine && m.codice_sap && m.codice_sap.toUpperCase() !== m.nome.toUpperCase() && (
                                                                                             <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{m.codice_sap}</div>
@@ -920,10 +923,11 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                                     {secondaryMachine && <div style={{ fontSize: 9, fontWeight: 700, color: "var(--text-muted)", marginBottom: 2 }}>{pm.nome}</div>}
                                                                                                     <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
                                                                                                         {machineFermiRecords.map(f => (
-                                                                                                            <div key={f.id} className="tag tag-red" style={{ fontSize: 9, padding: "1px 4px", display: "flex", alignItems: "center", gap: 2 }}>
-                                                                                                                <span>{f.motivo}</span>
-                                                                                                                <button onClick={() => handleDeleteFermi(f.id)} style={{ border: "none", background: "none", color: "inherit", cursor: "pointer", padding: 0 }}>{Icons.x}</button>
-                                                                                                            </div>
+                                                                                                                <div key={f.id} className="tag tag-red" style={{ fontSize: 9, padding: "1px 4px", display: "flex", alignItems: "center", gap: 2 }}>
+                                                                                                                    {f.is_automazione && <span title="Automazione/Robot">🤖</span>}
+                                                                                                                    <span>{f.motivo}</span>
+                                                                                                                    <button onClick={() => handleDeleteFermi(f.id)} style={{ border: "none", background: "none", color: "inherit", cursor: "pointer", padding: 0 }}>{Icons.x}</button>
+                                                                                                                </div>
                                                                                                         ))}
                                                                                                         {currentMachineFermiSap.filter(fs => fs.macchina_id === pm.id).map(fs => (
                                                                                                             <div key={fs.id} className="tag" style={{ fontSize: 9, padding: "1px 4px", background: "rgba(249, 115, 22, 0.1)", color: "#F97316", border: "1px solid rgba(249, 115, 22, 0.2)", display: "flex", alignItems: "center", gap: 2 }}>
@@ -938,12 +942,25 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                                             value={pezziInputs[pm.id]?.durata || ""}
                                                                                                             onChange={e => setPezziInputs(prev => ({ ...prev, [pm.id]: { ...(prev[pm.id] || {}), durata: e.target.value } }))}
                                                                                                         />
+                                                                                                        <button 
+                                                                                                            onClick={() => setAutoFermiActive(prev => ({ ...prev, [pm.id]: !prev[pm.id] }))}
+                                                                                                            style={{ 
+                                                                                                                border: "1px solid var(--border)", 
+                                                                                                                background: autoFermiActive[pm.id] ? "var(--accent-muted)" : "var(--bg-tertiary)", 
+                                                                                                                color: autoFermiActive[pm.id] ? "var(--accent)" : "var(--text-muted)",
+                                                                                                                borderRadius: 4, cursor: "pointer", fontSize: 10, padding: "0 4px", height: 20
+                                                                                                            }}
+                                                                                                            title={pm.automazione ? `Attiva fermo per ${pm.automazione}` : "Attiva fermo automazione"}
+                                                                                                        >
+                                                                                                            🤖
+                                                                                                        </button>
                                                                                                         <select
-                                                                                                            className="select-input" style={{ height: 20, fontSize: 9, padding: "0 2px", flex: 1 }}
+                                                                                                            className="select-input" style={{ height: 20, fontSize: 9, padding: "0 2px", flex: 1, border: autoFermiActive[pm.id] ? "1px solid var(--accent)" : "1px solid var(--border)" }}
                                                                                                             onChange={(e) => {
                                                                                                                 if (e.target.value) {
-                                                                                                                    handlePostFermi(pm.id, e.target.value, pezziInputs[pm.id]?.durata);
+                                                                                                                    handlePostFermi(pm.id, e.target.value, pezziInputs[pm.id]?.durata, autoFermiActive[pm.id]);
                                                                                                                     setPezziInputs(prev => ({ ...prev, [pm.id]: { ...(prev[pm.id] || {}), durata: "" } }));
+                                                                                                                    setAutoFermiActive(prev => ({ ...prev, [pm.id]: false }));
                                                                                                                     e.target.value = "";
                                                                                                                 }
                                                                                                             }}
@@ -1075,6 +1092,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
                                                                                                     {machineFermiRecords.map(f => (
                                                                                                         <div key={f.id} className="tag tag-red" style={{ fontSize: 9, padding: "1px 4px", display: "flex", alignItems: "center", gap: 2 }}>
+                                                                                                            {f.is_automazione && <span title="Automazione/Robot">🤖</span>}
                                                                                                             <span>{f.motivo}</span>
                                                                                                             <button onClick={() => handleDeleteFermi(f.id)} style={{ border: "none", background: "none", color: "inherit", cursor: "pointer", padding: 0 }}>{Icons.x}</button>
                                                                                                         </div>
@@ -1092,12 +1110,25 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                                                                                                         value={pezziInputs[pm.id]?.durata || ""}
                                                                                                         onChange={e => setPezziInputs(prev => ({ ...prev, [pm.id]: { ...(prev[pm.id] || {}), durata: e.target.value } }))}
                                                                                                     />
+                                                                                                    <button 
+                                                                                                        onClick={() => setAutoFermiActive(prev => ({ ...prev, [pm.id]: !prev[pm.id] }))}
+                                                                                                        style={{ 
+                                                                                                            border: "1px solid var(--border)", 
+                                                                                                            background: autoFermiActive[pm.id] ? "var(--accent-muted)" : "var(--bg-tertiary)", 
+                                                                                                            color: autoFermiActive[pm.id] ? "var(--accent)" : "var(--text-muted)",
+                                                                                                            borderRadius: 4, cursor: "pointer", fontSize: 10, padding: "0 4px", height: 20
+                                                                                                        }}
+                                                                                                        title={pm.automazione ? `Attiva fermo per ${pm.automazione}` : "Attiva fermo automazione"}
+                                                                                                    >
+                                                                                                        🤖
+                                                                                                    </button>
                                                                                                     <select
-                                                                                                        className="select-input" style={{ height: 20, fontSize: 9, padding: "0 2px", flex: 1 }}
+                                                                                                        className="select-input" style={{ height: 20, fontSize: 9, padding: "0 2px", flex: 1, border: autoFermiActive[pm.id] ? "1px solid var(--accent)" : "1px solid var(--border)" }}
                                                                                                         onChange={(e) => {
                                                                                                             if (e.target.value) {
-                                                                                                                handlePostFermi(pm.id, e.target.value, pezziInputs[pm.id]?.durata);
+                                                                                                                handlePostFermi(pm.id, e.target.value, pezziInputs[pm.id]?.durata, autoFermiActive[pm.id]);
                                                                                                                 setPezziInputs(prev => ({ ...prev, [pm.id]: { ...(prev[pm.id] || {}), durata: "" } }));
+                                                                                                                setAutoFermiActive(prev => ({ ...prev, [pm.id]: false }));
                                                                                                                 e.target.value = "";
                                                                                                             }
                                                                                                         }}

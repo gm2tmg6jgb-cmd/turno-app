@@ -11,6 +11,7 @@ const EMPTY = {
     tecnologia_id: "",
     personale_minimo: 1,
     codice_sap: "",
+    automazione: "",
 };
 
 export default function AnagraficaMacchineView({ macchine, setMacchine, tecnologie = [], zone = [], showToast }) {
@@ -57,6 +58,7 @@ export default function AnagraficaMacchineView({ macchine, setMacchine, tecnolog
             tecnologia_id: m.tecnologia_id || "",
             personale_minimo: m.personale_minimo ?? 1,
             codice_sap: m.codice_sap || "",
+            automazione: m.automazione || "",
         };
         setForm(f);
         setOriginalId(m.id);
@@ -85,6 +87,7 @@ export default function AnagraficaMacchineView({ macchine, setMacchine, tecnolog
             tecnologia_id: form.tecnologia_id || null,
             personale_minimo: parseInt(form.personale_minimo) || 1,
             codice_sap: form.codice_sap.trim().toUpperCase() || null,
+            automazione: form.automazione.trim() || null,
         };
 
         const idChanged = editingId !== "new" && originalId && originalId !== newId;
@@ -328,6 +331,19 @@ export default function AnagraficaMacchineView({ macchine, setMacchine, tecnolog
                             />
                             <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
                                 Usato per abbinare i dati dei file Excel esportati da SAP.
+                            </div>
+                        </div>
+
+                        <div className="form-group">
+                            <label className="form-label">Automazione (Robot/Caricatore)</label>
+                            <input
+                                className="input"
+                                placeholder="Es. Robot Fanuc / Caricatore Iemca"
+                                value={form.automazione}
+                                onChange={e => setForm(p => ({ ...p, automazione: e.target.value }))}
+                            />
+                            <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                                Inserisci il nome dell'automazione associata per gestirne i fermi.
                             </div>
                         </div>
 
