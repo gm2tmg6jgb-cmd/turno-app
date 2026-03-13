@@ -718,23 +718,27 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                                         <strong> {result.dateRange.start.split("-").reverse().join("/")}</strong> —
                                         <strong> {result.dateRange.end.split("-").reverse().join("/")}</strong>.
                                     </p>
+                                    <p style={{ margin: "8px 0 0", fontSize: 12, color: "#EF4444", fontWeight: 600 }}>
+                                        Se reimporti lo stesso file, scegli SEMPRE "Sostituisci" — "Aggiungi" crea duplicati che gonfiano le somme.
+                                    </p>
                                 </div>
                             </div>
                             <div style={{ display: "flex", gap: 12, marginTop: 16, justifyContent: "flex-end" }}>
                                 <button
-                                    className="btn btn-secondary"
-                                    onClick={() => handleImport("append")}
-                                    disabled={saving}
-                                >
-                                    Aggiungi (Mantieni esistenti)
-                                </button>
-                                <button
                                     className="btn btn-primary"
-                                    style={{ background: "#D97706", borderColor: "#D97706" }}
+                                    style={{ background: "#16A34A", borderColor: "#16A34A" }}
                                     onClick={() => handleImport("replace")}
                                     disabled={saving}
                                 >
-                                    Sostituisci (Pulisci e Importa)
+                                    ✓ Sostituisci (Consigliato)
+                                </button>
+                                <button
+                                    className="btn btn-secondary"
+                                    style={{ color: "#EF4444", borderColor: "#EF4444" }}
+                                    onClick={() => handleImport("append")}
+                                    disabled={saving}
+                                >
+                                    Aggiungi (Rischio duplicati)
                                 </button>
                             </div>
                         </div>

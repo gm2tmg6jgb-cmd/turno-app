@@ -10,17 +10,23 @@ export default function ProductionReportView({
   tecnologie = [],
 }) {
   const [activeTech, setActiveTech] = useState("TUTTO");
-  const [matrice, setMatrice] = useState({});
-  const [downtimeMap, setDowntimeMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [anagrafica, setAnagrafica] = useState({});
   const [hoveredCol, setHoveredCol] = useState(null);
   const [hoveredRow, setHoveredRow] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [detailedDowntime, setDetailedDowntime] = useState({});
+  const [selectedTurno, setSelectedTurno] = useState(turnoCorrente || "ALL");
   const [selectedMachineDowntime, setSelectedMachineDowntime] = useState(null);
-  const [detailedProduction, setDetailedProduction] = useState({});
   const [selectedProduction, setSelectedProduction] = useState(null);
+  const [rawProductionData, setRawProductionData] = useState([]);
+  const [rawDowntimeData, setRawDowntimeData] = useState([]);
+
+  // Sync with global shift if it changes externally
+  useEffect(() => {
+    if (turnoCorrente) {
+      setSelectedTurno(turnoCorrente);
+    }
+  }, [turnoCorrente]);
 
   const components = [
     "SG1",
@@ -104,95 +110,19 @@ export default function ProductionReportView({
 
       // 1. Fetch production data
       let qProd = supabase.from("conferme_sap").select("*").eq("data", date);
-      if (turnoCorrente) qProd = qProd.eq("turno_id", turnoCorrente);
+      if (selectedTurno !== "ALL") qProd = qProd.eq("turno_id", selectedTurno);
 
       // 2. Fetch downtime data
       let qDowntime = supabase
         .from("fermi_macchina")
         .select("*")
         .eq("data", date);
-      if (turnoCorrente) qDowntime = qDowntime.eq("turno_id", turnoCorrente);
+      if (selectedTurno !== "ALL") qDowntime = qDowntime.eq("turno_id", selectedTurno);
 
       const [resProd, resDowntime] = await Promise.all([qProd, qDowntime]);
 
-      // Process production data into matrix
-      const newMatrice = {};
-      const newDetailedProduction = {};
-      if (resProd.data) {
-        resProd.data.forEach((row) => {
-          const rawMachineId = row.macchina_id || row.work_center_sap;
-          if (!rawMachineId) return;
-
-          // Map to primary twin if applicable
-          const machineId = getPrimaryMachineId(rawMachineId);
-
-          const info = anagrafica[row.materiale?.toUpperCase()];
-          const project =
-            info?.progetto ||
-            (row.materiale?.startsWith("M016")
-              ? "DCT Eco"
-              : row.materiale?.startsWith("M015")
-                ? "8Fe"
-                : "DCT 300");
-          const compName = info?.componente;
-
-          if (compName) {
-            let key = compName;
-            // Handle naming collisions with suffixes
-            if (project === "DCT Eco") key += "_ECO";
-            else if (project === "8Fe") key += "_8FE";
-
-            let targetMachineId = machineId;
-            // Applica correzioni per errata allocazione in SAP (es. FRW10193 -> FRW10079 per SG3/SG4 8Fe)
-            if (rawMachineId === "FRW10193" && (key === "SG3_8FE" || key === "SG4_8FE")) {
-              targetMachineId = "FRW10079";
-            }
-
-            if (!newMatrice[targetMachineId]) newMatrice[targetMachineId] = {};
-            newMatrice[targetMachineId][key] =
-              (newMatrice[targetMachineId][key] || 0) + (row.qta_ottenuta || 0);
-
-            if (!newDetailedProduction[targetMachineId])
-              newDetailedProduction[targetMachineId] = {};
-            if (!newDetailedProduction[targetMachineId][key])
-              newDetailedProduction[targetMachineId][key] = [];
-
-            // Keep the original machine ID in the details for clarity if it's a twin
-            newDetailedProduction[targetMachineId][key].push({
-              ...row,
-              _original_machine: rawMachineId,
-            });
-          }
-        });
-      }
-      setMatrice(newMatrice);
-      setDetailedProduction(newDetailedProduction);
-
-      // Process downtime data
-      const newDowntimeMap = {};
-      const newDetailedDowntime = {};
-      if (resDowntime.data) {
-        resDowntime.data.forEach((row) => {
-          const rawMachineId = row.macchina_id;
-          if (!rawMachineId) return;
-
-          // Map to primary twin if applicable
-          const mId = getPrimaryMachineId(rawMachineId);
-
-          newDowntimeMap[mId] =
-            (newDowntimeMap[mId] || 0) + (row.durata_minuti || 0);
-
-          if (!newDetailedDowntime[mId]) newDetailedDowntime[mId] = [];
-
-          // Keep original machine ID
-          newDetailedDowntime[mId].push({
-            ...row,
-            _original_machine: rawMachineId,
-          });
-        });
-      }
-      setDowntimeMap(newDowntimeMap);
-      setDetailedDowntime(newDetailedDowntime);
+      setRawProductionData(resProd.data || []);
+      setRawDowntimeData(resDowntime.data || []);
       setLoading(false);
     };
 
@@ -201,7 +131,82 @@ export default function ProductionReportView({
     } else if (loading) {
       // If anagrafica is empty but we haven't loaded it yet, don't stop loading
     }
-  }, [globalDate, turnoCorrente, anagrafica]);
+  }, [globalDate, selectedTurno, anagrafica]);
+
+  // Dynamic Matrix Calculation based on activeTech and raw data
+  const { matrice, detailedProduction, downtimeMap, detailedDowntime } = useMemo(() => {
+    const newMatrice = {};
+    const newDetailedProduction = {};
+    const newDowntimeMap = {};
+    const newDetailedDowntime = {};
+
+    const currentTec = tecnologie.find(t => t.id === activeTech || t.label === activeTech);
+    const label = currentTec?.label?.toLowerCase() || "";
+    const isSoftView = label.includes("tornitura soft");
+    const isHardView = label.includes("tornitura hard");
+
+    // Process Production
+    rawProductionData.forEach((row) => {
+      const rawMachineId = row.macchina_id || row.work_center_sap;
+      if (!rawMachineId) return;
+
+      const machineId = getPrimaryMachineId(rawMachineId);
+      const mat = String(row.materiale || "").toUpperCase();
+      const isSoftMat = mat.endsWith("/S");
+
+      // Apply dynamic DRA splitting logic
+      if (activeTech !== "TUTTO" && machineId.startsWith("DRA")) {
+        if (isSoftView && !isSoftMat) return;
+        if (isHardView && isSoftMat) return;
+      }
+
+      const info = anagrafica[mat];
+      const project =
+        info?.progetto ||
+        (mat.startsWith("M016")
+          ? "DCT Eco"
+          : mat.startsWith("M015")
+            ? "8Fe"
+            : "DCT 300");
+      const compName = info?.componente;
+
+      if (compName) {
+        let key = compName;
+        if (project === "DCT Eco") key += "_ECO";
+        else if (project === "8Fe") key += "_8FE";
+
+        let targetMachineId = machineId;
+        if (rawMachineId === "FRW10193" && (key === "SG3_8FE" || key === "SG4_8FE")) {
+          targetMachineId = "FRW10079";
+        }
+
+        if (!newMatrice[targetMachineId]) newMatrice[targetMachineId] = {};
+        newMatrice[targetMachineId][key] = (newMatrice[targetMachineId][key] || 0) + (row.qta_ottenuta || 0);
+
+        if (!newDetailedProduction[targetMachineId]) newDetailedProduction[targetMachineId] = {};
+        if (!newDetailedProduction[targetMachineId][key]) newDetailedProduction[targetMachineId][key] = [];
+        newDetailedProduction[targetMachineId][key].push({ ...row, _original_machine: rawMachineId });
+      }
+    });
+
+    // Process Downtime
+    rawDowntimeData.forEach((row) => {
+      const rawMachineId = row.macchina_id;
+      if (!rawMachineId) return;
+      const mId = getPrimaryMachineId(rawMachineId);
+
+      // Downtime logic: if DRA, show only in the relevant view if possible. 
+      // Since downtime doesn't have a material, we show it if the machine has relevant production today 
+      // or just show it in both if we are unsure.
+      // For now, we follow the machine categorization if activeTech matches.
+      
+      newDowntimeMap[mId] = (newDowntimeMap[mId] || 0) + (row.durata_minuti || 0);
+      if (!newDetailedDowntime[mId]) newDetailedDowntime[mId] = [];
+      newDetailedDowntime[mId].push({ ...row, _original_machine: rawMachineId });
+    });
+
+    return { matrice: newMatrice, detailedProduction: newDetailedProduction, downtimeMap: newDowntimeMap, detailedDowntime: newDetailedDowntime };
+  }, [rawProductionData, rawDowntimeData, activeTech, anagrafica, tecnologie]);
 
   const all_machines_order = [
     "DRA10060",
@@ -275,6 +280,7 @@ export default function ProductionReportView({
     "DRA10113",
     "DRA10114",
     "DRA10109",
+    "DRA14530",
     "SLW11011",
     "SLW11012",
     "SLW11046",
@@ -329,42 +335,6 @@ export default function ProductionReportView({
   ];
 
   const activeTechMachines = useMemo(() => {
-    const softList = [
-      "DRA10060",
-      "DRA10061",
-      "DRA10062",
-      "DRA10063",
-      "DRA10064",
-      "DRA10065",
-      "DRA10066",
-      "DRA10067",
-      "DRA10068",
-      "DRA10069",
-      "DRA10070",
-      "DRA10071",
-      "DRA10072",
-      "DRA11042",
-    ];
-    const hardList = [
-      "DRA10110",
-      "DRA10111",
-      "DRA10116",
-      "DRA10106",
-      "DRA10102",
-      "DRA10108",
-      "DRA10099",
-      "DRA10100",
-      "DRA19009",
-      "DRA10097",
-      "DRA10098",
-      "DRA10101",
-      "DRA10107",
-      "DRA11016",
-      "DRA10113",
-      "DRA10114",
-      "DRA10109",
-    ];
-
     return macchine
       .filter((m) => {
         const machineId = m.id.toUpperCase();
@@ -399,12 +369,35 @@ export default function ProductionReportView({
 
         const label = tec.label?.toLowerCase() || "";
 
-        // Specific logic for Tornitura Soft/Hard to resolve overlap
         if (label.includes("tornitura soft")) {
-          return softList.includes(machineId);
+          if (machineId.startsWith("DRA")) {
+            // Explicit DB assignment takes priority
+            if (m.tecnologia_id === "tornitura_hard") return false;
+            if (m.tecnologia_id === "tornitura_soft") return true;
+
+            // No assignment: use dynamic data (machine produced /S materials today)
+            const hasSoftData = Object.keys(detailedProduction[machineId] || {}).length > 0;
+            if (hasSoftData) return true;
+
+            // SPECIAL CASE: no tecnologia_id set, default to Soft for DRA prefix
+            if (!m.tecnologia_id && tec.prefissi && tec.prefissi.split(',').map(p => p.trim()).includes("DRA")) return true;
+
+            return false;
+          }
         }
         if (label.includes("tornitura hard")) {
-          return hardList.includes(machineId);
+          if (machineId.startsWith("DRA")) {
+            // Explicit DB assignment takes priority
+            if (m.tecnologia_id === "tornitura_soft") return false;
+            if (m.tecnologia_id === "tornitura_hard") return true;
+
+            // No assignment: use dynamic data (has production but none is soft)
+            const hasDataRow = Object.keys(matrice[machineId] || {}).length > 0;
+            const hasSoftData = Object.keys(detailedProduction[machineId] || {}).length > 0;
+            if (hasDataRow && !hasSoftData) return true;
+
+            return false;
+          }
         }
         if (label.includes("controllo ut")) {
           return machineId === "MZA10005";
@@ -426,7 +419,7 @@ export default function ProductionReportView({
         if (idxB === -1) return -1;
         return idxA - idxB;
       });
-  }, [macchine, activeTech, tecnologie, all_machines_order, searchQuery]);
+  }, [macchine, activeTech, tecnologie, all_machines_order, searchQuery, detailedProduction, matrice]);
 
   const getBackgroundColor = (value) => {
     if (value === "" || value === 0 || value === undefined) return "white";
@@ -445,7 +438,7 @@ export default function ProductionReportView({
 
   const handleSendEmail = () => {
     const dateStr = formatItalianDate(globalDate || new Date());
-    const shiftStr = turnoCorrente || "N/A";
+    const shiftStr = selectedTurno === "ALL" ? "Tutto il giorno" : selectedTurno;
     const tabName =
       tecnologie.find((t) => t.id === activeTech)?.label || activeTech;
 
@@ -545,10 +538,31 @@ export default function ProductionReportView({
             <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>
               Dati del{" "}
               <strong>{formatItalianDate(globalDate || new Date())}</strong> -
-              Turno <strong>{turnoCorrente || "N/A"}</strong>
+              Turno <strong>{selectedTurno === "ALL" ? "Tutti (Intera Giornata)" : selectedTurno}</strong>
             </p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+            <select
+              value={selectedTurno}
+              onChange={(e) => setSelectedTurno(e.target.value)}
+              style={{
+                padding: "10px 16px",
+                borderRadius: "8px",
+                border: "1px solid var(--border-light)",
+                backgroundColor: "white",
+                fontSize: "14px",
+                fontWeight: "600",
+                color: "var(--text-primary)",
+                outline: "none",
+                cursor: "pointer",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+              }}
+            >
+              <option value="ALL">Tutto il giorno</option>
+              {["A", "B", "C", "D"].map(t => (
+                  <option key={t} value={t}>Turno {t}</option>
+              ))}
+            </select>
             <div style={{ position: "relative" }}>
               <input
                 type="text"
