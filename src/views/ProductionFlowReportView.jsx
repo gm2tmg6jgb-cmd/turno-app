@@ -79,6 +79,25 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
     }
 
     if (activeTech === "TUTTO") return true;
+
+    // Custom filtering for new RG/DH technologies (must be BEFORE the !tec check)
+    if (activeTech === "rg_loop_grande") {
+      const rgIds = ["DRA10058", "DRA10059", "FRW10109", "FRW10073", "FRW10073_13", "EGW11007", "BOA10094", "FRW10189"];
+      return rgIds.includes(machineId);
+    }
+    if (activeTech === "rg_mini_opf") {
+      const rgMiniIds = ["DRA11044", "FRW11015", "EGW11006"];
+      return rgMiniIds.includes(machineId);
+    }
+    if (activeTech === "dh") {
+      const dhIds = ["DRA11130", "DRA11131", "DRA11132", "DRA11133", "MON12051", "SCA11051", "SCA11151"];
+      return dhIds.includes(machineId);
+    }
+    
+    // Support for moving MZA machines to Saldatura Laser
+    if (activeTech === "saldatrici" || activeTech === "saldatura_laser") {
+      if (machineId === "MZA10005" || machineId === "MZA11006") return true;
+    }
     
     const tec = tecnologie.find(t => t.id === activeTech);
     if (!tec) return true;
@@ -86,6 +105,20 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
     const label = tec.label?.toLowerCase() || "";
     const isSoftView = label.includes("tornitura soft");
     const isHardView = label.includes("tornitura hard");
+
+    // 4. Exclude specialized machines from standard prefix-based tabs
+    const customAssignedMachines = [
+      "DRA10058", "DRA10059", "FRW10109", "FRW10073", "FRW10073_13", "EGW11007", "BOA10094", "FRW10189",
+      "DRA11044", "FRW11015", "EGW11006",
+      "DRA11130", "DRA11131", "DRA11132", "DRA11133",
+      "MON12051",
+      "SCA11051", "SCA11151",
+      "DRA11037", "DRA10115",
+      "MZA10005", "MZA11006"
+    ];
+    if (customAssignedMachines.includes(machineId)) {
+      return false; 
+    }
 
     if (machineId.startsWith("DRA")) {
       // 1. Database override takes priority
@@ -109,6 +142,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         return hasAnyProd && !hasSoft;
       }
     }
+
+
 
     // Standard prefix filtering for other machines
     if (tec?.prefissi) {
@@ -167,15 +202,96 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
 
       <div style={{ display: "flex", gap: "8px", marginBottom: "24px", flexWrap: "wrap" }}>
         <button onClick={() => setActiveTech("TUTTO")} style={tabStyle("TUTTO")}>Tutte le tecnologie</button>
-        {tecnologie.map(t => (
-          <button key={t.id} onClick={() => setActiveTech(t.id)} style={tabStyle(t.id)}>{t.label}</button>
-        ))}
+        {(() => {
+          const EXTRA_TECS = [
+            { id: "rg_loop_grande", label: "RG Loop Grande" },
+            { id: "rg_mini_opf", label: "RG Mini OPF" },
+            { id: "dh", label: "DH" }
+          ];
+
+          // Combine with existing technologies, avoiding duplicates
+          const allTecs = [...tecnologie];
+          EXTRA_TECS.forEach(extra => {
+            if (!allTecs.some(t => t.id === extra.id)) {
+              allTecs.push(extra);
+            }
+          });
+
+          const labelMapping = {
+            "tornitura soft": "Tornitura Soft",
+            "marcatura laser dmc": "DMC",
+            "saldatura laser": "Saldatura Laser",
+            stozzatura: "Stozzatura",
+            milling: "Fresatura",
+            brocciatura: "Brocciatura",
+            dentatura: "Dentatura",
+            sbavatura: "Sbavatura",
+            "tornitura hard": "Tornitura Hard",
+            levigatura: "Levigatura",
+            "tornitura rettifica cono": "Rettifica Cono",
+            "rectifica denti": "Rettifica Denti",
+            "rg loop grande": "RG Loop Grande",
+            "rg mini opf": "RG Mini OPF",
+            dh: "DH"
+          };
+
+          const desiredOrder = [
+            "Tornitura Soft",
+            "DMC",
+            "Saldatura Laser",
+            "Stozzatura",
+            "Fresatura",
+            "Brocciatura",
+            "Dentatura",
+            "Sbavatura",
+            "Tornitura Hard",
+            "Levigatura",
+            "Rettifica Cono",
+            "Rettifica Denti",
+            "RG Loop Grande",
+            "RG Mini OPF",
+            "DH"
+          ];
+
+          return allTecs
+            .filter(t => {
+              const label = (t.label || "").toLowerCase();
+              return !label.includes("controllo ut") && !label.includes("foratrice");
+            })
+            .map(t => {
+              const originalLabel = (t.label || "").toLowerCase();
+              let displayLabel = t.label;
+              for (const [key, val] of Object.entries(labelMapping)) {
+                if (originalLabel === key || originalLabel.includes(key)) {
+                  displayLabel = val;
+                  break;
+                }
+              }
+              return { ...t, displayLabel };
+            })
+            .sort((a, b) => {
+              let idxA = desiredOrder.indexOf(a.displayLabel);
+              let idxB = desiredOrder.indexOf(b.displayLabel);
+              if (idxA === -1) idxA = 999;
+              if (idxB === -1) idxB = 999;
+              return idxA - idxB;
+            })
+            .map(t => (
+              <button key={t.id} onClick={() => setActiveTech(t.id)} style={tabStyle(t.id)}>
+                {t.displayLabel}
+              </button>
+            ));
+        })()}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px" }}>
         {(() => {
           // Define twin groups
           const twinGroups = [
+            ["DRA10063", "DRA10064"],
+            ["DRA10065", "DRA10066"],
+            ["DRA10067", "DRA10068"],
+            ["DRA10069", "DRA10070"],
             ["DRA10097", "DRA10098"],
             ["DRA10099", "DRA10100"],
             ["DRA10101", "DRA10107"],
@@ -198,7 +314,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 processedMachines.push({
                   id: group.join(" + "),
                   ids: group,
-                  nome: "Gemellari",
+                  nome: null,
                   isTwin: true
                 });
                 seenInTwin.add(groupKey);
@@ -209,30 +325,25 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           });
 
           return processedMachines.map((m) => {
-            const isFRW = m.id === "FRW10074" || m.id === "FRW10075";
-            const isMZA = m.id === "MZA10005";
-            const isRAA = m.id === "RAA11009";
-            const isSingle = m.id === "BOA10094" || m.id === "RAA11009" || m.id === "DRA10116" || m.id === "DRA10009";
-            const isDouble = m.id === "DRA10109";
+            const mid = m.id.toUpperCase();
+            const isFRW = mid === "FRW10074" || mid === "FRW10075";
+            const isMZA = mid === "MZA10005";
+            const isRAA = mid === "RAA11009";
+            const isSingle = mid === "BOA10094" || mid === "RAA11009" || mid === "DRA10116" || mid === "DRA10009";
+            const isDouble = mid === "DRA10109";
             const isSpecial = isFRW || isMZA || isRAA || isSingle || isDouble || m.isTwin;
             
-            let slotCount = 5;
-            if (isSingle) {
-              slotCount = 1;
-            } else if (isDouble) {
-              slotCount = 2;
-            } else if (isFRW || isMZA) {
-              slotCount = 3;
-            } else if (m.isTwin) {
-              const idString = m.ids.join(",");
-              if (idString.includes("DRA10101") || idString.includes("DRA10110")) {
-                slotCount = 3;
-              } else if (idString.includes("DRA10099") || idString.includes("DRA10100") || idString.includes("DRA10102") || idString.includes("DRA10108")) {
-                slotCount = 2;
-              } else {
-                slotCount = 1; // Default for other twins (97/98, 113/114)
-              }
-            }
+            const isRGMin = mid === "DRA11044" || mid === "FRW11015" || mid === "EGW11006";
+            
+            // Logic to identify if it's a "Tornitura Soft" machine (same as filtering)
+            const isSoftMachine = mid.startsWith("DRA") && (
+              m.tecnologia_id === "TS" || 
+              m.tecnologia_id?.toLowerCase() === "tornitura_soft" ||
+              (hasSoftProduction.has(mid) && m.tecnologia_id !== "TH" && m.tecnologia_id?.toLowerCase() !== "tornitura_hard")
+            );
+
+            // All boxes must have exactly 4 slots
+            const slotCount = 4;
             
             return (
               <div key={m.id} style={{ 
@@ -248,7 +359,9 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               }}>
                 <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: "12px" }}>
                   <div style={{ fontWeight: "900", fontSize: "20px", color: "var(--accent)" }}>{m.id}</div>
-                  <div style={{ fontSize: "14px", color: "var(--text-muted)", marginTop: "2px" }}>{m.nome}</div>
+                  {m.nome && m.nome !== m.id && (
+                    <div style={{ fontSize: "14px", color: "var(--text-muted)", marginTop: "2px" }}>{m.nome}</div>
+                  )}
                 </div>
 
                 <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "flex-start" }}>
@@ -270,6 +383,9 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                       displayQty = i === 0 ? (mProd["PG"] || 0) : null;
                       displayComp = "PG";
                       displayProj = "M0154996/S";
+                    } else if (isRGMin) {
+                      displayComp = "RG";
+                      displayProj = "";
                     }
 
                     return (
@@ -292,17 +408,13 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                       onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.05)"}
                       onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
                       >
-                        {(isFRW || isMZA || isRAA) ? (
-                          <>
-                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                              <div style={{ fontSize: "20px", fontWeight: "900", lineHeight: 1 }}>{displayQty || 0}</div>
-                              <div style={{ fontSize: "11px", fontWeight: "bold", opacity: 0.9 }}>{displayComp}</div>
-                            </div>
-                            <div style={{ fontSize: "9px", opacity: 0.8, letterSpacing: 0.5, textTransform: "uppercase", marginTop: "4px" }}>{displayProj}</div>
-                          </>
-                        ) : (
-                          <div style={{ fontSize: "24px", opacity: 0.5 }}>{Icons.plus}</div>
-                        )}
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
+                          <div style={{ fontSize: "18px", fontWeight: "900", color: "rgba(255,255,255,0.95)" }}>{displayComp || ""}</div>
+                          <div style={{ fontSize: "12px", fontWeight: "bold", opacity: 0.85, letterSpacing: "0.5px" }}>{displayProj || ""}</div>
+                          <div style={{ fontSize: "26px", fontWeight: "900", lineHeight: 1, marginTop: "4px" }}>
+                            {displayQty !== null ? displayQty : (displayComp || displayProj ? 0 : Icons.plus)}
+                          </div>
+                        </div>
                       </div>
                     );
                   })}
