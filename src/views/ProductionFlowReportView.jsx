@@ -207,7 +207,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           return processedMachines.map((m) => {
             const isFRW = m.id === "FRW10074" || m.id === "FRW10075";
             const isMZA = m.id === "MZA10005";
-            const isSingle = m.id === "BOA10094" || m.id === "RAA11009" || m.id === "DRA10116" || m.isTwin;
+            const isSingle = m.id === "BOA10094" || m.id === "RAA11009" || m.id === "DRA10116" || m.id === "DRA10009" || m.isTwin;
             const isDouble = m.id === "DRA10109";
             const isSpecial = isFRW || isMZA || isSingle || isDouble;
             let slotCount = 5;
