@@ -132,93 +132,115 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px" }}>
-        {filteredMachines.map((m) => {
-          const isFRW = m.id === "FRW10074" || m.id === "FRW10075";
-          const isMZA = m.id === "MZA10005";
-          const isSingle = m.id === "BOA10094" || m.id === "RAA11009" || m.id === "DRA10116";
-          const isDouble = m.id === "DRA10109";
-          const isSpecial = isFRW || isMZA || isSingle || isDouble;
-          let slotCount = 5;
-          if (isSingle) slotCount = 1;
-          else if (isDouble) slotCount = 2;
-          else if (isSpecial) slotCount = 3; // FRW, MZA are 3 slots
-          
-          return (
-            <div key={m.id} style={{ 
-              backgroundColor: "var(--bg-card)", 
-              borderRadius: "16px", 
-              padding: "24px", 
-              border: "1px solid var(--border)",
-              display: "flex",
-              flexDirection: "column",
-              gap: "20px",
-              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-              transition: "transform 0.2s ease"
-            }}>
-              <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: "12px" }}>
-                <div style={{ fontWeight: "900", fontSize: "20px", color: "var(--accent)" }}>{m.id}</div>
-                <div style={{ fontSize: "14px", color: "var(--text-muted)", marginTop: "2px" }}>{m.nome || "Macchina s/n"}</div>
+        {(() => {
+          // Pre-process machines to handle twins
+          const twinGroup = ["DRA10097", "DRA10098"];
+          const processedMachines = [];
+          const seenTwins = new Set();
+
+          filteredMachines.forEach(m => {
+            if (twinGroup.includes(m.id)) {
+              if (!seenTwins.has("TWIN_DRA_97_98")) {
+                processedMachines.push({
+                  id: "DRA10097 + DRA10098",
+                  ids: twinGroup,
+                  nome: "Gemellari",
+                  isTwin: true
+                });
+                seenTwins.add("TWIN_DRA_97_98");
+              }
+            } else {
+              processedMachines.push(m);
+            }
+          });
+
+          return processedMachines.map((m) => {
+            const isFRW = m.id === "FRW10074" || m.id === "FRW10075";
+            const isMZA = m.id === "MZA10005";
+            const isSingle = m.id === "BOA10094" || m.id === "RAA11009" || m.id === "DRA10116" || m.isTwin;
+            const isDouble = m.id === "DRA10109";
+            const isSpecial = isFRW || isMZA || isSingle || isDouble;
+            let slotCount = 5;
+            if (isSingle) slotCount = 1;
+            else if (isDouble) slotCount = 2;
+            else if (isSpecial) slotCount = 3; 
+            
+            return (
+              <div key={m.id} style={{ 
+                backgroundColor: "var(--bg-card)", 
+                borderRadius: "16px", 
+                padding: "24px", 
+                border: "1px solid var(--border)",
+                display: "flex",
+                flexDirection: "column",
+                gap: "20px",
+                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                transition: "transform 0.2s ease"
+              }}>
+                <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: "12px" }}>
+                  <div style={{ fontWeight: "900", fontSize: "20px", color: "var(--accent)" }}>{m.id}</div>
+                  <div style={{ fontSize: "14px", color: "var(--text-muted)", marginTop: "2px" }}>{m.nome}</div>
+                </div>
+
+                <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "flex-start" }}>
+                  {Array.from({ length: slotCount }).map((_, i) => {
+                    let displayQty = null;
+                    let displayComp = null;
+                    let displayProj = null;
+
+                    if (isFRW) {
+                      const mProd = productionData[m.id] || {};
+                      displayQty = i === 0 ? (mProd["SG5"] || 0) : null;
+                      displayComp = "SG5";
+                      displayProj = "DCT 300";
+                    } else if (isMZA) {
+                      displayComp = "CONTROLLO UT";
+                      displayProj = "";
+                    } else if (m.isTwin) {
+                      // Sum production for both twins if needed - currently just placeholder
+                    }
+
+                    return (
+                      <div key={i} style={{
+                        minWidth: "110px",
+                        width: "110px",
+                        height: "100px",
+                        background: (displayQty !== null || isMZA || isSingle || isDouble) ? "linear-gradient(145deg, #10b981, #059669)" : "linear-gradient(145deg, #3c6ef0, #2f5bd6)",
+                        color: "white",
+                        borderRadius: "15px",
+                        textAlign: "center",
+                        boxShadow: "0 8px 18px rgba(0,0,0,0.15)",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        padding: "12px 8px",
+                        transition: "transform 0.2s ease",
+                        cursor: "pointer"
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.05)"}
+                      onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+                      >
+                        <div style={{ fontSize: "10px", opacity: 0.8, fontWeight: 700, textTransform: "uppercase" }}>Slot {i + 1}</div>
+                        
+                        {(isFRW || isMZA) ? (
+                          <>
+                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                              <div style={{ fontSize: "20px", fontWeight: "900", lineHeight: 1 }}>{displayQty || 0}</div>
+                              <div style={{ fontSize: "11px", fontWeight: "bold", opacity: 0.9 }}>{displayComp}</div>
+                            </div>
+                            <div style={{ fontSize: "9px", opacity: 0.8, letterSpacing: 0.5, textTransform: "uppercase" }}>{displayProj}</div>
+                          </>
+                        ) : (
+                          <div style={{ fontSize: "24px", opacity: 0.5, margin: "auto" }}>{Icons.plus}</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-
-              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "flex-start" }}>
-                {Array.from({ length: slotCount }).map((_, i) => {
-                  const mProd = productionData[m.id] || {};
-                  
-                  let displayQty = null;
-                  let displayComp = null;
-                  let displayProj = null;
-
-                  if (isFRW) {
-                    displayQty = i === 0 ? (mProd["SG5"] || 0) : null;
-                    displayComp = "SG5";
-                    displayProj = "DCT 300";
-                  } else if (isMZA) {
-                    displayComp = "CONTROLLO UT";
-                    displayProj = ""; // Or any other specific label
-                  } else if (isSingle) {
-                    // Keep it simple for now, maybe add a placeholder if needed
-                  }
-
-                  return (
-                    <div key={i} style={{
-                      minWidth: "110px",
-                      width: "110px",
-                      height: "100px",
-                      background: (displayQty !== null || isMZA || isSingle || isDouble) ? "linear-gradient(145deg, #10b981, #059669)" : "linear-gradient(145deg, #3c6ef0, #2f5bd6)",
-                      color: "white",
-                      borderRadius: "15px",
-                      textAlign: "center",
-                      boxShadow: "0 8px 18px rgba(0,0,0,0.15)",
-                      display: "flex",
-                      flexDirection: "column",
-                      justifyContent: "space-between",
-                      padding: "12px 8px",
-                      transition: "transform 0.2s ease",
-                      cursor: "pointer"
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.05)"}
-                    onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
-                    >
-                      <div style={{ fontSize: "10px", opacity: 0.8, fontWeight: 700, textTransform: "uppercase" }}>Slot {i + 1}</div>
-                      
-                      {isSpecial ? (
-                        <>
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                            <div style={{ fontSize: "20px", fontWeight: "900", lineHeight: 1 }}>{displayQty || 0}</div>
-                            <div style={{ fontSize: "11px", fontWeight: "bold", opacity: 0.9 }}>{displayComp}</div>
-                          </div>
-                          <div style={{ fontSize: "9px", opacity: 0.8, letterSpacing: 0.5, textTransform: "uppercase" }}>{displayProj}</div>
-                        </>
-                      ) : (
-                        <div style={{ fontSize: "24px", opacity: 0.5, margin: "auto" }}>{Icons.plus}</div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
+            );
+          });
+        })()}
       </div>
     </div>
   );
