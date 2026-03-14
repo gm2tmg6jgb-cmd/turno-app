@@ -207,13 +207,27 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           return processedMachines.map((m) => {
             const isFRW = m.id === "FRW10074" || m.id === "FRW10075";
             const isMZA = m.id === "MZA10005";
-            const isSingle = m.id === "BOA10094" || m.id === "RAA11009" || m.id === "DRA10116" || m.id === "DRA10009" || m.isTwin;
+            const isSingle = m.id === "BOA10094" || m.id === "RAA11009" || m.id === "DRA10116" || m.id === "DRA10009";
             const isDouble = m.id === "DRA10109";
-            const isSpecial = isFRW || isMZA || isSingle || isDouble;
+            const isSpecial = isFRW || isMZA || isSingle || isDouble || m.isTwin;
+            
             let slotCount = 5;
-            if (isSingle) slotCount = 1;
-            else if (isDouble) slotCount = 2;
-            else if (isSpecial) slotCount = 3; 
+            if (isSingle) {
+              slotCount = 1;
+            } else if (isDouble) {
+              slotCount = 2;
+            } else if (isFRW || isMZA) {
+              slotCount = 3;
+            } else if (m.isTwin) {
+              const idString = m.ids.join(",");
+              if (idString.includes("DRA10101") || idString.includes("DRA10110")) {
+                slotCount = 3;
+              } else if (idString.includes("DRA10099") || idString.includes("DRA10100") || idString.includes("DRA10102") || idString.includes("DRA10108")) {
+                slotCount = 2;
+              } else {
+                slotCount = 1; // Default for other twins (97/98, 113/114)
+              }
+            }
             
             return (
               <div key={m.id} style={{ 
@@ -253,14 +267,14 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                         minWidth: "110px",
                         width: "110px",
                         height: "100px",
-                        background: (displayQty !== null || isMZA || isSingle || isDouble) ? "linear-gradient(145deg, #10b981, #059669)" : "linear-gradient(145deg, #3c6ef0, #2f5bd6)",
+                        background: (displayQty !== null || isMZA || isSingle || isDouble || m.isTwin) ? "linear-gradient(145deg, #10b981, #059669)" : "linear-gradient(145deg, #3c6ef0, #2f5bd6)",
                         color: "white",
                         borderRadius: "15px",
                         textAlign: "center",
                         boxShadow: "0 8px 18px rgba(0,0,0,0.15)",
                         display: "flex",
                         flexDirection: "column",
-                        justifyContent: "space-between",
+                        justifyContent: "center",
                         padding: "12px 8px",
                         transition: "transform 0.2s ease",
                         cursor: "pointer"
@@ -268,18 +282,16 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                       onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.05)"}
                       onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
                       >
-                        <div style={{ fontSize: "10px", opacity: 0.8, fontWeight: 700, textTransform: "uppercase" }}>Slot {i + 1}</div>
-                        
                         {(isFRW || isMZA) ? (
                           <>
                             <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                               <div style={{ fontSize: "20px", fontWeight: "900", lineHeight: 1 }}>{displayQty || 0}</div>
                               <div style={{ fontSize: "11px", fontWeight: "bold", opacity: 0.9 }}>{displayComp}</div>
                             </div>
-                            <div style={{ fontSize: "9px", opacity: 0.8, letterSpacing: 0.5, textTransform: "uppercase" }}>{displayProj}</div>
+                            <div style={{ fontSize: "9px", opacity: 0.8, letterSpacing: 0.5, textTransform: "uppercase", marginTop: "4px" }}>{displayProj}</div>
                           </>
                         ) : (
-                          <div style={{ fontSize: "24px", opacity: 0.5, margin: "auto" }}>{Icons.plus}</div>
+                          <div style={{ fontSize: "24px", opacity: 0.5 }}>{Icons.plus}</div>
                         )}
                       </div>
                     );
