@@ -8,6 +8,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
   const [productionData, setProductionData] = useState({});
   const [anagrafica, setAnagrafica] = useState({});
   const [loading, setLoading] = useState(true);
+  const [hasSoftProduction, setHasSoftProduction] = useState(new Set());
 
   useEffect(() => {
     const fetchData = async () => {
@@ -36,11 +37,17 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
 
         // Group by machine and component
         const grouped = {};
+        const softMachines = new Set();
+        
         prodData.forEach(row => {
           const mId = row.macchina_id || row.work_center_sap;
           const mat = (row.materiale || "").toUpperCase();
           const info = anaMap[mat];
           const comp = info?.componente;
+          
+          if (mat.endsWith("/S") && mId) {
+            softMachines.add(mId.toUpperCase());
+          }
           
           if (mId && comp) {
             if (!grouped[mId]) grouped[mId] = {};
@@ -48,6 +55,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           }
         });
         setProductionData(grouped);
+        setHasSoftProduction(softMachines);
       } catch (err) {
         console.error("Errore recupero dati SAP:", err);
       } finally {
@@ -71,14 +79,37 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
 
     if (activeTech === "TUTTO") return true;
     
-    // Explicit override for DRA10009: it should be in Tornitura Hard (TH)
-    const machineIdRaw = m.id.toUpperCase();
-    if (machineIdRaw === "DRA10009") {
-      return activeTech === "TH";
-    }
-    
-    // Simple filtering based on tecnologia_id if available or prefix matching
     const tec = tecnologie.find(t => t.id === activeTech);
+    if (!tec) return true;
+    
+    const label = tec.label?.toLowerCase() || "";
+    const isSoftView = label.includes("tornitura soft");
+    const isHardView = label.includes("tornitura hard");
+
+    if (machineId.startsWith("DRA")) {
+      // 1. Database override takes priority
+      if (m.tecnologia_id === "TH" || m.tecnologia_id?.toLowerCase() === "tornitura_hard") {
+        return isHardView;
+      }
+      if (m.tecnologia_id === "TS" || m.tecnologia_id?.toLowerCase() === "tornitura_soft") {
+        return isSoftView;
+      }
+
+      // 2. Dynamic check based on production today
+      const hasSoft = hasSoftProduction.has(machineId);
+      const hasAnyProd = productionData[m.id] && Object.keys(productionData[m.id]).length > 0;
+
+      if (isSoftView) {
+        // Shown in soft if it has soft production OR if it has NO production and DRA prefix (default)
+        return hasSoft || !hasAnyProd;
+      }
+      if (isHardView) {
+        // Shown in hard if it has production but NONE of it is soft
+        return hasAnyProd && !hasSoft;
+      }
+    }
+
+    // Standard prefix filtering for other machines
     if (tec?.prefissi) {
       const prefixes = tec.prefissi.split(",").map(p => p.trim().toUpperCase());
       return prefixes.some(p => machineId.startsWith(p));
