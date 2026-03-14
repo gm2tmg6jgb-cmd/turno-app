@@ -135,9 +135,13 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         {filteredMachines.map((m) => {
           const isFRW = m.id === "FRW10074" || m.id === "FRW10075";
           const isMZA = m.id === "MZA10005";
-          const isSingle = m.id === "BOA10094" || m.id === "RAA11009";
-          const isSpecial = isFRW || isMZA || isSingle;
-          const slotCount = isSingle ? 1 : (isSpecial ? 3 : 5);
+          const isSingle = m.id === "BOA10094" || m.id === "RAA11009" || m.id === "DRA10116";
+          const isDouble = m.id === "DRA10109";
+          const isSpecial = isFRW || isMZA || isSingle || isDouble;
+          let slotCount = 5;
+          if (isSingle) slotCount = 1;
+          else if (isDouble) slotCount = 2;
+          else if (isSpecial) slotCount = 3; // FRW, MZA are 3 slots
           
           return (
             <div key={m.id} style={{ 
@@ -180,7 +184,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                       minWidth: "110px",
                       width: "110px",
                       height: "100px",
-                      background: (displayQty !== null || isMZA || isSingle) ? "linear-gradient(145deg, #10b981, #059669)" : "linear-gradient(145deg, #3c6ef0, #2f5bd6)",
+                      background: (displayQty !== null || isMZA || isSingle || isDouble) ? "linear-gradient(145deg, #10b981, #059669)" : "linear-gradient(145deg, #3c6ef0, #2f5bd6)",
                       color: "white",
                       borderRadius: "15px",
                       textAlign: "center",
