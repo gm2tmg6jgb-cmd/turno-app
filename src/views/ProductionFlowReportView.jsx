@@ -131,42 +131,53 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         ))}
       </div>
 
-      <div style={{ display: "grid", gap: "16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px" }}>
         {filteredMachines.map((m) => {
-          const isSpecial = m.id === "FRW10074" || m.id === "FRW10075";
-          const slotCount = isSpecial ? 3 : 5;
+          const isFRW = m.id === "FRW10074" || m.id === "FRW10075";
+          const isMZA = m.id === "MZA10005";
+          const isSpecial = isFRW || isMZA;
+          const slotCount = isSpecial ? (isMZA ? 3 : 3) : 5; // Default matches previous request
           
           return (
             <div key={m.id} style={{ 
               backgroundColor: "var(--bg-card)", 
-              borderRadius: "12px", 
-              padding: "20px", 
+              borderRadius: "16px", 
+              padding: "24px", 
               border: "1px solid var(--border)",
               display: "flex",
-              alignItems: "center",
-              gap: "24px",
-              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
+              flexDirection: "column",
+              gap: "20px",
+              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+              transition: "transform 0.2s ease"
             }}>
-              <div style={{ minWidth: "150px" }}>
-                <div style={{ fontWeight: "800", fontSize: "16px", color: "var(--accent)" }}>{m.id}</div>
-                <div style={{ fontSize: "13px", color: "var(--text-muted)", marginTop: "4px" }}>{m.nome || "N/D"}</div>
+              <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: "12px" }}>
+                <div style={{ fontWeight: "900", fontSize: "20px", color: "var(--accent)" }}>{m.id}</div>
+                <div style={{ fontSize: "14px", color: "var(--text-muted)", marginTop: "2px" }}>{m.nome || "Macchina s/n"}</div>
               </div>
 
-              <div style={{ display: "flex", gap: "20px", flex: 1, overflowX: "auto", paddingBottom: "10px", alignItems: "center" }}>
+              <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "flex-start" }}>
                 {Array.from({ length: slotCount }).map((_, i) => {
                   const mProd = productionData[m.id] || {};
-                  // For the special machines, we only care about SG5 for now in the boxes
-                  // In a real scenario, we'll have mapping per slot
-                  const displayQty = isSpecial && i === 0 ? (mProd["SG5"] || 0) : null;
-                  const displayComp = isSpecial ? "SG5" : null;
-                  const displayProj = isSpecial ? "DCT 300" : null;
+                  
+                  let displayQty = null;
+                  let displayComp = null;
+                  let displayProj = null;
+
+                  if (isFRW) {
+                    displayQty = i === 0 ? (mProd["SG5"] || 0) : null;
+                    displayComp = "SG5";
+                    displayProj = "DCT 300";
+                  } else if (isMZA) {
+                    displayComp = "CONTROLLO UT";
+                    displayProj = ""; // Or any other specific label
+                  }
 
                   return (
                     <div key={i} style={{
                       minWidth: "110px",
                       width: "110px",
                       height: "100px",
-                      background: displayQty !== null ? "linear-gradient(145deg, #10b981, #059669)" : "linear-gradient(145deg, #3c6ef0, #2f5bd6)",
+                      background: (displayQty !== null || isMZA) ? "linear-gradient(145deg, #10b981, #059669)" : "linear-gradient(145deg, #3c6ef0, #2f5bd6)",
                       color: "white",
                       borderRadius: "15px",
                       textAlign: "center",
