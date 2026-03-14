@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Icons } from "../components/ui/Icons";
 import { supabase } from "../lib/supabase";
+import { formatItalianDate } from "../lib/dateUtils";
 
 export default function ProductionFlowReportView({ macchine = [], tecnologie = [], globalDate, turnoCorrente }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -134,7 +135,10 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
       <div style={{ marginBottom: "32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h1 style={{ fontSize: "28px", fontWeight: "800", marginBottom: "8px" }}>Report Flusso di Processo</h1>
-          <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>Visualizzazione sequenziale delle fasi di lavoro per macchina</p>
+          <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>
+            Dati del <strong>{formatItalianDate(globalDate || new Date().toISOString().split("T")[0])}</strong> - 
+            Turno <strong>{turnoCorrente === "ALL" ? "Tutti" : turnoCorrente}</strong>
+          </p>
         </div>
         
         <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
@@ -207,9 +211,10 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           return processedMachines.map((m) => {
             const isFRW = m.id === "FRW10074" || m.id === "FRW10075";
             const isMZA = m.id === "MZA10005";
+            const isRAA = m.id === "RAA11009";
             const isSingle = m.id === "BOA10094" || m.id === "RAA11009" || m.id === "DRA10116" || m.id === "DRA10009";
             const isDouble = m.id === "DRA10109";
-            const isSpecial = isFRW || isMZA || isSingle || isDouble || m.isTwin;
+            const isSpecial = isFRW || isMZA || isRAA || isSingle || isDouble || m.isTwin;
             
             let slotCount = 5;
             if (isSingle) {
@@ -260,6 +265,11 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                     } else if (isMZA) {
                       displayComp = "CONTROLLO UT";
                       displayProj = "";
+                    } else if (isRAA) {
+                      const mProd = productionData[m.id] || {};
+                      displayQty = i === 0 ? (mProd["PG"] || 0) : null;
+                      displayComp = "PG";
+                      displayProj = "M0154996/S";
                     }
 
                     return (
@@ -282,7 +292,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                       onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.05)"}
                       onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
                       >
-                        {(isFRW || isMZA) ? (
+                        {(isFRW || isMZA || isRAA) ? (
                           <>
                             <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
                               <div style={{ fontSize: "20px", fontWeight: "900", lineHeight: 1 }}>{displayQty || 0}</div>
