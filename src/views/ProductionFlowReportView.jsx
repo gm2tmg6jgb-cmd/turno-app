@@ -16,7 +16,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
   // Fermi Entry State
   const [showFermiModal, setShowFermiModal] = useState(false);
   const [selectedMachine, setSelectedMachine] = useState(null);
-  const [fermiForm, setFermiForm] = useState({ motivo: "", durata: "", note: "" });
+  const [fermiForm, setFermiForm] = useState({ motivo: "", durata: "", note: "", is_automazione: false, target_macchina_id: "" });
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -214,7 +214,13 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
 
   const handleOpenFermiModal = (machine) => {
     setSelectedMachine(machine);
-    setFermiForm({ motivo: "", durata: "", note: "" });
+    setFermiForm({ 
+      motivo: "", 
+      durata: "", 
+      note: "", 
+      is_automazione: false,
+      target_macchina_id: (machine.ids && machine.ids.length > 0) ? machine.ids[0] : machine.id
+    });
     setShowFermiModal(true);
   };
 
@@ -230,10 +236,11 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
       const payload = {
         data: date,
         turno_id: (turnoCorrente && turnoCorrente !== "ALL") ? turnoCorrente : null,
-        macchina_id: selectedMachine.ids ? selectedMachine.ids[0] : selectedMachine.id,
+        macchina_id: fermiForm.target_macchina_id || (selectedMachine.ids ? selectedMachine.ids[0] : selectedMachine.id),
         motivo: fermiForm.motivo,
         durata_minuti: parseInt(fermiForm.durata),
         note: fermiForm.note || null,
+        is_automazione: fermiForm.is_automazione || false,
       };
 
       const { error } = await supabase.from("fermi_macchina").insert([payload]);
@@ -818,6 +825,38 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 value={fermiForm.note}
                 onChange={e => setFermiForm(p => ({ ...p, note: e.target.value }))}
               />
+            </div>
+
+            {/* Twin Machine Selection */}
+            {selectedMachine?.ids && selectedMachine.ids.length > 0 && (
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: "700" }}>Seleziona Macchina *</label>
+                <div style={{ display: "flex", gap: "16px", marginTop: "4px" }}>
+                  {selectedMachine.ids.map(id => (
+                    <label key={id} style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
+                      <input 
+                        type="radio" 
+                        name="target_macchina_id"
+                        value={id}
+                        checked={fermiForm.target_macchina_id === id}
+                        onChange={e => setFermiForm(p => ({ ...p, target_macchina_id: e.target.value }))}
+                      />
+                      <span style={{ fontSize: "14px", fontWeight: "600" }}>{id}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="form-group" style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "8px" }}>
+              <input 
+                type="checkbox" 
+                id="is_automazione"
+                style={{ width: "18px", height: "18px", cursor: "pointer" }}
+                checked={fermiForm.is_automazione}
+                onChange={e => setFermiForm(p => ({ ...p, is_automazione: e.target.checked }))}
+              />
+              <label htmlFor="is_automazione" style={{ fontWeight: "700", cursor: "pointer" }}>Problema Automazione</label>
             </div>
           </div>
         </Modal>
