@@ -33,6 +33,7 @@ import ProcessFlowView from "./views/ProcessFlowView";
 import WeisserPrioritiesView from "./views/WeisserPrioritiesView";
 import PrioritiesSummaryView from "./views/PrioritiesSummaryView";
 import ProductionReportView from "./views/ProductionReportView";
+import ProductionFlowReportView from "./views/ProductionFlowReportView";
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 export default function App() {
@@ -213,6 +214,7 @@ export default function App() {
     { id: "processFlow", label: "Flusso di Processo", icon: Icons.users },
     { id: "weisserPriorities", label: "Priorità Macchine", icon: Icons.filter },
     { id: "prioritiesSummary", label: "Riepilogo Priorità", icon: Icons.dashboard, status: "new" },
+    { id: "productionFlowReport", label: "Flusso Report Produzione", icon: Icons.report, status: "new" },
     { id: "productionReport", label: "Report Produzione", icon: Icons.report },
     { id: "fermi", label: "Report Fermi", icon: Icons.alert },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings },
@@ -237,6 +239,7 @@ export default function App() {
     processFlow: "Flusso di Processo",
     weisserPriorities: "Priorità Macchine",
     prioritiesSummary: "Riepilogo Priorità Macchine",
+    productionFlowReport: "Flusso Report Produzione",
     productionReport: "Report Produzione",
     fermi: "Report Fermi",
     anagraficaFermi: "Anagrafica Fermi Macchine",
@@ -362,6 +365,7 @@ export default function App() {
                 {renderItem(ni("processFlow"))}
                 {renderItem(ni("weisserPriorities"))}
                 {renderItem(ni("prioritiesSummary"))}
+                {renderItem(ni("productionFlowReport"))}
                 {renderItem(ni("productionReport"))}
                 {renderItem(ni("lpaPlan"))}
                 {renderItem(ni("import"))}
@@ -497,13 +501,21 @@ export default function App() {
             <SapSummaryView macchine={macchine} />
           )}
           {currentView === "processFlow" && (
-            <ProcessFlowView />
+            <ProcessFlowView macchine={macchine} showToast={showToast} setCurrentView={setCurrentView} />
           )}
           {currentView === "weisserPriorities" && (
             <WeisserPrioritiesView turnoCorrente={turnoCorrente} />
           )}
           {currentView === "prioritiesSummary" && (
             <PrioritiesSummaryView turnoCorrente={turnoCorrente} />
+          )}
+          {currentView === "productionFlowReport" && (
+            <ProductionFlowReportView
+              macchine={macchine}
+              tecnologie={tecnologie}
+              globalDate={globalDate}
+              turnoCorrente={turnoCorrente}
+            />
           )}
           {currentView === "productionReport" && (
             <ProductionReportView

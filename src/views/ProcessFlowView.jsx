@@ -2,15 +2,16 @@ import React, { useState, useEffect } from "react";
 import { supabase, fetchAllRows } from "../lib/supabase";
 import { getCurrentWeekRange } from "../lib/dateUtils";
 import { Icons } from "../components/ui/Icons";
+import ImportView from "./ImportView";
 
 const PROCESS_STEPS = [
     { code: "DRA", label: "Soft Turning", phase: "start_soft" },
     { code: "ZSA", label: "DMC", phase: "dmc" },
     { code: "SCA", label: "Laser Welding", phase: "laser_welding" },
     { code: "MZA", label: "UT", phase: "ut" },
-    { code: "SHP", label: "Shaping", phase: "shaping" },
+    { code: "STW", label: "Shaping", phase: "shaping" },
     { code: "FRA", label: "Milling", phase: "milling" },
-    { code: "BRC", label: "Broaching", phase: "broaching" },
+    { code: "RAA", label: "Broaching", phase: "broaching" },
     { code: "FRW", label: "Hobbing", phase: "hobbing" },
     { code: "EGW", label: "Deburring", phase: "deburring" },
     { code: "HOK", label: "Heat Treatment", phase: "ht" },
@@ -30,7 +31,7 @@ const EXCLUDED_PROJECTS_BY_STEP = {
     "ZSA": ["DCTeco", "DCT300"], // previously DMC
     "EGW": ["DCT300"], // previously DBR
     "FRA": ["DCT300"], // previously MIL
-    "BRC": ["DCTeco", "DCT300"]
+    "RAA": ["DCTeco", "DCT300"]
 };
 
 const DAYS_NAMES = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"];
@@ -55,7 +56,8 @@ function getWeekDays(mondayStr) {
     return days;
 }
 
-export default function ProcessFlowView() {
+export default function ProcessFlowView({ macchine, showToast, setCurrentView }) {
+    const [showImportModal, setShowImportModal] = useState(false);
     const [viewMode, setViewMode] = useState("weekly"); // "weekly" | "daily"
     const [wDate, setWDate] = useState(() => new Date().toISOString().split("T")[0]);
     const [activeTab, setActiveTab] = useState("BAP1");
@@ -462,9 +464,14 @@ export default function ProcessFlowView() {
                     </>
                 )}
 
-                <button className="btn btn-secondary btn-sm" onClick={fetchData} disabled={loading} style={{ marginLeft: "auto" }}>
-                    {Icons.history} Aggiorna
-                </button>
+                <div style={{ marginLeft: "auto", display: "flex", gap: "10px" }}>
+                    <button className="btn btn-primary btn-sm" onClick={() => setShowImportModal(true)}>
+                        {Icons.upload} Importa SAP
+                    </button>
+                    <button className="btn btn-secondary btn-sm" onClick={fetchData} disabled={loading}>
+                        {Icons.history} Aggiorna
+                    </button>
+                </div>
             </div>
 
             {Object.keys(flowDataBySection).map(section => renderFlow(section))}
@@ -540,6 +547,48 @@ export default function ProcessFlowView() {
                     </div>
                 );
             })()}
+            {showImportModal && (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1100,
+                    display: "flex", justifyContent: "center", alignItems: "center",
+                    backdropFilter: "blur(4px)"
+                }} onClick={() => { setShowImportModal(false); fetchData(); }}>
+                    <div style={{
+                        background: "var(--bg)",
+                        borderRadius: "16px",
+                        width: "90%",
+                        maxWidth: "900px",
+                        maxHeight: "90vh",
+                        overflowY: "auto",
+                        position: "relative",
+                        boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+                        border: "1px solid var(--border)"
+                    }} onClick={e => e.stopPropagation()}>
+                        <button 
+                            onClick={() => { setShowImportModal(false); fetchData(); }}
+                            style={{ 
+                                position: "absolute", top: 15, right: 20, 
+                                background: "var(--bg-tertiary)", border: "none", 
+                                fontSize: "16px", cursor: "pointer", 
+                                color: "var(--text-muted)", borderRadius: "50%",
+                                width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center",
+                                zIndex: 10
+                            }}
+                        >✕</button>
+                        <div style={{ padding: "10px 0" }}>
+                            <ImportView 
+                                macchine={macchine} 
+                                showToast={showToast} 
+                                setCurrentView={(view) => {
+                                    setShowImportModal(false);
+                                    if(setCurrentView) setCurrentView(view);
+                                }} 
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

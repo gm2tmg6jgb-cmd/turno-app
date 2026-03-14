@@ -1,0 +1,207 @@
+import React, { useState, useEffect } from "react";
+import { Icons } from "../components/ui/Icons";
+import { supabase } from "../lib/supabase";
+
+export default function ProductionFlowReportView({ macchine = [], tecnologie = [], globalDate, turnoCorrente }) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTech, setActiveTech] = useState("TUTTO");
+  const [productionData, setProductionData] = useState({});
+  const [anagrafica, setAnagrafica] = useState({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const date = globalDate || new Date().toISOString().split("T")[0];
+        
+        // 1. Fetch anagrafica
+        const { data: anaData } = await supabase.from("anagrafica_materiali").select("*");
+        const anaMap = {};
+        if (anaData) {
+          anaData.forEach(item => {
+            anaMap[item.codice.toUpperCase()] = item;
+          });
+          setAnagrafica(anaMap);
+        }
+
+        // 2. Fetch production
+        let query = supabase.from("conferme_sap").select("*").eq("data", date);
+        if (turnoCorrente && turnoCorrente !== "ALL") {
+          query = query.eq("turno_id", turnoCorrente);
+        }
+        
+        const { data: prodData, error } = await query;
+        if (error) throw error;
+
+        // Group by machine and component
+        const grouped = {};
+        prodData.forEach(row => {
+          const mId = row.macchina_id || row.work_center_sap;
+          const mat = (row.materiale || "").toUpperCase();
+          const info = anaMap[mat];
+          const comp = info?.componente;
+          
+          if (mId && comp) {
+            if (!grouped[mId]) grouped[mId] = {};
+            grouped[mId][comp] = (grouped[mId][comp] || 0) + (row.qta_ottenuta || 0);
+          }
+        });
+        setProductionData(grouped);
+      } catch (err) {
+        console.error("Errore recupero dati SAP:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (globalDate) {
+      fetchData();
+    }
+  }, [globalDate, turnoCorrente]);
+
+  const filteredMachines = macchine.filter((m) => {
+    const machineId = m.id.toUpperCase();
+    const machineName = m.nome?.toUpperCase() || "";
+    const query = searchQuery.toUpperCase();
+
+    if (query && !machineId.includes(query) && !machineName.includes(query)) {
+      return false;
+    }
+
+    if (activeTech === "TUTTO") return true;
+    
+    // Simple filtering based on tecnologia_id if available or prefix matching
+    const tec = tecnologie.find(t => t.id === activeTech);
+    if (tec?.prefissi) {
+      const prefixes = tec.prefissi.split(",").map(p => p.trim().toUpperCase());
+      return prefixes.some(p => machineId.startsWith(p));
+    }
+    return m.tecnologia_id === activeTech;
+  }).sort((a, b) => a.id.localeCompare(b.id));
+
+  const tabStyle = (techId) => ({
+    padding: "8px 16px",
+    backgroundColor: activeTech === techId ? "var(--accent)" : "var(--bg-tertiary)",
+    color: activeTech === techId ? "white" : "var(--text-secondary)",
+    border: "1px solid var(--border)",
+    borderRadius: "8px",
+    fontWeight: "600",
+    cursor: "pointer",
+    fontSize: "13px",
+    transition: "all 0.2s",
+  });
+
+  return (
+    <div className="fade-in" style={{ padding: "24px", height: "100%", overflowY: "auto" }}>
+      <div style={{ marginBottom: "32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <h1 style={{ fontSize: "28px", fontWeight: "800", marginBottom: "8px" }}>Report Flusso di Processo</h1>
+          <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>Visualizzazione sequenziale delle fasi di lavoro per macchina</p>
+        </div>
+        
+        <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+          <div style={{ position: "relative" }}>
+            <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }}>
+              {Icons.search}
+            </span>
+            <input
+              type="text"
+              placeholder="Cerca macchina..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                padding: "10px 16px 10px 40px",
+                borderRadius: "10px",
+                border: "1px solid var(--border)",
+                backgroundColor: "var(--bg-card)",
+                color: "var(--text-primary)",
+                width: "240px",
+                outline: "none"
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: "8px", marginBottom: "24px", flexWrap: "wrap" }}>
+        <button onClick={() => setActiveTech("TUTTO")} style={tabStyle("TUTTO")}>Tutte le tecnologie</button>
+        {tecnologie.map(t => (
+          <button key={t.id} onClick={() => setActiveTech(t.id)} style={tabStyle(t.id)}>{t.label}</button>
+        ))}
+      </div>
+
+      <div style={{ display: "grid", gap: "16px" }}>
+        {filteredMachines.map((m) => {
+          const isSpecial = m.id === "FRW10074" || m.id === "FRW10075";
+          const slotCount = isSpecial ? 3 : 5;
+          
+          return (
+            <div key={m.id} style={{ 
+              backgroundColor: "var(--bg-card)", 
+              borderRadius: "12px", 
+              padding: "20px", 
+              border: "1px solid var(--border)",
+              display: "flex",
+              alignItems: "center",
+              gap: "24px",
+              boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)"
+            }}>
+              <div style={{ minWidth: "150px" }}>
+                <div style={{ fontWeight: "800", fontSize: "16px", color: "var(--accent)" }}>{m.id}</div>
+                <div style={{ fontSize: "13px", color: "var(--text-muted)", marginTop: "4px" }}>{m.nome || "N/D"}</div>
+              </div>
+
+              <div style={{ display: "flex", gap: "20px", flex: 1, overflowX: "auto", paddingBottom: "10px", alignItems: "center" }}>
+                {Array.from({ length: slotCount }).map((_, i) => {
+                  const mProd = productionData[m.id] || {};
+                  // For the special machines, we only care about SG5 for now in the boxes
+                  // In a real scenario, we'll have mapping per slot
+                  const displayQty = isSpecial && i === 0 ? (mProd["SG5"] || 0) : null;
+                  const displayComp = isSpecial ? "SG5" : null;
+                  const displayProj = isSpecial ? "DCT 300" : null;
+
+                  return (
+                    <div key={i} style={{
+                      minWidth: "110px",
+                      width: "110px",
+                      height: "100px",
+                      background: displayQty !== null ? "linear-gradient(145deg, #10b981, #059669)" : "linear-gradient(145deg, #3c6ef0, #2f5bd6)",
+                      color: "white",
+                      borderRadius: "15px",
+                      textAlign: "center",
+                      boxShadow: "0 8px 18px rgba(0,0,0,0.15)",
+                      display: "flex",
+                      flexDirection: "column",
+                      justifyContent: "space-between",
+                      padding: "12px 8px",
+                      transition: "transform 0.2s ease",
+                      cursor: "pointer"
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.05)"}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+                    >
+                      <div style={{ fontSize: "10px", opacity: 0.8, fontWeight: 700, textTransform: "uppercase" }}>Slot {i + 1}</div>
+                      
+                      {isSpecial ? (
+                        <>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                            <div style={{ fontSize: "20px", fontWeight: "900", lineHeight: 1 }}>{displayQty || 0}</div>
+                            <div style={{ fontSize: "11px", fontWeight: "bold", opacity: 0.9 }}>{displayComp}</div>
+                          </div>
+                          <div style={{ fontSize: "9px", opacity: 0.8, letterSpacing: 0.5, textTransform: "uppercase" }}>{displayProj}</div>
+                        </>
+                      ) : (
+                        <div style={{ fontSize: "24px", opacity: 0.5, margin: "auto" }}>{Icons.plus}</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}

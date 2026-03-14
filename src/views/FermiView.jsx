@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Icons } from '../components/ui/Icons';
 import { REPARTI, TURNI } from '../data/constants';
 import { getLocalDate } from '../lib/dateUtils';
+import { getSlotForGroup } from '../lib/shiftRotation';
 import {
     BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
     ComposedChart, Line
@@ -89,6 +90,22 @@ function CustomTooltip({ active, payload, label }) {
     );
 }
 
+/* ── Helper per ricavare la fascia oraria del turno in una data ── */
+const getShiftTimeRange = (turnoId, data) => {
+    if (!turnoId) return { start: null, end: null, slotId: null };
+    const slot = getSlotForGroup(turnoId, data);
+    if (!slot) return { start: null, end: null, slotId: null };
+
+    // M: 06-12, P: 12-18, S: 18-00, N: 00-06
+    const ranges = {
+        "M": { start: "06:00", end: "12:00" },
+        "P": { start: "12:00", end: "18:00" },
+        "S": { start: "18:00", end: "24:00" },
+        "N": { start: "00:00", end: "06:00" }
+    };
+    return { ...ranges[slot.id], slotId: slot.id };
+};
+
 /* ═══════════════════════════════════════════════════════════
    MAIN COMPONENT
 ═══════════════════════════════════════════════════════════ */
@@ -115,8 +132,12 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
     const [showForm, setShowForm] = useState(false);
     const [formData, setFormData] = useState(EMPTY_FORM);
     const [saving, setSaving] = useState(false);
+    const [useShiftTime, setUseShiftTime] = useState(true);
+    const [searchFermoMacchina, setSearchFermoMacchina] = useState("");
 
-    const resetForm = () => { setFormData(EMPTY_FORM); setShowForm(false); };
+    const currentRange = useMemo(() => getShiftTimeRange(turno, date), [turno, date]);
+
+    const resetForm = () => { setFormData(EMPTY_FORM); setShowForm(false); setSearchFermoMacchina(""); };
 
     /* ── calcola durata da ora_inizio/ora_fine ── */
     const calcDurata = (inizio, fine) => {
@@ -184,7 +205,16 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
         const run = async () => {
             setLoading(true);
             let q = supabase.from('fermi_macchina').select('*').eq('data', date);
-            if (turno) q = q.eq('turno_id', turno);
+            
+            if (turno) {
+                const range = getShiftTimeRange(turno, date);
+                if (useShiftTime && range.start && range.end) {
+                    q = q.gte('ora_inizio', range.start).lt('ora_inizio', range.end === "24:00" ? "23:59:59" : range.end);
+                } else {
+                    q = q.eq('turno_id', turno);
+                }
+            }
+            
             q = q.order('ora_inizio', { ascending: false, nullsFirst: false });
             const { data, error } = await q;
             if (error) showNotification("Errore caricamento: " + error.message, "error");
@@ -194,22 +224,36 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
         run();
     }, [date, turno, activeTab]);
 
-    /* ── fetch per tecnologia ── */
+    /* ── fetch per tecnologia e pareto ── */
     useEffect(() => {
-        if (activeTab !== 'tecnologia') return;
+        if (activeTab !== 'tecnologia' && activeTab !== 'pareto') return;
         const run = async () => {
             setLoadingTec(true);
-            const { data, error } = await supabase
+            
+            // Per i grafici storici, vogliamo filtrare ogni giorno per la STESSA fascia oraria
+            // che il turno selezionato ha nella data selezionata (o oggi).
+            const referenceDate = date || tecTo;
+            const range = getShiftTimeRange(turno, referenceDate);
+
+            let q = supabase
                 .from('fermi_macchina')
                 .select('*')
                 .gte('data', tecFrom)
-                .lte('data', tecTo)
-                .order('data', { ascending: true });
+                .lte('data', tecTo);
+                
+            if (useShiftTime && range.start && range.end) {
+                q = q.gte('ora_inizio', range.start).lt('ora_inizio', range.end === "24:00" ? "23:59:59" : range.end);
+            } else if (turno) {
+                // Fallback solo se non riusciamo a mappare l'orario o se il toggle è off
+                q = q.eq('turno_id', turno);
+            }
+
+            const { data, error } = await q.order('data', { ascending: true });
             if (!error) setFermiTec(data || []);
             setLoadingTec(false);
         };
         run();
-    }, [tecFrom, tecTo, activeTab]);
+    }, [tecFrom, tecTo, activeTab, turno, date]);
 
     /* ── delete ── */
     const handleDelete = async (id) => {
@@ -338,6 +382,17 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
                                 <option value="">Tutti i Turni</option>
                                 {TURNI.map(t => <option key={t.id} value={t.id}>{t.nome}</option>)}
                             </select>
+                            {currentRange.start && (
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                                    <div style={{ fontSize: 10, color: "var(--accent)", fontWeight: 700 }}>
+                                        🕒 {currentRange.start} – {currentRange.end}
+                                    </div>
+                                    <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 10, color: "var(--text-secondary)", marginLeft: "auto" }}>
+                                        <input type="checkbox" checked={useShiftTime} onChange={e => setUseShiftTime(e.target.checked)} style={{ width: 12, height: 12 }} />
+                                        <span>Solo orario turno</span>
+                                    </label>
+                                </div>
+                            )}
                         </div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                             <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Tecnologia</label>
@@ -373,8 +428,12 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
                             {loading ? (
                                 <div style={{ padding: 60, textAlign: "center", color: "var(--text-muted)" }}>Caricamento...</div>
                             ) : fermiVisibili.length === 0 ? (
-                                <div style={{ padding: 60, textAlign: "center", fontStyle: "italic", color: "var(--text-muted)" }}>
-                                    Nessun fermo registrato per i criteri selezionati.
+                                <div style={{ textAlign: "center", padding: "60px 20px", color: "var(--text-muted)", background: "var(--bg-card)", borderRadius: 12, border: "1px dashed var(--border)" }}>
+                                    <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
+                                    <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 4, color: "var(--text-primary)" }}>Nessun fermo trovato</div>
+                                    <div style={{ fontSize: 13, maxWidth: 300, margin: "0 auto" }}>
+                                        {useShiftTime ? "I record potrebbero essere nascosti dal filtro orario. Prova a disattivare 'Solo orario turno'." : "Non ci sono fermi registrati per questa data e turno."}
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="table-container">
@@ -433,14 +492,27 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
 
                                 <div className="form-group">
                                     <label className="form-label">Macchina *</label>
+                                    <input 
+                                        type="text" 
+                                        className="input" 
+                                        placeholder="Cerca macchina..." 
+                                        value={searchFermoMacchina} 
+                                        onChange={e => setSearchFermoMacchina(e.target.value)}
+                                        style={{ marginBottom: 8 }}
+                                    />
                                     <select
                                         className="select-input"
                                         value={formData.macchina_id}
                                         onChange={e => setFormData(p => ({ ...p, macchina_id: e.target.value }))}
+                                        size={searchFermoMacchina ? 6 : undefined}
                                     >
                                         <option value="">— Seleziona —</option>
                                         {tecnologie.map(tec => {
-                                            const macchineGruppo = macchine.filter(m => m.tecnologia_id === tec.id);
+                                            const macchineGruppo = macchine.filter(m => {
+                                                if (m.tecnologia_id !== tec.id) return false;
+                                                const searchStr = searchFermoMacchina.toLowerCase();
+                                                return m.nome?.toLowerCase().includes(searchStr) || m.id.toLowerCase().includes(searchStr);
+                                            });
                                             if (macchineGruppo.length === 0) return null;
                                             return (
                                                 <optgroup key={tec.id} label={tec.label}>
@@ -452,7 +524,11 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
                                         })}
                                         {/* macchine non ancora associate a nessuna tecnologia */}
                                         {(() => {
-                                            const altre = macchine.filter(m => !m.tecnologia_id);
+                                            const altre = macchine.filter(m => {
+                                                if (m.tecnologia_id) return false;
+                                                const searchStr = searchFermoMacchina.toLowerCase();
+                                                return m.nome?.toLowerCase().includes(searchStr) || m.id.toLowerCase().includes(searchStr);
+                                            });
                                             if (!altre.length) return null;
                                             return (
                                                 <optgroup label="Non classificate">
@@ -531,6 +607,12 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
                         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                             <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Al</label>
                             <input type="date" value={tecTo} onChange={e => setTecTo(e.target.value)} className="input" style={{ width: 140 }} />
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Turno (Fascia)</label>
+                            <div style={{ padding: "8px 12px", border: "1px solid var(--accent-light, #DDD)", borderRadius: 6, fontSize: 13, background: "rgba(249, 115, 22, 0.05)", color: "var(--accent)", fontWeight: 700 }}>
+                                {currentRange.start ? `🕒 ${currentRange.start} – ${currentRange.end}` : "Tutte le ore"}
+                            </div>
                         </div>
                         <div style={{ fontSize: 13, color: "var(--text-muted)", paddingBottom: 6 }}>
                             {dateRange.length} giorni · <strong>{fermiTec.length}</strong> fermi totali

@@ -5,11 +5,9 @@ import { REPARTI } from "../data/constants";
 
 const EMPTY = {
     id: "",
-    nome: "",
     reparto_id: "T11",
     zona: "",
     tecnologia_id: "",
-    personale_minimo: 1,
     codice_sap: "",
     automazione: "",
 };
@@ -52,11 +50,9 @@ export default function AnagraficaMacchineView({ macchine, setMacchine, tecnolog
     const openEdit = (m) => {
         const f = {
             id: m.id || "",
-            nome: m.nome || "",
             reparto_id: m.reparto_id || "T11",
             zona: m.zona || "",
             tecnologia_id: m.tecnologia_id || "",
-            personale_minimo: m.personale_minimo ?? 1,
             codice_sap: m.codice_sap || "",
             automazione: m.automazione || "",
         };
@@ -81,11 +77,11 @@ export default function AnagraficaMacchineView({ macchine, setMacchine, tecnolog
 
         const payload = {
             id: newId,
-            nome: form.nome.trim() || newId,
+            nome: newId, // Default nome to ID
             reparto_id: form.reparto_id || null,
             zona: form.zona || null,
             tecnologia_id: form.tecnologia_id || null,
-            personale_minimo: parseInt(form.personale_minimo) || 1,
+            personale_minimo: 1, // Fixed to 1
             codice_sap: form.codice_sap.trim().toUpperCase() || null,
             automazione: form.automazione.trim() || null,
         };
@@ -275,16 +271,6 @@ export default function AnagraficaMacchineView({ macchine, setMacchine, tecnolog
                         </div>
 
                         <div className="form-group">
-                            <label className="form-label">Nome descrittivo</label>
-                            <input
-                                className="input"
-                                placeholder="Lascia vuoto = usa ID"
-                                value={form.nome}
-                                onChange={e => setForm(p => ({ ...p, nome: e.target.value }))}
-                            />
-                        </div>
-
-                        <div className="form-group">
                             <label className="form-label">Reparto</label>
                             <select
                                 className="select-input"
@@ -345,18 +331,6 @@ export default function AnagraficaMacchineView({ macchine, setMacchine, tecnolog
                             <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
                                 Inserisci il nome dell'automazione associata per gestirne i fermi.
                             </div>
-                        </div>
-
-                        <div className="form-group">
-                            <label className="form-label">Personale minimo</label>
-                            <input
-                                type="number"
-                                min="0"
-                                className="input"
-                                value={form.personale_minimo}
-                                onChange={e => setForm(p => ({ ...p, personale_minimo: e.target.value }))}
-                                style={{ width: 80 }}
-                            />
                         </div>
 
                         <div style={{ display: "flex", gap: 10, marginTop: 8 }}>

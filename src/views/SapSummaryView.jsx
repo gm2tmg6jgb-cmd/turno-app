@@ -213,14 +213,16 @@ export default function SapSummaryView({ macchine = [] }) {
     const [wcFasiMapping, setWcFasiMapping] = useState([]); // [{ work_center, fase, match_type }]
 
     const week = getCurrentWeekRange();
-    const [startDate, setStartDate] = useState(week.monday);
-    const [endDate, setEndDate] = useState(week.sunday);
+    const [startDate, setStartDate] = useState(getLocalDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1))); // Default to start of month
+    const [endDate, setEndDate] = useState(getLocalDate(new Date()));
+    const [lastRecordDate, setLastRecordDate] = useState(null);
 
     useEffect(() => {
         fetchData();
         fetchAnagrafica();
         fetchWcFasi();
         fetchTargets();
+        fetchLastRecordDate();
     }, [startDate, endDate]);
 
     // Resolver dinamico: usa le righe di wc_fasi_mapping caricate da DB
@@ -576,6 +578,17 @@ export default function SapSummaryView({ macchine = [] }) {
         if (res) setWcFasiMapping(res);
     };
 
+    const fetchLastRecordDate = async () => {
+        const { data, error } = await supabase
+            .from("conferme_sap")
+            .select("data")
+            .order("data", { ascending: false })
+            .limit(1);
+        if (!error && data?.length) {
+            setLastRecordDate(data[0].data);
+        }
+    };
+
     const fetchTargets = async () => {
         const { data } = await supabase.from("produzione_targets").select("*");
         if (data) {
@@ -792,7 +805,14 @@ export default function SapSummaryView({ macchine = [] }) {
             <div className="card" style={{ marginBottom: 16, padding: "14px 20px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
                     <div>
-                        <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 2 }}>Analisi Produzione SAP</h2>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 2 }}>
+                            <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Analisi Produzione SAP</h2>
+                            {lastRecordDate && (
+                                <span style={{ fontSize: 10, padding: "2px 8px", background: "rgba(16, 185, 129, 0.1)", color: "#10B981", borderRadius: 100, fontWeight: 700, border: "1px solid rgba(16, 185, 129, 0.2)" }}>
+                                    Dati aggiornati al: {lastRecordDate.split('-').reverse().join('/')}
+                                </span>
+                            )}
+                        </div>
                         <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
                             {activeTab === "turno" ? "Produzione per singolo turno" : activeTab === "giornaliero" ? "Produzione giornaliera per progetto e componente" : "Riepilogo settimana per progetto e componente"}
                         </p>
