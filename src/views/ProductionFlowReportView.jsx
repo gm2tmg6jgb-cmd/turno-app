@@ -133,21 +133,34 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px" }}>
         {(() => {
-          // Pre-process machines to handle twins
-          const twinGroup = ["DRA10097", "DRA10098"];
+          // Define twin groups
+          const twinGroups = [
+            ["DRA10097", "DRA10098"],
+            ["DRA10099", "DRA10100"],
+            ["DRA10101", "DRA10107"],
+            ["DRA10102", "DRA10108"],
+            ["DRA10110", "DRA10111"],
+            ["DRA10113", "DRA10114"],
+          ];
+          
           const processedMachines = [];
-          const seenTwins = new Set();
+          const seenInTwin = new Set();
+
+          // Helper to find which group a machine belongs to
+          const getGroup = (id) => twinGroups.find(group => group.includes(id));
 
           filteredMachines.forEach(m => {
-            if (twinGroup.includes(m.id)) {
-              if (!seenTwins.has("TWIN_DRA_97_98")) {
+            const group = getGroup(m.id);
+            if (group) {
+              const groupKey = `TWIN_${group.join("_")}`;
+              if (!seenInTwin.has(groupKey)) {
                 processedMachines.push({
-                  id: "DRA10097 + DRA10098",
-                  ids: twinGroup,
+                  id: group.join(" + "),
+                  ids: group,
                   nome: "Gemellari",
                   isTwin: true
                 });
-                seenTwins.add("TWIN_DRA_97_98");
+                seenInTwin.add(groupKey);
               }
             } else {
               processedMachines.push(m);
@@ -196,8 +209,6 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                     } else if (isMZA) {
                       displayComp = "CONTROLLO UT";
                       displayProj = "";
-                    } else if (m.isTwin) {
-                      // Sum production for both twins if needed - currently just placeholder
                     }
 
                     return (
