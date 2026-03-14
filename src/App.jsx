@@ -513,6 +513,7 @@ export default function App() {
             <ProductionFlowReportView
               macchine={macchine}
               tecnologie={tecnologie}
+              motiviFermo={motiviFermo}
               globalDate={globalDate}
               turnoCorrente={turnoCorrente}
             />

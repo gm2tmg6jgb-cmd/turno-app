@@ -1,15 +1,23 @@
 import React, { useState, useEffect } from "react";
 import { Icons } from "../components/ui/Icons";
 import { supabase } from "../lib/supabase";
+import { Modal } from "../components/ui/Modal";
 import { formatItalianDate } from "../lib/dateUtils";
 
-export default function ProductionFlowReportView({ macchine = [], tecnologie = [], globalDate, turnoCorrente }) {
+export default function ProductionFlowReportView({ macchine = [], tecnologie = [], motiviFermo = [], globalDate, turnoCorrente }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTech, setActiveTech] = useState("TUTTO");
   const [productionData, setProductionData] = useState({});
+  const [fermiData, setFermiData] = useState({});
   const [anagrafica, setAnagrafica] = useState({});
   const [loading, setLoading] = useState(true);
   const [hasSoftProduction, setHasSoftProduction] = useState(new Set());
+
+  // Fermi Entry State
+  const [showFermiModal, setShowFermiModal] = useState(false);
+  const [selectedMachine, setSelectedMachine] = useState(null);
+  const [fermiForm, setFermiForm] = useState({ motivo: "", durata: "", note: "" });
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -57,6 +65,25 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         });
         setProductionData(grouped);
         setHasSoftProduction(softMachines);
+
+        // 3. Fetch Fermi (downtimes)
+        let fermiQuery = supabase.from("fermi_macchina").select("macchina_id, durata_minuti, motivo").eq("data", date);
+        if (turnoCorrente && turnoCorrente !== "ALL") {
+          fermiQuery = fermiQuery.eq("turno_id", turnoCorrente);
+        }
+        const { data: fData } = await fermiQuery;
+        const fMap = {};
+        if (fData) {
+          fData.forEach(row => {
+            const mId = row.macchina_id.toUpperCase();
+            if (!fMap[mId]) fMap[mId] = { minutes: 0, entries: [] };
+            fMap[mId].minutes += (row.durata_minuti || 0);
+            if (row.motivo) {
+              fMap[mId].entries.push({ motivo: row.motivo, durata: row.durata_minuti });
+            }
+          });
+        }
+        setFermiData(fMap);
       } catch (err) {
         console.error("Errore recupero dati SAP:", err);
       } finally {
@@ -151,7 +178,27 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
       return prefixes.some(p => machineId.startsWith(p));
     }
     return m.tecnologia_id === activeTech;
-  }).sort((a, b) => a.id.localeCompare(b.id));
+  }).sort((a, b) => {
+    // Sort by downtime minutes (highest first)
+    const getMinutes = (mObj) => {
+      const idsToSum = mObj.ids || [mObj.id];
+      let total = 0;
+      idsToSum.forEach(id => {
+        total += (fermiData[id.toUpperCase()]?.minutes || 0);
+      });
+      return total;
+    };
+
+    const minutesA = getMinutes(a);
+    const minutesB = getMinutes(b);
+
+    if (minutesB !== minutesA) {
+      return minutesB - minutesA;
+    }
+    
+    // Fallback to alphabetical
+    return a.id.localeCompare(b.id);
+  });
 
   const tabStyle = (techId) => ({
     padding: "8px 16px",
@@ -164,6 +211,57 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
     fontSize: "13px",
     transition: "all 0.2s",
   });
+
+  const handleOpenFermiModal = (machine) => {
+    setSelectedMachine(machine);
+    setFermiForm({ motivo: "", durata: "", note: "" });
+    setShowFermiModal(true);
+  };
+
+  const handleSaveFermoDirect = async () => {
+    if (!selectedMachine || !fermiForm.motivo || !fermiForm.durata) {
+      alert("Compila motivo e durata!");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const date = globalDate || new Date().toISOString().split("T")[0];
+      const payload = {
+        data: date,
+        turno_id: (turnoCorrente && turnoCorrente !== "ALL") ? turnoCorrente : null,
+        macchina_id: selectedMachine.ids ? selectedMachine.ids[0] : selectedMachine.id,
+        motivo: fermiForm.motivo,
+        durata_minuti: parseInt(fermiForm.durata),
+        note: fermiForm.note || null,
+      };
+
+      const { error } = await supabase.from("fermi_macchina").insert([payload]);
+      if (error) throw error;
+
+      // Refresh data
+      // I don't want to refetch everything, let's just update local state for faster feedback
+      const mId = payload.macchina_id.toUpperCase();
+      setFermiData(prev => {
+        const current = prev[mId] || { minutes: 0, entries: [] };
+        const safeEntries = Array.isArray(current.entries) ? current.entries : [];
+        return {
+          ...prev,
+          [mId]: {
+            minutes: (current.minutes || 0) + payload.durata_minuti,
+            entries: [...safeEntries, { motivo: payload.motivo, durata: payload.durata_minuti }]
+          }
+        };
+      });
+
+      setShowFermiModal(false);
+    } catch (err) {
+      console.error("Errore salvataggio fermo:", err);
+      alert("Errore durante il salvataggio!");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="fade-in" style={{ padding: "24px", height: "100%", overflowY: "auto" }}>
@@ -366,26 +464,270 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
 
                 <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "flex-start" }}>
                   {Array.from({ length: slotCount }).map((_, i) => {
+                    const mIdString = (m.id || "").toUpperCase();
+                    const mProd = productionData[m.id] || {};
+                    const prodComponents = Object.keys(mProd);
+                    
                     let displayQty = null;
                     let displayComp = null;
                     let displayProj = null;
 
-                    if (isFRW) {
-                      const mProd = productionData[m.id] || {};
-                      displayQty = i === 0 ? (mProd["SG5"] || 0) : null;
-                      displayComp = "SG5";
-                      displayProj = "DCT 300";
-                    } else if (isMZA) {
-                      displayComp = "CONTROLLO UT";
-                      displayProj = "";
-                    } else if (isRAA) {
-                      const mProd = productionData[m.id] || {};
-                      displayQty = i === 0 ? (mProd["PG"] || 0) : null;
-                      displayComp = "PG";
-                      displayProj = "M0154996/S";
-                    } else if (isRGMin) {
-                      displayComp = "RG";
-                      displayProj = "";
+                    if (i < 3) {
+                      if (isFRW) {
+                        displayComp = "SG5";
+                        displayProj = "DCT 300";
+                        displayQty = i === 0 ? (mProd["SG5"] || 0) : null;
+                      } else if (isMZA) {
+                        displayComp = i === 0 ? "CONTROLLO UT" : null;
+                      } else if (isRAA) {
+                        displayComp = "PG";
+                        displayProj = "M0154996/S";
+                        displayQty = i === 0 ? (mProd["PG"] || 0) : null;
+                      } else if (isRGMin) {
+                        displayComp = i === 0 ? "RG" : null;
+                      } else {
+                        // Dynamic logic for all other machines (including DRA)
+                        if (prodComponents[i]) {
+                          displayComp = prodComponents[i];
+                          displayQty = mProd[displayComp];
+                          // Try to get project from anagrafica if possible
+                          const sampleMat = Object.entries(anagrafica).find(([k, v]) => v.componente === displayComp)?.[1];
+                          displayProj = sampleMat?.progetto || "";
+                        }
+                      }
+                    }
+
+                    // 4th Slot - FERMI (Downtimes)
+                    if (i === 3) {
+                      const idsToSum = m.ids || [m.id];
+                      let minutes = 0;
+                      let entries = [];
+                      idsToSum.forEach(id => {
+                        const fermi = fermiData[id.toUpperCase()];
+                        if (fermi) {
+                          minutes += (fermi.minutes || 0);
+                          if (Array.isArray(fermi.entries)) {
+                            entries = [...entries, ...fermi.entries];
+                          }
+                        }
+                      });
+
+                      const mId = (m.id || "").toUpperCase();
+                      const isCritical = minutes > 60;
+
+                      if (minutes > 0) {
+                        return (
+                          <div key={i} style={{
+                            flex: "1 0 232px",
+                            height: "100px",
+                            backgroundColor: "rgba(255,255,255,0.03)",
+                            color: "var(--text-primary)",
+                            borderRadius: "16px",
+                            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                            border: `1px solid ${isCritical ? "#ef4444" : "#f59e0b"}`,
+                            display: "flex",
+                            padding: "0",
+                            transition: "all 0.2s ease",
+                            cursor: "pointer",
+                            overflow: "hidden",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = "scale(1.02)";
+                            e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = "scale(1)";
+                            e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.03)";
+                          }}
+                          onClick={() => handleOpenFermiModal(m)}
+                          >
+                            {/* Left Side: Total */}
+                            <div style={{ 
+                              width: "100px", 
+                              backgroundColor: isCritical ? "rgba(239, 68, 68, 0.1)" : "rgba(245, 158, 11, 0.1)",
+                              display: "flex",
+                              flexDirection: "column",
+                              justifyContent: "center",
+                              alignItems: "center",
+                              borderRight: "1px solid var(--border)",
+                              position: "relative"
+                            }}>
+                              <div style={{ 
+                                position: "absolute", 
+                                top: "0", 
+                                left: "0", 
+                                padding: "3px 6px", 
+                                background: isCritical ? "#ef4444" : "#f59e0b",
+                                color: "white",
+                                fontSize: "8px",
+                                fontWeight: "900",
+                                borderBottomRightRadius: "8px"
+                              }}>
+                                FERMI
+                              </div>
+                              <div style={{ fontSize: "28px", fontWeight: "900", color: isCritical ? "#ef4444" : "#f59e0b" }}>{minutes}</div>
+                              <div style={{ fontSize: "10px", fontWeight: "800", opacity: 0.6, marginTop: "-4px" }}>TOTALE</div>
+                            </div>
+                            
+                            {/* Right Side: Details */}
+                            <div style={{ 
+                              flex: 1, 
+                              padding: "10px 12px", 
+                              display: "flex", 
+                              flexDirection: "column", 
+                              gap: "4px",
+                              overflowY: "auto"
+                            }}>
+                              <div style={{ fontSize: "10px", fontWeight: "800", color: "var(--text-muted)", borderBottom: "1px solid var(--border)", paddingBottom: "2px", marginBottom: "2px" }}>
+                                DETTAGLIO MOTIVI
+                              </div>
+                              {entries.map((entry, idx) => (
+                                <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px" }}>
+                                  <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                                    <span style={{ color: isCritical ? "#ef4444" : "#f59e0b" }}>•</span>
+                                    <span style={{ fontWeight: "600" }}>{entry.motivo}</span>
+                                  </div>
+                                  <div style={{ fontWeight: "900", opacity: 0.8 }}>{entry.durata}m</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <div key={i} style={{
+                          minWidth: "110px",
+                          width: "110px",
+                          height: "100px",
+                          backgroundColor: minutes > 0 ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.01)",
+                          color: "var(--text-primary)",
+                          borderRadius: "16px",
+                          textAlign: "left",
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                          border: minutes > 0 
+                            ? `1px solid ${isCritical ? "#ef4444" : "#f59e0b"}` 
+                            : "1px dashed var(--border)",
+                          display: "flex",
+                          flexDirection: "column",
+                          padding: "10px",
+                          transition: "all 0.2s ease",
+                          cursor: "pointer",
+                          overflow: "hidden",
+                          position: "relative"
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = "scale(1.05)";
+                          e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = "scale(1)";
+                          e.currentTarget.style.backgroundColor = minutes > 0 ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.01)";
+                        }}
+                        onClick={() => handleOpenFermiModal(m)}
+                        >
+                          {minutes > 0 ? (
+                            <>
+                              <div style={{ 
+                                position: "absolute", 
+                                top: "0", 
+                                right: "0", 
+                                padding: "4px 8px", 
+                                background: isCritical ? "#ef4444" : "#f59e0b",
+                                color: "white",
+                                fontSize: "9px",
+                                fontWeight: "900",
+                                borderBottomLeftRadius: "8px",
+                                letterSpacing: "0.5px"
+                              }}>
+                                FERMI
+                              </div>
+                              <div style={{ display: "flex", alignItems: "baseline", gap: "4px", marginTop: "4px" }}>
+                                <span style={{ fontSize: "22px", fontWeight: "900", color: isCritical ? "#ef4444" : "#f59e0b" }}>{minutes}</span>
+                                <span style={{ fontSize: "10px", fontWeight: "700", opacity: 0.6 }}>min</span>
+                              </div>
+                              <div style={{ 
+                                fontSize: "9px", 
+                                fontWeight: "600", 
+                                color: "var(--text-secondary)",
+                                marginTop: "6px",
+                                display: "-webkit-box",
+                                WebkitLineClamp: 3,
+                                WebkitBoxOrient: "vertical",
+                                overflow: "hidden",
+                                lineHeight: "1.2"
+                              }}>
+                                {entries.map((entry, idx) => (
+                                  <div key={idx} style={{ display: "flex", gap: "4px", alignItems: "flex-start" }}>
+                                    <span style={{ color: isCritical ? "#ef4444" : "#f59e0b" }}>•</span>
+                                    <span>{entry.motivo}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </>
+                          ) : (
+                            <div style={{ 
+                              height: "100%", 
+                              display: "flex", 
+                              flexDirection: "column", 
+                              justifyContent: "center", 
+                              alignItems: "center",
+                              gap: "4px",
+                              opacity: 0.4
+                            }}>
+                              <div style={{ fontSize: "20px" }}>{Icons.plus}</div>
+                              <div style={{ fontSize: "9px", fontWeight: "800", textAlign: "center" }}>RECORD<br/>FERMO</div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    }
+
+                    const isSuccess = (displayQty !== null || isMZA || isSingle || isDouble || m.isTwin);
+                    const isDRA60 = (m.id || "").toUpperCase() === "DRA10060";
+
+                    if (isDRA60 && displayComp) {
+                      return (
+                        <div key={i} style={{
+                          flex: "1 0 232px",
+                          height: "100px",
+                          background: isSuccess ? "linear-gradient(145deg, #10b981, #059669)" : "linear-gradient(145deg, #3c6ef0, #2f5bd6)",
+                          color: "white",
+                          borderRadius: "16px",
+                          boxShadow: "0 8px 18px rgba(0,0,0,0.15)",
+                          display: "flex",
+                          transition: "transform 0.2s ease",
+                          cursor: "pointer",
+                          overflow: "hidden"
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.02)"}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+                        >
+                          <div style={{ 
+                             width: "100px",
+                             backgroundColor: "rgba(0,0,0,0.15)",
+                             display: "flex",
+                             flexDirection: "column",
+                             justifyContent: "center",
+                             alignItems: "center",
+                             borderRight: "1px solid rgba(255,255,255,0.1)"
+                          }}>
+                              <div style={{ fontSize: "28px", fontWeight: "900" }}>{displayQty !== null ? displayQty : 0}</div>
+                              <div style={{ fontSize: "10px", fontWeight: "800", opacity: 0.8 }}>QTA</div>
+                          </div>
+                          <div style={{ flex: 1, padding: "12px", display: "flex", flexDirection: "column", justifyContent: "center", gap: "2px" }}>
+                              <div style={{ fontSize: "18px", fontWeight: "900" }}>{displayComp}</div>
+                              <div style={{ fontSize: "11px", fontWeight: "bold", opacity: 0.9 }}>{displayProj || "—"}</div>
+                              {/* Material show if available in anagrafica */}
+                              {(() => {
+                                const sampleMat = Object.entries(anagrafica).find(([k, v]) => v.componente === displayComp)?.[0];
+                                return sampleMat && (
+                                  <div style={{ fontSize: "9px", opacity: 0.7, marginTop: "4px" }}>{sampleMat}</div>
+                                );
+                              })()}
+                          </div>
+                        </div>
+                      );
                     }
 
                     return (
@@ -393,7 +735,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                         minWidth: "110px",
                         width: "110px",
                         height: "100px",
-                        background: (displayQty !== null || isMZA || isSingle || isDouble || m.isTwin) ? "linear-gradient(145deg, #10b981, #059669)" : "linear-gradient(145deg, #3c6ef0, #2f5bd6)",
+                        background: isSuccess ? "linear-gradient(145deg, #10b981, #059669)" : "linear-gradient(145deg, #3c6ef0, #2f5bd6)",
                         color: "white",
                         borderRadius: "15px",
                         textAlign: "center",
@@ -424,6 +766,62 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           });
         })()}
       </div>
+
+      {showFermiModal && (
+        <Modal 
+          title={`Registra Fermo - ${selectedMachine?.id}`} 
+          onClose={() => setShowFermiModal(false)}
+          footer={(
+            <div style={{ display: "flex", gap: "12px", width: "100%" }}>
+              <button 
+                className="btn btn-primary" 
+                style={{ flex: 1 }} 
+                onClick={handleSaveFermoDirect}
+                disabled={isSaving}
+              >
+                {isSaving ? "Salvataggio..." : "Salva Fermo"}
+              </button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowFermiModal(false)}>Annulla</button>
+            </div>
+          )}
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "12px" }}>
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: "700" }}>Motivo Fermo *</label>
+              <select 
+                className="select-input"
+                value={fermiForm.motivo}
+                onChange={e => setFermiForm(p => ({ ...p, motivo: e.target.value }))}
+              >
+                <option value="">-- Seleziona Motivo --</option>
+                {motiviFermo.map(m => (
+                  <option key={m.id} value={m.label}>{m.icona} {m.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: "700" }}>Durata in minuti *</label>
+              <input 
+                type="number" 
+                className="input" 
+                placeholder="Es. 15"
+                value={fermiForm.durata}
+                onChange={e => setFermiForm(p => ({ ...p, durata: e.target.value }))}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: "700" }}>Note (opzionale)</label>
+              <textarea 
+                className="input" 
+                style={{ minHeight: "80px", paddingTop: "8px" }}
+                placeholder="Aggiungi dettagli..."
+                value={fermiForm.note}
+                onChange={e => setFermiForm(p => ({ ...p, note: e.target.value }))}
+              />
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
