@@ -71,6 +71,12 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
 
     if (activeTech === "TUTTO") return true;
     
+    // Explicit override for DRA10009: it should be in Tornitura Hard (TH)
+    const machineIdRaw = m.id.toUpperCase();
+    if (machineIdRaw === "DRA10009") {
+      return activeTech === "TH";
+    }
+    
     // Simple filtering based on tecnologia_id if available or prefix matching
     const tec = tecnologie.find(t => t.id === activeTech);
     if (tec?.prefissi) {
