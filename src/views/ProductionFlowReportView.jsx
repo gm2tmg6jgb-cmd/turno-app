@@ -332,6 +332,10 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
 
   const handleSaveSlot = async () => {
     const { machineId, slotIndex, componente, codiceMateriale, sapWorkCenter } = slotModalData;
+    if (!componente || !codiceMateriale || !sapWorkCenter) {
+      alert("Componente, Codice Materiale e Centro di Lavoro SAP sono obbligatori.");
+      return;
+    }
     setIsSavingSlot(true);
     try {
       const payload = {
@@ -1078,7 +1082,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               />
             </div>
             <div className="form-group">
-              <label className="form-label" style={{ fontWeight: "700" }}>Codice Materiale <span style={{ fontWeight: "400", color: "var(--text-muted)" }}>(opzionale — per filtrare quando ci sono più progetti dello stesso componente)</span></label>
+              <label className="form-label" style={{ fontWeight: "700" }}>Codice Materiale *</label>
               <input
                 type="text"
                 className="input"
@@ -1086,12 +1090,9 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 value={slotModalData.codiceMateriale}
                 onChange={e => setSlotModalData(p => ({ ...p, codiceMateriale: e.target.value.toUpperCase() }))}
               />
-              <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px" }}>
-                Se lasciato vuoto, mostra la somma di tutti i materiali con quel componente.
-              </p>
             </div>
             <div className="form-group">
-              <label className="form-label" style={{ fontWeight: "700" }}>Centro di Lavoro SAP <span style={{ fontWeight: "400", color: "var(--text-muted)" }}>(obbligatorio per il match preciso)</span></label>
+              <label className="form-label" style={{ fontWeight: "700" }}>Centro di Lavoro SAP *</label>
               <input
                 type="text"
                 className="input"
