@@ -702,6 +702,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                     if (i < FERMI_IDX) {
                       // Slot config override (takes priority over all hardcoded logic)
                       const slotConf = slotConfigs[mid]?.[i];
+                      const machineHasAnyConfig = !!slotConfigs[mid];
                       if (slotConf) {
                         displayComp = slotConf.componente || null;
                         // Se è configurato un centro di lavoro SAP, cerchiamo lì (match esatto)
@@ -726,6 +727,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                           productionInfo = info;
                           displayProj = productionInfo?.materials?.[0]?.progetto || null;
                         }
+                      } else if (machineHasAnyConfig) {
+                        // Macchina con config: slot non configurato → vuoto, nessun fallback
                       } else if (isFRW) {
                         // FRW10075 — static SG5 / DCT300
                         productionInfo = mProd["SG5"];
