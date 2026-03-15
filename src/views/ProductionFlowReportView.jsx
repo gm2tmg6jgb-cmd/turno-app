@@ -9,7 +9,6 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTech, setActiveTech] = useState("TUTTO");
   const [productionData, setProductionData] = useState({});
-  const [productionDataByWC, setProductionDataByWC] = useState({}); // keyed by work_center_sap
   const [fermiData, setFermiData] = useState({});
   const [anagrafica, setAnagrafica] = useState({});
   const [loading, setLoading] = useState(true);
@@ -61,11 +60,9 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         const grouped = {};
         const softMachines = new Set();
         
-        const groupedByWC = {};
 
         prodData.forEach(row => {
           const mId = (row.macchina_id || row.work_center_sap || "").toUpperCase();
-          const wc = (row.work_center_sap || "").toUpperCase();
           const mat = (row.materiale || "").toUpperCase();
           const info = anaMap[mat];
           const comp = info?.componente?.toUpperCase();
@@ -93,10 +90,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           };
 
           addToGroup(grouped, mId);
-          if (wc) addToGroup(groupedByWC, wc);
         });
         setProductionData(grouped);
-        setProductionDataByWC(groupedByWC);
         setHasSoftProduction(softMachines);
 
         // 3. Fetch Fermi (downtimes)
@@ -705,12 +700,11 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                       const machineHasAnyConfig = !!slotConfigs[mid];
                       if (slotConf) {
                         displayComp = slotConf.componente || null;
-                        // Se è configurato un centro di lavoro SAP, cerchiamo lì (match esatto)
-                        // altrimenti fallback su macchina_id
-                        const wc = slotConf.sap_work_center?.toUpperCase();
-                        const sourceProd = wc
-                          ? (productionDataByWC[wc] || {})
-                          : (productionData[mid] || {});
+                        // Usa sap_work_center se configurato, altrimenti la macchina stessa.
+                        // Leggiamo sempre da productionData (indicizzato per macchina_id || work_center_sap)
+                        // così la somma su tutti i turni è sempre corretta.
+                        const readFrom = slotConf.sap_work_center?.toUpperCase() || mid;
+                        const sourceProd = productionData[readFrom] || {};
                         if (displayComp && sourceProd[displayComp]) {
                           let info = sourceProd[displayComp];
                           // Filtra per codice materiale se configurato
