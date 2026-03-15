@@ -667,17 +667,25 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             // Slots hidden per machine: index → invisible placeholder
             const hiddenSlots = new Set(mid === "RAA11009" ? [1, 2] : []);
 
-            // Compute header total for slot-configured machines
+            // Compute header total
             const machineSlotConfs = slotConfigs[mid] || {};
             let headerTotal = 0;
-            Object.values(machineSlotConfs).forEach(sc => {
-              const rf = sc.sap_work_center?.toUpperCase() || mid;
-              if (sc.codice_materiale) {
-                headerTotal += prodByMaterial[rf]?.[sc.codice_materiale.toUpperCase()] || 0;
-              } else if (sc.componente) {
-                headerTotal += productionData[rf]?.[sc.componente]?.total || 0;
-              }
-            });
+            if (Object.keys(machineSlotConfs).length > 0) {
+              // Slot-configured machine: sum each configured slot
+              Object.values(machineSlotConfs).forEach(sc => {
+                const rf = sc.sap_work_center?.toUpperCase() || mid;
+                if (sc.codice_materiale) {
+                  headerTotal += prodByMaterial[rf]?.[sc.codice_materiale.toUpperCase()] || 0;
+                } else if (sc.componente) {
+                  headerTotal += productionData[rf]?.[sc.componente]?.total || 0;
+                }
+              });
+            } else {
+              // No slot config: sum all components from productionData
+              Object.values(productionData[mid] || {}).forEach(info => {
+                headerTotal += info.total || 0;
+              });
+            }
 
             return (
               <div key={m.id} style={{
@@ -698,12 +706,10 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                       <div style={{ fontSize: "14px", color: "var(--text-muted)", marginTop: "2px" }}>{m.nome}</div>
                     )}
                   </div>
-                  {headerTotal > 0 && (
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-muted)", letterSpacing: "0.5px" }}>TOT. PEZZI</div>
-                      <div style={{ fontSize: "24px", fontWeight: "900", color: "#10b981" }}>{headerTotal}</div>
-                    </div>
-                  )}
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-muted)", letterSpacing: "0.5px" }}>TOT. PEZZI</div>
+                    <div style={{ fontSize: "24px", fontWeight: "900", color: "#10b981" }}>{headerTotal}</div>
+                  </div>
                 </div>
  
                 <div style={{ 
