@@ -1017,20 +1017,6 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                           )}
                           {hasData ? (
                             <>
-                              <div style={{
-                                position: "absolute",
-                                top: "0",
-                                right: "0",
-                                padding: "4px 8px",
-                                background: "rgba(0,0,0,0.2)",
-                                color: "white",
-                                fontSize: "9px",
-                                fontWeight: "900",
-                                borderBottomLeftRadius: "8px",
-                                letterSpacing: "0.5px"
-                              }}>
-                                PROD
-                              </div>
                               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
                                 <span style={{ fontSize: "14px", fontWeight: "700", opacity: 0.85 }}>{displayComp}</span>
                                 <span style={{ fontSize: "28px", fontWeight: "900", lineHeight: 1 }}>{totalQty}</span>
