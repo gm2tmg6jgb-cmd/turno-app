@@ -28,7 +28,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
   const [slotConfigs, setSlotConfigs] = useState({});
   const [isSlotEditMode, setIsSlotEditMode] = useState(false);
   const [showSlotModal, setShowSlotModal] = useState(false);
-  const [slotModalData, setSlotModalData] = useState({ machineId: "", slotIndex: 0, componente: "", progetto: "", sapWorkCenter: "" });
+  const [slotModalData, setSlotModalData] = useState({ machineId: "", slotIndex: 0, componente: "", codiceMateriale: "", sapWorkCenter: "" });
   const [isSavingSlot, setIsSavingSlot] = useState(false);
 
   useEffect(() => {
@@ -128,6 +128,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               componente: row.componente,
               progetto: row.progetto,
               sap_work_center: row.sap_work_center,
+              codice_materiale: row.codice_materiale,
             };
           });
         }
@@ -324,14 +325,14 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
   };
 
   const handleSaveSlot = async () => {
-    const { machineId, slotIndex, componente, progetto, sapWorkCenter } = slotModalData;
+    const { machineId, slotIndex, componente, codiceMateriale, sapWorkCenter } = slotModalData;
     setIsSavingSlot(true);
     try {
       const payload = {
         macchina_id: machineId,
         slot_index: slotIndex,
         componente: componente || null,
-        progetto: progetto || null,
+        codice_materiale: codiceMateriale || null,
         sap_work_center: sapWorkCenter || null,
       };
       const { error } = await supabase.from("slot_config").upsert(payload, { onConflict: "macchina_id,slot_index" });
@@ -342,7 +343,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           ...(prev[machineId.toUpperCase()] || {}),
           [slotIndex]: {
             componente: componente || null,
-            progetto: progetto || null,
+            codice_materiale: codiceMateriale || null,
             sap_work_center: sapWorkCenter || null,
           }
         }
@@ -693,14 +694,25 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                       const slotConf = slotConfigs[mid]?.[i];
                       if (slotConf) {
                         displayComp = slotConf.componente || null;
-                        displayProj = slotConf.progetto || null;
                         const readFrom = (slotConf.sap_work_center || m.id).toUpperCase();
                         const sourceProd = productionData[readFrom] || {};
                         if (displayComp && sourceProd[displayComp]) {
-                          productionInfo = sourceProd[displayComp];
-                          if (!displayProj && productionInfo?.materials?.length > 0) {
-                            displayProj = productionInfo.materials[0].progetto;
+                          let info = sourceProd[displayComp];
+                          // Filtra per codice materiale se configurato
+                          if (slotConf.codice_materiale) {
+                            const matFilter = slotConf.codice_materiale.toUpperCase();
+                            const filtered = (info.materials || []).filter(mat =>
+                              mat.code.toUpperCase() === matFilter
+                            );
+                            info = {
+                              total: filtered.reduce((sum, mat) => sum + mat.qty, 0),
+                              materials: filtered,
+                            };
                           }
+                          productionInfo = info;
+                          displayProj = slotConf.progetto || productionInfo?.materials?.[0]?.progetto || null;
+                        } else {
+                          displayProj = slotConf.progetto || null;
                         }
                       } else if (isFRW) {
                         // FRW10075 — static SG5 / DCT300
@@ -903,7 +915,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                             machineId: mid,
                             slotIndex: i,
                             componente: existing?.componente || displayComp || "",
-                            progetto: existing?.progetto || displayProj || "",
+                            codiceMateriale: existing?.codice_materiale || "",
                             sapWorkCenter: existing?.sap_work_center || "",
                           });
                           setShowSlotModal(true);
@@ -1052,23 +1064,26 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               <input
                 type="text"
                 className="input"
-                placeholder="Es. SG2, PG, RG..."
+                placeholder="Es. SG3, SG4, PG, RG..."
                 value={slotModalData.componente}
                 onChange={e => setSlotModalData(p => ({ ...p, componente: e.target.value.toUpperCase() }))}
               />
             </div>
             <div className="form-group">
-              <label className="form-label" style={{ fontWeight: "700" }}>Progetto <span style={{ fontWeight: "400", color: "var(--text-muted)" }}>(opzionale)</span></label>
+              <label className="form-label" style={{ fontWeight: "700" }}>Codice Materiale <span style={{ fontWeight: "400", color: "var(--text-muted)" }}>(opzionale — per filtrare quando ci sono più progetti dello stesso componente)</span></label>
               <input
                 type="text"
                 className="input"
                 placeholder="Es. M0153389/S"
-                value={slotModalData.progetto}
-                onChange={e => setSlotModalData(p => ({ ...p, progetto: e.target.value }))}
+                value={slotModalData.codiceMateriale}
+                onChange={e => setSlotModalData(p => ({ ...p, codiceMateriale: e.target.value.toUpperCase() }))}
               />
+              <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px" }}>
+                Se lasciato vuoto, mostra la somma di tutti i materiali con quel componente.
+              </p>
             </div>
             <div className="form-group">
-              <label className="form-label" style={{ fontWeight: "700" }}>SAP Work Center di lettura <span style={{ fontWeight: "400", color: "var(--text-muted)" }}>(opzionale)</span></label>
+              <label className="form-label" style={{ fontWeight: "700" }}>Macchina SAP <span style={{ fontWeight: "400", color: "var(--text-muted)" }}>(opzionale — solo se i dati arrivano sotto un ID diverso)</span></label>
               <input
                 type="text"
                 className="input"
@@ -1076,9 +1091,6 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 value={slotModalData.sapWorkCenter}
                 onChange={e => setSlotModalData(p => ({ ...p, sapWorkCenter: e.target.value.toUpperCase() }))}
               />
-              <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px" }}>
-                Usa questo campo se i dati SAP per questo componente arrivano da un work center diverso (es. DRA14100 per DRA10060 slot SGR).
-              </p>
             </div>
           </div>
         </Modal>
