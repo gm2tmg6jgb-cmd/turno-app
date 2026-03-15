@@ -24,6 +24,13 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
   const [showProdModal, setShowProdModal] = useState(false);
   const [prodModalData, setProdModalData] = useState(null); // { machineId, comp, proj, materials, totalQty }
 
+  // Slot Config State
+  const [slotConfigs, setSlotConfigs] = useState({});
+  const [isSlotEditMode, setIsSlotEditMode] = useState(false);
+  const [showSlotModal, setShowSlotModal] = useState(false);
+  const [slotModalData, setSlotModalData] = useState({ machineId: "", slotIndex: 0, componente: "", progetto: "", sapWorkCenter: "" });
+  const [isSavingSlot, setIsSavingSlot] = useState(false);
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -109,6 +116,22 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           });
         }
         setFermiData(fMap);
+
+        // 4. Fetch slot configs
+        const { data: scData } = await supabase.from("slot_config").select("*");
+        const scMap = {};
+        if (scData) {
+          scData.forEach(row => {
+            const mId = row.macchina_id.toUpperCase();
+            if (!scMap[mId]) scMap[mId] = {};
+            scMap[mId][row.slot_index] = {
+              componente: row.componente,
+              progetto: row.progetto,
+              sap_work_center: row.sap_work_center,
+            };
+          });
+        }
+        setSlotConfigs(scMap);
       } catch (err) {
         console.error("Errore recupero dati SAP:", err);
       } finally {
@@ -300,6 +323,66 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
     }
   };
 
+  const handleSaveSlot = async () => {
+    const { machineId, slotIndex, componente, progetto, sapWorkCenter } = slotModalData;
+    setIsSavingSlot(true);
+    try {
+      const payload = {
+        macchina_id: machineId,
+        slot_index: slotIndex,
+        componente: componente || null,
+        progetto: progetto || null,
+        sap_work_center: sapWorkCenter || null,
+      };
+      const { error } = await supabase.from("slot_config").upsert(payload, { onConflict: "macchina_id,slot_index" });
+      if (error) throw error;
+      setSlotConfigs(prev => ({
+        ...prev,
+        [machineId.toUpperCase()]: {
+          ...(prev[machineId.toUpperCase()] || {}),
+          [slotIndex]: {
+            componente: componente || null,
+            progetto: progetto || null,
+            sap_work_center: sapWorkCenter || null,
+          }
+        }
+      }));
+      setShowSlotModal(false);
+    } catch (err) {
+      console.error("Errore salvataggio slot:", err);
+      alert("Errore durante il salvataggio!");
+    } finally {
+      setIsSavingSlot(false);
+    }
+  };
+
+  const handleDeleteSlot = async () => {
+    const { machineId, slotIndex } = slotModalData;
+    setIsSavingSlot(true);
+    try {
+      const { error } = await supabase.from("slot_config")
+        .delete()
+        .eq("macchina_id", machineId)
+        .eq("slot_index", slotIndex);
+      if (error) throw error;
+      setSlotConfigs(prev => {
+        const updated = { ...prev };
+        if (updated[machineId.toUpperCase()]) {
+          const slots = { ...updated[machineId.toUpperCase()] };
+          delete slots[slotIndex];
+          updated[machineId.toUpperCase()] = slots;
+        }
+        return updated;
+      });
+      setShowSlotModal(false);
+    } catch (err) {
+      console.error("Errore eliminazione slot:", err);
+      alert("Errore durante l'eliminazione!");
+    } finally {
+      setIsSavingSlot(false);
+    }
+  };
+
   return (
     <div className="fade-in" style={{ padding: "24px", height: "100%", overflowY: "auto" }}>
       <div style={{ marginBottom: "32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -383,6 +466,28 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 }}
               />
             </div>
+          </div>
+
+          {/* Configura Slot */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <label style={{ fontSize: "10px", fontWeight: "700", color: "transparent", letterSpacing: "0.5px" }}>_</label>
+            <button
+              onClick={() => setIsSlotEditMode(prev => !prev)}
+              style={{
+                padding: "9px 16px",
+                borderRadius: "10px",
+                border: `1px solid ${isSlotEditMode ? "var(--accent)" : "var(--border)"}`,
+                backgroundColor: isSlotEditMode ? "var(--accent)" : "var(--bg-card)",
+                color: isSlotEditMode ? "white" : "var(--text-secondary)",
+                fontWeight: "700",
+                fontSize: "13px",
+                cursor: "pointer",
+                transition: "all 0.2s",
+                whiteSpace: "nowrap"
+              }}
+            >
+              {isSlotEditMode ? "✓ Esci da Configura" : "⚙ Configura Slot"}
+            </button>
           </div>
         </div>
       </div>
@@ -584,7 +689,20 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                     let displayProj = null;
 
                     if (i < FERMI_IDX) {
-                      if (isFRW) {
+                      // Slot config override (takes priority over all hardcoded logic)
+                      const slotConf = slotConfigs[mid]?.[i];
+                      if (slotConf) {
+                        displayComp = slotConf.componente || null;
+                        displayProj = slotConf.progetto || null;
+                        const readFrom = (slotConf.sap_work_center || m.id).toUpperCase();
+                        const sourceProd = productionData[readFrom] || {};
+                        if (displayComp && sourceProd[displayComp]) {
+                          productionInfo = sourceProd[displayComp];
+                          if (!displayProj && productionInfo?.materials?.length > 0) {
+                            displayProj = productionInfo.materials[0].progetto;
+                          }
+                        }
+                      } else if (isFRW) {
                         // FRW10075 — static SG5 / DCT300
                         productionInfo = mProd["SG5"];
                         displayComp = "SG5";
@@ -779,6 +897,18 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                       onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.05)"}
                       onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
                       onClick={() => {
+                        if (isSlotEditMode) {
+                          const existing = slotConfigs[mid]?.[i];
+                          setSlotModalData({
+                            machineId: mid,
+                            slotIndex: i,
+                            componente: existing?.componente || displayComp || "",
+                            progetto: existing?.progetto || displayProj || "",
+                            sapWorkCenter: existing?.sap_work_center || "",
+                          });
+                          setShowSlotModal(true);
+                          return;
+                        }
                         setProdModalData({
                           machineId: m.id,
                           comp: displayComp,
@@ -789,6 +919,27 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                         setShowProdModal(true);
                       }}
                       >
+                        {/* Edit mode overlay */}
+                        {isSlotEditMode && (
+                          <div style={{
+                            position: "absolute",
+                            inset: 0,
+                            background: "rgba(0,0,0,0.55)",
+                            borderRadius: "15px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            zIndex: 2,
+                            backdropFilter: "blur(1px)"
+                          }}>
+                            <div style={{ textAlign: "center" }}>
+                              <div style={{ fontSize: "18px" }}>✏️</div>
+                              <div style={{ fontSize: "9px", fontWeight: "900", color: "white", letterSpacing: "0.5px", marginTop: "2px" }}>
+                                {slotConfigs[mid]?.[i] ? "MODIFICA" : "CONFIGURA"}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                         {hasData ? (
                           <>
                             <div style={{ 
@@ -861,6 +1012,77 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           });
         })()}
       </div>
+
+      {/* Slot Config Modal */}
+      {showSlotModal && (
+        <Modal
+          title={`Configura Slot ${slotModalData.slotIndex + 1} — ${slotModalData.machineId}`}
+          onClose={() => setShowSlotModal(false)}
+          footer={
+            <div style={{ display: "flex", gap: "12px", width: "100%" }}>
+              <button
+                className="btn btn-primary"
+                style={{ flex: 1 }}
+                onClick={handleSaveSlot}
+                disabled={isSavingSlot}
+              >
+                {isSavingSlot ? "Salvataggio..." : "Salva"}
+              </button>
+              {slotConfigs[slotModalData.machineId]?.[slotModalData.slotIndex] && (
+                <button
+                  className="btn btn-secondary"
+                  style={{ color: "var(--danger)", borderColor: "var(--danger)" }}
+                  onClick={handleDeleteSlot}
+                  disabled={isSavingSlot}
+                >
+                  Ripristina Default
+                </button>
+              )}
+              <button className="btn btn-secondary" onClick={() => setShowSlotModal(false)}>Annulla</button>
+            </div>
+          }
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "12px" }}>
+            <div style={{ padding: "10px 14px", background: "var(--bg-tertiary)", borderRadius: "8px", fontSize: "12px", color: "var(--text-muted)" }}>
+              Configura cosa mostrare nello slot {slotModalData.slotIndex + 1} della macchina <strong style={{ color: "var(--text-primary)" }}>{slotModalData.machineId}</strong>.
+              Lascia vuoto un campo per usare il comportamento di default.
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: "700" }}>Componente</label>
+              <input
+                type="text"
+                className="input"
+                placeholder="Es. SG2, PG, RG..."
+                value={slotModalData.componente}
+                onChange={e => setSlotModalData(p => ({ ...p, componente: e.target.value.toUpperCase() }))}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: "700" }}>Progetto <span style={{ fontWeight: "400", color: "var(--text-muted)" }}>(opzionale)</span></label>
+              <input
+                type="text"
+                className="input"
+                placeholder="Es. M0153389/S"
+                value={slotModalData.progetto}
+                onChange={e => setSlotModalData(p => ({ ...p, progetto: e.target.value }))}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: "700" }}>SAP Work Center di lettura <span style={{ fontWeight: "400", color: "var(--text-muted)" }}>(opzionale)</span></label>
+              <input
+                type="text"
+                className="input"
+                placeholder={`Default: ${slotModalData.machineId}`}
+                value={slotModalData.sapWorkCenter}
+                onChange={e => setSlotModalData(p => ({ ...p, sapWorkCenter: e.target.value.toUpperCase() }))}
+              />
+              <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "4px" }}>
+                Usa questo campo se i dati SAP per questo componente arrivano da un work center diverso (es. DRA14100 per DRA10060 slot SGR).
+              </p>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {showProdModal && prodModalData && (
         <Modal
