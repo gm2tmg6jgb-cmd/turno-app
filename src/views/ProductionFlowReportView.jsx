@@ -344,8 +344,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
 
   const handleSaveSlot = async () => {
     const { machineId, slotIndex, componente, progetto, codiceMateriale, sapWorkCenter } = slotModalData;
-    if (!componente || !codiceMateriale || !sapWorkCenter) {
-      alert("Componente, Codice Materiale e Centro di Lavoro SAP sono obbligatori.");
+    if (!componente) {
+      alert("Il campo Componente è obbligatorio.");
       return;
     }
     setIsSavingSlot(true);
@@ -742,9 +742,11 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                           // Lookup diretto per codice materiale — non dipende da anagrafica_materiali
                           const matFilter = slotConf.codice_materiale.toUpperCase();
                           const qty = prodByMaterial[readFrom]?.[matFilter] || 0;
-                          productionInfo = { total: qty, materials: [] };
-                          // Progetto: prima dalla config slot, poi dall'anagrafica come fallback
                           displayProj = slotConf.progetto || anagrafica[matFilter]?.progetto || null;
+                          productionInfo = {
+                            total: qty,
+                            materials: qty > 0 ? [{ code: matFilter, qty, progetto: displayProj || "", sapCode: readFrom }] : []
+                          };
                         } else {
                           // Lookup per componente (comportamento classico)
                           const sourceProd = productionData[readFrom] || {};
@@ -1061,7 +1063,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
       {/* Slot Config Modal */}
       {showSlotModal && (
         <Modal
-          title={`Configura Slot ${slotModalData.slotIndex + 1} — ${slotModalData.machineId}`}
+          title={`${slotConfigs[slotModalData.machineId]?.[slotModalData.slotIndex] ? "Modifica" : "Configura"} Slot ${slotModalData.slotIndex + 1} — ${slotModalData.machineId}`}
           onClose={() => setShowSlotModal(false)}
           footer={
             <div style={{ display: "flex", gap: "12px", width: "100%" }}>
@@ -1113,7 +1115,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               />
             </div>
             <div className="form-group">
-              <label className="form-label" style={{ fontWeight: "700" }}>Codice Materiale *</label>
+              <label className="form-label" style={{ fontWeight: "700" }}>Codice Materiale <span style={{ fontWeight: 400, color: "var(--text-muted)", fontSize: "11px" }}>(opzionale)</span></label>
               <input
                 type="text"
                 className="input"
@@ -1123,7 +1125,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               />
             </div>
             <div className="form-group">
-              <label className="form-label" style={{ fontWeight: "700" }}>Centro di Lavoro SAP *</label>
+              <label className="form-label" style={{ fontWeight: "700" }}>Centro di Lavoro SAP <span style={{ fontWeight: 400, color: "var(--text-muted)", fontSize: "11px" }}>(opzionale)</span></label>
               <input
                 type="text"
                 className="input"
