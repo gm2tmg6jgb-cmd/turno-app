@@ -667,25 +667,57 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             // Slots hidden per machine: index → invisible placeholder
             const hiddenSlots = new Set(mid === "RAA11009" ? [1, 2] : []);
 
-            // Compute header total
-            const machineSlotConfs = slotConfigs[mid] || {};
-            let headerTotal = 0;
-            if (Object.keys(machineSlotConfs).length > 0) {
-              // Slot-configured machine: sum each configured slot
-              Object.values(machineSlotConfs).forEach(sc => {
-                const rf = sc.sap_work_center?.toUpperCase() || mid;
-                if (sc.codice_materiale) {
-                  headerTotal += prodByMaterial[rf]?.[sc.codice_materiale.toUpperCase()] || 0;
-                } else if (sc.componente) {
-                  headerTotal += productionData[rf]?.[sc.componente]?.total || 0;
+            // Pre-compute production slot data (identical logic to slot rendering)
+            // so headerTotal always exactly matches the sum of displayed slot values
+            const mProdForPre = productionData[m.id] || {};
+            const prodComponentsForPre = Object.keys(mProdForPre);
+            const computedSlotData = Array.from({ length: FERMI_IDX }).map((_, i) => {
+              if (hiddenSlots.has(i)) return { hidden: true };
+              let productionInfo = null;
+              let displayComp = null;
+              let displayProj = null;
+              const slotConf = slotConfigs[mid]?.[i];
+              const machineHasAnyConfig = !!slotConfigs[mid];
+              if (slotConf) {
+                displayComp = slotConf.componente || null;
+                const readFrom = slotConf.sap_work_center?.toUpperCase() || mid;
+                if (slotConf.codice_materiale) {
+                  const matFilter = slotConf.codice_materiale.toUpperCase();
+                  const qty = prodByMaterial[readFrom]?.[matFilter] || 0;
+                  displayProj = slotConf.progetto || anagrafica[matFilter]?.progetto || null;
+                  productionInfo = { total: qty, materials: qty > 0 ? [{ code: matFilter, qty, progetto: displayProj || "", sapCode: readFrom }] : [] };
+                } else {
+                  const sourceProd = productionData[readFrom] || {};
+                  if (displayComp && sourceProd[displayComp]) {
+                    productionInfo = sourceProd[displayComp];
+                    displayProj = slotConf.progetto || productionInfo?.materials?.[0]?.progetto || null;
+                  }
                 }
-              });
-            } else {
-              // No slot config: sum all components from productionData
-              Object.values(productionData[mid] || {}).forEach(info => {
-                headerTotal += info.total || 0;
-              });
-            }
+              } else if (machineHasAnyConfig) {
+                // empty slot
+              } else if (isFRW) {
+                productionInfo = mProdForPre["SG5"]; displayComp = "SG5"; displayProj = "DCT 300";
+              } else if (isFRW74) {
+                const frw74Prod = productionData["FRW14410"] || {};
+                const frw74Comps = Object.keys(frw74Prod);
+                if (frw74Comps[i]) { displayComp = frw74Comps[i]; productionInfo = frw74Prod[displayComp]; if (productionInfo?.materials?.length > 0) displayProj = productionInfo.materials[0].progetto; }
+              } else if (isMZA) {
+                displayComp = i === 0 ? "CONTROLLO UT" : null;
+              } else if (isRAA) {
+                productionInfo = i === 0 ? mProdForPre["PG"] : null; displayComp = i === 0 ? "PG" : null; displayProj = i === 0 ? "M0154996/S" : null;
+              } else if (isRGMin) {
+                displayComp = i === 0 ? "RG" : null;
+              } else if (mid === "DRA10060") {
+                const compMap = ["SG2", "SGR"]; const projMap = ["M0153389/S", "M0153391/S"];
+                const prodSources = [mProdForPre, productionData["DRA14100"] || {}];
+                displayComp = compMap[i] || null;
+                if (displayComp) { productionInfo = prodSources[i][displayComp]; displayProj = productionInfo?.materials?.[0]?.progetto || projMap[i] || ""; }
+              } else {
+                if (prodComponentsForPre[i]) { displayComp = prodComponentsForPre[i]; productionInfo = mProdForPre[displayComp]; if (productionInfo?.materials?.length > 0) displayProj = productionInfo.materials[0].progetto; }
+              }
+              return { productionInfo, displayComp, displayProj };
+            });
+            const headerTotal = computedSlotData.reduce((sum, s) => sum + (s.hidden ? 0 : (s.productionInfo?.total || 0)), 0);
 
             return (
               <div key={m.id} style={{
@@ -720,9 +752,6 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                   width: "100%"
                 }}>
                   {Array.from({ length: SLOT_COUNT }).map((_, i) => {
-                    const mProd = productionData[m.id] || {};
-                    const prodComponents = Object.keys(mProd);
-                    
                     // Hidden slots: invisible placeholder that still holds its space
                     if (hiddenSlots.has(i)) {
                       return (
@@ -733,80 +762,16 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                       );
                     }
 
+                    // Use pre-computed slot data for production slots
                     let productionInfo = null;
                     let displayComp = null;
                     let displayProj = null;
-
                     if (i < FERMI_IDX) {
-                      // Slot config override (takes priority over all hardcoded logic)
-                      const slotConf = slotConfigs[mid]?.[i];
-                      const machineHasAnyConfig = !!slotConfigs[mid];
-                      if (slotConf) {
-                        displayComp = slotConf.componente || null;
-                        const readFrom = slotConf.sap_work_center?.toUpperCase() || mid;
-                        if (slotConf.codice_materiale) {
-                          // Lookup diretto per codice materiale — non dipende da anagrafica_materiali
-                          const matFilter = slotConf.codice_materiale.toUpperCase();
-                          const qty = prodByMaterial[readFrom]?.[matFilter] || 0;
-                          displayProj = slotConf.progetto || anagrafica[matFilter]?.progetto || null;
-                          productionInfo = {
-                            total: qty,
-                            materials: qty > 0 ? [{ code: matFilter, qty, progetto: displayProj || "", sapCode: readFrom }] : []
-                          };
-                        } else {
-                          // Lookup per componente (comportamento classico)
-                          const sourceProd = productionData[readFrom] || {};
-                          if (displayComp && sourceProd[displayComp]) {
-                            productionInfo = sourceProd[displayComp];
-                            displayProj = slotConf.progetto || productionInfo?.materials?.[0]?.progetto || null;
-                          }
-                        }
-                      } else if (machineHasAnyConfig) {
-                        // Macchina con config: slot non configurato → vuoto, nessun fallback
-                      } else if (isFRW) {
-                        // FRW10075 — static SG5 / DCT300
-                        productionInfo = mProd["SG5"];
-                        displayComp = "SG5";
-                        displayProj = "DCT 300";
-                      } else if (isFRW74) {
-                        // FRW10074 produces under SAP code FRW14410
-                        const frw74Prod = productionData["FRW14410"] || {};
-                        const frw74Components = Object.keys(frw74Prod);
-                        if (frw74Components[i]) {
-                          displayComp = frw74Components[i];
-                          productionInfo = frw74Prod[displayComp];
-                          if (productionInfo?.materials?.length > 0) {
-                            displayProj = productionInfo.materials[0].progetto;
-                          }
-                        }
-                      } else if (isMZA) {
-                        displayComp = i === 0 ? "CONTROLLO UT" : null;
-                      } else if (isRAA) {
-                        productionInfo = i === 0 ? mProd["PG"] : null;
-                        displayComp = i === 0 ? "PG" : null;
-                        displayProj = i === 0 ? "M0154996/S" : null;
-                      } else if (isRGMin) {
-                        displayComp = i === 0 ? "RG" : null;
-                      } else if (mid === "DRA10060") {
-                        const compMap = ["SG2", "SGR"];
-                        const projMap = ["M0153389/S", "M0153391/S"];
-                        // SGR is produced on SAP work center DRA14100
-                        const prodSources = [mProd, productionData["DRA14100"] || {}];
-                        displayComp = compMap[i] || null;
-                        if (displayComp) {
-                          productionInfo = prodSources[i][displayComp];
-                          // Use static project as fallback if no production data
-                          displayProj = productionInfo?.materials?.[0]?.progetto || projMap[i] || "";
-                        }
-                      } else {
-                        // Dynamic logic for all other machines (including DRA)
-                        if (prodComponents[i]) {
-                          displayComp = prodComponents[i];
-                          productionInfo = mProd[displayComp];
-                          if (productionInfo?.materials?.length > 0) {
-                            displayProj = productionInfo.materials[0].progetto;
-                          }
-                        }
+                      const pre = computedSlotData[i];
+                      if (pre && !pre.hidden) {
+                        productionInfo = pre.productionInfo;
+                        displayComp = pre.displayComp;
+                        displayProj = pre.displayProj;
                       }
                     }
 
