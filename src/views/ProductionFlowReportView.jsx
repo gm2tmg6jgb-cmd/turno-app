@@ -61,15 +61,15 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         const softMachines = new Set();
         
         prodData.forEach(row => {
-          const mId = row.macchina_id || row.work_center_sap;
+          const mId = (row.macchina_id || row.work_center_sap || "").toUpperCase();
           const mat = (row.materiale || "").toUpperCase();
           const info = anaMap[mat];
-          const comp = info?.componente;
-          
+          const comp = info?.componente?.toUpperCase();
+
           if (mat.endsWith("/S") && mId) {
-            softMachines.add(mId.toUpperCase());
+            softMachines.add(mId);
           }
-          
+
           if (mId && comp) {
             if (!grouped[mId]) grouped[mId] = {};
             if (!grouped[mId][comp]) grouped[mId][comp] = { total: 0, materials: [] };
