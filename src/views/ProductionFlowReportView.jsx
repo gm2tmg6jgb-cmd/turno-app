@@ -9,6 +9,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTech, setActiveTech] = useState("TUTTO");
   const [productionData, setProductionData] = useState({});
+  const [productionDataByWC, setProductionDataByWC] = useState({}); // keyed by work_center_sap
   const [fermiData, setFermiData] = useState({});
   const [anagrafica, setAnagrafica] = useState({});
   const [loading, setLoading] = useState(true);
@@ -60,8 +61,11 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         const grouped = {};
         const softMachines = new Set();
         
+        const groupedByWC = {};
+
         prodData.forEach(row => {
           const mId = (row.macchina_id || row.work_center_sap || "").toUpperCase();
+          const wc = (row.work_center_sap || "").toUpperCase();
           const mat = (row.materiale || "").toUpperCase();
           const info = anaMap[mat];
           const comp = info?.componente?.toUpperCase();
@@ -70,27 +74,29 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             softMachines.add(mId);
           }
 
-          if (mId && comp) {
-            if (!grouped[mId]) grouped[mId] = {};
-            if (!grouped[mId][comp]) grouped[mId][comp] = { total: 0, materials: [] };
-            
-            grouped[mId][comp].total += (row.qta_ottenuta || 0);
-            
-            // Avoid duplicate codes in the list, just sum qtys
-            const existingMat = grouped[mId][comp].materials.find(m => m.code === mat);
+          const addToGroup = (map, key) => {
+            if (!key || !comp) return;
+            if (!map[key]) map[key] = {};
+            if (!map[key][comp]) map[key][comp] = { total: 0, materials: [] };
+            map[key][comp].total += (row.qta_ottenuta || 0);
+            const existingMat = map[key][comp].materials.find(m => m.code === mat);
             if (existingMat) {
               existingMat.qty += (row.qta_ottenuta || 0);
             } else {
-              grouped[mId][comp].materials.push({ 
-                code: mat, 
+              map[key][comp].materials.push({
+                code: mat,
                 qty: row.qta_ottenuta || 0,
                 progetto: info?.progetto || "",
                 sapCode: row.work_center_sap || row.macchina_id || ""
               });
             }
-          }
+          };
+
+          addToGroup(grouped, mId);
+          if (wc) addToGroup(groupedByWC, wc);
         });
         setProductionData(grouped);
+        setProductionDataByWC(groupedByWC);
         setHasSoftProduction(softMachines);
 
         // 3. Fetch Fermi (downtimes)
@@ -694,8 +700,12 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                       const slotConf = slotConfigs[mid]?.[i];
                       if (slotConf) {
                         displayComp = slotConf.componente || null;
-                        const readFrom = (slotConf.sap_work_center || m.id).toUpperCase();
-                        const sourceProd = productionData[readFrom] || {};
+                        // Se è configurato un centro di lavoro SAP, cerchiamo lì (match esatto)
+                        // altrimenti fallback su macchina_id
+                        const wc = slotConf.sap_work_center?.toUpperCase();
+                        const sourceProd = wc
+                          ? (productionDataByWC[wc] || {})
+                          : (productionData[mid] || {});
                         if (displayComp && sourceProd[displayComp]) {
                           let info = sourceProd[displayComp];
                           // Filtra per codice materiale se configurato
@@ -710,9 +720,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                             };
                           }
                           productionInfo = info;
-                          displayProj = slotConf.progetto || productionInfo?.materials?.[0]?.progetto || null;
-                        } else {
-                          displayProj = slotConf.progetto || null;
+                          displayProj = productionInfo?.materials?.[0]?.progetto || null;
                         }
                       } else if (isFRW) {
                         // FRW10075 — static SG5 / DCT300
@@ -1083,11 +1091,11 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               </p>
             </div>
             <div className="form-group">
-              <label className="form-label" style={{ fontWeight: "700" }}>Macchina SAP <span style={{ fontWeight: "400", color: "var(--text-muted)" }}>(opzionale — solo se i dati arrivano sotto un ID diverso)</span></label>
+              <label className="form-label" style={{ fontWeight: "700" }}>Centro di Lavoro SAP <span style={{ fontWeight: "400", color: "var(--text-muted)" }}>(obbligatorio per il match preciso)</span></label>
               <input
                 type="text"
                 className="input"
-                placeholder={`Default: ${slotModalData.machineId}`}
+                placeholder="Es. FRW10000, DRA14100..."
                 value={slotModalData.sapWorkCenter}
                 onChange={e => setSlotModalData(p => ({ ...p, sapWorkCenter: e.target.value.toUpperCase() }))}
               />
