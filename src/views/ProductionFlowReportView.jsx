@@ -3,8 +3,9 @@ import { Icons } from "../components/ui/Icons";
 import { supabase } from "../lib/supabase";
 import { Modal } from "../components/ui/Modal";
 import { formatItalianDate } from "../lib/dateUtils";
+import { TURNI } from "../data/constants";
 
-export default function ProductionFlowReportView({ macchine = [], tecnologie = [], motiviFermo = [], globalDate, turnoCorrente }) {
+export default function ProductionFlowReportView({ macchine = [], tecnologie = [], motiviFermo = [], globalDate, setGlobalDate, turnoCorrente, setTurnoCorrente }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTech, setActiveTech] = useState("TUTTO");
   const [productionData, setProductionData] = useState({});
@@ -18,6 +19,10 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
   const [selectedMachine, setSelectedMachine] = useState(null);
   const [fermiForm, setFermiForm] = useState({ motivo: "", durata: "", note: "", is_automazione: false, target_macchina_id: "" });
   const [isSaving, setIsSaving] = useState(false);
+
+  // Production Detail Modal State
+  const [showProdModal, setShowProdModal] = useState(false);
+  const [prodModalData, setProdModalData] = useState(null); // { machineId, comp, proj, materials, totalQty }
 
   useEffect(() => {
     const fetchData = async () => {
@@ -60,7 +65,22 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           
           if (mId && comp) {
             if (!grouped[mId]) grouped[mId] = {};
-            grouped[mId][comp] = (grouped[mId][comp] || 0) + (row.qta_ottenuta || 0);
+            if (!grouped[mId][comp]) grouped[mId][comp] = { total: 0, materials: [] };
+            
+            grouped[mId][comp].total += (row.qta_ottenuta || 0);
+            
+            // Avoid duplicate codes in the list, just sum qtys
+            const existingMat = grouped[mId][comp].materials.find(m => m.code === mat);
+            if (existingMat) {
+              existingMat.qty += (row.qta_ottenuta || 0);
+            } else {
+              grouped[mId][comp].materials.push({ 
+                code: mat, 
+                qty: row.qta_ottenuta || 0,
+                progetto: info?.progetto || "",
+                sapCode: row.work_center_sap || row.macchina_id || ""
+              });
+            }
           }
         });
         setProductionData(grouped);
@@ -82,7 +102,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               fMap[mId].entries.push({ 
                 motivo: row.motivo, 
                 durata: row.durata_minuti, 
-                is_automazione: row.is_automazione 
+                is_automazione: row.is_automazione,
+                macchina_id: row.macchina_id
               });
             }
           });
@@ -260,7 +281,12 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           ...prev,
           [mId]: {
             minutes: (current.minutes || 0) + payload.durata_minuti,
-            entries: [...safeEntries, { motivo: payload.motivo, durata: payload.durata_minuti }]
+            entries: [...safeEntries, { 
+              motivo: payload.motivo, 
+              durata: payload.durata_minuti,
+              is_automazione: payload.is_automazione,
+              macchina_id: payload.macchina_id
+            }]
           }
         };
       });
@@ -285,26 +311,78 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           </p>
         </div>
         
-        <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
-          <div style={{ position: "relative" }}>
-            <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }}>
-              {Icons.search}
-            </span>
+        <div style={{ display: "flex", gap: "12px", alignItems: "flex-end" }}>
+          {/* Date picker */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-muted)", letterSpacing: "0.5px", textTransform: "uppercase" }}>Data</label>
             <input
-              type="text"
-              placeholder="Cerca macchina..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              type="date"
+              value={globalDate || ""}
+              onChange={(e) => setGlobalDate?.(e.target.value)}
               style={{
-                padding: "10px 16px 10px 40px",
+                padding: "8px 12px",
                 borderRadius: "10px",
                 border: "1px solid var(--border)",
                 backgroundColor: "var(--bg-card)",
                 color: "var(--text-primary)",
-                width: "240px",
-                outline: "none"
+                fontWeight: "700",
+                fontSize: "14px",
+                outline: "none",
+                cursor: "pointer",
+                fontFamily: "inherit"
               }}
             />
+          </div>
+
+          {/* Turno selector */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-muted)", letterSpacing: "0.5px", textTransform: "uppercase" }}>Turno</label>
+            <select
+              value={turnoCorrente || "ALL"}
+              onChange={(e) => setTurnoCorrente?.(e.target.value)}
+              style={{
+                padding: "9px 12px",
+                borderRadius: "10px",
+                border: "1px solid var(--border)",
+                backgroundColor: "var(--bg-card)",
+                color: "var(--text-primary)",
+                fontWeight: "700",
+                fontSize: "14px",
+                outline: "none",
+                cursor: "pointer"
+              }}
+            >
+              <option value="ALL">Tutti i turni</option>
+              {TURNI.map(t => (
+                <option key={t.id} value={t.id}>Turno {t.id} — {t.coordinatore}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Search */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-muted)", letterSpacing: "0.5px", textTransform: "uppercase" }}>Cerca</label>
+            <div style={{ position: "relative" }}>
+              <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }}>
+                {Icons.search}
+              </span>
+              <input
+                type="text"
+                placeholder="Cerca macchina..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  padding: "10px 16px 10px 40px",
+                  borderRadius: "10px",
+                  border: "1px solid var(--border)",
+                  backgroundColor: "var(--bg-card)",
+                  color: "var(--text-primary)",
+                  width: "200px",
+                  outline: "none",
+                  fontSize: "14px"
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -435,7 +513,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
 
           return processedMachines.map((m) => {
             const mid = m.id.toUpperCase();
-            const isFRW = mid === "FRW10074" || mid === "FRW10075";
+            const isFRW = mid === "FRW10075"; // FRW10075 → SG5 / DCT300
+            const isFRW74 = mid === "FRW10074"; // FRW10074 → SAP FRW14410
             const isMZA = mid === "MZA10005";
             const isRAA = mid === "RAA11009";
             const isSingle = mid === "BOA10094" || mid === "RAA11009" || mid === "DRA10116" || mid === "DRA10009";
@@ -451,9 +530,13 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               (hasSoftProduction.has(mid) && m.tecnologia_id !== "TH" && m.tecnologia_id?.toLowerCase() !== "tornitura_hard")
             );
 
-            // All boxes must have exactly 4 slots, except RAA11009 (requested 1 production slot + fermi)
-            const slotCount = isRAA ? 2 : 4;
-            
+            // Always render exactly 4 slots. "Hidden" slot indices are invisible
+            // placeholders that still occupy their fixed space in the row.
+            const SLOT_COUNT = 4;
+            const FERMI_IDX = SLOT_COUNT - 1;
+            // Slots hidden per machine: index → invisible placeholder
+            const hiddenSlots = new Set(mid === "RAA11009" ? [1, 2] : []);
+
             return (
               <div key={m.id} style={{ 
                 backgroundColor: "var(--bg-card)", 
@@ -472,44 +555,84 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                     <div style={{ fontSize: "14px", color: "var(--text-muted)", marginTop: "2px" }}>{m.nome}</div>
                   )}
                 </div>
-
-                <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", justifyContent: "flex-start" }}>
-                  {Array.from({ length: slotCount }).map((_, i) => {
-                    const mIdString = (m.id || "").toUpperCase();
+ 
+                <div style={{ 
+                  display: "flex", 
+                  gap: "12px", 
+                  justifyContent: "start",
+                  flexWrap: "nowrap",
+                  width: "100%"
+                }}>
+                  {Array.from({ length: SLOT_COUNT }).map((_, i) => {
                     const mProd = productionData[m.id] || {};
                     const prodComponents = Object.keys(mProd);
                     
-                    let displayQty = null;
+                    // Hidden slots: invisible placeholder that still holds its space
+                    if (hiddenSlots.has(i)) {
+                      return (
+                        <div key={i} style={{
+                          flex: 1,
+                          height: "100px",
+                          visibility: "hidden",
+                          pointerEvents: "none"
+                        }} />
+                      );
+                    }
+
+                    let productionInfo = null;
                     let displayComp = null;
                     let displayProj = null;
 
-                    if (i < 3) {
+                    if (i < FERMI_IDX) {
                       if (isFRW) {
+                        // FRW10075 — static SG5 / DCT300
+                        productionInfo = mProd["SG5"];
                         displayComp = "SG5";
                         displayProj = "DCT 300";
-                        displayQty = i === 0 ? (mProd["SG5"] || 0) : null;
+                      } else if (isFRW74) {
+                        // FRW10074 produces under SAP code FRW14410
+                        const frw74Prod = productionData["FRW14410"] || {};
+                        const frw74Components = Object.keys(frw74Prod);
+                        if (frw74Components[i]) {
+                          displayComp = frw74Components[i];
+                          productionInfo = frw74Prod[displayComp];
+                          if (productionInfo?.materials?.length > 0) {
+                            displayProj = productionInfo.materials[0].progetto;
+                          }
+                        }
                       } else if (isMZA) {
                         displayComp = i === 0 ? "CONTROLLO UT" : null;
                       } else if (isRAA) {
-                        displayComp = "PG";
-                        displayProj = "M0154996/S";
-                        displayQty = i === 0 ? (mProd["PG"] || 0) : null;
+                        productionInfo = i === 0 ? mProd["PG"] : null;
+                        displayComp = i === 0 ? "PG" : null;
+                        displayProj = i === 0 ? "M0154996/S" : null;
                       } else if (isRGMin) {
                         displayComp = i === 0 ? "RG" : null;
+                      } else if (mid === "DRA10060") {
+                        const compMap = ["SG2", "SGR"];
+                        const projMap = ["M0153389/S", "M0153391/S"];
+                        // SGR is produced on SAP work center DRA14100
+                        const prodSources = [mProd, productionData["DRA14100"] || {}];
+                        displayComp = compMap[i] || null;
+                        if (displayComp) {
+                          productionInfo = prodSources[i][displayComp];
+                          // Use static project as fallback if no production data
+                          displayProj = productionInfo?.materials?.[0]?.progetto || projMap[i] || "";
+                        }
                       } else {
                         // Dynamic logic for all other machines (including DRA)
                         if (prodComponents[i]) {
                           displayComp = prodComponents[i];
-                          displayQty = mProd[displayComp];
-                          // Try to get project from anagrafica if possible
-                          const sampleMat = Object.entries(anagrafica).find(([k, v]) => v.componente === displayComp)?.[1];
-                          displayProj = sampleMat?.progetto || "";
+                          productionInfo = mProd[displayComp];
+                          if (productionInfo?.materials?.length > 0) {
+                            displayProj = productionInfo.materials[0].progetto;
+                          }
                         }
                       }
                     }
 
-                    // 4th Slot - FERMI (Downtimes)
-                    if (i === 3) {
+                    // Last slot — FERMI (Downtimes)
+                    if (i === FERMI_IDX) {
                       const idsToSum = m.ids || [m.id];
                       let minutes = 0;
                       let entries = [];
@@ -523,96 +646,11 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                         }
                       });
 
-                      const mId = (m.id || "").toUpperCase();
                       const isCritical = minutes > 60;
-
-                      if (minutes > 0) {
-                        return (
-                          <div key={i} style={{
-                            flex: "1 0 232px",
-                            height: "100px",
-                            backgroundColor: "rgba(255,255,255,0.03)",
-                            color: "var(--text-primary)",
-                            borderRadius: "16px",
-                            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                            border: `1px solid ${isCritical ? "#ef4444" : "#f59e0b"}`,
-                            display: "flex",
-                            padding: "0",
-                            transition: "all 0.2s ease",
-                            cursor: "pointer",
-                            overflow: "hidden",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = "scale(1.02)";
-                            e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = "scale(1)";
-                            e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.03)";
-                          }}
-                          onClick={() => handleOpenFermiModal(m)}
-                          >
-                            {/* Left Side: Total */}
-                            <div style={{ 
-                              width: "100px", 
-                              backgroundColor: isCritical ? "rgba(239, 68, 68, 0.1)" : "rgba(245, 158, 11, 0.1)",
-                              display: "flex",
-                              flexDirection: "column",
-                              justifyContent: "center",
-                              alignItems: "center",
-                              borderRight: "1px solid var(--border)",
-                              position: "relative"
-                            }}>
-                              <div style={{ 
-                                position: "absolute", 
-                                top: "0", 
-                                left: "0", 
-                                padding: "3px 6px", 
-                                background: isCritical ? "#ef4444" : "#f59e0b",
-                                color: "white",
-                                fontSize: "8px",
-                                fontWeight: "900",
-                                borderBottomRightRadius: "8px"
-                              }}>
-                                FERMI
-                              </div>
-                              <div style={{ fontSize: "28px", fontWeight: "900", color: isCritical ? "#ef4444" : "#f59e0b" }}>{minutes}</div>
-                              <div style={{ fontSize: "10px", fontWeight: "800", opacity: 0.6, marginTop: "-4px" }}>TOTALE</div>
-                            </div>
-                            
-                            {/* Right Side: Details */}
-                            <div style={{ 
-                              flex: 1, 
-                              padding: "10px 12px", 
-                              display: "flex", 
-                              flexDirection: "column", 
-                              gap: "4px",
-                              overflowY: "auto"
-                            }}>
-                              <div style={{ fontSize: "10px", fontWeight: "800", color: "var(--text-muted)", borderBottom: "1px solid var(--border)", paddingBottom: "2px", marginBottom: "2px" }}>
-                                DETTAGLIO MOTIVI
-                              </div>
-                              {entries.map((entry, idx) => (
-                                <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px" }}>
-                                  <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                                    <span style={{ color: isCritical ? "#ef4444" : "#f59e0b" }}>•</span>
-                                    <span style={{ fontWeight: "600" }}>
-                                      {entry.is_automazione && <span style={{ color: "#a855f7", marginRight: "4px" }}>[A]</span>}
-                                      {entry.motivo}
-                                    </span>
-                                  </div>
-                                  <div style={{ fontWeight: "900", opacity: 0.8 }}>{entry.durata}m</div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      }
 
                       return (
                         <div key={i} style={{
-                          minWidth: "110px",
-                          width: "110px",
+                          flex: 1,
                           height: "100px",
                           backgroundColor: minutes > 0 ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.01)",
                           color: "var(--text-primary)",
@@ -624,7 +662,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                             : "1px dashed var(--border)",
                           display: "flex",
                           flexDirection: "column",
-                          padding: "10px",
+                          padding: "10px 14px",
                           transition: "all 0.2s ease",
                           cursor: "pointer",
                           overflow: "hidden",
@@ -661,21 +699,33 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                                 <span style={{ fontSize: "10px", fontWeight: "700", opacity: 0.6 }}>min</span>
                               </div>
                               <div style={{ 
-                                fontSize: "9px", 
+                                fontSize: "11px", 
                                 fontWeight: "600", 
                                 color: "var(--text-secondary)",
-                                marginTop: "6px",
-                                display: "-webkit-box",
-                                WebkitLineClamp: 3,
-                                WebkitBoxOrient: "vertical",
+                                marginTop: "8px",
+                                display: "grid",
+                                gridTemplateColumns: "repeat(2, 1fr)",
+                                columnGap: "16px",
+                                rowGap: "4px",
                                 overflow: "hidden",
-                                lineHeight: "1.2"
+                                lineHeight: "1.3"
                               }}>
                                 {entries.map((entry, idx) => (
-                                  <div key={idx} style={{ display: "flex", gap: "4px", alignItems: "flex-start" }}>
-                                    <span style={{ color: isCritical ? "#ef4444" : "#f59e0b" }}>•</span>
-                                    <span>
-                                      {entry.is_automazione && <span style={{ color: "#a855f7" }}>A: </span>}
+                                  <div key={idx} style={{ 
+                                    display: "flex", 
+                                    gap: "6px", 
+                                    alignItems: "flex-start",
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis"
+                                  }}>
+                                    <span style={{ color: isCritical ? "#ef4444" : "#f59e0b", flexShrink: 0 }}>•</span>
+                                    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                                      <span style={{ fontWeight: "800", opacity: 0.9, marginRight: "4px" }}>{entry.durata}m</span>
+                                      {entry.is_automazione && <span style={{ color: "#a855f7", fontWeight: "800" }}>A: </span>}
+                                      {m.isTwin && entry.macchina_id && (
+                                        <span style={{ opacity: 0.6 }}>({entry.macchina_id.replace(/\D/g, '').slice(-2)}) </span>
+                                      )}
                                       {entry.motivo}
                                     </span>
                                   </div>
@@ -700,79 +750,108 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                       );
                     }
 
-                    const isSuccess = (displayQty !== null || isMZA || isSingle || isDouble || m.isTwin);
+                    const hasData = !!displayComp || !!productionInfo;
+                    const bgGradient = hasData 
+                      ? "linear-gradient(145deg, #10b981, #059669)" // Green if data
+                      : "linear-gradient(145deg, #3c6ef0, #2f5bd6)"; // Blue if empty
 
-                    if (displayComp) {
-                      return (
-                        <div key={i} style={{
-                          flex: "1 0 232px",
-                          height: "100px",
-                          background: isSuccess ? "linear-gradient(145deg, #10b981, #059669)" : "linear-gradient(145deg, #3c6ef0, #2f5bd6)",
-                          color: "white",
-                          borderRadius: "16px",
-                          boxShadow: "0 8px 18px rgba(0,0,0,0.15)",
-                          display: "flex",
-                          transition: "transform 0.2s ease",
-                          cursor: "pointer",
-                          overflow: "hidden"
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.02)"}
-                        onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
-                        >
-                          <div style={{ 
-                             width: "100px",
-                             backgroundColor: "rgba(0,0,0,0.15)",
-                             display: "flex",
-                             flexDirection: "column",
-                             justifyContent: "center",
-                             alignItems: "center",
-                             borderRight: "1px solid rgba(255,255,255,0.1)"
-                          }}>
-                              <div style={{ fontSize: "28px", fontWeight: "900" }}>{displayQty !== null ? displayQty : 0}</div>
-                              <div style={{ fontSize: "10px", fontWeight: "800", opacity: 0.8 }}>QTA</div>
-                          </div>
-                          <div style={{ flex: 1, padding: "12px", display: "flex", flexDirection: "column", justifyContent: "center", gap: "2px" }}>
-                              <div style={{ fontSize: "18px", fontWeight: "900" }}>{displayComp}</div>
-                              <div style={{ fontSize: "11px", fontWeight: "bold", opacity: 0.9 }}>{displayProj || "—"}</div>
-                              {/* Material show if available in anagrafica */}
-                              {(() => {
-                                const sampleMat = Object.entries(anagrafica).find(([k, v]) => v.componente === displayComp)?.[0];
-                                return sampleMat && (
-                                  <div style={{ fontSize: "9px", opacity: 0.7, marginTop: "4px" }}>{sampleMat}</div>
-                                );
-                              })()}
-                          </div>
-                        </div>
-                      );
-                    }
+                    // Extract total quantity and materials from refactored structure
+                    const totalQty = productionInfo?.total ?? 0;
+                    const materials = productionInfo?.materials ?? [];
 
                     return (
                       <div key={i} style={{
-                        minWidth: "110px",
-                        width: "110px",
+                        flex: 1,
                         height: "100px",
-                        background: isSuccess ? "linear-gradient(145deg, #10b981, #059669)" : "linear-gradient(145deg, #3c6ef0, #2f5bd6)",
+                        background: bgGradient,
                         color: "white",
                         borderRadius: "15px",
-                        textAlign: "center",
+                        textAlign: "left",
                         boxShadow: "0 8px 18px rgba(0,0,0,0.15)",
                         display: "flex",
                         flexDirection: "column",
-                        justifyContent: "center",
-                        padding: "12px 8px",
+                        padding: "10px 14px",
                         transition: "transform 0.2s ease",
-                        cursor: "pointer"
+                        cursor: "pointer",
+                        overflow: "hidden",
+                        position: "relative"
                       }}
                       onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.05)"}
                       onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+                      onClick={() => {
+                        setProdModalData({
+                          machineId: m.id,
+                          comp: displayComp,
+                          proj: displayProj,
+                          materials,
+                          totalQty
+                        });
+                        setShowProdModal(true);
+                      }}
                       >
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
-                          <div style={{ fontSize: "18px", fontWeight: "900", color: "rgba(255,255,255,0.95)" }}>{displayComp || ""}</div>
-                          <div style={{ fontSize: "12px", fontWeight: "bold", opacity: 0.85, letterSpacing: "0.5px" }}>{displayProj || ""}</div>
-                          <div style={{ fontSize: "26px", fontWeight: "900", lineHeight: 1, marginTop: "4px" }}>
-                            {displayQty !== null ? displayQty : (displayComp || displayProj ? 0 : Icons.plus)}
+                        {hasData ? (
+                          <>
+                            <div style={{ 
+                              position: "absolute", 
+                              top: "0", 
+                              right: "0", 
+                              padding: "4px 8px", 
+                              background: "rgba(0,0,0,0.2)",
+                              color: "white",
+                              fontSize: "9px",
+                              fontWeight: "900",
+                              borderBottomLeftRadius: "8px",
+                              letterSpacing: "0.5px"
+                            }}>
+                              PROD
+                            </div>
+                            <div style={{ display: "flex", alignItems: "baseline", gap: "6px", borderBottom: "1px solid rgba(255,255,255,0.2)", paddingBottom: "4px" }}>
+                              <span style={{ fontSize: "16px", fontWeight: "900" }}>{displayComp}</span>
+                              <span style={{ fontSize: "20px", fontWeight: "900", marginLeft: "auto" }}>{totalQty}</span>
+                            </div>
+                            
+                            <div style={{ 
+                              fontSize: "10px", 
+                              fontWeight: "600", 
+                              marginTop: "6px",
+                              display: "grid",
+                              gridTemplateColumns: materials.length > 2 ? "repeat(2, 1fr)" : "1fr",
+                              columnGap: "12px",
+                              rowGap: "2px",
+                              overflow: "hidden"
+                            }}>
+                              {materials.map((item, idx) => (
+                                <div key={idx} style={{ 
+                                  display: "flex", 
+                                  justifyContent: "space-between", 
+                                  gap: "4px",
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis"
+                                }}>
+                                  <span style={{ opacity: 0.9, overflow: "hidden", textOverflow: "ellipsis" }}>{item.code}</span>
+                                  <span style={{ fontWeight: "900" }}>{item.qty}</span>
+                                </div>
+                              ))}
+                              {/* Placeholder if no materials (e.g. MZA or static logic) */}
+                              {materials.length === 0 && displayProj && (
+                                <div style={{ opacity: 0.8, fontStyle: "italic" }}>{displayProj}</div>
+                              )}
+                            </div>
+                          </>
+                        ) : (
+                          <div style={{ 
+                            height: "100%", 
+                            display: "flex", 
+                            flexDirection: "column", 
+                            justifyContent: "center", 
+                            alignItems: "center",
+                            gap: "4px"
+                          }}>
+                            <div style={{ fontSize: "20px" }}>{Icons.plus}</div>
+                            <div style={{ fontSize: "9px", fontWeight: "800" }}>RECORD</div>
                           </div>
-                        </div>
+                        )}
                       </div>
                     );
                   })}
@@ -782,6 +861,70 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           });
         })()}
       </div>
+
+      {showProdModal && prodModalData && (
+        <Modal
+          title={`${prodModalData.machineId} — ${prodModalData.comp || "Slot Produzione"}`}
+          onClose={() => setShowProdModal(false)}
+          footer={
+            <button className="btn btn-secondary" style={{ width: "100%" }} onClick={() => setShowProdModal(false)}>Chiudi</button>
+          }
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "20px", padding: "8px 0" }}>
+            {/* Header info */}
+            <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+              <div style={{ flex: 1, background: "var(--bg-tertiary)", borderRadius: "12px", padding: "16px" }}>
+                <div style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-muted)", marginBottom: "4px", letterSpacing: "0.5px" }}>COMPONENTE</div>
+                <div style={{ fontSize: "22px", fontWeight: "900", color: "var(--accent)" }}>{prodModalData.comp || "—"}</div>
+              </div>
+              {prodModalData.proj && (
+                <div style={{ flex: 1, background: "var(--bg-tertiary)", borderRadius: "12px", padding: "16px" }}>
+                  <div style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-muted)", marginBottom: "4px", letterSpacing: "0.5px" }}>PROGETTO</div>
+                  <div style={{ fontSize: "18px", fontWeight: "800", color: "var(--text-primary)" }}>{prodModalData.proj}</div>
+                </div>
+              )}
+              <div style={{ flex: 1, background: "var(--bg-tertiary)", borderRadius: "12px", padding: "16px" }}>
+                <div style={{ fontSize: "11px", fontWeight: "700", color: "var(--text-muted)", marginBottom: "4px", letterSpacing: "0.5px" }}>TOT. PEZZI</div>
+                <div style={{ fontSize: "32px", fontWeight: "900", color: "#10b981" }}>{prodModalData.totalQty}</div>
+              </div>
+            </div>
+
+            {/* Materials table */}
+            {prodModalData.materials.length > 0 ? (
+              <div>
+                <div style={{ fontSize: "12px", fontWeight: "800", color: "var(--text-muted)", marginBottom: "10px", letterSpacing: "0.5px", textTransform: "uppercase" }}>Dettaglio Materiali</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {/* Header row */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: "12px", padding: "6px 14px", fontSize: "10px", fontWeight: "800", color: "var(--text-muted)", letterSpacing: "0.5px", textTransform: "uppercase" }}>
+                    <span>Codice Materiale</span>
+                    <span>Codice SAP</span>
+                    <span>Pezzi</span>
+                  </div>
+                  {prodModalData.materials.map((mat, idx) => (
+                    <div key={idx} style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr auto",
+                      gap: "12px",
+                      padding: "10px 14px",
+                      background: idx % 2 === 0 ? "var(--bg-tertiary)" : "transparent",
+                      borderRadius: "8px",
+                      fontSize: "14px"
+                    }}>
+                      <span style={{ fontWeight: "600", fontFamily: "monospace" }}>{mat.code}</span>
+                      <span style={{ fontWeight: "600", fontFamily: "monospace", color: "var(--text-muted)" }}>{mat.sapCode || "—"}</span>
+                      <span style={{ fontWeight: "900", color: "#10b981", fontSize: "16px" }}>{mat.qty}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div style={{ textAlign: "center", color: "var(--text-muted)", padding: "24px", fontStyle: "italic" }}>
+                Nessuna conferma SAP registrata per questo componente oggi.
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
 
       {showFermiModal && (
         <Modal 
@@ -804,15 +947,17 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "12px" }}>
             <div className="form-group">
               <label className="form-label" style={{ fontWeight: "700" }}>Motivo Fermo *</label>
-              <select 
+                <select 
                 className="select-input"
                 value={fermiForm.motivo}
                 onChange={e => setFermiForm(p => ({ ...p, motivo: e.target.value }))}
               >
                 <option value="">-- Seleziona Motivo --</option>
-                {motiviFermo.map(m => (
-                  <option key={m.id} value={m.label}>{m.icona} {m.label}</option>
-                ))}
+                {motiviFermo
+                  .filter(m => !!m.is_automazione === !!fermiForm.is_automazione)
+                  .map(m => (
+                    <option key={m.id} value={m.label}>{m.icona} {m.label}</option>
+                  ))}
               </select>
             </div>
             <div className="form-group">
@@ -863,7 +1008,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 id="is_automazione"
                 style={{ width: "18px", height: "18px", cursor: "pointer" }}
                 checked={fermiForm.is_automazione}
-                onChange={e => setFermiForm(p => ({ ...p, is_automazione: e.target.checked }))}
+                onChange={e => setFermiForm(p => ({ ...p, is_automazione: e.target.checked, motivo: "" }))}
               />
               <label htmlFor="is_automazione" style={{ fontWeight: "700", cursor: "pointer" }}>Problema Automazione</label>
             </div>

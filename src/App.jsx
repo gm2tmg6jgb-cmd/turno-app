@@ -515,7 +515,9 @@ export default function App() {
               tecnologie={tecnologie}
               motiviFermo={motiviFermo}
               globalDate={globalDate}
+              setGlobalDate={setGlobalDate}
               turnoCorrente={turnoCorrente}
+              setTurnoCorrente={setTurnoCorrente}
             />
           )}
           {currentView === "productionReport" && (
