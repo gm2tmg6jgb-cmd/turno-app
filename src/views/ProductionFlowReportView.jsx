@@ -361,7 +361,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
       setShowSlotModal(false);
     } catch (err) {
       console.error("Errore salvataggio slot:", err);
-      alert("Errore durante il salvataggio!");
+      alert("Errore durante il salvataggio: " + (err?.message || JSON.stringify(err)));
     } finally {
       setIsSavingSlot(false);
     }
