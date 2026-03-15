@@ -26,9 +26,10 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
 
   // Slot Config State
   const [slotConfigs, setSlotConfigs] = useState({});
+  const [prodByMaterial, setProdByMaterial] = useState({});
   const [isSlotEditMode, setIsSlotEditMode] = useState(false);
   const [showSlotModal, setShowSlotModal] = useState(false);
-  const [slotModalData, setSlotModalData] = useState({ machineId: "", slotIndex: 0, componente: "", codiceMateriale: "", sapWorkCenter: "" });
+  const [slotModalData, setSlotModalData] = useState({ machineId: "", slotIndex: 0, componente: "", progetto: "", codiceMateriale: "", sapWorkCenter: "" });
   const [isSavingSlot, setIsSavingSlot] = useState(false);
 
   useEffect(() => {
@@ -58,12 +59,13 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
 
         // Group by machine and component
         const grouped = {};
+        const prodByMat = {}; // Direct index: { work_center: { material_code: qty } }
         const softMachines = new Set();
-        
 
         prodData.forEach(row => {
           const mId = (row.macchina_id || row.work_center_sap || "").toUpperCase();
           const mat = (row.materiale || "").toUpperCase();
+          const qty = row.qta_ottenuta || 0;
           const info = anaMap[mat];
           const comp = info?.componente?.toUpperCase();
 
@@ -71,18 +73,24 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             softMachines.add(mId);
           }
 
+          // Direct index by material code (no anagrafica dependency)
+          if (mId && mat) {
+            if (!prodByMat[mId]) prodByMat[mId] = {};
+            prodByMat[mId][mat] = (prodByMat[mId][mat] || 0) + qty;
+          }
+
           const addToGroup = (map, key) => {
             if (!key || !comp) return;
             if (!map[key]) map[key] = {};
             if (!map[key][comp]) map[key][comp] = { total: 0, materials: [] };
-            map[key][comp].total += (row.qta_ottenuta || 0);
+            map[key][comp].total += qty;
             const existingMat = map[key][comp].materials.find(m => m.code === mat);
             if (existingMat) {
-              existingMat.qty += (row.qta_ottenuta || 0);
+              existingMat.qty += qty;
             } else {
               map[key][comp].materials.push({
                 code: mat,
-                qty: row.qta_ottenuta || 0,
+                qty,
                 progetto: info?.progetto || "",
                 sapCode: row.work_center_sap || row.macchina_id || ""
               });
@@ -90,8 +98,17 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           };
 
           addToGroup(grouped, mId);
+          // Also index by work_center_sap so slot configs can always find data
+          // regardless of whether macchina_id was matched at import time
+          const wc = (row.work_center_sap || "").toUpperCase();
+          if (wc && wc !== mId) {
+            if (!prodByMat[wc]) prodByMat[wc] = {};
+            prodByMat[wc][mat] = (prodByMat[wc][mat] || 0) + qty;
+            addToGroup(grouped, wc);
+          }
         });
         setProductionData(grouped);
+        setProdByMaterial(prodByMat);
         setHasSoftProduction(softMachines);
 
         // 3. Fetch Fermi (downtimes)
@@ -326,7 +343,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
   };
 
   const handleSaveSlot = async () => {
-    const { machineId, slotIndex, componente, codiceMateriale, sapWorkCenter } = slotModalData;
+    const { machineId, slotIndex, componente, progetto, codiceMateriale, sapWorkCenter } = slotModalData;
     if (!componente || !codiceMateriale || !sapWorkCenter) {
       alert("Componente, Codice Materiale e Centro di Lavoro SAP sono obbligatori.");
       return;
@@ -337,6 +354,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         macchina_id: machineId,
         slot_index: slotIndex,
         componente: componente || null,
+        progetto: progetto || null,
         codice_materiale: codiceMateriale || null,
         sap_work_center: sapWorkCenter || null,
       };
@@ -348,6 +366,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           ...(prev[machineId.toUpperCase()] || {}),
           [slotIndex]: {
             componente: componente || null,
+            progetto: progetto || null,
             codice_materiale: codiceMateriale || null,
             sap_work_center: sapWorkCenter || null,
           }
@@ -648,11 +667,23 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             // Slots hidden per machine: index → invisible placeholder
             const hiddenSlots = new Set(mid === "RAA11009" ? [1, 2] : []);
 
+            // Compute header total for slot-configured machines
+            const machineSlotConfs = slotConfigs[mid] || {};
+            let headerTotal = 0;
+            Object.values(machineSlotConfs).forEach(sc => {
+              const rf = sc.sap_work_center?.toUpperCase() || mid;
+              if (sc.codice_materiale) {
+                headerTotal += prodByMaterial[rf]?.[sc.codice_materiale.toUpperCase()] || 0;
+              } else if (sc.componente) {
+                headerTotal += productionData[rf]?.[sc.componente]?.total || 0;
+              }
+            });
+
             return (
-              <div key={m.id} style={{ 
-                backgroundColor: "var(--bg-card)", 
-                borderRadius: "16px", 
-                padding: "24px", 
+              <div key={m.id} style={{
+                backgroundColor: "var(--bg-card)",
+                borderRadius: "16px",
+                padding: "24px",
                 border: "1px solid var(--border)",
                 display: "flex",
                 flexDirection: "column",
@@ -660,10 +691,18 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
                 transition: "transform 0.2s ease"
               }}>
-                <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: "12px" }}>
-                  <div style={{ fontWeight: "900", fontSize: "20px", color: "var(--accent)" }}>{m.id}</div>
-                  {m.nome && m.nome !== m.id && (
-                    <div style={{ fontSize: "14px", color: "var(--text-muted)", marginTop: "2px" }}>{m.nome}</div>
+                <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: "12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div>
+                    <div style={{ fontWeight: "900", fontSize: "20px", color: "var(--accent)" }}>{m.id}</div>
+                    {m.nome && m.nome !== m.id && (
+                      <div style={{ fontSize: "14px", color: "var(--text-muted)", marginTop: "2px" }}>{m.nome}</div>
+                    )}
+                  </div>
+                  {headerTotal > 0 && (
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-muted)", letterSpacing: "0.5px" }}>TOT. PEZZI</div>
+                      <div style={{ fontSize: "24px", fontWeight: "900", color: "#10b981" }}>{headerTotal}</div>
+                    </div>
                   )}
                 </div>
  
@@ -681,12 +720,10 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                     // Hidden slots: invisible placeholder that still holds its space
                     if (hiddenSlots.has(i)) {
                       return (
-                        <div key={i} style={{
-                          flex: 1,
-                          height: "100px",
-                          visibility: "hidden",
-                          pointerEvents: "none"
-                        }} />
+                        <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", gap: "3px", visibility: "hidden", pointerEvents: "none" }}>
+                          <div style={{ height: "14px" }} />
+                          <div style={{ height: "100px" }} />
+                        </div>
                       );
                     }
 
@@ -700,26 +737,21 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                       const machineHasAnyConfig = !!slotConfigs[mid];
                       if (slotConf) {
                         displayComp = slotConf.componente || null;
-                        // Usa sap_work_center se configurato, altrimenti la macchina stessa.
-                        // Leggiamo sempre da productionData (indicizzato per macchina_id || work_center_sap)
-                        // così la somma su tutti i turni è sempre corretta.
                         const readFrom = slotConf.sap_work_center?.toUpperCase() || mid;
-                        const sourceProd = productionData[readFrom] || {};
-                        if (displayComp && sourceProd[displayComp]) {
-                          let info = sourceProd[displayComp];
-                          // Filtra per codice materiale se configurato
-                          if (slotConf.codice_materiale) {
-                            const matFilter = slotConf.codice_materiale.toUpperCase();
-                            const filtered = (info.materials || []).filter(mat =>
-                              mat.code.toUpperCase() === matFilter
-                            );
-                            info = {
-                              total: filtered.reduce((sum, mat) => sum + mat.qty, 0),
-                              materials: filtered,
-                            };
+                        if (slotConf.codice_materiale) {
+                          // Lookup diretto per codice materiale — non dipende da anagrafica_materiali
+                          const matFilter = slotConf.codice_materiale.toUpperCase();
+                          const qty = prodByMaterial[readFrom]?.[matFilter] || 0;
+                          productionInfo = { total: qty, materials: [] };
+                          // Progetto: prima dalla config slot, poi dall'anagrafica come fallback
+                          displayProj = slotConf.progetto || anagrafica[matFilter]?.progetto || null;
+                        } else {
+                          // Lookup per componente (comportamento classico)
+                          const sourceProd = productionData[readFrom] || {};
+                          if (displayComp && sourceProd[displayComp]) {
+                            productionInfo = sourceProd[displayComp];
+                            displayProj = slotConf.progetto || productionInfo?.materials?.[0]?.progetto || null;
                           }
-                          productionInfo = info;
-                          displayProj = productionInfo?.materials?.[0]?.progetto || null;
                         }
                       } else if (machineHasAnyConfig) {
                         // Macchina con config: slot non configurato → vuoto, nessun fallback
@@ -788,8 +820,9 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                       const isCritical = minutes > 60;
 
                       return (
-                        <div key={i} style={{
-                          flex: 1,
+                        <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", gap: "3px" }}>
+                        <div style={{ height: "14px" }} />
+                        <div style={{
                           height: "100px",
                           backgroundColor: minutes > 0 ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.01)",
                           color: "var(--text-primary)",
@@ -886,6 +919,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                             </div>
                           )}
                         </div>
+                        </div>
                       );
                     }
 
@@ -899,131 +933,121 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                     const materials = productionInfo?.materials ?? [];
 
                     return (
-                      <div key={i} style={{
-                        flex: 1,
-                        height: "100px",
-                        background: bgGradient,
-                        color: "white",
-                        borderRadius: "15px",
-                        textAlign: "left",
-                        boxShadow: "0 8px 18px rgba(0,0,0,0.15)",
-                        display: "flex",
-                        flexDirection: "column",
-                        padding: "10px 14px",
-                        transition: "transform 0.2s ease",
-                        cursor: "pointer",
-                        overflow: "hidden",
-                        position: "relative"
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.05)"}
-                      onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
-                      onClick={() => {
-                        if (isSlotEditMode) {
-                          const existing = slotConfigs[mid]?.[i];
-                          setSlotModalData({
-                            machineId: mid,
-                            slotIndex: i,
-                            componente: existing?.componente || displayComp || "",
-                            codiceMateriale: existing?.codice_materiale || "",
-                            sapWorkCenter: existing?.sap_work_center || "",
+                      <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", gap: "3px" }}>
+                        {/* Project label above slot */}
+                        <div style={{
+                          height: "18px",
+                          fontSize: "12px",
+                          fontWeight: "700",
+                          color: "var(--text-muted)",
+                          textAlign: "center",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          letterSpacing: "0.3px",
+                          lineHeight: "18px"
+                        }}>
+                          {displayProj || ""}
+                        </div>
+                        {/* Slot card */}
+                        <div style={{
+                          height: "100px",
+                          background: bgGradient,
+                          color: "white",
+                          borderRadius: "15px",
+                          textAlign: "left",
+                          boxShadow: "0 8px 18px rgba(0,0,0,0.15)",
+                          display: "flex",
+                          flexDirection: "column",
+                          justifyContent: "center",
+                          padding: "10px 14px",
+                          transition: "transform 0.2s ease",
+                          cursor: "pointer",
+                          overflow: "hidden",
+                          position: "relative"
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.05)"}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+                        onClick={() => {
+                          if (isSlotEditMode) {
+                            const existing = slotConfigs[mid]?.[i];
+                            setSlotModalData({
+                              machineId: mid,
+                              slotIndex: i,
+                              componente: existing?.componente || displayComp || "",
+                              progetto: existing?.progetto || "",
+                              codiceMateriale: existing?.codice_materiale || "",
+                              sapWorkCenter: existing?.sap_work_center || "",
+                            });
+                            setShowSlotModal(true);
+                            return;
+                          }
+                          setProdModalData({
+                            machineId: m.id,
+                            comp: displayComp,
+                            proj: displayProj,
+                            materials,
+                            totalQty
                           });
-                          setShowSlotModal(true);
-                          return;
-                        }
-                        setProdModalData({
-                          machineId: m.id,
-                          comp: displayComp,
-                          proj: displayProj,
-                          materials,
-                          totalQty
-                        });
-                        setShowProdModal(true);
-                      }}
-                      >
-                        {/* Edit mode overlay */}
-                        {isSlotEditMode && (
-                          <div style={{
-                            position: "absolute",
-                            inset: 0,
-                            background: "rgba(0,0,0,0.55)",
-                            borderRadius: "15px",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            zIndex: 2,
-                            backdropFilter: "blur(1px)"
-                          }}>
-                            <div style={{ textAlign: "center" }}>
-                              <div style={{ fontSize: "18px" }}>✏️</div>
-                              <div style={{ fontSize: "9px", fontWeight: "900", color: "white", letterSpacing: "0.5px", marginTop: "2px" }}>
-                                {slotConfigs[mid]?.[i] ? "MODIFICA" : "CONFIGURA"}
+                          setShowProdModal(true);
+                        }}
+                        >
+                          {/* Edit mode overlay */}
+                          {isSlotEditMode && (
+                            <div style={{
+                              position: "absolute",
+                              inset: 0,
+                              background: "rgba(0,0,0,0.55)",
+                              borderRadius: "15px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              zIndex: 2,
+                              backdropFilter: "blur(1px)"
+                            }}>
+                              <div style={{ textAlign: "center" }}>
+                                <div style={{ fontSize: "18px" }}>✏️</div>
+                                <div style={{ fontSize: "9px", fontWeight: "900", color: "white", letterSpacing: "0.5px", marginTop: "2px" }}>
+                                  {slotConfigs[mid]?.[i] ? "MODIFICA" : "CONFIGURA"}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        )}
-                        {hasData ? (
-                          <>
-                            <div style={{ 
-                              position: "absolute", 
-                              top: "0", 
-                              right: "0", 
-                              padding: "4px 8px", 
-                              background: "rgba(0,0,0,0.2)",
-                              color: "white",
-                              fontSize: "9px",
-                              fontWeight: "900",
-                              borderBottomLeftRadius: "8px",
-                              letterSpacing: "0.5px"
+                          )}
+                          {hasData ? (
+                            <>
+                              <div style={{
+                                position: "absolute",
+                                top: "0",
+                                right: "0",
+                                padding: "4px 8px",
+                                background: "rgba(0,0,0,0.2)",
+                                color: "white",
+                                fontSize: "9px",
+                                fontWeight: "900",
+                                borderBottomLeftRadius: "8px",
+                                letterSpacing: "0.5px"
+                              }}>
+                                PROD
+                              </div>
+                              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
+                                <span style={{ fontSize: "14px", fontWeight: "700", opacity: 0.85 }}>{displayComp}</span>
+                                <span style={{ fontSize: "28px", fontWeight: "900", lineHeight: 1 }}>{totalQty}</span>
+                              </div>
+                            </>
+                          ) : (
+                            <div style={{
+                              height: "100%",
+                              display: "flex",
+                              flexDirection: "column",
+                              justifyContent: "center",
+                              alignItems: "center",
+                              gap: "4px"
                             }}>
-                              PROD
+                              <div style={{ fontSize: "20px" }}>{Icons.plus}</div>
+                              <div style={{ fontSize: "9px", fontWeight: "800" }}>RECORD</div>
                             </div>
-                            <div style={{ display: "flex", alignItems: "baseline", gap: "6px", borderBottom: "1px solid rgba(255,255,255,0.2)", paddingBottom: "4px" }}>
-                              <span style={{ fontSize: "16px", fontWeight: "900" }}>{displayComp}</span>
-                              <span style={{ fontSize: "20px", fontWeight: "900", marginLeft: "auto" }}>{totalQty}</span>
-                            </div>
-                            
-                            <div style={{ 
-                              fontSize: "10px", 
-                              fontWeight: "600", 
-                              marginTop: "6px",
-                              display: "grid",
-                              gridTemplateColumns: materials.length > 2 ? "repeat(2, 1fr)" : "1fr",
-                              columnGap: "12px",
-                              rowGap: "2px",
-                              overflow: "hidden"
-                            }}>
-                              {materials.map((item, idx) => (
-                                <div key={idx} style={{ 
-                                  display: "flex", 
-                                  justifyContent: "space-between", 
-                                  gap: "4px",
-                                  whiteSpace: "nowrap",
-                                  overflow: "hidden",
-                                  textOverflow: "ellipsis"
-                                }}>
-                                  <span style={{ opacity: 0.9, overflow: "hidden", textOverflow: "ellipsis" }}>{item.code}</span>
-                                  <span style={{ fontWeight: "900" }}>{item.qty}</span>
-                                </div>
-                              ))}
-                              {/* Placeholder if no materials (e.g. MZA or static logic) */}
-                              {materials.length === 0 && displayProj && (
-                                <div style={{ opacity: 0.8, fontStyle: "italic" }}>{displayProj}</div>
-                              )}
-                            </div>
-                          </>
-                        ) : (
-                          <div style={{ 
-                            height: "100%", 
-                            display: "flex", 
-                            flexDirection: "column", 
-                            justifyContent: "center", 
-                            alignItems: "center",
-                            gap: "4px"
-                          }}>
-                            <div style={{ fontSize: "20px" }}>{Icons.plus}</div>
-                            <div style={{ fontSize: "9px", fontWeight: "800" }}>RECORD</div>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -1076,6 +1100,16 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 placeholder="Es. SG3, SG4, PG, RG..."
                 value={slotModalData.componente}
                 onChange={e => setSlotModalData(p => ({ ...p, componente: e.target.value.toUpperCase() }))}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: "700" }}>Progetto</label>
+              <input
+                type="text"
+                className="input"
+                placeholder="Es. DCT Eco, DCT 300..."
+                value={slotModalData.progetto}
+                onChange={e => setSlotModalData(p => ({ ...p, progetto: e.target.value }))}
               />
             </div>
             <div className="form-group">
@@ -1185,26 +1219,65 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           )}
         >
           <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "12px" }}>
+
+            {/* Macchina / Automazione selector */}
+            <div style={{ display: "flex", gap: "8px" }}>
+              {[{ val: false, label: "Macchina" }, { val: true, label: "Automazione" }].map(({ val, label }) => (
+                <button
+                  key={label}
+                  type="button"
+                  onClick={() => setFermiForm(p => ({ ...p, is_automazione: val, motivo: "" }))}
+                  style={{
+                    flex: 1,
+                    padding: "10px",
+                    borderRadius: "10px",
+                    border: "2px solid",
+                    borderColor: fermiForm.is_automazione === val ? (val ? "#a855f7" : "var(--accent)") : "var(--border)",
+                    background: fermiForm.is_automazione === val ? (val ? "rgba(168,85,247,0.15)" : "rgba(var(--accent-rgb),0.15)") : "transparent",
+                    color: fermiForm.is_automazione === val ? (val ? "#a855f7" : "var(--accent)") : "var(--text-muted)",
+                    fontWeight: "800",
+                    fontSize: "13px",
+                    cursor: "pointer",
+                    transition: "all 0.15s ease"
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
             <div className="form-group">
               <label className="form-label" style={{ fontWeight: "700" }}>Motivo Fermo *</label>
-                <select 
+              <select
                 className="select-input"
                 value={fermiForm.motivo}
                 onChange={e => setFermiForm(p => ({ ...p, motivo: e.target.value }))}
               >
                 <option value="">-- Seleziona Motivo --</option>
-                {motiviFermo
-                  .filter(m => !!m.is_automazione === !!fermiForm.is_automazione)
-                  .map(m => (
-                    <option key={m.id} value={m.label}>{m.icona} {m.label}</option>
-                  ))}
+                {(() => {
+                  const machineId = selectedMachine?.ids ? selectedMachine.ids[0] : selectedMachine?.id;
+                  const machineObj = macchine.find(m => m.id === machineId);
+                  const machineTecId = machineObj?.tecnologia_id;
+                  return motiviFermo
+                    .filter(m => {
+                      if (!!m.is_automazione !== !!fermiForm.is_automazione) return false;
+                      // Automazione: nessun filtro per tecnologia (fermi comuni a tutte le macchine)
+                      if (fermiForm.is_automazione) return true;
+                      // Macchina: filtra per tecnologia
+                      if (!machineTecId) return true;
+                      return m.tecnologia_id === machineTecId;
+                    })
+                    .map(m => (
+                      <option key={m.id} value={m.label}>{m.icona} {m.label}</option>
+                    ));
+                })()}
               </select>
             </div>
             <div className="form-group">
               <label className="form-label" style={{ fontWeight: "700" }}>Durata in minuti *</label>
-              <input 
-                type="number" 
-                className="input" 
+              <input
+                type="number"
+                className="input"
                 placeholder="Es. 15"
                 value={fermiForm.durata}
                 onChange={e => setFermiForm(p => ({ ...p, durata: e.target.value }))}
@@ -1212,8 +1285,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             </div>
             <div className="form-group">
               <label className="form-label" style={{ fontWeight: "700" }}>Note (opzionale)</label>
-              <textarea 
-                className="input" 
+              <textarea
+                className="input"
                 style={{ minHeight: "80px", paddingTop: "8px" }}
                 placeholder="Aggiungi dettagli..."
                 value={fermiForm.note}
@@ -1228,8 +1301,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 <div style={{ display: "flex", gap: "16px", marginTop: "4px" }}>
                   {selectedMachine.ids.map(id => (
                     <label key={id} style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
-                      <input 
-                        type="radio" 
+                      <input
+                        type="radio"
                         name="target_macchina_id"
                         value={id}
                         checked={fermiForm.target_macchina_id === id}
@@ -1242,16 +1315,6 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               </div>
             )}
 
-            <div className="form-group" style={{ display: "flex", alignItems: "center", gap: "10px", marginTop: "8px" }}>
-              <input 
-                type="checkbox" 
-                id="is_automazione"
-                style={{ width: "18px", height: "18px", cursor: "pointer" }}
-                checked={fermiForm.is_automazione}
-                onChange={e => setFermiForm(p => ({ ...p, is_automazione: e.target.checked, motivo: "" }))}
-              />
-              <label htmlFor="is_automazione" style={{ fontWeight: "700", cursor: "pointer" }}>Problema Automazione</label>
-            </div>
           </div>
         </Modal>
       )}
