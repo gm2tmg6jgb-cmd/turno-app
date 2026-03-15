@@ -683,11 +683,13 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 const readFrom = slotConf.sap_work_center?.toUpperCase() || mid;
                 if (slotConf.codice_materiale) {
                   const matFilter = slotConf.codice_materiale.toUpperCase();
-                  const qty = prodByMaterial[readFrom]?.[matFilter] || 0;
+                  // Prefer machine-specific bucket (mid) to avoid mixing data from other
+                  // machines at the same SAP work center; fall back to wc bucket
+                  const qty = prodByMaterial[mid]?.[matFilter] || prodByMaterial[readFrom]?.[matFilter] || 0;
                   displayProj = slotConf.progetto || anagrafica[matFilter]?.progetto || null;
                   productionInfo = { total: qty, materials: qty > 0 ? [{ code: matFilter, qty, progetto: displayProj || "", sapCode: readFrom }] : [] };
                 } else {
-                  const sourceProd = productionData[readFrom] || {};
+                  const sourceProd = productionData[readFrom] || productionData[mid] || {};
                   if (displayComp && sourceProd[displayComp]) {
                     productionInfo = sourceProd[displayComp];
                     displayProj = slotConf.progetto || productionInfo?.materials?.[0]?.progetto || null;
