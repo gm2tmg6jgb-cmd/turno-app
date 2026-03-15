@@ -1,4 +1,25 @@
 import React, { useState, useEffect, useMemo } from "react";
+
+const ALL_MACHINES_ORDER = [
+  "DRA10060","DRA10061","DRA10062","DRA10063","DRA10064","DRA10065","DRA10066",
+  "DRA10067","DRA10068","DRA10069","DRA10070","DRA10071","DRA10072","DRA11042",
+  "FRW10193","FRW10217","FRW10076","FRW10078","FRW12464","FRW10074","FRW10075",
+  "FRW10082","FRW10140","FRW10079","FRW11980","FRW10081","FRW11010","FRW11022",
+  "FRW11016","FRW11017","EGW11005","EGW11008","EGW11014","EGW11015","EGW11016",
+  "SCA11008","SCA11009","SCA11010","SCA10151","SCA11006","MZA11005","MZA11006",
+  "MZA11008","MZA10005","STW11002","STW11007","STW19069","STW12177","FRD19013",
+  "FRD19060","ORE19068","RAA11009","FRA11023","FRA11025","DRA10110","DRA10111",
+  "DRA10116","DRA10106","DRA10102","DRA10108","DRA10099","DRA10100","DRA19009",
+  "DRA10097","DRA10098","DRA10101","DRA10107","DRA11016","DRA10113","DRA10114",
+  "DRA10109","DRA14530","SLW11011","SLW11012","SLW11046","SLW11126","SLW11044",
+  "SLW11009","SLW11010","SLW11017","SLW11014","SLW11027","SLW11026","SLW11028",
+  "SLW11013","SLW11048","HNW16040","SLA11083","SLA11084","SLA11085","SLA11086",
+  "SLA11087","SLA11088","SLA11089","SLA11090","SLA11091","SLA11092","SLA11108",
+  "SLA11109","SLA11110","SCA10078","DRA10058","DRA10059","DRA11044","FRW10189",
+  "FRW10073","FRW11015","EGW11006","EGW11007","BOA394","DRA10096","DRA10190",
+  "DRA11837","SLW11018","SLW11019","SLW11029","DRA11130","DRA11131","DRA11132",
+  "DRA11133","ORE11103","MON12551","SCA11051",
+];
 import { supabase } from "../lib/supabase";
 import { formatItalianDate } from "../lib/dateUtils";
 
@@ -126,11 +147,7 @@ export default function ProductionReportView({
       setLoading(false);
     };
 
-    if (Object.keys(anagrafica).length > 0) {
-      fetchData();
-    } else if (loading) {
-      // If anagrafica is empty but we haven't loaded it yet, don't stop loading
-    }
+    fetchData();
   }, [globalDate, selectedTurno, anagrafica]);
 
   // Dynamic Matrix Calculation based on activeTech and raw data
@@ -208,131 +225,6 @@ export default function ProductionReportView({
     return { matrice: newMatrice, detailedProduction: newDetailedProduction, downtimeMap: newDowntimeMap, detailedDowntime: newDetailedDowntime };
   }, [rawProductionData, rawDowntimeData, activeTech, anagrafica, tecnologie]);
 
-  const all_machines_order = [
-    "DRA10060",
-    "DRA10061",
-    "DRA10062",
-    "DRA10063",
-    "DRA10064",
-    "DRA10065",
-    "DRA10066",
-    "DRA10067",
-    "DRA10068",
-    "DRA10069",
-    "DRA10070",
-    "DRA10071",
-    "DRA10072",
-    "DRA11042",
-    "FRW10193",
-    "FRW10217",
-    "FRW10076",
-    "FRW10078",
-    "FRW12464",
-    "FRW10074",
-    "FRW10075",
-    "FRW10082",
-    "FRW10140",
-    "FRW10079",
-    "FRW11980",
-    "FRW10081",
-    "FRW11010",
-    "FRW11022",
-    "FRW11016",
-    "FRW11017",
-    "EGW11005",
-    "EGW11008",
-    "EGW11014",
-    "EGW11015",
-    "EGW11016",
-    "SCA11008",
-    "SCA11009",
-    "SCA11010",
-    "SCA10151",
-    "SCA11006",
-    "MZA11005",
-    "MZA11006",
-    "MZA11008",
-    "MZA10005",
-    "STW11002",
-    "STW11007",
-    "STW19069",
-    "STW12177",
-    "FRD19013",
-    "FRD19060",
-    "ORE19068",
-    "RAA11009",
-    "FRA11023",
-    "FRA11025",
-    "DRA10110",
-    "DRA10111",
-    "DRA10116",
-    "DRA10106",
-    "DRA10102",
-    "DRA10108",
-    "DRA10099",
-    "DRA10100",
-    "DRA19009",
-    "DRA10097",
-    "DRA10098",
-    "DRA10101",
-    "DRA10107",
-    "DRA11016",
-    "DRA10113",
-    "DRA10114",
-    "DRA10109",
-    "DRA14530",
-    "SLW11011",
-    "SLW11012",
-    "SLW11046",
-    "SLW11126",
-    "SLW11044",
-    "SLW11009",
-    "SLW11010",
-    "SLW11017",
-    "SLW11014",
-    "SLW11027",
-    "SLW11026",
-    "SLW11028",
-    "SLW11013",
-    "SLW11048",
-    "HNW16040",
-    "SLA11083",
-    "SLA11084",
-    "SLA11085",
-    "SLA11086",
-    "SLA11087",
-    "SLA11088",
-    "SLA11089",
-    "SLA11090",
-    "SLA11091",
-    "SLA11092",
-    "SLA11108",
-    "SLA11109",
-    "SLA11110",
-    "SCA10078",
-    "DRA10058",
-    "DRA10059",
-    "DRA11044",
-    "FRW10189",
-    "FRW10073",
-    "FRW11015",
-    "EGW11006",
-    "EGW11007",
-    "BOA394",
-    "DRA10096",
-    "DRA10190",
-    "DRA11837",
-    "SLW11018",
-    "SLW11019",
-    "SLW11029",
-    "DRA11130",
-    "DRA11131",
-    "DRA11132",
-    "DRA11133",
-    "ORE11103",
-    "MON12551",
-    "SCA11051",
-  ];
 
   const activeTechMachines = useMemo(() => {
     return macchine
@@ -413,13 +305,13 @@ export default function ProductionReportView({
       })
       .map((m) => m.id)
       .sort((a, b) => {
-        const idxA = all_machines_order.indexOf(a);
-        const idxB = all_machines_order.indexOf(b);
+        const idxA = ALL_MACHINES_ORDER.indexOf(a);
+        const idxB = ALL_MACHINES_ORDER.indexOf(b);
         if (idxA === -1) return 1;
         if (idxB === -1) return -1;
         return idxA - idxB;
       });
-  }, [macchine, activeTech, tecnologie, all_machines_order, searchQuery, detailedProduction, matrice]);
+  }, [macchine, activeTech, tecnologie, ALL_MACHINES_ORDER, searchQuery, detailedProduction, matrice]);
 
   const getBackgroundColor = (value) => {
     if (value === "" || value === 0 || value === undefined) return "white";
@@ -489,7 +381,7 @@ export default function ProductionReportView({
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
   };
 
-  const tabStyle = (techId, label) => ({
+  const tabStyle = (techId) => ({
     padding: "8px 14px",
     backgroundColor: activeTech === techId ? "#3B82F6" : "#E5E7EB",
     color: activeTech === techId ? "white" : "#111827",

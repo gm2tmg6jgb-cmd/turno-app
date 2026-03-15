@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { Icons } from '../components/ui/Icons';
 import { REPARTI, TURNI } from '../data/constants';
@@ -109,7 +109,7 @@ const getShiftTimeRange = (turnoId, data) => {
 /* ═══════════════════════════════════════════════════════════
    MAIN COMPONENT
 ═══════════════════════════════════════════════════════════ */
-export default function FermiView({ macchine = [], initialReparto, initialTurno, motiviFermo: motiviFermoProp, tecnologie: tecnologieProp, globalDate, setGlobalDate }) {
+export default function FermiView({ macchine = [], initialTurno, motiviFermo: motiviFermoProp, tecnologie: tecnologieProp, globalDate, setGlobalDate }) {
     const motiviFermo = motiviFermoProp || [];
     const tecnologie = useMemo(
         () => normalizeTecnologie(tecnologieProp?.length ? tecnologieProp : TECNOLOGIE_DEFAULT),
@@ -222,7 +222,7 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
             setLoading(false);
         };
         run();
-    }, [date, turno, activeTab]);
+    }, [date, turno, activeTab, useShiftTime]);
 
     /* ── fetch per tecnologia e pareto ── */
     useEffect(() => {
@@ -253,7 +253,7 @@ export default function FermiView({ macchine = [], initialReparto, initialTurno,
             setLoadingTec(false);
         };
         run();
-    }, [tecFrom, tecTo, activeTab, turno, date]);
+    }, [tecFrom, tecTo, activeTab, turno, date, useShiftTime]);
 
     /* ── delete ── */
     const handleDelete = async (id) => {

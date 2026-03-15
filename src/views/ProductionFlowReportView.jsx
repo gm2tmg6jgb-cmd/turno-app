@@ -67,7 +67,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         setHasSoftProduction(softMachines);
 
         // 3. Fetch Fermi (downtimes)
-        let fermiQuery = supabase.from("fermi_macchina").select("macchina_id, durata_minuti, motivo").eq("data", date);
+        let fermiQuery = supabase.from("fermi_macchina").select("macchina_id, durata_minuti, motivo, is_automazione").eq("data", date);
         if (turnoCorrente && turnoCorrente !== "ALL") {
           fermiQuery = fermiQuery.eq("turno_id", turnoCorrente);
         }
@@ -79,7 +79,11 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             if (!fMap[mId]) fMap[mId] = { minutes: 0, entries: [] };
             fMap[mId].minutes += (row.durata_minuti || 0);
             if (row.motivo) {
-              fMap[mId].entries.push({ motivo: row.motivo, durata: row.durata_minuti });
+              fMap[mId].entries.push({ 
+                motivo: row.motivo, 
+                durata: row.durata_minuti, 
+                is_automazione: row.is_automazione 
+              });
             }
           });
         }
@@ -447,8 +451,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               (hasSoftProduction.has(mid) && m.tecnologia_id !== "TH" && m.tecnologia_id?.toLowerCase() !== "tornitura_hard")
             );
 
-            // All boxes must have exactly 4 slots
-            const slotCount = 4;
+            // All boxes must have exactly 4 slots, except RAA11009 (requested 1 production slot + fermi)
+            const slotCount = isRAA ? 2 : 4;
             
             return (
               <div key={m.id} style={{ 
@@ -592,7 +596,10 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                                 <div key={idx} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px" }}>
                                   <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                                     <span style={{ color: isCritical ? "#ef4444" : "#f59e0b" }}>•</span>
-                                    <span style={{ fontWeight: "600" }}>{entry.motivo}</span>
+                                    <span style={{ fontWeight: "600" }}>
+                                      {entry.is_automazione && <span style={{ color: "#a855f7", marginRight: "4px" }}>[A]</span>}
+                                      {entry.motivo}
+                                    </span>
                                   </div>
                                   <div style={{ fontWeight: "900", opacity: 0.8 }}>{entry.durata}m</div>
                                 </div>
@@ -667,7 +674,10 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                                 {entries.map((entry, idx) => (
                                   <div key={idx} style={{ display: "flex", gap: "4px", alignItems: "flex-start" }}>
                                     <span style={{ color: isCritical ? "#ef4444" : "#f59e0b" }}>•</span>
-                                    <span>{entry.motivo}</span>
+                                    <span>
+                                      {entry.is_automazione && <span style={{ color: "#a855f7" }}>A: </span>}
+                                      {entry.motivo}
+                                    </span>
                                   </div>
                                 ))}
                               </div>
@@ -691,9 +701,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                     }
 
                     const isSuccess = (displayQty !== null || isMZA || isSingle || isDouble || m.isTwin);
-                    const isDRA60 = (m.id || "").toUpperCase() === "DRA10060";
 
-                    if (isDRA60 && displayComp) {
+                    if (displayComp) {
                       return (
                         <div key={i} style={{
                           flex: "1 0 232px",
