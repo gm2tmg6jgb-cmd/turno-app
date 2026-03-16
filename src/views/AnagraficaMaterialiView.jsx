@@ -105,7 +105,7 @@ export default function AnagraficaMaterialiView({ showToast }) {
             showToast("Errore: " + error.message, "error");
         } else {
             showToast("Lavorazione aggiunta", "success");
-            setNewLav(prev => ({ ...prev, fino: "", componente: "", sap_work_center: "" }));
+            setNewLav(prev => ({ ...prev, fino: "", componente: "", descrizione: "" }));
             fetchLavorazioni();
         }
     };
