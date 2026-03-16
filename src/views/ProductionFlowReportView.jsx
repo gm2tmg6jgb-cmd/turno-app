@@ -5,6 +5,8 @@ import { Modal } from "../components/ui/Modal";
 import { formatItalianDate } from "../lib/dateUtils";
 import { TURNI } from "../data/constants";
 
+const normFino = s => { const n = parseInt(s, 10); return isNaN(n) ? (s || "").toUpperCase() : String(n); };
+
 export default function ProductionFlowReportView({ macchine = [], tecnologie = [], motiviFermo = [], globalDate, setGlobalDate, turnoCorrente, setTurnoCorrente }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTech, setActiveTech] = useState("TUTTO");
@@ -28,6 +30,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
   const [slotConfigs, setSlotConfigs] = useState({});
   const [prodByMaterial, setProdByMaterial] = useState({});
   const [prodByFino, setProdByFino] = useState({});
+  const [prodByMaterialGlobal, setProdByMaterialGlobal] = useState({});
   const [isSlotEditMode, setIsSlotEditMode] = useState(false);
   const [showSlotModal, setShowSlotModal] = useState(false);
   const [slotModalData, setSlotModalData] = useState({ machineId: "", slotIndex: 0, componente: "", progetto: "", codiceMateriale: "", fino: "" });
@@ -61,7 +64,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         // Group by machine and component
         const grouped = {};
         const prodByMat = {}; // Direct index: { work_center: { material_code: qty } }
-        const prodByFinoMap = {}; // Index by fino: { machineId: { fino: { material_code: qty } } }
+        const prodByMatGlobal = {}; // Global index: { material_code: qty } across all machines
+        const prodByFinoMap = {}; // Global index by fino: { fino: { material_code: qty } }
         const softMachines = new Set();
 
         prodData.forEach(row => {
@@ -70,7 +74,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           const qty = row.qta_ottenuta || 0;
           const info = anaMap[mat];
           const comp = info?.componente?.toUpperCase();
-          const fino = (row.fino || "").toUpperCase();
+          const fino = normFino(row.fino);
 
           if (mat.endsWith("/S") && mId) {
             softMachines.add(mId);
@@ -80,6 +84,11 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           if (mId && mat) {
             if (!prodByMat[mId]) prodByMat[mId] = {};
             prodByMat[mId][mat] = (prodByMat[mId][mat] || 0) + qty;
+          }
+
+          // Global index by material (all machines)
+          if (mat) {
+            prodByMatGlobal[mat] = (prodByMatGlobal[mat] || 0) + qty;
           }
 
           // Global index by fino (operation number) — machine-agnostic
@@ -119,6 +128,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         setProductionData(grouped);
         setProdByMaterial(prodByMat);
         setProdByFino(prodByFinoMap);
+        setProdByMaterialGlobal(prodByMatGlobal);
         setHasSoftProduction(softMachines);
 
         // 3. Fetch Fermi (downtimes)
@@ -690,28 +700,28 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               const machineHasAnyConfig = !!slotConfigs[mid];
               if (slotConf) {
                 displayComp = slotConf.componente || null;
-                const finoKey = slotConf.fino?.toUpperCase() || null;
-                if (finoKey) {
-                  // Filter production by operation number (fino) — global, machine-agnostic
-                  const finoMats = prodByFino[finoKey] || {};
-                  if (slotConf.codice_materiale) {
-                    const matFilter = slotConf.codice_materiale.toUpperCase();
-                    const qty = finoMats[matFilter] || prodByMaterial[mid]?.[matFilter] || 0;
-                    displayProj = slotConf.progetto || anagrafica[matFilter]?.progetto || null;
-                    productionInfo = { total: qty, materials: qty > 0 ? [{ code: matFilter, qty, progetto: displayProj || "", sapCode: mid }] : [] };
-                  } else {
-                    const total = Object.values(finoMats).reduce((s, v) => s + v, 0);
-                    const materials = Object.entries(finoMats).map(([code, qty]) => ({ code, qty, progetto: anagrafica[code]?.progetto || "", sapCode: mid }));
-                    if (total > 0) {
-                      productionInfo = { total, materials };
-                      displayProj = slotConf.progetto || materials[0]?.progetto || null;
-                    }
-                  }
-                } else if (slotConf.codice_materiale) {
+                const finoKey = slotConf.fino ? normFino(slotConf.fino) : null;
+                if (slotConf.codice_materiale && finoKey) {
+                  // Filter by both material code AND fino — turno already filtered by query
                   const matFilter = slotConf.codice_materiale.toUpperCase();
-                  const qty = prodByMaterial[mid]?.[matFilter] || 0;
+                  const qty = prodByFino[finoKey]?.[matFilter] || 0;
                   displayProj = slotConf.progetto || anagrafica[matFilter]?.progetto || null;
-                  productionInfo = { total: qty, materials: qty > 0 ? [{ code: matFilter, qty, progetto: displayProj || "", sapCode: mid }] : [] };
+                  productionInfo = { total: qty, materials: qty > 0 ? [{ code: matFilter, qty, progetto: displayProj || "" }] : [] };
+                } else if (slotConf.codice_materiale) {
+                  // Only material code — global sum across all machines and fino
+                  const matFilter = slotConf.codice_materiale.toUpperCase();
+                  const qty = prodByMaterialGlobal[matFilter] || 0;
+                  displayProj = slotConf.progetto || anagrafica[matFilter]?.progetto || null;
+                  productionInfo = { total: qty, materials: qty > 0 ? [{ code: matFilter, qty, progetto: displayProj || "" }] : [] };
+                } else if (finoKey) {
+                  // Only fino — sum all materials under this operation number
+                  const finoMats = prodByFino[finoKey] || {};
+                  const total = Object.values(finoMats).reduce((s, v) => s + v, 0);
+                  const materials = Object.entries(finoMats).map(([code, qty]) => ({ code, qty, progetto: anagrafica[code]?.progetto || "" }));
+                  if (total > 0) {
+                    productionInfo = { total, materials };
+                    displayProj = slotConf.progetto || materials[0]?.progetto || null;
+                  }
                 } else {
                   const sourceProd = productionData[mid] || {};
                   if (displayComp && sourceProd[displayComp]) {
@@ -1154,15 +1164,14 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 <div style={{ fontSize: "12px", fontWeight: "800", color: "var(--text-muted)", marginBottom: "10px", letterSpacing: "0.5px", textTransform: "uppercase" }}>Dettaglio Materiali</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                   {/* Header row */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: "12px", padding: "6px 14px", fontSize: "10px", fontWeight: "800", color: "var(--text-muted)", letterSpacing: "0.5px", textTransform: "uppercase" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "12px", padding: "6px 14px", fontSize: "10px", fontWeight: "800", color: "var(--text-muted)", letterSpacing: "0.5px", textTransform: "uppercase" }}>
                     <span>Codice Materiale</span>
-                    <span>Codice SAP</span>
                     <span>Pezzi</span>
                   </div>
                   {prodModalData.materials.map((mat, idx) => (
                     <div key={idx} style={{
                       display: "grid",
-                      gridTemplateColumns: "1fr 1fr auto",
+                      gridTemplateColumns: "1fr auto",
                       gap: "12px",
                       padding: "10px 14px",
                       background: idx % 2 === 0 ? "var(--bg-tertiary)" : "transparent",
@@ -1170,7 +1179,6 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                       fontSize: "14px"
                     }}>
                       <span style={{ fontWeight: "600", fontFamily: "monospace" }}>{mat.code}</span>
-                      <span style={{ fontWeight: "600", fontFamily: "monospace", color: "var(--text-muted)" }}>{mat.sapCode || "—"}</span>
                       <span style={{ fontWeight: "900", color: "#10b981", fontSize: "16px" }}>{mat.qty}</span>
                     </div>
                   ))}
