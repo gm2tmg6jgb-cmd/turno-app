@@ -27,9 +27,10 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
   // Slot Config State
   const [slotConfigs, setSlotConfigs] = useState({});
   const [prodByMaterial, setProdByMaterial] = useState({});
+  const [prodByFino, setProdByFino] = useState({});
   const [isSlotEditMode, setIsSlotEditMode] = useState(false);
   const [showSlotModal, setShowSlotModal] = useState(false);
-  const [slotModalData, setSlotModalData] = useState({ machineId: "", slotIndex: 0, componente: "", progetto: "", codiceMateriale: "", sapWorkCenter: "" });
+  const [slotModalData, setSlotModalData] = useState({ machineId: "", slotIndex: 0, componente: "", progetto: "", codiceMateriale: "", fino: "" });
   const [isSavingSlot, setIsSavingSlot] = useState(false);
 
   useEffect(() => {
@@ -60,6 +61,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         // Group by machine and component
         const grouped = {};
         const prodByMat = {}; // Direct index: { work_center: { material_code: qty } }
+        const prodByFinoMap = {}; // Index by fino: { machineId: { fino: { material_code: qty } } }
         const softMachines = new Set();
 
         prodData.forEach(row => {
@@ -68,6 +70,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           const qty = row.qta_ottenuta || 0;
           const info = anaMap[mat];
           const comp = info?.componente?.toUpperCase();
+          const fino = (row.fino || "").toUpperCase();
 
           if (mat.endsWith("/S") && mId) {
             softMachines.add(mId);
@@ -77,6 +80,13 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           if (mId && mat) {
             if (!prodByMat[mId]) prodByMat[mId] = {};
             prodByMat[mId][mat] = (prodByMat[mId][mat] || 0) + qty;
+          }
+
+          // Index by fino (operation number)
+          if (mId && mat && fino) {
+            if (!prodByFinoMap[mId]) prodByFinoMap[mId] = {};
+            if (!prodByFinoMap[mId][fino]) prodByFinoMap[mId][fino] = {};
+            prodByFinoMap[mId][fino][mat] = (prodByFinoMap[mId][fino][mat] || 0) + qty;
           }
 
           const addToGroup = (map, key) => {
@@ -109,6 +119,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         });
         setProductionData(grouped);
         setProdByMaterial(prodByMat);
+        setProdByFino(prodByFinoMap);
         setHasSoftProduction(softMachines);
 
         // 3. Fetch Fermi (downtimes)
@@ -145,7 +156,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             scMap[mId][row.slot_index] = {
               componente: row.componente,
               progetto: row.progetto,
-              sap_work_center: row.sap_work_center,
+              fino: row.fino,
               codice_materiale: row.codice_materiale,
             };
           });
@@ -343,7 +354,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
   };
 
   const handleSaveSlot = async () => {
-    const { machineId, slotIndex, componente, progetto, codiceMateriale, sapWorkCenter } = slotModalData;
+    const { machineId, slotIndex, componente, progetto, codiceMateriale, fino } = slotModalData;
     if (!componente) {
       alert("Il campo Componente è obbligatorio.");
       return;
@@ -356,7 +367,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         componente: componente || null,
         progetto: progetto || null,
         codice_materiale: codiceMateriale || null,
-        sap_work_center: sapWorkCenter || null,
+        fino: fino || null,
       };
       const { error } = await supabase.from("slot_config").upsert(payload, { onConflict: "macchina_id,slot_index" });
       if (error) throw error;
@@ -368,7 +379,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             componente: componente || null,
             progetto: progetto || null,
             codice_materiale: codiceMateriale || null,
-            sap_work_center: sapWorkCenter || null,
+            fino: fino || null,
           }
         }
       }));
@@ -680,16 +691,30 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               const machineHasAnyConfig = !!slotConfigs[mid];
               if (slotConf) {
                 displayComp = slotConf.componente || null;
-                const readFrom = slotConf.sap_work_center?.toUpperCase() || mid;
-                if (slotConf.codice_materiale) {
+                const finoKey = slotConf.fino?.toUpperCase() || null;
+                if (finoKey) {
+                  // Filter production by operation number (fino)
+                  const finoMats = prodByFino[mid]?.[finoKey] || {};
+                  if (slotConf.codice_materiale) {
+                    const matFilter = slotConf.codice_materiale.toUpperCase();
+                    const qty = finoMats[matFilter] || prodByMaterial[mid]?.[matFilter] || 0;
+                    displayProj = slotConf.progetto || anagrafica[matFilter]?.progetto || null;
+                    productionInfo = { total: qty, materials: qty > 0 ? [{ code: matFilter, qty, progetto: displayProj || "", sapCode: mid }] : [] };
+                  } else {
+                    const total = Object.values(finoMats).reduce((s, v) => s + v, 0);
+                    const materials = Object.entries(finoMats).map(([code, qty]) => ({ code, qty, progetto: anagrafica[code]?.progetto || "", sapCode: mid }));
+                    if (total > 0) {
+                      productionInfo = { total, materials };
+                      displayProj = slotConf.progetto || materials[0]?.progetto || null;
+                    }
+                  }
+                } else if (slotConf.codice_materiale) {
                   const matFilter = slotConf.codice_materiale.toUpperCase();
-                  // Prefer machine-specific bucket (mid) to avoid mixing data from other
-                  // machines at the same SAP work center; fall back to wc bucket
-                  const qty = prodByMaterial[mid]?.[matFilter] || prodByMaterial[readFrom]?.[matFilter] || 0;
+                  const qty = prodByMaterial[mid]?.[matFilter] || 0;
                   displayProj = slotConf.progetto || anagrafica[matFilter]?.progetto || null;
-                  productionInfo = { total: qty, materials: qty > 0 ? [{ code: matFilter, qty, progetto: displayProj || "", sapCode: readFrom }] : [] };
+                  productionInfo = { total: qty, materials: qty > 0 ? [{ code: matFilter, qty, progetto: displayProj || "", sapCode: mid }] : [] };
                 } else {
-                  const sourceProd = productionData[readFrom] || productionData[mid] || {};
+                  const sourceProd = productionData[mid] || {};
                   if (displayComp && sourceProd[displayComp]) {
                     productionInfo = sourceProd[displayComp];
                     displayProj = slotConf.progetto || productionInfo?.materials?.[0]?.progetto || null;
@@ -952,7 +977,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                               componente: existing?.componente || displayComp || "",
                               progetto: existing?.progetto || "",
                               codiceMateriale: existing?.codice_materiale || "",
-                              sapWorkCenter: existing?.sap_work_center || "",
+                              fino: existing?.fino || "",
                             });
                             setShowSlotModal(true);
                             return;
@@ -1084,13 +1109,13 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               />
             </div>
             <div className="form-group">
-              <label className="form-label" style={{ fontWeight: "700" }}>Centro di Lavoro SAP <span style={{ fontWeight: 400, color: "var(--text-muted)", fontSize: "11px" }}>(opzionale)</span></label>
+              <label className="form-label" style={{ fontWeight: "700" }}>Numero Operazione <span style={{ fontWeight: 400, color: "var(--text-muted)", fontSize: "11px" }}>(opzionale)</span></label>
               <input
                 type="text"
                 className="input"
-                placeholder="Es. FRW10000, DRA14100..."
-                value={slotModalData.sapWorkCenter}
-                onChange={e => setSlotModalData(p => ({ ...p, sapWorkCenter: e.target.value.toUpperCase() }))}
+                placeholder="Es. 0140, 0010..."
+                value={slotModalData.fino}
+                onChange={e => setSlotModalData(p => ({ ...p, fino: e.target.value.toUpperCase() }))}
               />
             </div>
           </div>

@@ -661,7 +661,7 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                                 <thead>
                                     <tr style={{ background: "var(--bg-tertiary)" }}>
                                         {importType === "produzione" ? (
-                                            ["Data", "Ora", "Centro SAP", "Macchina", "Materiale", "Qtà Ott.", "Qtà Scarto", "Turno"].map(h => (
+                                            ["Data", "Ora", "Centro SAP", "Macchina", "Materiale", "Fino", "Qtà Ott.", "Qtà Scarto", "Turno"].map(h => (
                                                 <th key={h} style={{ padding: "8px 12px", textAlign: h.includes("Qtà") ? "right" : "left", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", whiteSpace: "nowrap" }}>{h}</th>
                                             ))
                                         ) : (
@@ -683,6 +683,7 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                                                         {r.matched ? <span style={{ color: "var(--success)", fontWeight: 600 }}>{r.macchina_nome}</span> : <span style={{ color: "var(--danger)", fontSize: 11 }}>Non trovata</span>}
                                                     </td>
                                                     <td style={{ padding: "7px 12px", fontSize: 12 }}>{r.materiale || "—"}</td>
+                                                    <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", color: "var(--text-muted)" }}>{r.fino || "—"}</td>
                                                     <td style={{ padding: "7px 12px", fontSize: 12, textAlign: "right", fontWeight: r.qta_ottenuta ? 600 : 400 }}>{r.qta_ottenuta != null ? r.qta_ottenuta.toLocaleString("it-IT") : "—"}</td>
                                                     <td style={{ padding: "7px 12px", fontSize: 12, textAlign: "right", color: r.qta_scarto > 0 ? "var(--danger)" : "inherit" }}>{r.qta_scarto != null && r.qta_scarto > 0 ? r.qta_scarto.toLocaleString("it-IT") : "—"}</td>
                                                 </>

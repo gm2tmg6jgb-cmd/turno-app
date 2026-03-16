@@ -18,6 +18,7 @@ const FASI = [
     { value: "washing", label: "Washing" },
 ];
 
+
 export default function AnagraficaMaterialiView({ showToast }) {
     const isAdmin = true;
 
@@ -38,9 +39,10 @@ export default function AnagraficaMaterialiView({ showToast }) {
     // Lavorazioni state
     const [lavorazioni, setLavorazioni] = useState({}); // { codice: LavorazioneRow[] }
     const [expandedCodici, setExpandedCodici] = useState(new Set());
-    const [newLav, setNewLav] = useState({ codice_materiale: "", fino: "", componente: "", descrizione: "" });
+    const [newLav, setNewLav] = useState({ codice_materiale: "", fino: "", descrizione: "" });
     const [lavSaving, setLavSaving] = useState(false);
     const [lavAutoLoading, setLavAutoLoading] = useState(null); // codice in progress
+    const [tecnologie, setTecnologie] = useState([]);
 
     // Centri di lavoro → fasi state
     const [wcFasi, setWcFasi] = useState([]);
@@ -53,6 +55,7 @@ export default function AnagraficaMaterialiView({ showToast }) {
         fetchData();
         fetchLavorazioni();
         fetchWcFasi();
+        fetchTecnologie();
     }, []);
 
     // ── Lavorazioni ───────────────────────────────────────────────────────────
@@ -74,6 +77,14 @@ export default function AnagraficaMaterialiView({ showToast }) {
         }
     };
 
+    const fetchTecnologie = async () => {
+        const { data } = await supabase
+            .from("tecnologie_fermo")
+            .select("id, label")
+            .order("ordine");
+        if (data) setTecnologie(data);
+    };
+
     const toggleExpand = (codice) => {
         setExpandedCodici(prev => {
             const next = new Set(prev);
@@ -82,7 +93,7 @@ export default function AnagraficaMaterialiView({ showToast }) {
             } else {
                 next.add(codice);
                 // Pre-populate new lav form with this codice
-                setNewLav({ codice_materiale: codice, fino: "", componente: "", sap_work_center: "" });
+                setNewLav({ codice_materiale: codice, fino: "", descrizione: "" });
             }
             return next;
         });
@@ -97,15 +108,14 @@ export default function AnagraficaMaterialiView({ showToast }) {
         const { error } = await supabase.from("lavorazioni").insert({
             codice_materiale: newLav.codice_materiale,
             fino: newLav.fino.trim(),
-            componente: newLav.componente.trim().toUpperCase() || null,
-            descrizione: newLav.descrizione.trim() || null,
+            descrizione: newLav.descrizione || null,
         });
         setLavSaving(false);
         if (error) {
             showToast("Errore: " + error.message, "error");
         } else {
             showToast("Lavorazione aggiunta", "success");
-            setNewLav(prev => ({ ...prev, fino: "", componente: "", descrizione: "" }));
+            setNewLav(prev => ({ ...prev, fino: "", descrizione: "" }));
             fetchLavorazioni();
         }
     };
@@ -650,8 +660,7 @@ export default function AnagraficaMaterialiView({ showToast }) {
                                                                 <thead>
                                                                     <tr style={{ background: "var(--bg-tertiary)" }}>
                                                                         <th style={{ textAlign: "left", padding: "6px 12px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", width: 100 }}>Fino (N. Op.)</th>
-                                                                        <th style={{ textAlign: "left", padding: "6px 12px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", width: 120 }}>Componente</th>
-                                                                        <th style={{ textAlign: "left", padding: "6px 12px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Descrizione Lavorazione</th>
+                                                                        <th style={{ textAlign: "left", padding: "6px 12px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Lavorazione</th>
                                                                         <th style={{ width: 48 }}></th>
                                                                     </tr>
                                                                 </thead>
@@ -660,14 +669,11 @@ export default function AnagraficaMaterialiView({ showToast }) {
                                                                         <tr key={l.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
                                                                             <td style={{ padding: "7px 12px", fontFamily: "monospace", fontWeight: 700, fontSize: 13 }}>{l.fino || <span style={{ opacity: 0.35 }}>—</span>}</td>
                                                                             <td style={{ padding: "7px 12px" }}>
-                                                                                {l.componente ? (
-                                                                                    <span style={{ padding: "3px 8px", background: "var(--bg-tertiary)", borderRadius: 4, fontWeight: 700, color: "var(--accent)", fontSize: 12 }}>
-                                                                                        {l.componente}
+                                                                                {l.descrizione ? (
+                                                                                    <span style={{ padding: "3px 8px", background: "var(--bg-tertiary)", borderRadius: 4, fontWeight: 600, color: "var(--accent)", fontSize: 12 }}>
+                                                                                        {l.descrizione}
                                                                                     </span>
                                                                                 ) : <span style={{ opacity: 0.35, fontSize: 12 }}>—</span>}
-                                                                            </td>
-                                                                            <td style={{ padding: "7px 12px", fontSize: 12, color: "var(--text-secondary)" }}>
-                                                                                {l.descrizione || <span style={{ opacity: 0.35 }}>—</span>}
                                                                             </td>
                                                                             <td style={{ padding: "7px 12px", textAlign: "right" }}>
                                                                                 <button
@@ -685,46 +691,49 @@ export default function AnagraficaMaterialiView({ showToast }) {
                                                         )}
 
                                                         {/* Form aggiungi lavorazione */}
-                                                        <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
-                                                            <div>
-                                                                <label style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4, display: "block" }}>Fino (N. Op.)</label>
-                                                                <input
-                                                                    className="input"
-                                                                    value={newLav.codice_materiale === codice ? newLav.fino : ""}
-                                                                    onChange={e => setNewLav({ codice_materiale: codice, fino: e.target.value, componente: newLav.codice_materiale === codice ? newLav.componente : "", descrizione: newLav.codice_materiale === codice ? newLav.descrizione : "" })}
-                                                                    placeholder="es. 0140"
-                                                                    style={{ width: 90, height: 32, fontSize: 13 }}
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4, display: "block" }}>Componente</label>
-                                                                <input
-                                                                    className="input"
-                                                                    value={newLav.codice_materiale === codice ? newLav.componente : ""}
-                                                                    onChange={e => setNewLav(prev => prev.codice_materiale === codice ? { ...prev, componente: e.target.value } : { codice_materiale: codice, fino: "", componente: e.target.value, descrizione: "" })}
-                                                                    placeholder="es. SGR"
-                                                                    style={{ width: 100, height: 32, fontSize: 13 }}
-                                                                />
-                                                            </div>
-                                                            <div style={{ flex: "1 1 200px" }}>
-                                                                <label style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4, display: "block" }}>Descrizione Lavorazione</label>
-                                                                <input
-                                                                    className="input"
-                                                                    value={newLav.codice_materiale === codice ? newLav.descrizione : ""}
-                                                                    onChange={e => setNewLav(prev => prev.codice_materiale === codice ? { ...prev, descrizione: e.target.value } : { codice_materiale: codice, fino: "", componente: "", descrizione: e.target.value })}
-                                                                    placeholder="es. Tornitura Soft"
-                                                                    style={{ width: "100%", height: 32, fontSize: 13 }}
-                                                                />
-                                                            </div>
-                                                            <button
-                                                                className="btn btn-primary"
-                                                                onClick={handleAddLavorazione}
-                                                                disabled={lavSaving || newLav.codice_materiale !== codice || !newLav.fino.trim()}
-                                                                style={{ height: 32, fontSize: 12, minWidth: 100 }}
-                                                            >
-                                                                {lavSaving ? "..." : "+ Aggiungi"}
-                                                            </button>
-                                                        </div>
+                                                        {(() => {
+                                                            const isActive = newLav.codice_materiale === codice;
+                                                            const curLav = isActive ? newLav : { fino: "", descrizione: "" };
+
+                                                            return (
+                                                                <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+                                                                    <div>
+                                                                        <label style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4, display: "block" }}>Fino (N. Op.)</label>
+                                                                        <input
+                                                                            className="input"
+                                                                            value={curLav.fino}
+                                                                            onChange={e => setNewLav(prev => isActive ? { ...prev, fino: e.target.value } : { codice_materiale: codice, fino: e.target.value, descrizione: "" })}
+                                                                            placeholder="es. 0140"
+                                                                            style={{ width: 90, height: 32, fontSize: 13 }}
+                                                                        />
+                                                                    </div>
+                                                                    <div>
+                                                                        <label style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4, display: "block" }}>Lavorazione</label>
+                                                                        <select
+                                                                            className="input"
+                                                                            value={curLav.descrizione}
+                                                                            onChange={e => setNewLav(prev => isActive ? { ...prev, descrizione: e.target.value } : { codice_materiale: codice, fino: "", descrizione: e.target.value })}
+                                                                            style={{ width: 180, height: 32, fontSize: 13 }}
+                                                                        >
+                                                                            <option value="">— Seleziona —</option>
+                                                                            {tecnologie.map(t => (
+                                                                                <option key={t.id} value={t.label}>{t.label}</option>
+                                                                            ))}
+                                                                        </select>
+                                                                    </div>
+                                                                    <div>
+                                                                        <button
+                                                                            className="btn btn-primary"
+                                                                            onClick={handleAddLavorazione}
+                                                                            disabled={lavSaving || !isActive || !newLav.fino.trim()}
+                                                                            style={{ height: 32, fontSize: 12, minWidth: 100 }}
+                                                                        >
+                                                                            {lavSaving ? "..." : "+ Aggiungi"}
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </td>
                                             </tr>
