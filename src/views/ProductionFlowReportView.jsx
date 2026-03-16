@@ -129,6 +129,9 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         setProdByMaterial(prodByMat);
         setProdByFino(prodByFinoMap);
         setProdByMaterialGlobal(prodByMatGlobal);
+        console.log("[DEBUG] prodByFino keys:", Object.keys(prodByFinoMap));
+        console.log("[DEBUG] prodByFino[40]:", prodByFinoMap["40"]);
+        console.log("[DEBUG] prodByFino[0040]:", prodByFinoMap["0040"]);
         setHasSoftProduction(softMachines);
 
         // 3. Fetch Fermi (downtimes)
