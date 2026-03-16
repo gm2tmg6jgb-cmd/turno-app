@@ -18,6 +18,7 @@ const COL_DEFS = [
     { key: "qta_scarto", patterns: ["scarto", "qtà scarto", "qta scarto", "scrap"] },
     { key: "turno", patterns: ["turno", "shift", "turn"] },
     { key: "ora", patterns: ["time", "ora", "orario", "time of confirmation"] },
+    { key: "fino", patterns: ["fino"] },
 ];
 
 function formatDate(val) {
@@ -120,6 +121,7 @@ async function main() {
             qta_ottenuta: parseFloat(row[mapping.qta_ottenuta]) || 0,
             qta_scarto: parseFloat(row[mapping.qta_scarto]) || 0,
             turno_id: mapTurno(row[mapping.turno]),
+            fino: mapping.fino >= 0 ? (String(row[mapping.fino] || "").trim() || null) : null,
             data_import: new Date().toISOString()
         };
         return rowData;

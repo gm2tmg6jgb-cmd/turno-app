@@ -21,6 +21,7 @@ const COL_DEFS_PROD = [
     { key: "qta_scarto", label: "Qtà scarto", patterns: ["scarto", "qtà scarto", "qta scarto", "scrap"] },
     { key: "turno", label: "Turno", patterns: ["turno", "shift", "turn"] },
     { key: "ora", label: "Ora Time", patterns: ["time", "ora", "orario", "time of confirmation"] },
+    { key: "fino", label: "Fino (N. Op.)", patterns: ["fino"] },
 ];
 
 const COL_DEFS_FERMI = [
@@ -288,6 +289,7 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                     qta_scarto: parseFloat(get(row, mapping.qta_scarto)) || null,
                     turno_id: mapTurno(get(row, mapping.turno)),
                     ora: formatTime(get(row, mapping.ora)),
+                    fino: String(get(row, mapping.fino) || "").trim() || null,
                 };
             } else {
                 return {

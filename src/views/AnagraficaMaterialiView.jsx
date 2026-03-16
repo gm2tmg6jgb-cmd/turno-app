@@ -19,7 +19,6 @@ const FASI = [
 ];
 
 export default function AnagraficaMaterialiView({ showToast }) {
-    // View is always rendered inside AdminSecurityWrapper, so user is always admin
     const isAdmin = true;
 
     const [materiali, setMateriali] = useState([]);
@@ -32,9 +31,16 @@ export default function AnagraficaMaterialiView({ showToast }) {
 
     // Import bulk state
     const [importMode, setImportMode] = useState(false);
-    const [importRows, setImportRows] = useState([]); // [{ codice, workCenters, componente, progetto }]
+    const [importRows, setImportRows] = useState([]);
     const [importLoading, setImportLoading] = useState(false);
     const [importSaving, setImportSaving] = useState(false);
+
+    // Lavorazioni state
+    const [lavorazioni, setLavorazioni] = useState({}); // { codice: LavorazioneRow[] }
+    const [expandedCodici, setExpandedCodici] = useState(new Set());
+    const [newLav, setNewLav] = useState({ codice_materiale: "", fino: "", componente: "", descrizione: "" });
+    const [lavSaving, setLavSaving] = useState(false);
+    const [lavAutoLoading, setLavAutoLoading] = useState(null); // codice in progress
 
     // Centri di lavoro → fasi state
     const [wcFasi, setWcFasi] = useState([]);
@@ -45,56 +51,126 @@ export default function AnagraficaMaterialiView({ showToast }) {
 
     useEffect(() => {
         fetchData();
+        fetchLavorazioni();
         fetchWcFasi();
     }, []);
 
-    // Sincronizzazione automatica se mancano dati
-    const hasAutoSynced = useRef(false);
-    useEffect(() => {
-        if (!loading && materiali.length > 0 && !hasAutoSynced.current) {
-            const missingWc = materiali.filter(m => !m.centri_di_lavoro);
-            if (missingWc.length > materiali.length * 0.1) { // Più del 10% senza WC
-                hasAutoSynced.current = true;
-                // Eseguiamo la sincronizzazione silenziosa per popolare i dati mancanti
-                const silentySync = async () => {
-                    try {
-                        // Invece di rifare tutto handleSyncAllWorkCenters, usiamo la logica bulk qui
-                        // ma solo per i codici mancanti per ottimizzare
-                        let allSap = [];
-                        let from = 0;
-                        const pageSize = 1000;
-                        while (allSap.length < 50000) { // Limite ragionevole per sync auto
-                            const { data, error } = await supabase
-                                .from("conferme_sap")
-                                .select("materiale, work_center_sap")
-                                .range(from, from + pageSize - 1);
-                            if (error || !data || data.length === 0) break;
-                            allSap = allSap.concat(data);
-                            if (data.length < pageSize) break;
-                            from += pageSize;
-                        }
-                        const wcMap = {};
-                        allSap.forEach(r => {
-                            if (!r.materiale) return;
-                            const mat = r.materiale.trim().toUpperCase();
-                            if (!wcMap[mat]) wcMap[mat] = new Set();
-                            if (r.work_center_sap) wcMap[mat].add(r.work_center_sap.trim().toUpperCase());
-                        });
+    // ── Lavorazioni ───────────────────────────────────────────────────────────
 
-                        for (const mat of missingWc) {
-                            const matCode = mat.codice.toUpperCase();
-                            if (wcMap[matCode]) {
-                                const newWcs = [...wcMap[matCode]].sort().join(", ");
-                                await supabase.from("anagrafica_materiali").update({ centri_di_lavoro: newWcs }).eq("id", mat.id);
-                            }
-                        }
-                        fetchData(); // Ricarica i dati aggiornati
-                    } catch (e) { console.error("Auto-sync error:", e); }
-                };
-                silentySync();
-            }
+    const fetchLavorazioni = async () => {
+        const { data, error } = await supabase
+            .from("lavorazioni")
+            .select("*")
+            .order("codice_materiale")
+            .order("fino");
+        if (!error && data) {
+            const byCode = {};
+            data.forEach(l => {
+                const k = l.codice_materiale.toUpperCase();
+                if (!byCode[k]) byCode[k] = [];
+                byCode[k].push(l);
+            });
+            setLavorazioni(byCode);
         }
-    }, [loading, materiali]);
+    };
+
+    const toggleExpand = (codice) => {
+        setExpandedCodici(prev => {
+            const next = new Set(prev);
+            if (next.has(codice)) {
+                next.delete(codice);
+            } else {
+                next.add(codice);
+                // Pre-populate new lav form with this codice
+                setNewLav({ codice_materiale: codice, fino: "", componente: "", sap_work_center: "" });
+            }
+            return next;
+        });
+    };
+
+    const handleAddLavorazione = async () => {
+        if (!newLav.codice_materiale || !newLav.fino.trim()) {
+            showToast("Numero operazione (Fino) obbligatorio", "warning");
+            return;
+        }
+        setLavSaving(true);
+        const { error } = await supabase.from("lavorazioni").insert({
+            codice_materiale: newLav.codice_materiale,
+            fino: newLav.fino.trim(),
+            componente: newLav.componente.trim().toUpperCase() || null,
+            descrizione: newLav.descrizione.trim() || null,
+        });
+        setLavSaving(false);
+        if (error) {
+            showToast("Errore: " + error.message, "error");
+        } else {
+            showToast("Lavorazione aggiunta", "success");
+            setNewLav(prev => ({ ...prev, fino: "", componente: "", sap_work_center: "" }));
+            fetchLavorazioni();
+        }
+    };
+
+    const handleDeleteLavorazione = async (id) => {
+        if (!confirm("Eliminare questa lavorazione?")) return;
+        const { error } = await supabase.from("lavorazioni").delete().eq("id", id);
+        if (error) {
+            showToast("Errore eliminazione", "error");
+        } else {
+            showToast("Lavorazione eliminata", "success");
+            fetchLavorazioni();
+        }
+    };
+
+    const handleAutoDetectLavorazioni = async (codice) => {
+        setLavAutoLoading(codice);
+        const { data, error } = await supabase
+            .from("conferme_sap")
+            .select("fino, work_center_sap")
+            .ilike("materiale", codice)
+            .not("fino", "is", null);
+
+        if (error || !data) {
+            showToast("Errore lettura storico SAP", "error");
+            setLavAutoLoading(null);
+            return;
+        }
+
+        const existing = new Set(
+            (lavorazioni[codice.toUpperCase()] || []).map(l => l.fino || "")
+        );
+        const seen = new Set();
+        const toInsert = [];
+        data.forEach(r => {
+            if (!r.fino) return;
+            const key = r.fino;
+            if (!existing.has(key) && !seen.has(key)) {
+                seen.add(key);
+                toInsert.push({
+                    codice_materiale: codice,
+                    fino: r.fino,
+                    componente: null,
+                    descrizione: null,
+                });
+            }
+        });
+
+        if (toInsert.length === 0) {
+            showToast("Nessuna nuova lavorazione trovata nello storico SAP", "info");
+            setLavAutoLoading(null);
+            return;
+        }
+
+        const { error: insErr } = await supabase.from("lavorazioni").insert(toInsert);
+        setLavAutoLoading(null);
+        if (insErr) {
+            showToast("Errore importazione: " + insErr.message, "error");
+        } else {
+            showToast(`${toInsert.length} lavorazioni importate da storico SAP`, "success");
+            fetchLavorazioni();
+        }
+    };
+
+    // ── WC Fasi ───────────────────────────────────────────────────────────────
 
     const fetchWcFasi = async () => {
         setWcFasiLoading(true);
@@ -144,6 +220,8 @@ export default function AnagraficaMaterialiView({ showToast }) {
         }
     };
 
+    // ── Materiali CRUD ────────────────────────────────────────────────────────
+
     const fetchData = async () => {
         setLoading(true);
         const { data, error } = await supabase
@@ -174,7 +252,6 @@ export default function AnagraficaMaterialiView({ showToast }) {
             progetto: newItem.progetto ? newItem.progetto.trim() : null,
         };
 
-        // Prova insert; se il codice esiste già, aggiorna
         const { error: insertError } = await supabase
             .from("anagrafica_materiali")
             .insert(payload);
@@ -207,7 +284,6 @@ export default function AnagraficaMaterialiView({ showToast }) {
 
     const handleDelete = async (id) => {
         if (!confirm("Sei sicuro di voler eliminare questa associazione?")) return;
-
         const { error } = await supabase
             .from("anagrafica_materiali")
             .delete()
@@ -231,14 +307,13 @@ export default function AnagraficaMaterialiView({ showToast }) {
         }));
     };
 
-    // ── Import da Storico SAP ──────────────────────────────────────────────────
+    // ── Import da Storico SAP ─────────────────────────────────────────────────
 
     const handleImportFromSAP = async () => {
         setImportLoading(true);
         setImportMode(true);
         setImportRows([]);
 
-        // Fetch paginato (PostgREST ha limite di 1000 righe per default)
         let allData = [];
         let from = 0;
         const pageSize = 1000;
@@ -258,7 +333,6 @@ export default function AnagraficaMaterialiView({ showToast }) {
             from += pageSize;
         }
 
-        // Aggrega: { codice → Set<work_center> }
         const map = {};
         allData.forEach(r => {
             if (!r.materiale) return;
@@ -267,7 +341,6 @@ export default function AnagraficaMaterialiView({ showToast }) {
             if (r.work_center_sap) map[mat].add(r.work_center_sap.trim().toUpperCase());
         });
 
-        // Filtra quelli già in anagrafica
         const existing = new Set(materiali.map(m => (m.codice || "").toUpperCase()));
         const rows = Object.entries(map)
             .filter(([mat]) => !existing.has(mat))
@@ -323,63 +396,7 @@ export default function AnagraficaMaterialiView({ showToast }) {
         }
     };
 
-    const handleSyncAllWorkCenters = async () => {
-        if (!confirm("Questa operazione cercherà i centri di lavoro per TUTTI i materiali già mappati analizzando l'intero storico SAP. Potrebbe richiedere qualche secondo. Procedere?")) return;
-
-        setImportLoading(true);
-        try {
-            // 1. Fetch ALL SAP confirmations
-            let allSap = [];
-            let from = 0;
-            const pageSize = 1000;
-            while (true) {
-                const { data, error } = await supabase
-                    .from("conferme_sap")
-                    .select("materiale, work_center_sap")
-                    .range(from, from + pageSize - 1);
-                if (error) throw error;
-                if (!data || data.length === 0) break;
-                allSap = allSap.concat(data);
-                if (data.length < pageSize) break;
-                from += pageSize;
-            }
-
-            // 2. Aggregate WC by Material
-            const wcMap = {};
-            allSap.forEach(r => {
-                if (!r.materiale) return;
-                const mat = r.materiale.trim().toUpperCase();
-                if (!wcMap[mat]) wcMap[mat] = new Set();
-                if (r.work_center_sap) wcMap[mat].add(r.work_center_sap.trim().toUpperCase());
-            });
-
-            // 3. Update all materials that have new WC info
-            let updatedCount = 0;
-            for (const mat of materiali) {
-                const matCode = mat.codice.toUpperCase();
-                if (wcMap[matCode]) {
-                    const newWcs = [...wcMap[matCode]].sort().join(", ");
-                    if (newWcs !== mat.centri_di_lavoro) {
-                        const { error } = await supabase
-                            .from("anagrafica_materiali")
-                            .update({ centri_di_lavoro: newWcs })
-                            .eq("id", mat.id);
-                        if (!error) updatedCount++;
-                    }
-                }
-            }
-
-            showToast(`Sincronizzazione completata: ${updatedCount} materiali aggiornati`, "success");
-            fetchData();
-        } catch (err) {
-            console.error("Errore sincronizzazione WC:", err);
-            showToast("Errore durante la sincronizzazione: " + err.message, "error");
-        } finally {
-            setImportLoading(false);
-        }
-    };
-
-    // ──────────────────────────────────────────────────────────────────────────
+    // ── Filter ────────────────────────────────────────────────────────────────
 
     const filtered = materiali.filter(m =>
         (m.codice?.toLowerCase() || "").includes(search.toLowerCase()) ||
@@ -396,18 +413,9 @@ export default function AnagraficaMaterialiView({ showToast }) {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
                     <div>
                         <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Anagrafica Materiali</h2>
-                        <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>Associa i codici SAP a componenti e progetti</p>
+                        <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>Associa i codici SAP a componenti, progetti e lavorazioni</p>
                     </div>
                     <div style={{ display: "flex", gap: 10 }}>
-                        <button
-                            className="btn btn-secondary"
-                            onClick={handleSyncAllWorkCenters}
-                            disabled={loading}
-                            style={{ whiteSpace: "nowrap" }}
-                            title="Sincronizza Centri di Lavoro SAP per tutti i materiali esistenti"
-                        >
-                            {Icons.history} Sincronizza WC
-                        </button>
                         <button
                             className="btn btn-secondary"
                             onClick={importMode ? () => { setImportMode(false); setImportRows([]); } : handleImportFromSAP}
@@ -544,53 +552,185 @@ export default function AnagraficaMaterialiView({ showToast }) {
                     />
                 </div>
 
+                {/* ── Tabella Materiali ── */}
                 <div className="table-container">
-                    <table style={{ width: "100%" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
                         <thead>
                             <tr style={{ background: "var(--bg-tertiary)" }}>
+                                <th style={{ width: 36 }}></th>
                                 <th style={{ textAlign: "left", padding: "10px 16px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Codice SAP</th>
-                                <th style={{ textAlign: "left", padding: "10px 16px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Centri di Lavoro</th>
                                 <th style={{ textAlign: "left", padding: "10px 16px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Progetto / Componente</th>
+                                <th style={{ textAlign: "left", padding: "10px 16px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Lavorazioni</th>
                                 <th style={{ textAlign: "right", padding: "10px 16px", width: 80 }}></th>
                             </tr>
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr><td colSpan={3} style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Caricamento...</td></tr>
+                                <tr><td colSpan={5} style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Caricamento...</td></tr>
                             ) : filtered.length === 0 ? (
-                                <tr><td colSpan={3} style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Nessun materiale trovato</td></tr>
+                                <tr><td colSpan={5} style={{ padding: 40, textAlign: "center", color: "var(--text-muted)" }}>Nessun materiale trovato</td></tr>
                             ) : (
-                                filtered.map(m => (
-                                    <tr key={m.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
-                                        <td style={{ padding: "12px 16px", fontWeight: 700, fontSize: 14 }}>{m.codice}</td>
-                                        <td style={{ padding: "12px 16px", fontSize: 12, color: "var(--text-secondary)", fontFamily: "monospace" }}>
-                                            {m.centri_di_lavoro || <span style={{ opacity: 0.4 }}>—</span>}
-                                        </td>
-                                        <td style={{ padding: "12px 16px" }}>
-                                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                                                {m.progetto && (
-                                                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
-                                                        {m.progetto}
+                                filtered.map(m => {
+                                    const codice = m.codice.toUpperCase();
+                                    const isExpanded = expandedCodici.has(codice);
+                                    const lavs = lavorazioni[codice] || [];
+                                    const lavCount = lavs.length;
+
+                                    return [
+                                        /* ── Main row ── */
+                                        <tr key={m.id} style={{ borderBottom: isExpanded ? "none" : "1px solid var(--border-light)", background: isExpanded ? "color-mix(in srgb, var(--accent) 4%, transparent)" : undefined }}>
+                                            <td style={{ padding: "12px 8px 12px 16px", textAlign: "center" }}>
+                                                <button
+                                                    onClick={() => toggleExpand(codice)}
+                                                    style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 12, padding: 2, lineHeight: 1 }}
+                                                    title={isExpanded ? "Chiudi lavorazioni" : "Mostra lavorazioni"}
+                                                >
+                                                    {isExpanded ? "▲" : "▼"}
+                                                </button>
+                                            </td>
+                                            <td style={{ padding: "12px 16px", fontWeight: 700, fontSize: 14, fontFamily: "monospace" }}>{m.codice}</td>
+                                            <td style={{ padding: "12px 16px" }}>
+                                                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                                    {m.progetto && (
+                                                        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
+                                                            {m.progetto}
+                                                        </span>
+                                                    )}
+                                                    {m.progetto && <span style={{ opacity: 0.3 }}>•</span>}
+                                                    <span style={{ padding: "4px 8px", background: "var(--bg-tertiary)", borderRadius: 4, fontWeight: 700, color: "var(--accent)", fontSize: 12 }}>
+                                                        {m.componente}
                                                     </span>
+                                                </div>
+                                            </td>
+                                            <td style={{ padding: "12px 16px" }}>
+                                                {lavCount > 0 ? (
+                                                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                                                        {lavs.map(l => l.fino).filter(Boolean).join(", ")}
+                                                        <span style={{ marginLeft: 6, opacity: 0.5 }}>({lavCount})</span>
+                                                    </span>
+                                                ) : (
+                                                    <span style={{ fontSize: 12, opacity: 0.35 }}>—</span>
                                                 )}
-                                                {m.progetto && <span style={{ opacity: 0.3 }}>•</span>}
-                                                <span style={{ padding: "4px 8px", background: "var(--bg-tertiary)", borderRadius: 4, fontWeight: 700, color: "var(--accent)", fontSize: 12 }}>
-                                                    {m.componente}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td style={{ padding: "12px 16px", textAlign: "right" }}>
-                                            <button
-                                                className="btn btn-secondary btn-sm"
-                                                onClick={() => handleDelete(m.id)}
-                                                disabled={!isAdmin}
-                                                style={{ color: !isAdmin ? "var(--text-muted)" : "var(--danger)", padding: "4px 8px" }}
-                                            >
-                                                {Icons.trash}
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))
+                                            </td>
+                                            <td style={{ padding: "12px 16px", textAlign: "right" }}>
+                                                <button
+                                                    className="btn btn-secondary btn-sm"
+                                                    onClick={() => handleDelete(m.id)}
+                                                    disabled={!isAdmin}
+                                                    style={{ color: !isAdmin ? "var(--text-muted)" : "var(--danger)", padding: "4px 8px" }}
+                                                >
+                                                    {Icons.trash}
+                                                </button>
+                                            </td>
+                                        </tr>,
+
+                                        /* ── Lavorazioni expanded row ── */
+                                        isExpanded && (
+                                            <tr key={`${m.id}-lav`} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                                <td colSpan={5} style={{ padding: 0, background: "color-mix(in srgb, var(--accent) 3%, transparent)" }}>
+                                                    <div style={{ padding: "12px 16px 16px 52px" }}>
+                                                        {/* Header azioni */}
+                                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                                                            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                                                                Fasi di Lavorazione — {m.codice}
+                                                            </span>
+                                                            <button
+                                                                className="btn btn-secondary btn-sm"
+                                                                onClick={() => handleAutoDetectLavorazioni(codice)}
+                                                                disabled={lavAutoLoading === codice}
+                                                                style={{ fontSize: 11 }}
+                                                            >
+                                                                {lavAutoLoading === codice ? "Lettura..." : "Auto-detect da SAP"}
+                                                            </button>
+                                                        </div>
+
+                                                        {/* Tabella lavorazioni esistenti */}
+                                                        {lavs.length > 0 && (
+                                                            <table style={{ width: "100%", marginBottom: 10, borderCollapse: "collapse" }}>
+                                                                <thead>
+                                                                    <tr style={{ background: "var(--bg-tertiary)" }}>
+                                                                        <th style={{ textAlign: "left", padding: "6px 12px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", width: 100 }}>Fino (N. Op.)</th>
+                                                                        <th style={{ textAlign: "left", padding: "6px 12px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", width: 120 }}>Componente</th>
+                                                                        <th style={{ textAlign: "left", padding: "6px 12px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Descrizione Lavorazione</th>
+                                                                        <th style={{ width: 48 }}></th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {lavs.map(l => (
+                                                                        <tr key={l.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                                                            <td style={{ padding: "7px 12px", fontFamily: "monospace", fontWeight: 700, fontSize: 13 }}>{l.fino || <span style={{ opacity: 0.35 }}>—</span>}</td>
+                                                                            <td style={{ padding: "7px 12px" }}>
+                                                                                {l.componente ? (
+                                                                                    <span style={{ padding: "3px 8px", background: "var(--bg-tertiary)", borderRadius: 4, fontWeight: 700, color: "var(--accent)", fontSize: 12 }}>
+                                                                                        {l.componente}
+                                                                                    </span>
+                                                                                ) : <span style={{ opacity: 0.35, fontSize: 12 }}>—</span>}
+                                                                            </td>
+                                                                            <td style={{ padding: "7px 12px", fontSize: 12, color: "var(--text-secondary)" }}>
+                                                                                {l.descrizione || <span style={{ opacity: 0.35 }}>—</span>}
+                                                                            </td>
+                                                                            <td style={{ padding: "7px 12px", textAlign: "right" }}>
+                                                                                <button
+                                                                                    className="btn btn-secondary btn-sm"
+                                                                                    onClick={() => handleDeleteLavorazione(l.id)}
+                                                                                    style={{ color: "var(--danger)", padding: "2px 6px" }}
+                                                                                >
+                                                                                    {Icons.trash}
+                                                                                </button>
+                                                                            </td>
+                                                                        </tr>
+                                                                    ))}
+                                                                </tbody>
+                                                            </table>
+                                                        )}
+
+                                                        {/* Form aggiungi lavorazione */}
+                                                        <div style={{ display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+                                                            <div>
+                                                                <label style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4, display: "block" }}>Fino (N. Op.)</label>
+                                                                <input
+                                                                    className="input"
+                                                                    value={newLav.codice_materiale === codice ? newLav.fino : ""}
+                                                                    onChange={e => setNewLav({ codice_materiale: codice, fino: e.target.value, componente: newLav.codice_materiale === codice ? newLav.componente : "", descrizione: newLav.codice_materiale === codice ? newLav.descrizione : "" })}
+                                                                    placeholder="es. 0140"
+                                                                    style={{ width: 90, height: 32, fontSize: 13 }}
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4, display: "block" }}>Componente</label>
+                                                                <input
+                                                                    className="input"
+                                                                    value={newLav.codice_materiale === codice ? newLav.componente : ""}
+                                                                    onChange={e => setNewLav(prev => prev.codice_materiale === codice ? { ...prev, componente: e.target.value } : { codice_materiale: codice, fino: "", componente: e.target.value, descrizione: "" })}
+                                                                    placeholder="es. SGR"
+                                                                    style={{ width: 100, height: 32, fontSize: 13 }}
+                                                                />
+                                                            </div>
+                                                            <div style={{ flex: "1 1 200px" }}>
+                                                                <label style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4, display: "block" }}>Descrizione Lavorazione</label>
+                                                                <input
+                                                                    className="input"
+                                                                    value={newLav.codice_materiale === codice ? newLav.descrizione : ""}
+                                                                    onChange={e => setNewLav(prev => prev.codice_materiale === codice ? { ...prev, descrizione: e.target.value } : { codice_materiale: codice, fino: "", componente: "", descrizione: e.target.value })}
+                                                                    placeholder="es. Tornitura Soft"
+                                                                    style={{ width: "100%", height: 32, fontSize: 13 }}
+                                                                />
+                                                            </div>
+                                                            <button
+                                                                className="btn btn-primary"
+                                                                onClick={handleAddLavorazione}
+                                                                disabled={lavSaving || newLav.codice_materiale !== codice || !newLav.fino.trim()}
+                                                                style={{ height: 32, fontSize: 12, minWidth: 100 }}
+                                                            >
+                                                                {lavSaving ? "..." : "+ Aggiungi"}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )
+                                    ];
+                                })
                             )}
                         </tbody>
                     </table>
