@@ -129,9 +129,6 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         setProdByMaterial(prodByMat);
         setProdByFino(prodByFinoMap);
         setProdByMaterialGlobal(prodByMatGlobal);
-        console.log("[DEBUG] prodByFino keys:", Object.keys(prodByFinoMap));
-        console.log("[DEBUG] prodByFino[40]:", prodByFinoMap["40"]);
-        console.log("[DEBUG] prodByFino[0040]:", prodByFinoMap["0040"]);
         setHasSoftProduction(softMachines);
 
         // 3. Fetch Fermi (downtimes)
@@ -701,7 +698,6 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               let displayProj = null;
               const slotConf = slotConfigs[mid]?.[i];
               const machineHasAnyConfig = !!slotConfigs[mid];
-              if (i === 0 && slotConf?.fino) console.log("[DEBUG SLOT] mid:", mid, "fino:", slotConf.fino, "finoKey:", normFino(slotConf.fino), "mat:", slotConf.codice_materiale, "qty:", prodByFino[normFino(slotConf.fino)]?.[slotConf.codice_materiale?.toUpperCase()]);
               if (slotConf) {
                 displayComp = slotConf.componente || null;
                 const finoKey = slotConf.fino ? normFino(slotConf.fino) : null;
