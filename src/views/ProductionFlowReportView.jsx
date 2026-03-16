@@ -701,7 +701,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               let displayProj = null;
               const slotConf = slotConfigs[mid]?.[i];
               const machineHasAnyConfig = !!slotConfigs[mid];
-              if (mid === "DRA10060" && i === 0) console.log("[DEBUG SLOT] slotConf:", slotConf, "prodByFino keys:", Object.keys(prodByFino));
+              if (i === 0 && slotConf?.fino) console.log("[DEBUG SLOT] mid:", mid, "fino:", slotConf.fino, "finoKey:", normFino(slotConf.fino), "mat:", slotConf.codice_materiale, "qty:", prodByFino[normFino(slotConf.fino)]?.[slotConf.codice_materiale?.toUpperCase()]);
               if (slotConf) {
                 displayComp = slotConf.componente || null;
                 const finoKey = slotConf.fino ? normFino(slotConf.fino) : null;
@@ -709,7 +709,6 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                   // Filter by both material code AND fino — turno already filtered by query
                   const matFilter = slotConf.codice_materiale.toUpperCase();
                   const qty = prodByFino[finoKey]?.[matFilter] || 0;
-                  if (mid === "DRA10060" && i === 0) console.log("[DEBUG SLOT] finoKey:", finoKey, "matFilter:", matFilter, "qty:", qty, "prodByFino[finoKey]:", prodByFino[finoKey]);
                   displayProj = slotConf.progetto || anagrafica[matFilter]?.progetto || null;
                   productionInfo = { total: qty, materials: qty > 0 ? [{ code: matFilter, qty, progetto: displayProj || "" }] : [] };
                 } else if (slotConf.codice_materiale) {
