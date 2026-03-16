@@ -82,11 +82,10 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             prodByMat[mId][mat] = (prodByMat[mId][mat] || 0) + qty;
           }
 
-          // Index by fino (operation number)
-          if (mId && mat && fino) {
-            if (!prodByFinoMap[mId]) prodByFinoMap[mId] = {};
-            if (!prodByFinoMap[mId][fino]) prodByFinoMap[mId][fino] = {};
-            prodByFinoMap[mId][fino][mat] = (prodByFinoMap[mId][fino][mat] || 0) + qty;
+          // Global index by fino (operation number) — machine-agnostic
+          if (mat && fino) {
+            if (!prodByFinoMap[fino]) prodByFinoMap[fino] = {};
+            prodByFinoMap[fino][mat] = (prodByFinoMap[fino][mat] || 0) + qty;
           }
 
           const addToGroup = (map, key) => {
@@ -693,8 +692,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 displayComp = slotConf.componente || null;
                 const finoKey = slotConf.fino?.toUpperCase() || null;
                 if (finoKey) {
-                  // Filter production by operation number (fino)
-                  const finoMats = prodByFino[mid]?.[finoKey] || {};
+                  // Filter production by operation number (fino) — global, machine-agnostic
+                  const finoMats = prodByFino[finoKey] || {};
                   if (slotConf.codice_materiale) {
                     const matFilter = slotConf.codice_materiale.toUpperCase();
                     const qty = finoMats[matFilter] || prodByMaterial[mid]?.[matFilter] || 0;
