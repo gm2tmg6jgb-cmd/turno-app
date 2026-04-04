@@ -18,7 +18,7 @@ const ALL_MACHINES_ORDER = [
   "SLA11109","SLA11110","SCA10078","DRA10058","DRA10059","DRA11044","FRW10189",
   "FRW10073","FRW11015","EGW11006","EGW11007","BOA394","DRA10096","DRA10190",
   "DRA11837","SLW11018","SLW11019","SLW11029","DRA11130","DRA11131","DRA11132",
-  "DRA11133","ORE11103","MON12551","SCA11051",
+  "DRA11133","ORE11103","MON12551","SCA11051","ZSA11019","ZSA11022",
 ];
 import { supabase } from "../lib/supabase";
 import { formatItalianDate } from "../lib/dateUtils";
@@ -94,6 +94,7 @@ export default function ProductionReportView({
     DRA10102: ["DRA10102", "DRA10108"],
     DRA10110: ["DRA10110", "DRA10111"],
     DRA10113: ["DRA10113", "DRA10114"],
+    ZSA11019: ["ZSA11019", "ZSA11022"],
   };
 
   // Helper to find the primary machine ID for a given machine ID
@@ -293,6 +294,11 @@ export default function ProductionReportView({
         }
         if (label.includes("controllo ut")) {
           return machineId === "MZA10005";
+        }
+
+        // Exclude MZA10005 from DMC since its prefix matches but it moved to Controllo UT
+        if (machineId === "MZA10005" && label.includes("dmc")) {
+          return false;
         }
 
         if (tec.prefissi) {

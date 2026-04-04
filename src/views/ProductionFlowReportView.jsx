@@ -32,6 +32,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
   const [prodByFino, setProdByFino] = useState({});
   const [prodByMaterialGlobal, setProdByMaterialGlobal] = useState({});
   const [isSlotEditMode, setIsSlotEditMode] = useState(false);
+  const [showGlobalSlotModal, setShowGlobalSlotModal] = useState(false);
+  const [globalSlotData, setGlobalSlotData] = useState({ slotIndex: 0, fino: "", componente: "", codiceMateriale: "" });
   const [showSlotModal, setShowSlotModal] = useState(false);
   const [slotModalData, setSlotModalData] = useState({ machineId: "", slotIndex: 0, componente: "", progetto: "", codiceMateriale: "", fino: "" });
   const [isSavingSlot, setIsSavingSlot] = useState(false);
@@ -210,7 +212,11 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
     
     // Support for moving MZA machines to Saldatura Laser
     if (activeTech === "saldatrici" || activeTech === "saldatura_laser") {
-      if (machineId === "MZA10005" || machineId === "MZA11006") return true;
+      if (machineId === "MZA11006") return true;
+    }
+
+    if (activeTech === "controllo_ut") {
+      if (machineId === "MZA10005") return true;
     }
     
     const tec = tecnologie.find(t => t.id === activeTech);
@@ -482,6 +488,61 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
     }
   };
 
+  const handleSaveGlobalSlot = async () => {
+    const { slotIndex, componente, codiceMateriale, fino } = globalSlotData;
+    if (!fino && !componente && !codiceMateriale) {
+      alert("Compila almeno un campo da applicare a tutte le macchine!");
+      return;
+    }
+
+    if (!window.confirm(`Sei sicuro di voler applicare questi parametri allo Slot ${parseInt(slotIndex) + 1} di TUTTE le ${filteredMachines.length} macchine in questa vista?\nVerranno sovrascritti i parametri corrispondenti.`)) {
+      return;
+    }
+
+    setIsSavingSlot(true);
+    try {
+      const payload = filteredMachines.map(m => {
+        const existing = slotConfigs[m.id.toUpperCase()]?.[slotIndex] || {};
+        return {
+          macchina_id: m.id,
+          slot_index: parseInt(slotIndex),
+          // If the global input provides a value, overwrite. Otherwise keep existing (or null).
+          componente: componente || existing.componente || null,
+          progetto: existing.progetto || null,
+          codice_materiale: codiceMateriale || existing.codice_materiale || null,
+          fino: fino || existing.fino || null,
+        };
+      });
+
+      const { error } = await supabase.from("slot_config").upsert(payload, { onConflict: "macchina_id,slot_index" });
+      if (error) throw error;
+
+      setSlotConfigs(prev => {
+        const next = { ...prev };
+        filteredMachines.forEach(m => {
+          const upId = m.id.toUpperCase();
+          const existing = next[upId]?.[slotIndex] || {};
+          next[upId] = {
+            ...(next[upId] || {}),
+            [slotIndex]: {
+              ...existing,
+              componente: componente || existing.componente || null,
+              codice_materiale: codiceMateriale || existing.codice_materiale || null,
+              fino: fino || existing.fino || null,
+            }
+          };
+        });
+        return next;
+      });
+      setShowGlobalSlotModal(false);
+    } catch (err) {
+      console.error("Errore salvataggio slot globale:", err);
+      alert("Errore durante il salvataggio globale!");
+    } finally {
+      setIsSavingSlot(false);
+    }
+  };
+
   return (
     <div className="fade-in" style={{ padding: "24px", height: "100%", overflowY: "auto" }}>
       <div style={{ marginBottom: "32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -585,7 +646,31 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 whiteSpace: "nowrap"
               }}
             >
-              {isSlotEditMode ? "✓ Esci da Configura" : "⚙ Configura Slot"}
+              {isSlotEditMode ? "✓ Esci da Configura" : "⚙ Configura Singolo"}
+            </button>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <label style={{ fontSize: "10px", fontWeight: "700", color: "transparent", letterSpacing: "0.5px" }}>_</label>
+            <button
+              onClick={() => {
+                setGlobalSlotData({ slotIndex: 0, fino: "", componente: "", codiceMateriale: "" });
+                setShowGlobalSlotModal(true);
+              }}
+              style={{
+                padding: "9px 16px",
+                borderRadius: "10px",
+                border: "1px solid var(--accent)",
+                backgroundColor: "var(--accent)",
+                color: "white",
+                fontWeight: "700",
+                fontSize: "13px",
+                cursor: "pointer",
+                transition: "all 0.2s",
+                whiteSpace: "nowrap"
+              }}
+            >
+              🚀 Applica OP Globale
             </button>
           </div>
         </div>
@@ -597,7 +682,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           const EXTRA_TECS = [
             { id: "rg_loop_grande", label: "RG Loop Grande" },
             { id: "rg_mini_opf", label: "RG Mini OPF" },
-            { id: "dh", label: "DH" }
+            { id: "dh", label: "DH" },
+            { id: "controllo_ut", label: "Controllo UT" }
           ];
 
           // Combine with existing technologies, avoiding duplicates
@@ -623,7 +709,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             "rectifica denti": "Rettifica Denti",
             "rg loop grande": "RG Loop Grande",
             "rg mini opf": "RG Mini OPF",
-            dh: "DH"
+            dh: "DH",
+            "controllo ut": "Controllo UT"
           };
 
           const desiredOrder = [
@@ -641,13 +728,14 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             "Rettifica Denti",
             "RG Loop Grande",
             "RG Mini OPF",
-            "DH"
+            "DH",
+            "Controllo UT"
           ];
 
           return allTecs
             .filter(t => {
               const label = (t.label || "").toLowerCase();
-              return !label.includes("controllo ut") && !label.includes("foratrice");
+              return !label.includes("foratrice");
             })
             .map(t => {
               const originalLabel = (t.label || "").toLowerCase();
@@ -1398,6 +1486,81 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           </div>
         </Modal>
       )}
+
+      {/* Global Tab Config Modal */}
+      {showGlobalSlotModal && (
+        <Modal
+          title={`Configura Globale per la Vista Corrente`}
+          onClose={() => setShowGlobalSlotModal(false)}
+          footer={
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", width: "100%" }}>
+              <button
+                className="btn btn-primary"
+                style={{ flex: 2, background: "var(--accent)", minWidth: "200px" }}
+                onClick={handleSaveGlobalSlot}
+                disabled={isSavingSlot}
+              >
+                {isSavingSlot ? "..." : "Applica a Tutte Le Macchine"}
+              </button>
+              <button className="btn btn-secondary" onClick={() => setShowGlobalSlotModal(false)}>Annulla</button>
+            </div>
+          }
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "12px" }}>
+            <div style={{ padding: "10px 14px", background: "rgba(16,185,129,0.1)", borderRadius: "8px", fontSize: "12px", color: "var(--text-primary)", border: "1px solid rgba(16,185,129,0.3)" }}>
+              Questa funzione applica le impostazioni inserite allo <strong>Slot specificato</strong> per <strong>TUTTE le macchine</strong> attualmente filtrate nella vista.<br/>I campi vuoti NON sovrascriveranno le impostazioni esistenti.
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: "700" }}>Seleziona lo Slot di Destinazione *</label>
+              <select
+                className="select-input"
+                value={globalSlotData.slotIndex}
+                onChange={e => setGlobalSlotData(p => ({ ...p, slotIndex: e.target.value }))}
+                style={{ padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", width: "100%" }}
+              >
+                <option value={0}>Slot 1</option>
+                <option value={1}>Slot 2</option>
+                <option value={2}>Slot 3</option>
+                <option value={3}>Slot 4</option>
+                <option value={4}>Slot 5 (Extra)</option>
+              </select>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: "700" }}>OP Macchina (Fino) *</label>
+              <input
+                type="text"
+                className="input"
+                placeholder="Es. 0140, 0010..."
+                value={globalSlotData.fino}
+                onChange={e => setGlobalSlotData(p => ({ ...p, fino: e.target.value.toUpperCase() }))}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: "700" }}>Componente (Aggiorna Tutte - Opz.)</label>
+              <input
+                type="text"
+                className="input"
+                placeholder="Lascia vuoto per non modificare..."
+                value={globalSlotData.componente}
+                onChange={e => setGlobalSlotData(p => ({ ...p, componente: e.target.value.toUpperCase() }))}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: "700" }}>Codice Materiale (Aggiorna Tutte - Opz.)</label>
+              <input
+                type="text"
+                className="input"
+                placeholder="Lascia vuoto per non modificare..."
+                value={globalSlotData.codiceMateriale}
+                onChange={e => setGlobalSlotData(p => ({ ...p, codiceMateriale: e.target.value.toUpperCase() }))}
+              />
+            </div>
+          </div>
+        </Modal>
+      )}
+
     </div>
   );
 }
