@@ -676,9 +676,24 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: "8px", marginBottom: "24px", flexWrap: "wrap" }}>
-        <button onClick={() => setActiveTech("TUTTO")} style={tabStyle("TUTTO")}>Tutte le tecnologie</button>
-        {(() => {
+      {/* MAIN LAYOUT: Sidebar (Tabs) + Content (Grid) */}
+      <div style={{ display: "flex", gap: "24px", alignItems: "flex-start", width: "100%" }}>
+        
+        {/* TABS SIDEBAR */}
+        <div style={{ 
+          display: "flex", 
+          flexDirection: "column", 
+          gap: "8px", 
+          width: "180px", 
+          minWidth: "180px", 
+          position: "sticky", 
+          top: "0",
+          maxHeight: "calc(100vh - 120px)",
+          overflowY: "auto",
+          paddingRight: "8px"
+        }}>
+          <button onClick={() => setActiveTech("TUTTO")} style={{...tabStyle("TUTTO"), textAlign: "left", width: "100%"}}>Tutte le tecnologie</button>
+          {(() => {
           const EXTRA_TECS = [
             { id: "rg_loop_grande", label: "RG Loop Grande" },
             { id: "rg_mini_opf", label: "RG Mini OPF" },
@@ -756,15 +771,16 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               return idxA - idxB;
             })
             .map(t => (
-              <button key={t.id} onClick={() => setActiveTech(t.id)} style={tabStyle(t.id)}>
+              <button key={t.id} onClick={() => setActiveTech(t.id)} style={{...tabStyle(t.id), textAlign: "left", width: "100%"}}>
                 {t.displayLabel}
               </button>
             ));
         })()}
-      </div>
+        </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px" }}>
-        {(() => {
+        {/* MACHINES GRID CONTENT */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px", flex: 1, alignContent: "start", paddingBottom: "40px" }}>
+          {(() => {
           // Define twin groups
           const twinGroups = [
             ["DRA10063", "DRA10064"],
@@ -1219,6 +1235,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             );
           });
         })()}
+        </div>
       </div>
 
       {/* Slot Config Modal */}
