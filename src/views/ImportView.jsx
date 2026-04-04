@@ -15,7 +15,6 @@ import { supabase } from "../lib/supabase";
 
 const COL_DEFS_PROD = [
     { key: "acquisito", label: "Acquisito", patterns: ["acquisito", "data conf", "posting date", "data posting", "data", "data prod"] },
-    { key: "work_center", label: "Centro di lavoro", patterns: ["centro di lavoro", "ctrlav", "work center", "workcenter", "centro lav"] },
     { key: "materiale", label: "Materiale", patterns: ["materiale", "matr.", "material", "articolo", "art."] },
     { key: "qta_ottenuta", label: "Quantità ottenuta", patterns: ["quantità ottenuta", "qtà ottenuta", "qta ottenuta", "yield", "qtà conf", "qta conf"] },
     { key: "qta_scarto", label: "Qtà scarto", patterns: ["scarto", "qtà scarto", "qta scarto", "scrap"] },
@@ -258,10 +257,15 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
 
     /* ── preview ── */
     const handlePreview = () => {
-        if (!mapping.work_center) {
-            showToast("La colonna 'Centro di lavoro' è obbligatoria", "error");
+        if (importType === "fermi" && !mapping.work_center) {
+            showToast("La colonna 'Centro di lavoro' è obbligatoria per i fermi", "error");
             return;
         }
+        if (importType === "produzione" && (!mapping.acquisito || !mapping.materiale || !mapping.fino)) {
+            showToast("Le colonne 'Acquisito', 'Materiale' e 'Fino (N. Op.)' sono obbligatorie", "error");
+            return;
+        }
+
         const macchineMap = {};
         for (const m of macchine) {
             // Indice primario: Codice SAP (se presente)
@@ -273,25 +277,41 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
         // Usa hdrIndexMap per indici originali (evita disallineamento con colonne vuote)
         const get = (row, col) => col ? row[hdrIndexMap[col]] ?? "" : "";
 
-        const parsed = rawRows.map(row => {
-            const wc = String(get(row, mapping.work_center) || "").trim().toUpperCase();
-            const mac = macchineMap[wc] || null;
-            
+        const prodAgg = {};
+        const parsedRaw = rawRows.map(row => {
             if (importType === "produzione") {
-                return {
-                    work_center_sap: wc,
-                    macchina_id: mac?.id || null,
-                    macchina_nome: mac?.nome || mac?.id || null,
-                    matched: !!mac,
-                    data: formatDate(get(row, mapping.acquisito), dateFormat),
-                    materiale: String(get(row, mapping.materiale) || "").trim() || null,
-                    qta_ottenuta: parseFloat(get(row, mapping.qta_ottenuta)) || null,
-                    qta_scarto: parseFloat(get(row, mapping.qta_scarto)) || null,
-                    turno_id: mapTurno(get(row, mapping.turno)),
-                    ora: formatTime(get(row, mapping.ora)),
-                    fino: String(get(row, mapping.fino) || "").trim() || null,
-                };
+                const data_val = formatDate(get(row, mapping.acquisito), dateFormat);
+                const turno_id = mapTurno(get(row, mapping.turno)) || "Sconosciuto";
+                const materiale = String(get(row, mapping.materiale) || "").trim() || "Sconosciuto";
+                const fino = String(get(row, mapping.fino) || "").trim() || "Sconosciuto";
+                
+                // create a key based on the grouping criteria
+                const key = `${data_val}_${turno_id}_${materiale}_${fino}`;
+                
+                if (!prodAgg[key]) {
+                    prodAgg[key] = {
+                        work_center_sap: null,
+                        macchina_id: null,
+                        macchina_nome: null,
+                        matched: true,
+                        data: data_val,
+                        materiale,
+                        qta_ottenuta: 0,
+                        qta_scarto: 0,
+                        turno_id,
+                        ora: formatTime(get(row, mapping.ora)),
+                        fino,
+                    };
+                }
+                const qta_ott = parseFloat(get(row, mapping.qta_ottenuta)) || 0;
+                const qta_scarto = parseFloat(get(row, mapping.qta_scarto)) || 0;
+                prodAgg[key].qta_ottenuta += qta_ott;
+                prodAgg[key].qta_scarto += qta_scarto;
+                
+                return null;
             } else {
+                const wc = String(get(row, mapping.work_center) || "").trim().toUpperCase();
+                const mac = macchineMap[wc] || null;
                 return {
                     work_center_sap: wc,
                     macchina_id: mac?.id || null,
@@ -309,7 +329,11 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                     turno_id: mapTurno(get(row, mapping.turno)),
                 };
             }
-        }).filter(r => r.work_center_sap);
+        });
+
+        let parsed = importType === "produzione" 
+            ? Object.values(prodAgg) 
+            : parsedRaw.filter(r => r && r.work_center_sap);
 
         const matched = parsed.filter(r => r.matched).length;
         const wcsUnmatched = [...new Set(parsed.filter(r => !r.matched).map(r => r.work_center_sap))];
@@ -578,7 +602,7 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
 
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12, marginBottom: 24 }}>
                         {(importType === 'produzione' ? COL_DEFS_PROD : COL_DEFS_FERMI).map(({ key, label }) => {
-                            const isRequired = key === "work_center" || key === "acquisito" || key === "data_inizio";
+                            const isRequired = importType === 'produzione' ? (key === "acquisito" || key === "materiale" || key === "fino") : (key === "work_center" || key === "data_inizio");
                             const found = !!mapping[key];
                             return (
                                 <div key={key} className="form-group" style={{ marginBottom: 0 }}>
@@ -661,7 +685,7 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                                 <thead>
                                     <tr style={{ background: "var(--bg-tertiary)" }}>
                                         {importType === "produzione" ? (
-                                            ["Data", "Ora", "Centro SAP", "Macchina", "Materiale", "Fino", "Qtà Ott.", "Qtà Scarto", "Turno"].map(h => (
+                                            ["Data", "Ora", "Materiale", "Fino", "Qtà Ott.", "Qtà Scarto", "Turno"].map(h => (
                                                 <th key={h} style={{ padding: "8px 12px", textAlign: h.includes("Qtà") ? "right" : "left", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", whiteSpace: "nowrap" }}>{h}</th>
                                             ))
                                         ) : (
@@ -676,12 +700,8 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                                         <tr key={i} style={{ borderBottom: "1px solid var(--border-light)", opacity: r.matched ? 1 : 0.45 }}>
                                             {importType === "produzione" ? (
                                                 <>
-                                                    <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", whiteSpace: "nowrap" }}>{formatItalianDate(r.data)}</td>
+                                                    <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", whiteSpace: "nowrap" }}>{r.data ? formatItalianDate(r.data) : "—"}</td>
                                                     <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", color: "var(--text-muted)" }}>{r.ora || "—"}</td>
-                                                    <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", fontWeight: 600 }}>{r.work_center_sap}</td>
-                                                    <td style={{ padding: "7px 12px", fontSize: 12 }}>
-                                                        {r.matched ? <span style={{ color: "var(--success)", fontWeight: 600 }}>{r.macchina_nome}</span> : <span style={{ color: "var(--danger)", fontSize: 11 }}>Non trovata</span>}
-                                                    </td>
                                                     <td style={{ padding: "7px 12px", fontSize: 12 }}>{r.materiale || "—"}</td>
                                                     <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", color: "var(--text-muted)" }}>{r.fino || "—"}</td>
                                                     <td style={{ padding: "7px 12px", fontSize: 12, textAlign: "right", fontWeight: r.qta_ottenuta ? 600 : 400 }}>{r.qta_ottenuta != null ? r.qta_ottenuta.toLocaleString("it-IT") : "—"}</td>

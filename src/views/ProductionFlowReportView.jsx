@@ -401,6 +401,60 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
     }
   };
 
+  const handleSaveSlotForAll = async () => {
+    const { slotIndex, componente, progetto, codiceMateriale, fino } = slotModalData;
+    if (!componente) {
+      alert("Il campo Componente è obbligatorio per la macchina corrente.");
+      return;
+    }
+    const count = filteredMachines.length - 1; // escludo quella corrente
+    if (!window.confirm(`Sei sicuro di voler applicare l'OP (Fino) "${fino || 'Vuoto'}" a TUTTE le altre ${count} macchine in questa tab?\nLa macchina corrente salverà tutti i campi, le altre solo l'OP.`)) {
+      return;
+    }
+    setIsSavingSlot(true);
+    try {
+      const payload = filteredMachines.map(m => {
+        const isCurrent = m.id === slotModalData.machineId;
+        const existing = slotConfigs[m.id.toUpperCase()]?.[slotIndex] || {};
+        return {
+          macchina_id: m.id,
+          slot_index: slotIndex,
+          componente: isCurrent ? (componente || null) : (existing.componente || null),
+          progetto: isCurrent ? (progetto || null) : (existing.progetto || null),
+          codice_materiale: isCurrent ? (codiceMateriale || null) : (existing.codice_materiale || null),
+          fino: fino || null,
+        };
+      });
+      const { error } = await supabase.from("slot_config").upsert(payload, { onConflict: "macchina_id,slot_index" });
+      if (error) throw error;
+      setSlotConfigs(prev => {
+        const next = { ...prev };
+        filteredMachines.forEach(m => {
+          const upId = m.id.toUpperCase();
+          const isCurrent = m.id === slotModalData.machineId;
+          const existing = next[upId]?.[slotIndex] || {};
+          next[upId] = {
+            ...(next[upId] || {}),
+            [slotIndex]: {
+              ...existing,
+              componente: isCurrent ? (componente || null) : (existing.componente || null),
+              progetto: isCurrent ? (progetto || null) : (existing.progetto || null),
+              codice_materiale: isCurrent ? (codiceMateriale || null) : (existing.codice_materiale || null),
+              fino: fino || null,
+            }
+          };
+        });
+        return next;
+      });
+      setShowSlotModal(false);
+    } catch (err) {
+      console.error("Errore salvataggio slot globale:", err);
+      alert("Errore durante il salvataggio globale: " + (err?.message || JSON.stringify(err)));
+    } finally {
+      setIsSavingSlot(false);
+    }
+  };
+
   const handleDeleteSlot = async () => {
     const { machineId, slotIndex } = slotModalData;
     setIsSavingSlot(true);
@@ -635,6 +689,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             ["DRA10102", "DRA10108"],
             ["DRA10110", "DRA10111"],
             ["DRA10113", "DRA10114"],
+            ["ZSA11019", "ZSA11022"],
           ];
           
           const processedMachines = [];
@@ -680,16 +735,32 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               (hasSoftProduction.has(mid) && m.tecnologia_id !== "TH" && m.tecnologia_id?.toLowerCase() !== "tornitura_hard")
             );
 
-            // Always render exactly 4 slots. "Hidden" slot indices are invisible
-            // placeholders that still occupy their fixed space in the row.
-            const SLOT_COUNT = 4;
+            // Always render exactly SLOT_COUNT slots. "Hidden" slot indices are invisible placeholders.
+            const isZSA = m.ids?.includes("ZSA11019") || m.ids?.includes("ZSA11022") || mid === "ZSA11019" || mid === "ZSA11022";
+            const SLOT_COUNT = isZSA ? 12 : 4;
             const FERMI_IDX = SLOT_COUNT - 1;
             // Slots hidden per machine: index → invisible placeholder
             const hiddenSlots = new Set(mid === "RAA11009" ? [1, 2] : []);
 
             // Pre-compute production slot data (identical logic to slot rendering)
             // so headerTotal always exactly matches the sum of displayed slot values
-            const mProdForPre = productionData[m.id] || {};
+            const mProdForPre = {};
+            if (m.ids) {
+              m.ids.forEach(id => {
+                const singleProd = productionData[id.toUpperCase()] || {};
+                Object.keys(singleProd).forEach(comp => {
+                  if (!mProdForPre[comp]) mProdForPre[comp] = { total: 0, materials: [] };
+                  mProdForPre[comp].total += singleProd[comp].total;
+                  singleProd[comp].materials.forEach(mat => {
+                    const ext = mProdForPre[comp].materials.find(x => x.code === mat.code);
+                    if (ext) ext.qty += mat.qty;
+                    else mProdForPre[comp].materials.push({...mat});
+                  });
+                });
+              });
+            } else {
+              Object.assign(mProdForPre, productionData[m.id] || {});
+            }
             const prodComponentsForPre = Object.keys(mProdForPre);
             const computedSlotData = Array.from({ length: FERMI_IDX }).map((_, i) => {
               if (hiddenSlots.has(i)) return { hidden: true };
@@ -743,6 +814,15 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 productionInfo = i === 0 ? mProdForPre["PG"] : null; displayComp = i === 0 ? "PG" : null; displayProj = i === 0 ? "M0154996/S" : null;
               } else if (isRGMin) {
                 displayComp = i === 0 ? "RG" : null;
+              } else if (isZSA) {
+                const zsaComps = ["SG2", "SG3", "SG4", "SG5", "SG6", "SG7", "SG8", "SGR", "PG", "FG5/7", "RG"];
+                if (i < FERMI_IDX) {
+                  displayComp = zsaComps[i] || null;
+                  if (displayComp) {
+                    productionInfo = mProdForPre[displayComp];
+                    if (productionInfo?.materials?.length > 0) displayProj = productionInfo.materials[0].progetto;
+                  }
+                }
               } else if (mid === "DRA10060") {
                 const compMap = ["SG2", "SGR"]; const projMap = ["M0153389/S", "M0153391/S"];
                 const prodSources = [mProdForPre, productionData["DRA14100"] || {}];
@@ -784,14 +864,14 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                   display: "flex", 
                   gap: "12px", 
                   justifyContent: "start",
-                  flexWrap: "nowrap",
+                  flexWrap: "wrap",
                   width: "100%"
                 }}>
                   {Array.from({ length: SLOT_COUNT }).map((_, i) => {
                     // Hidden slots: invisible placeholder that still holds its space
                     if (hiddenSlots.has(i)) {
                       return (
-                        <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", gap: "3px", visibility: "hidden", pointerEvents: "none" }}>
+                        <div key={i} style={{ flex: "0 0 calc(25% - 9px)", display: "flex", flexDirection: "column", gap: "3px", visibility: "hidden", pointerEvents: "none" }}>
                           <div style={{ height: "14px" }} />
                           <div style={{ height: "100px" }} />
                         </div>
@@ -829,7 +909,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                       const isCritical = minutes > 60;
 
                       return (
-                        <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", gap: "3px" }}>
+                        <div key={i} style={{ flex: "0 0 calc(25% - 9px)", minWidth: "100px", display: "flex", flexDirection: "column", gap: "3px" }}>
                         <div style={{ height: "14px" }} />
                         <div style={{
                           height: "100px",
@@ -942,7 +1022,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                     const materials = productionInfo?.materials ?? [];
 
                     return (
-                      <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", gap: "3px" }}>
+                      <div key={i} style={{ flex: "0 0 calc(25% - 9px)", minWidth: "100px", display: "flex", flexDirection: "column", gap: "3px" }}>
                         {/* Project label above slot */}
                         <div style={{
                           height: "18px",
@@ -1059,14 +1139,22 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           title={`${slotConfigs[slotModalData.machineId]?.[slotModalData.slotIndex] ? "Modifica" : "Configura"} Slot ${slotModalData.slotIndex + 1} — ${slotModalData.machineId}`}
           onClose={() => setShowSlotModal(false)}
           footer={
-            <div style={{ display: "flex", gap: "12px", width: "100%" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", width: "100%" }}>
               <button
                 className="btn btn-primary"
-                style={{ flex: 1 }}
+                style={{ flex: 1, minWidth: "120px" }}
                 onClick={handleSaveSlot}
                 disabled={isSavingSlot}
               >
-                {isSavingSlot ? "Salvataggio..." : "Salva"}
+                {isSavingSlot ? "..." : "Salva Solo Questa"}
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ flex: 2, background: "var(--accent)", minWidth: "200px" }}
+                onClick={handleSaveSlotForAll}
+                disabled={isSavingSlot}
+              >
+                {isSavingSlot ? "..." : "Applica SOLO Fino a Tutte le Macchine"}
               </button>
               {slotConfigs[slotModalData.machineId]?.[slotModalData.slotIndex] && (
                 <button
@@ -1075,7 +1163,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                   onClick={handleDeleteSlot}
                   disabled={isSavingSlot}
                 >
-                  Ripristina Default
+                  Azzera
                 </button>
               )}
               <button className="btn btn-secondary" onClick={() => setShowSlotModal(false)}>Annulla</button>
@@ -1084,17 +1172,36 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         >
           <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "12px" }}>
             <div style={{ padding: "10px 14px", background: "var(--bg-tertiary)", borderRadius: "8px", fontSize: "12px", color: "var(--text-muted)" }}>
-              Configura cosa mostrare nello slot {slotModalData.slotIndex + 1} della macchina <strong style={{ color: "var(--text-primary)" }}>{slotModalData.machineId}</strong>.
-              Lascia vuoto un campo per usare il comportamento di default.
+              Assegna l'OP (Fino) alla macchina <strong style={{ color: "var(--text-primary)" }}>{slotModalData.machineId}</strong> e definisci il codice SAP del componente per collegare la produzione.
             </div>
             <div className="form-group">
-              <label className="form-label" style={{ fontWeight: "700" }}>Componente</label>
+              <label className="form-label" style={{ fontWeight: "700" }}>OP Macchina (Fino) *</label>
+              <input
+                type="text"
+                className="input"
+                placeholder="Es. 0140, 0010..."
+                value={slotModalData.fino}
+                onChange={e => setSlotModalData(p => ({ ...p, fino: e.target.value.toUpperCase() }))}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: "700" }}>Componente *</label>
               <input
                 type="text"
                 className="input"
                 placeholder="Es. SG3, SG4, PG, RG..."
                 value={slotModalData.componente}
                 onChange={e => setSlotModalData(p => ({ ...p, componente: e.target.value.toUpperCase() }))}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: "700" }}>Codice Materiale *</label>
+              <input
+                type="text"
+                className="input"
+                placeholder="Es. M0153389/S"
+                value={slotModalData.codiceMateriale}
+                onChange={e => setSlotModalData(p => ({ ...p, codiceMateriale: e.target.value.toUpperCase() }))}
               />
             </div>
             <div className="form-group">
@@ -1105,26 +1212,6 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 placeholder="Es. DCT Eco, DCT 300..."
                 value={slotModalData.progetto}
                 onChange={e => setSlotModalData(p => ({ ...p, progetto: e.target.value }))}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" style={{ fontWeight: "700" }}>Codice Materiale <span style={{ fontWeight: 400, color: "var(--text-muted)", fontSize: "11px" }}>(opzionale)</span></label>
-              <input
-                type="text"
-                className="input"
-                placeholder="Es. M0153389/S"
-                value={slotModalData.codiceMateriale}
-                onChange={e => setSlotModalData(p => ({ ...p, codiceMateriale: e.target.value.toUpperCase() }))}
-              />
-            </div>
-            <div className="form-group">
-              <label className="form-label" style={{ fontWeight: "700" }}>Numero Operazione <span style={{ fontWeight: 400, color: "var(--text-muted)", fontSize: "11px" }}>(opzionale)</span></label>
-              <input
-                type="text"
-                className="input"
-                placeholder="Es. 0140, 0010..."
-                value={slotModalData.fino}
-                onChange={e => setSlotModalData(p => ({ ...p, fino: e.target.value.toUpperCase() }))}
               />
             </div>
           </div>
