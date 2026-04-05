@@ -12,7 +12,6 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
   const [activeTech, setActiveTech] = useState("TUTTO");
   const [productionData, setProductionData] = useState({});
   const [fermiData, setFermiData] = useState({});
-  const [anagrafica, setAnagrafica] = useState({});
   const [loading, setLoading] = useState(true);
   const [hasSoftProduction, setHasSoftProduction] = useState(new Set());
 
@@ -54,17 +53,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
       try {
         const date = globalDate || new Date().toISOString().split("T")[0];
         
-        // 1. Fetch anagrafica
-        const { data: anaData } = await supabase.from("anagrafica_materiali").select("*");
-        const anaMap = {};
-        if (anaData) {
-          anaData.forEach(item => {
-            anaMap[item.codice.toUpperCase()] = item;
-          });
-          setAnagrafica(anaMap);
-        }
-
-        // 2. Fetch production
+        // 1. Fetch production
         let query = supabase.from("conferme_sap").select("*").eq("data", date);
         if (turnoCorrente && turnoCorrente !== "ALL") {
           query = query.eq("turno_id", turnoCorrente);
@@ -84,8 +73,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           const mId = (row.macchina_id || row.work_center_sap || "").toUpperCase();
           const mat = (row.materiale || "").toUpperCase();
           const qty = row.qta_ottenuta || 0;
-          const info = anaMap[mat];
-          const comp = info?.componente?.toUpperCase();
+          const comp = row.componente?.toUpperCase();
           const fino = normFino(row.fino);
 
           if (mat.endsWith("/S") && mId) {
@@ -121,7 +109,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               map[key][comp].materials.push({
                 code: mat,
                 qty,
-                progetto: info?.progetto || "",
+                progetto: row.progetto || "",
                 sapCode: row.work_center_sap || row.macchina_id || ""
               });
             }
@@ -519,8 +507,10 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
     }
   };
 
-  const handleDeleteSlot = async () => {
-    const { machineId, slotIndex } = slotModalData;
+  const handleDeleteSlot = async (machineIdParam, slotIndexParam) => {
+    const machineId = machineIdParam || slotModalData.machineId;
+    const slotIndex = (slotIndexParam !== undefined) ? slotIndexParam : slotModalData.slotIndex;
+    
     if (!window.confirm(`Sei sicuro di voler eliminare lo Slot ${parseInt(slotIndex) + 1} per ${machineId}?\nLe configurazioni verranno rimosse permanentemente.`)) {
       return;
     }
@@ -984,25 +974,25 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 displayComp = slotConf.componente || null;
                 const finoKey = slotConf.fino ? normFino(slotConf.fino) : null;
                 if (slotConf.codice_materiale && finoKey) {
-                  // Filter by both material code AND fino — turno already filtered by query
+                  // Filter by both material code AND fino
                   const matFilter = slotConf.codice_materiale.toUpperCase();
                   const qty = prodByFino[finoKey]?.[matFilter] || 0;
-                  displayProj = slotConf.progetto || anagrafica[matFilter]?.progetto || null;
+                  displayProj = slotConf.progetto || null;
                   productionInfo = { total: qty, materials: qty > 0 ? [{ code: matFilter, qty, progetto: displayProj || "" }] : [] };
                 } else if (slotConf.codice_materiale) {
-                  // Only material code — global sum across all machines and fino
+                  // Only material code
                   const matFilter = slotConf.codice_materiale.toUpperCase();
                   const qty = prodByMaterialGlobal[matFilter] || 0;
-                  displayProj = slotConf.progetto || anagrafica[matFilter]?.progetto || null;
+                  displayProj = slotConf.progetto || null;
                   productionInfo = { total: qty, materials: qty > 0 ? [{ code: matFilter, qty, progetto: displayProj || "" }] : [] };
                 } else if (finoKey) {
-                  // Only fino — sum all materials under this operation number
+                  // Only fino
                   const finoMats = prodByFino[finoKey] || {};
                   const total = Object.values(finoMats).reduce((s, v) => s + v, 0);
-                  const materials = Object.entries(finoMats).map(([code, qty]) => ({ code, qty, progetto: anagrafica[code]?.progetto || "" }));
+                  const materials = Object.entries(finoMats).map(([code, qty]) => ({ code, qty, progetto: "" }));
                   if (total > 0) {
                     productionInfo = { total, materials };
-                    displayProj = slotConf.progetto || materials[0]?.progetto || null;
+                    displayProj = slotConf.progetto || null;
                   }
                 } else {
                   const sourceProd = productionData[mid] || {};
@@ -1042,7 +1032,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               } else {
                 if (prodComponentsForPre[i]) { displayComp = prodComponentsForPre[i]; productionInfo = mProdForPre[displayComp]; if (productionInfo?.materials?.length > 0) displayProj = productionInfo.materials[0].progetto; }
               }
-              return { productionInfo, displayComp, displayProj };
+              return { productionInfo, displayComp, displayProj, isConfigured: !!slotConf };
             });
             const headerTotal = computedSlotData.reduce((sum, s) => sum + (s.hidden ? 0 : (s.productionInfo?.total || 0)), 0);
 
@@ -1112,6 +1102,13 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                   width: "100%"
                 }}>
                   {Array.from({ length: SLOT_COUNT }).map((_, i) => {
+                    const isFermi = i === FERMI_IDX;
+                    const slotData = computedSlotData[i];
+                    
+                    // IF not in edit mode, only show configured slots (except FERMI)
+                    if (!isSlotEditMode && !isFermi && !slotData?.isConfigured) {
+                      return null;
+                    }
                     // Hidden slots: invisible placeholder that still holds its space
                     if (hiddenSlots.has(i)) {
                       return (
@@ -1267,6 +1264,37 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                               zIndex: 2,
                               backdropFilter: "blur(1px)"
                             }}>
+                              {/* Direct Delete Button (X) */}
+                              {slotConfigs[m.ids ? m.ids[0].toUpperCase() : mid]?.[i] && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteSlot(m.ids ? m.ids[0].toUpperCase() : mid, i);
+                                  }}
+                                  style={{
+                                    position: "absolute",
+                                    top: "6px",
+                                    right: "6px",
+                                    width: "22px",
+                                    height: "22px",
+                                    borderRadius: "50%",
+                                    background: "rgba(239, 68, 68, 0.9)",
+                                    color: "white",
+                                    border: "none",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: "12px",
+                                    fontWeight: "bold",
+                                    cursor: "pointer",
+                                    zIndex: 3,
+                                    boxShadow: "0 2px 4px rgba(0,0,0,0.2)"
+                                  }}
+                                  title="Elimina Slot"
+                                >
+                                  ×
+                                </button>
+                              )}
                               <div style={{ textAlign: "center" }}>
                                 <div style={{ fontSize: "18px" }}>{slotConfigs[m.ids ? m.ids[0].toUpperCase() : mid]?.[i] ? "✏️" : "➕"}</div>
                                 <div style={{ fontSize: "9px", fontWeight: "900", color: "white", letterSpacing: "0.5px", marginTop: "2px" }}>
@@ -1333,11 +1361,11 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               {slotConfigs[slotModalData.machineId]?.[slotModalData.slotIndex] && (
                 <button
                   className="btn btn-secondary"
-                  style={{ color: "var(--danger)", borderColor: "var(--danger)" }}
-                  onClick={handleDeleteSlot}
+                  style={{ color: "var(--danger)", borderColor: "var(--danger)", display: "flex", alignItems: "center", gap: "6px" }}
+                  onClick={() => handleDeleteSlot()}
                   disabled={isSavingSlot}
                 >
-                  Azzera
+                  {Icons.trash} Elimina Slot
                 </button>
               )}
               <button className="btn btn-secondary" onClick={() => setShowSlotModal(false)}>Annulla</button>
