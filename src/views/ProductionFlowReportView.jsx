@@ -32,11 +32,21 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
   const [prodByFino, setProdByFino] = useState({});
   const [prodByMaterialGlobal, setProdByMaterialGlobal] = useState({});
   const [isSlotEditMode, setIsSlotEditMode] = useState(false);
-  const [showGlobalSlotModal, setShowGlobalSlotModal] = useState(false);
-  const [globalSlotData, setGlobalSlotData] = useState({ slotIndex: 0, fino: "", componente: "", codiceMateriale: "" });
   const [showSlotModal, setShowSlotModal] = useState(false);
   const [slotModalData, setSlotModalData] = useState({ machineId: "", slotIndex: 0, componente: "", progetto: "", codiceMateriale: "", fino: "" });
   const [isSavingSlot, setIsSavingSlot] = useState(false);
+
+  // New Machine State
+  const [showNewMachineModal, setShowNewMachineModal] = useState(false);
+  const [newMachineForm, setNewMachineForm] = useState({ id: "", nome: "", tecnologia_id: "" });
+  const [isSavingMachine, setIsSavingMachine] = useState(false);
+  const [temporaryMachines, setTemporaryMachines] = useState([]); // To show new machines immediately
+
+  // Edit Machine State
+  const [showEditMachineModal, setShowEditMachineModal] = useState(false);
+  const [editMachineForm, setEditMachineForm] = useState({ id: "", nome: "", tecnologia_id: "" });
+  const [isDeletingMachine, setIsDeletingMachine] = useState(false);
+  const [deletedMachineIds, setDeletedMachineIds] = useState(new Set());
 
   useEffect(() => {
     const fetchData = async () => {
@@ -185,7 +195,24 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
     }
   }, [globalDate, turnoCorrente]);
 
-  const filteredMachines = macchine.filter((m) => {
+  const allMachines = React.useMemo(() => {
+    // Combine base macchine with newly added/edited ones, respecting deletions
+    const combined = [...macchine].filter(m => !deletedMachineIds.has(m.id.toUpperCase()));
+    
+    temporaryMachines.forEach(tm => {
+      if (deletedMachineIds.has(tm.id.toUpperCase())) return;
+      
+      const idx = combined.findIndex(m => m.id.toUpperCase() === tm.id.toUpperCase());
+      if (idx !== -1) {
+        combined[idx] = { ...combined[idx], ...tm };
+      } else {
+        combined.push(tm);
+      }
+    });
+    return combined;
+  }, [macchine, temporaryMachines, deletedMachineIds]);
+
+  const filteredMachines = allMachines.filter((m) => {
     const machineId = m.id.toUpperCase();
     const machineName = m.nome?.toUpperCase() || "";
     const query = searchQuery.toUpperCase();
@@ -494,6 +521,10 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
 
   const handleDeleteSlot = async () => {
     const { machineId, slotIndex } = slotModalData;
+    if (!window.confirm(`Sei sicuro di voler eliminare lo Slot ${parseInt(slotIndex) + 1} per ${machineId}?\nLe configurazioni verranno rimosse permanentemente.`)) {
+      return;
+    }
+
     setIsSavingSlot(true);
     try {
       const { error } = await supabase.from("slot_config")
@@ -519,74 +550,101 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
     }
   };
 
-  const handleSaveGlobalSlot = async () => {
-    const { slotIndex, componente, codiceMateriale, fino } = globalSlotData;
-    if (!fino && !componente && !codiceMateriale) {
-      alert("Compila almeno un campo da applicare a tutte le macchine!");
+  const handleSaveNewMachine = async () => {
+    if (!newMachineForm.id || !newMachineForm.tecnologia_id) {
+      alert("ID e Tecnologia sono obbligatori!");
       return;
     }
 
-    if (!window.confirm(`Sei sicuro di voler applicare questi parametri allo Slot ${parseInt(slotIndex) + 1} di TUTTE le ${filteredMachines.length} macchine in questa vista?\nVerranno sovrascritti i parametri corrispondenti.`)) {
-      return;
-    }
-
-    setIsSavingSlot(true);
+    setIsSavingMachine(true);
     try {
-      const dbSlotIndex = Number(slotIndex) + 1;
-      const promises = filteredMachines.map(m => {
-        const configId = m.ids ? m.ids[0] : m.id;
-        const existing = slotConfigs[configId.toUpperCase()]?.[slotIndex];
-        
-        const payloadObj = {
-          codice_materiale: codiceMateriale || existing?.codice_materiale || null,
-          fino: fino || existing?.fino || null,
-          macchina_id: String(configId),
-          slot_index: dbSlotIndex,
-          componente: componente || existing?.componente || null,
-          progetto: existing?.progetto || null,
-        };
+      const payload = {
+        id: newMachineForm.id.toUpperCase(),
+        nome: newMachineForm.nome || newMachineForm.id,
+        tecnologia_id: newMachineForm.tecnologia_id,
+        attivo: true,
+      };
 
-        if (existing) {
-          return supabase.from("slot_config")
-            .update(payloadObj)
-            .eq("macchina_id", configId)
-            .eq("slot_index", dbSlotIndex);
-        } else {
-          return supabase.from("slot_config").insert([payloadObj]);
-        }
-      });
+      const { error } = await supabase.from("macchine").insert([payload]);
+      if (error) throw error;
 
-      console.log("DEBUG [handleSaveGlobalSlot] Count:", filteredMachines.length, "Target Slot:", dbSlotIndex);
-
-      const results = await Promise.all(promises);
-      const errors = results.filter(r => r.error);
-      if (errors.length > 0) throw errors[0].error;
-
-      setSlotConfigs(prev => {
-        const next = { ...prev };
-        filteredMachines.forEach(m => {
-          const configId = (m.ids ? m.ids[0] : m.id).toUpperCase();
-          const existing = next[configId]?.[slotIndex] || {};
-          next[configId] = {
-            ...(next[configId] || {}),
-            [slotIndex]: {
-              ...existing,
-              componente: componente || existing.componente || null,
-              codice_materiale: codiceMateriale || existing.codice_materiale || null,
-              fino: fino || existing.fino || null,
-            }
-          };
-        });
-        return next;
-      });
-      setShowGlobalSlotModal(false);
+      // Add to local state to show immediately
+      setTemporaryMachines(prev => [...prev, payload]);
+      setShowNewMachineModal(false);
+      setNewMachineForm({ id: "", nome: "", tecnologia_id: "" });
+      alert(`Macchina ${payload.id} inserita con successo!`);
     } catch (err) {
-      console.error("Errore salvataggio slot globale:", err);
-      alert("Errore durante il salvataggio globale!");
+      console.error("Errore inserimento macchina:", err);
+      alert("Errore durante l'inserimento della macchina!");
     } finally {
-      setIsSavingSlot(false);
+      setIsSavingMachine(false);
     }
   };
+
+  const handleUpdateMachine = async () => {
+    if (!editMachineForm.id) return;
+    setIsSavingMachine(true);
+    try {
+      const payload = {
+        nome: editMachineForm.nome || editMachineForm.id,
+        tecnologia_id: editMachineForm.tecnologia_id,
+      };
+      
+      const { error } = await supabase.from("macchine")
+        .update(payload)
+        .eq("id", editMachineForm.id);
+      
+      if (error) throw error;
+      
+      // Update local state (temporaryMachines and prop-based macchine if possible)
+      setTemporaryMachines(prev => {
+        const idx = prev.findIndex(m => m.id === editMachineForm.id);
+        if (idx !== -1) {
+          const next = [...prev];
+          next[idx] = { ...next[idx], ...payload };
+          return next;
+        }
+        // If not in temporary, add as a temporary override anyway
+        return [...prev, { id: editMachineForm.id, ...payload }];
+      });
+
+      setShowEditMachineModal(false);
+      alert("Macchina aggiornata con successo! Se non vedi il cambiamento nei filtri, ricarica la pagina.");
+    } catch (err) {
+      console.error("Errore aggiornamento macchina:", err);
+      alert("Errore durante l'aggiornamento!");
+    } finally {
+      setIsSavingMachine(false);
+    }
+  };
+
+  const handleDeleteMachine = async () => {
+    if (!editMachineForm.id) return;
+    if (!window.confirm(`Sei sicuro di voler ELIMINARE DEFINITIVAMENTE la macchina ${editMachineForm.id}?\nQuesta azione non può essere annullata.`)) {
+      return;
+    }
+    
+    setIsDeletingMachine(true);
+    try {
+      const { error } = await supabase.from("macchine")
+        .delete()
+        .eq("id", editMachineForm.id);
+      
+      if (error) throw error;
+      
+      // Update local state to hide it
+      setDeletedMachineIds(prev => new Set([...prev, editMachineForm.id.toUpperCase()]));
+      
+      setShowEditMachineModal(false);
+      alert("Macchina eliminata con successo!");
+    } catch (err) {
+      console.error("Errore eliminazione macchina:", err);
+      alert("Errore durante l'eliminazione!");
+    } finally {
+      setIsDeletingMachine(false);
+    }
+  };
+
 
   return (
     <div className="fade-in" style={{ padding: "24px", height: "100%", overflowY: "auto" }}>
@@ -647,31 +705,32 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             </select>
           </div>
 
-          {/* Search */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-            <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-muted)", letterSpacing: "0.5px", textTransform: "uppercase" }}>Cerca</label>
-            <div style={{ position: "relative" }}>
-              <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }}>
-                {Icons.search}
-              </span>
-              <input
-                type="text"
-                placeholder="Cerca macchina..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  padding: "10px 16px 10px 40px",
-                  borderRadius: "10px",
-                  border: "1px solid var(--border)",
-                  backgroundColor: "var(--bg-card)",
-                  color: "var(--text-primary)",
-                  width: "200px",
-                  outline: "none",
-                  fontSize: "14px"
-                }}
-              />
+          {activeTech === "TUTTO" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-muted)", letterSpacing: "0.5px", textTransform: "uppercase" }}>Cerca</label>
+              <div style={{ position: "relative" }}>
+                <span style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)" }}>
+                  {Icons.search}
+                </span>
+                <input
+                  type="text"
+                  placeholder="Cerca macchina..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    padding: "10px 16px 10px 40px",
+                    borderRadius: "10px",
+                    border: "1px solid var(--border)",
+                    backgroundColor: "var(--bg-card)",
+                    color: "var(--text-primary)",
+                    width: "200px",
+                    outline: "none",
+                    fontSize: "14px"
+                  }}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Configura Slot */}
           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
@@ -698,15 +757,12 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
             <label style={{ fontSize: "10px", fontWeight: "700", color: "transparent", letterSpacing: "0.5px" }}>_</label>
             <button
-              onClick={() => {
-                setGlobalSlotData({ slotIndex: 0, fino: "", componente: "", codiceMateriale: "" });
-                setShowGlobalSlotModal(true);
-              }}
+              onClick={() => setShowNewMachineModal(true)}
               style={{
                 padding: "9px 16px",
                 borderRadius: "10px",
-                border: "1px solid var(--accent)",
-                backgroundColor: "var(--accent)",
+                border: "1px solid #10b981",
+                backgroundColor: "#10b981",
                 color: "white",
                 fontWeight: "700",
                 fontSize: "13px",
@@ -715,9 +771,10 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 whiteSpace: "nowrap"
               }}
             >
-              🚀 Applica OP Globale
+              ➕ Nuova Macchina
             </button>
           </div>
+
         </div>
       </div>
 
@@ -835,7 +892,6 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             ["DRA10102", "DRA10108"],
             ["DRA10110", "DRA10111"],
             ["DRA10113", "DRA10114"],
-            ["ZSA11019", "ZSA11022"],
           ];
           
           const processedMachines = [];
@@ -887,7 +943,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             
             const isZSA = m.ids?.includes("ZSA11019") || m.ids?.includes("ZSA11022") || mid === "ZSA11019" || mid === "ZSA11022";
             const isDMC = m.tecnologia_id === "marcatura laser dmc" || m.tecnologia_id === "DMC" || activeTech === "marcatura laser dmc";
-            const baseCount = isZSA ? 12 : (isDMC ? 5 : 4);
+            const baseCount = mid === "ZSA11022" ? 2 : (isZSA ? 12 : (isDMC ? 6 : 4));
             
             let SLOT_COUNT = Math.max(baseCount, maxConfiguredIndex + 1);
             if (isSlotEditMode) SLOT_COUNT += 1;
@@ -1000,14 +1056,47 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 flexDirection: "column",
                 gap: "20px",
                 boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                transition: "transform 0.2s ease"
+                transition: "transform 0.2s ease",
+                minHeight: "480px",
+                height: "100%"
               }}>
                 <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: "12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div>
-                    <div style={{ fontWeight: "900", fontSize: "20px", color: "var(--accent)" }}>{m.id}</div>
-                    {m.nome && m.nome !== m.id && (
-                      <div style={{ fontSize: "14px", color: "var(--text-muted)", marginTop: "2px" }}>{m.nome}</div>
-                    )}
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <div>
+                      <div style={{ fontWeight: "900", fontSize: "20px", color: "var(--accent)", display: "flex", alignItems: "center", gap: "8px" }}>
+                        {m.id}
+                        {isSlotEditMode && (
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditMachineForm({
+                                id: m.id,
+                                nome: m.nome || m.id,
+                                tecnologia_id: m.tecnologia_id || ""
+                              });
+                              setShowEditMachineModal(true);
+                            }}
+                            style={{ 
+                              background: "none", 
+                              border: "none", 
+                              cursor: "pointer", 
+                              fontSize: "14px", 
+                              padding: "4px",
+                              opacity: 0.6,
+                              transition: "opacity 0.2s"
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
+                            onMouseLeave={(e) => e.currentTarget.style.opacity = 0.6}
+                            title="Modifica Macchina"
+                          >
+                            ✏️
+                          </button>
+                        )}
+                      </div>
+                      {m.nome && m.nome !== m.id && (
+                        <div style={{ fontSize: "14px", color: "var(--text-muted)", marginTop: "2px" }}>{m.nome}</div>
+                      )}
+                    </div>
                   </div>
                   <div style={{ textAlign: "right" }}>
                     <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-muted)", letterSpacing: "0.5px" }}>TOT. PEZZI</div>
@@ -1484,75 +1573,129 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         </Modal>
       )}
 
-      {/* Global Tab Config Modal */}
-      {showGlobalSlotModal && (
+
+      {/* New Machine Modal */}
+      {showNewMachineModal && (
         <Modal
-          title={`Configura Globale per la Vista Corrente`}
-          onClose={() => setShowGlobalSlotModal(false)}
+          title="Inserisci Nuova Macchina"
+          onClose={() => setShowNewMachineModal(false)}
           footer={
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", width: "100%" }}>
+            <div style={{ display: "flex", gap: "10px", width: "100%" }}>
               <button
                 className="btn btn-primary"
-                style={{ flex: 2, background: "var(--accent)", minWidth: "200px" }}
-                onClick={handleSaveGlobalSlot}
-                disabled={isSavingSlot}
+                style={{ flex: 1 }}
+                onClick={handleSaveNewMachine}
+                disabled={isSavingMachine}
               >
-                {isSavingSlot ? "..." : "Applica a Tutte Le Macchine"}
+                {isSavingMachine ? "Salvataggio..." : "Salva Macchina"}
               </button>
-              <button className="btn btn-secondary" onClick={() => setShowGlobalSlotModal(false)}>Annulla</button>
+              <button className="btn btn-secondary" onClick={() => setShowNewMachineModal(false)}>Annulla</button>
             </div>
           }
         >
           <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "12px" }}>
-            <div style={{ padding: "10px 14px", background: "rgba(16,185,129,0.1)", borderRadius: "8px", fontSize: "12px", color: "var(--text-primary)", border: "1px solid rgba(16,185,129,0.3)" }}>
-              Questa funzione applica le impostazioni inserite allo <strong>Slot specificato</strong> per <strong>TUTTE le macchine</strong> attualmente filtrate nella vista.<br/>I campi vuoti NON sovrascriveranno le impostazioni esistenti.
-            </div>
-            
             <div className="form-group">
-              <label className="form-label" style={{ fontWeight: "700" }}>Seleziona lo Slot di Destinazione *</label>
+              <label className="form-label" style={{ fontWeight: "700" }}>ID Macchina *</label>
+              <input
+                type="text"
+                className="input"
+                placeholder="Es. DRA10115"
+                value={newMachineForm.id}
+                onChange={e => setNewMachineForm(p => ({ ...p, id: e.target.value.toUpperCase() }))}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: "700" }}>Nome (Opzionale)</label>
+              <input
+                type="text"
+                className="input"
+                placeholder="Es. DRA 15"
+                value={newMachineForm.nome}
+                onChange={e => setNewMachineForm(p => ({ ...p, nome: e.target.value }))}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: "700" }}>Tecnologia *</label>
               <select
                 className="select-input"
-                value={globalSlotData.slotIndex}
-                onChange={e => setGlobalSlotData(p => ({ ...p, slotIndex: e.target.value }))}
-                style={{ padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", width: "100%" }}
+                value={newMachineForm.tecnologia_id}
+                onChange={e => setNewMachineForm(p => ({ ...p, tecnologia_id: e.target.value }))}
               >
-                <option value={0}>Slot 1</option>
-                <option value={1}>Slot 2</option>
-                <option value={2}>Slot 3</option>
-                <option value={3}>Slot 4</option>
-                <option value={4}>Slot 5 (Extra)</option>
+                <option value="">-- Seleziona --</option>
+                {tecnologie.map(t => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
+                ))}
+                {/* Fallbacks for internal IDs */}
+                <option value="DMC">Marcatura Laser DMC</option>
+                <option value="ZSA">ZSA (Zahnstangen)</option>
               </select>
             </div>
+          </div>
+        </Modal>
+      )}
 
+      {/* Edit Machine Modal */}
+      {showEditMachineModal && (
+        <Modal
+          title={`Modifica Macchina — ${editMachineForm.id}`}
+          onClose={() => setShowEditMachineModal(false)}
+          footer={
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "10px", width: "100%" }}>
+              <button
+                className="btn btn-primary"
+                style={{ flex: 2, minWidth: "150px" }}
+                onClick={handleUpdateMachine}
+                disabled={isSavingMachine}
+              >
+                {isSavingMachine ? "Salvataggio..." : "Salva Modifiche"}
+              </button>
+              <button
+                className="btn btn-secondary"
+                style={{ flex: 1, color: "var(--danger)", borderColor: "var(--danger)", minWidth: "100px" }}
+                onClick={handleDeleteMachine}
+                disabled={isDeletingMachine || isSavingMachine}
+              >
+                {isDeletingMachine ? "Eliminazione..." : "Elimina"}
+              </button>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowEditMachineModal(false)}>Annulla</button>
+            </div>
+          }
+        >
+          <div style={{ display: "flex", flexDirection: "column", gap: "16px", padding: "12px" }}>
             <div className="form-group">
-              <label className="form-label" style={{ fontWeight: "700" }}>OP Macchina (Fino) *</label>
+              <label className="form-label" style={{ fontWeight: "700" }}>ID Macchina (Sola Lettura)</label>
               <input
                 type="text"
                 className="input"
-                placeholder="Es. 0140, 0010..."
-                value={globalSlotData.fino}
-                onChange={e => setGlobalSlotData(p => ({ ...p, fino: e.target.value.toUpperCase() }))}
+                value={editMachineForm.id}
+                disabled
+                style={{ opacity: 0.6, cursor: "not-allowed" }}
               />
             </div>
             <div className="form-group">
-              <label className="form-label" style={{ fontWeight: "700" }}>Componente (Aggiorna Tutte - Opz.)</label>
+              <label className="form-label" style={{ fontWeight: "700" }}>Nome Macchina</label>
               <input
                 type="text"
                 className="input"
-                placeholder="Lascia vuoto per non modificare..."
-                value={globalSlotData.componente}
-                onChange={e => setGlobalSlotData(p => ({ ...p, componente: e.target.value.toUpperCase() }))}
+                placeholder="Es. DRA 15"
+                value={editMachineForm.nome}
+                onChange={e => setEditMachineForm(p => ({ ...p, nome: e.target.value }))}
               />
             </div>
             <div className="form-group">
-              <label className="form-label" style={{ fontWeight: "700" }}>Codice Materiale (Aggiorna Tutte - Opz.)</label>
-              <input
-                type="text"
-                className="input"
-                placeholder="Lascia vuoto per non modificare..."
-                value={globalSlotData.codiceMateriale}
-                onChange={e => setGlobalSlotData(p => ({ ...p, codiceMateriale: e.target.value.toUpperCase() }))}
-              />
+              <label className="form-label" style={{ fontWeight: "700" }}>Tecnologia</label>
+              <select
+                className="select-input"
+                value={editMachineForm.tecnologia_id}
+                onChange={e => setEditMachineForm(p => ({ ...p, tecnologia_id: e.target.value }))}
+              >
+                <option value="">-- Seleziona --</option>
+                {tecnologie.map(t => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
+                ))}
+                <option value="DMC">Marcatura Laser DMC</option>
+                <option value="ZSA">ZSA (Zahnstangen)</option>
+              </select>
             </div>
           </div>
         </Modal>
