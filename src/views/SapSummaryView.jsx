@@ -802,28 +802,17 @@ export default function SapSummaryView({ macchine = [] }) {
         <div className="fade-in" style={{ height: "100%", overflowY: "auto", paddingBottom: 32 }}>
 
             {/* Header con tab */}
-            <div className="card" style={{ marginBottom: 16, padding: "14px 20px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-                    <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 2 }}>
-                            <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Analisi Produzione SAP</h2>
-                            {lastRecordDate && (
-                                <span style={{ fontSize: 10, padding: "2px 8px", background: "rgba(16, 185, 129, 0.1)", color: "#10B981", borderRadius: 100, fontWeight: 700, border: "1px solid rgba(16, 185, 129, 0.2)" }}>
-                                    Dati aggiornati al: {lastRecordDate.split('-').reverse().join('/')}
-                                </span>
-                            )}
-                        </div>
-                        <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: 0 }}>
-                            {activeTab === "turno" ? "Produzione per singolo turno" : activeTab === "giornaliero" ? "Produzione giornaliera per progetto e componente" : "Riepilogo settimana per progetto e componente"}
-                        </p>
-                    </div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <button className={activeTab === "turno" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("turno")}>🔄 Per Turno</button>
-                        <button className={activeTab === "giornaliero" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("giornaliero")}>📋 Giornaliero</button>
-                        <button className={activeTab === "settimanale" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("settimanale")}>📅 Settimanale</button>
-                        <button className={activeTab === "pareto" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("pareto")}>📊 Pareto Scarti</button>
-                    </div>
-                </div>
+            {/* Tab Navigation for SAP Summary - Simplified for Hub context */}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 20, flexWrap: "wrap" }}>
+                <button className={activeTab === "turno" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("turno")}>🔄 Per Turno</button>
+                <button className={activeTab === "giornaliero" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("giornaliero")}>📋 Giornaliero</button>
+                <button className={activeTab === "settimanale" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("settimanale")}>📅 Settimanale</button>
+                <button className={activeTab === "pareto" ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"} onClick={() => setActiveTab("pareto")}>📊 Pareto Scarti</button>
+                {lastRecordDate && (
+                    <span style={{ fontSize: 10, padding: "2px 8px", background: "rgba(16, 185, 129, 0.1)", color: "#10B981", borderRadius: 100, fontWeight: 700, border: "1px solid rgba(16, 185, 129, 0.2)", marginLeft: "auto" }}>
+                        Aggiornato al: {lastRecordDate.split('-').reverse().join('/')}
+                    </span>
+                )}
             </div>
 
             {/* ══════════════════════════════════════

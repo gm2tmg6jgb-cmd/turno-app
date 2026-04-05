@@ -484,9 +484,6 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
             {/* ── UPLOAD ── */}
             {step === "upload" && (
                 <div className="card">
-                    <div className="card-header" style={{ marginBottom: 12 }}>
-                        <div className="card-title">📊 Import Dati SAP</div>
-                    </div>
                     
                     <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
                         <button 

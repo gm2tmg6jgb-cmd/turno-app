@@ -6,27 +6,12 @@ import { Icons } from "./components/ui/Icons";
 import { Toast } from "./components/ui/Toast";
 
 // Views
+import { getLocalDate } from "./lib/dateUtils";
 import DashboardView from "./views/DashboardView";
 import AssegnazioniView from "./views/AssegnazioniView";
-import AnagraficaView from "./views/AnagraficaView";
 import ReportView from "./views/ReportView";
-import { getLocalDate } from "./lib/dateUtils";
-import FermiView from "./views/FermiView";
-import FormazioneView from "./views/FormazioneView";
-
-import ImportView from "./views/ImportView";
-import SkillsView from "./views/SkillsView";
-import MotiviView from "./views/MotiviView";
-import PlanningView from "./views/PlanningView";
-import ZoneView from "./views/ZoneView";
-import LimitazioniView from "./views/LimitazioniView";
-import Op10View from "./views/Op10View";
-import AnagraficaFermiView from "./views/AnagraficaFermiView";
 import AnagraficaMacchineView from "./views/AnagraficaMacchineView";
-import SapDataView from "./views/SapDataView";
-import SapFermiView from "./views/SapFermiView";
-import SapSummaryView from "./views/SapSummaryView";
-import AnagraficaMaterialiView from "./views/AnagraficaMaterialiView";
+import SapHubView from "./views/SapHubView";
 import LpaPlanView from "./views/LpaPlanView";
 import InventoryView from "./views/InventoryView";
 import ProcessFlowView from "./views/ProcessFlowView";
@@ -197,45 +182,32 @@ export default function App() {
   }).length;
 
   const navItems = [
-    { id: "dashboard", label: "Dashboard", icon: Icons.dashboard },
-    { id: "planning", label: "Pianificazione", icon: Icons.calendar },
-    { id: "anagrafica", label: "Anagrafica", icon: Icons.users },
+    { id: "dashboard", label: "Gestione Dipendenti", icon: Icons.dashboard },
     { id: "assegnazioni", label: "Assegnazioni", icon: Icons.machine, badge: alertCount || null },
+    { id: "report", label: "Report Fine Turno", icon: Icons.report, status: "mod" },
+    { id: "sapHub", label: "Hub SAP", icon: Icons.settings, status: "new" },
     { id: "op10", label: "Asservimento OP10", icon: Icons.check },
     { id: "skills", label: "Competenze", icon: Icons.brain },
     { id: "formazione", label: "Formazione", icon: Icons.academic },
-    { id: "report", label: "Report Fine Turno", icon: Icons.report, status: "mod" },
     { id: "lpaPlan", label: "Piano LPA", icon: Icons.calendar },
-    { id: "motivi", label: "Motivi Assenza", icon: Icons.filter },
-    { id: "import", label: "Import SAP", icon: Icons.upload },
-    { id: "sapData", label: "Storico Produzione SAP", icon: Icons.report },
-    { id: "sapFermi", label: "Storico Fermi SAP", icon: Icons.alert, status: "new" },
-    { id: "sapSummary", label: "Analisi Produzione SAP", icon: Icons.dashboard },
     { id: "processFlow", label: "Flusso di Processo", icon: Icons.users },
     { id: "weisserPriorities", label: "Priorità Macchine", icon: Icons.filter },
     { id: "prioritiesSummary", label: "Riepilogo Priorità", icon: Icons.dashboard, status: "new" },
     { id: "productionFlowReport", label: "Flusso Report Produzione", icon: Icons.report, status: "new" },
     { id: "productionReport", label: "Report Produzione", icon: Icons.report },
-    { id: "fermi", label: "Report Fermi", icon: Icons.alert },
-    { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings },
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine },
-    { id: "anagraficaMateriali", label: "Anagrafica Materiali", icon: Icons.filter },
     { id: "zones", label: "Anagrafica Zone", icon: Icons.settings },
     { id: "inventory", label: "Inventario", icon: Icons.report },
   ];
 
   const viewTitles = {
     dashboard: "Gestione dipendenti",
-    planning: "Pianificazione Mensile",
     assegnazioni: "Assegnazione Macchine",
-    anagrafica: "Anagrafica Personale",
+
     op10: "Asservimento OP10",
     report: "Report Fine Turno",
-    motivi: "Gestione Motivi Assenza",
-    import: "Import Dati SAP",
-    sapData: "Storico Produzione SAP",
-    sapFermi: "Storico Fermi SAP",
-    sapSummary: "Analisi Produzione SAP",
+
+    sapHub: "Hub Gestione SAP",
     processFlow: "Flusso di Processo",
     weisserPriorities: "Priorità Macchine",
     prioritiesSummary: "Riepilogo Priorità Macchine",
@@ -244,12 +216,10 @@ export default function App() {
     fermi: "Report Fermi",
     anagraficaFermi: "Anagrafica Fermi Macchine",
     anagraficaMacchine: "Anagrafica Macchine",
-    anagraficaMateriali: "Anagrafica Materiali",
     zones: "Anagrafica Zone",
     lpaPlan: "Piano LPA 2026",
     skills: "Matrice Competenze",
     formazione: "Gestione Formazione Operatori",
-    limitazioni: "Area Privacy Alta - Limitazioni",
     inventory: "Gestione Inventario Progetti",
   };
 
@@ -361,30 +331,23 @@ export default function App() {
                 {renderItem(ni("report"))}
                 {renderItem(ni("op10"))}
                 {renderItem(ni("fermi"))}
-                {renderItem(ni("sapSummary"))}
+                {renderItem(ni("sapHub"))}
                 {renderItem(ni("processFlow"))}
                 {renderItem(ni("weisserPriorities"))}
                 {renderItem(ni("prioritiesSummary"))}
                 {renderItem(ni("productionFlowReport"))}
                 {renderItem(ni("productionReport"))}
                 {renderItem(ni("lpaPlan"))}
-                {renderItem(ni("import"))}
-                {renderItem(ni("sapData"))}
-                {renderItem(ni("sapFermi"))}
                 {renderItem(ni("inventory"))}
 
                 <div className="nav-section-label">Anagrafiche</div>
                 {renderItem(ni("anagrafica"))}
                 {renderItem(ni("anagraficaMacchine"))}
-                {renderItem(ni("anagraficaMateriali"))}
                 {renderItem(ni("zones"))}
                 {renderItem(ni("anagraficaFermi"))}
                 {renderItem(ni("motivi"))}
 
-                <div className="nav-section-label" style={{ color: "var(--danger)", marginTop: 12 }}>Privacy Alta</div>
-                <div className={`nav-item ${currentView === 'limitazioni' ? "active" : ""}`} onClick={() => setCurrentView('limitazioni')} style={{ color: currentView === 'limitazioni' ? "var(--danger)" : "inherit" }}>
-                  <span style={{ fontSize: 16, marginRight: 8 }}>🔒</span> Prescrizioni e Note
-                </div>
+
               </>
             );
           })()}
@@ -445,10 +408,21 @@ export default function App() {
 
         <div className="main-content">
           {currentView === "dashboard" && (
-            <DashboardView dipendenti={dipendenti} presenze={presenze} setPresenze={setPresenze} assegnazioni={assegnazioni} macchine={macchine} repartoCorrente={repartoCorrente} turnoCorrente={turnoCorrente} showToast={showToast} motivi={motivi} zones={zone} globalDate={globalDate} />
-          )}
-          {currentView === "planning" && (
-            <PlanningView dipendenti={dipendenti} setDipendenti={setDipendenti} presenze={presenze} turnoCorrente={turnoCorrente} globalDate={globalDate} />
+            <DashboardView
+              dipendenti={dipendenti}
+              setDipendenti={setDipendenti}
+              presenze={presenze}
+              setPresenze={setPresenze}
+              assegnazioni={assegnazioni}
+              macchine={macchine}
+              repartoCorrente={repartoCorrente}
+              turnoCorrente={turnoCorrente}
+              showToast={showToast}
+              motivi={motivi}
+              setMotivi={setMotivi}
+              zones={zone}
+              globalDate={globalDate}
+            />
           )}
           {currentView === "assegnazioni" && (
             <AssegnazioniView
@@ -488,18 +462,15 @@ export default function App() {
             <LpaPlanView macchine={macchine} dipendenti={dipendenti} showToast={showToast} turnoCorrente={turnoCorrente} />
           )}
 
-          {currentView === "import" && (
-            <ImportView showToast={showToast} macchine={macchine} setCurrentView={setCurrentView} />
+          {currentView === "sapHub" && (
+            <SapHubView
+              macchine={macchine}
+              showToast={showToast}
+              setCurrentView={setCurrentView}
+              globalDate={globalDate}
+            />
           )}
-          {currentView === "sapData" && (
-            <SapDataView macchine={macchine} />
-          )}
-          {currentView === "sapFermi" && (
-            <SapFermiView macchine={macchine} />
-          )}
-          {currentView === "sapSummary" && (
-            <SapSummaryView macchine={macchine} />
-          )}
+
           {currentView === "processFlow" && (
             <ProcessFlowView macchine={macchine} showToast={showToast} setCurrentView={setCurrentView} />
           )}
@@ -529,37 +500,12 @@ export default function App() {
               tecnologie={tecnologie}
             />
           )}
-          {currentView === "fermi" && (
-            <FermiView macchine={macchine} initialReparto={repartoCorrente} initialTurno={turnoCorrente} motiviFermo={motiviFermo} tecnologie={tecnologie} globalDate={globalDate} setGlobalDate={setGlobalDate} />
-          )}
-
-          {/* Anagrafiche protette da lucchetto */}
-          {currentView === "anagrafica" && (
-            <AdminSecurityWrapper title="Anagrafica Personale">
-              <AnagraficaView
-                dipendenti={dipendenti}
-                setDipendenti={setDipendenti}
-                macchine={macchine}
-                showToast={showToast}
-                turnoCorrente={turnoCorrente}
-              />
-            </AdminSecurityWrapper>
-          )}
-          {currentView === "anagraficaFermi" && (
-            <AdminSecurityWrapper title="Anagrafica Motivi Fermi">
-              <AnagraficaFermiView motiviFermo={motiviFermo} setMotiviFermo={setMotiviFermo} tecnologie={tecnologie} setTecnologie={setTecnologie} macchine={macchine} setMacchine={setMacchine} showToast={showToast} />
-            </AdminSecurityWrapper>
-          )}
           {currentView === "anagraficaMacchine" && (
             <AdminSecurityWrapper title="Anagrafica Macchine">
               <AnagraficaMacchineView macchine={macchine} setMacchine={setMacchine} tecnologie={tecnologie} zone={zone} showToast={showToast} />
             </AdminSecurityWrapper>
           )}
-          {currentView === "anagraficaMateriali" && (
-            <AdminSecurityWrapper title="Settaggio Codici SAP">
-              <AnagraficaMaterialiView showToast={showToast} />
-            </AdminSecurityWrapper>
-          )}
+
           {currentView === "zones" && (
             <AdminSecurityWrapper title="Anagrafica Zone">
               <ZoneView zones={zone} setZones={setZone} macchine={macchine} setMacchine={setMacchine} />
@@ -570,9 +516,7 @@ export default function App() {
           {currentView === "skills" && (
             <SkillsView dipendenti={dipendenti} setDipendenti={setDipendenti} macchine={macchine} showToast={showToast} turnoCorrente={turnoCorrente} />
           )}
-          {currentView === "motivi" && (
-            <MotiviView motivi={motivi} setMotivi={setMotivi} showToast={showToast} />
-          )}
+
           {currentView === "formazione" && (
             <FormazioneView
               dipendenti={dipendenti}
@@ -582,9 +526,7 @@ export default function App() {
               turnoCorrente={turnoCorrente}
             />
           )}
-          {currentView === "limitazioni" && (
-            <LimitazioniView dipendenti={dipendenti} presenze={presenze} />
-          )}
+
           {currentView === "inventory" && <InventoryView showToast={showToast} macchine={macchine} />}
         </div>
       </div>

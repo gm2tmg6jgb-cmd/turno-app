@@ -42,41 +42,8 @@ const isItalianHoliday = (d) => {
 };
 
 export default function LimitazioniView({ dipendenti, presenze = [] }) {
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [password, setPassword] = useState("");
-    const [error, setError] = useState(false);
     const [activeTab, setActiveTab] = useState("limitazioni"); // "limitazioni" | "assenze"
-    const [userRole, setUserRole] = useState(null); // 'manager' | 'A' | 'B' | 'C' | 'D'
-
-    const handleLogin = (e) => {
-        e.preventDefault();
-        const pwd = password.trim();
-        // Simple client-side password for demo purposes.
-        if (pwd === "admin123") {
-            setIsAuthenticated(true);
-            setUserRole("manager");
-            setError(false);
-        } else if (pwd.toLowerCase() === "piperis") {
-            setIsAuthenticated(true);
-            setUserRole("A");
-            setError(false);
-        } else if (pwd.toLowerCase() === "abatescianni") {
-            setIsAuthenticated(true);
-            setUserRole("B");
-            setError(false);
-        } else if (pwd.toLowerCase() === "sannicandro") {
-            setIsAuthenticated(true);
-            setUserRole("C");
-            setError(false);
-        } else if (pwd.toLowerCase() === "fato") {
-            setIsAuthenticated(true);
-            setUserRole("D");
-            setError(false);
-        } else {
-            setError(true);
-            setPassword("");
-        }
-    };
+    const [userRole, setUserRole] = useState("manager"); // default to manager since it's integrated now
 
     const limitazioniResults = useMemo(() => {
         return dipendenti
@@ -166,53 +133,10 @@ export default function LimitazioniView({ dipendenti, presenze = [] }) {
         return stats.sort((a, b) => b.percentage - a.percentage);
     }, [dipendenti, presenze, userRole]);
 
-    if (!isAuthenticated) {
-        return (
-            <div className="fade-in" style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100%", padding: 40 }}>
-                <div className="card" style={{ maxWidth: 400, width: "100%", textAlign: "center", padding: 32 }}>
-                    <div style={{ fontSize: 48, marginBottom: 16 }}>🔒</div>
-                    <h2 style={{ fontSize: 20, marginBottom: 8, color: "var(--text-primary)" }}>Accesso Ristretto</h2>
-                    <p style={{ color: "var(--text-muted)", fontSize: 13, marginBottom: 24 }}>
-                        L'area "Privacy Alta" contiene dati medici e personali sensibili. Inserisci la password per continuare.
-                    </p>
-
-                    <form onSubmit={handleLogin}>
-                        <div className="form-group" style={{ textAlign: "left" }}>
-                            <input
-                                type="password"
-                                className={`input ${error ? 'input-error' : ''}`}
-                                placeholder="Password..."
-                                value={password}
-                                onChange={(e) => { setPassword(e.target.value); setError(false); }}
-                                style={{ width: "100%", borderColor: error ? "var(--danger)" : "var(--border)" }}
-                                autoFocus
-                            />
-                            {error && <div style={{ color: "var(--danger)", fontSize: 12, marginTop: 4 }}>Password errata</div>}
-                        </div>
-                        <button type="submit" className="btn btn-primary" style={{ width: "100%", marginTop: 8 }}>
-                            {Icons.key} Sblocca Area
-                        </button>
-                    </form>
-                </div>
-            </div>
-        );
-    }
-
     return (
         <div className="fade-in">
-            <div className="card" style={{ marginBottom: 20, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div className="alert alert-info" style={{ marginTop: 0, borderLeftColor: "var(--danger)", flex: 1, marginBottom: 0 }}>
-                    <span style={{ fontSize: 16, marginRight: 8 }}>🩺</span>
-                    <strong>AREA PRIVACY ALTA {userRole !== "manager" ? `(Turno ${userRole})` : ""}:</strong> Accesso a dati sensibili del personale (limitazioni mediche, L104, statistiche assenze).
-                </div>
-                <button
-                    className="btn btn-secondary"
-                    onClick={() => setIsAuthenticated(false)}
-                    style={{ marginLeft: 16, height: 36 }}
-                    title="Blocca e torna alla schermata password"
-                >
-                    🔒 Blocca Schermo
-                </button>
+            <div style={{ marginBottom: 20 }}>
+                {/* Simplified navigation or header if needed, but the parent already has tabs */}
             </div>
 
             {/* TAB NAV */}

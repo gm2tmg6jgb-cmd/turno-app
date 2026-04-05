@@ -4,9 +4,24 @@ import { REPARTI } from "../data/constants";
 import { supabase } from "../lib/supabase";
 import { getLocalDate } from "../lib/dateUtils";
 import { Icons } from "../components/ui/Icons";
+import AnagraficaView from "./AnagraficaView";
+import MotiviView from "./MotiviView";
+import AnalisiAvanzataView from "./AnalisiAvanzataView";
+import PlanningView from "./PlanningView";
+import LimitazioniView from "./LimitazioniView";
+import { AdminSecurityWrapper } from "../components/AdminSecurityWrapper";
 
-export default function DashboardView({ dipendenti, presenze, setPresenze, assegnazioni, macchine, repartoCorrente, turnoCorrente, showToast, motivi, zones, globalDate }) {
+export default function DashboardView({
+    dipendenti, setDipendenti,
+    presenze, setPresenze,
+    assegnazioni, macchine,
+    repartoCorrente, turnoCorrente,
+    showToast, motivi, setMotivi,
+    zones, globalDate
+}) {
     if (!dipendenti) return <div className="p-4 text-center">Caricamento dipendenti...</div>;
+
+    const [activeTab, setActiveTab] = useState("presenze"); // presenze, anagrafica, motivi, analisi
 
     const today = globalDate || getLocalDate(new Date());
 
@@ -287,252 +302,343 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
     let lastReparto = "";
 
     return (
-        <div className="fade-in">
-            <div style={{ display: "flex", gap: 12, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
-                {/* COUNTER: Present Employees */}
-                <div style={{ padding: "8px 16px", background: "var(--success-muted)", borderRadius: "var(--radius-sm)", border: "1px solid rgba(34,197,94,0.2)" }}>
-                    <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>PRESENTI</span>
-                    <span style={{ fontSize: 18, fontWeight: 700, color: "var(--success)", marginLeft: 8 }}>{presenti}</span>
-                </div>
-                {/* COUNTER: Absent Employees */}
-                <div style={{ padding: "8px 16px", background: "var(--danger-muted)", borderRadius: "var(--radius-sm)", border: "1px solid rgba(239,68,68,0.2)" }}>
-                    <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>ASSENTI</span>
-                    <span style={{ fontSize: 18, fontWeight: 700, color: "var(--danger)", marginLeft: 8 }}>{assenti}</span>
-                </div>
-                {/* COUNTER: Total */}
-                <div style={{ padding: "8px 16px", background: "var(--info-muted)", borderRadius: "var(--radius-sm)", border: "1px solid rgba(59,130,246,0.2)" }}>
-                    <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>TOTALE</span>
-                    <span style={{ fontSize: 18, fontWeight: 700, color: "var(--info)", marginLeft: 8 }}>{filteredDipendenti.length}</span>
-                </div>
-                {/* DATE RANGE FILTER */}
-                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-                    <label style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>DA</label>
-                    <input type="date" className="input" style={{ width: 130, padding: "5px 8px", fontSize: 12 }} value={dateStart} onChange={(e) => setDateStart(e.target.value)} />
-                    <label style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>A</label>
-                    <input type="date" className="input" style={{ width: 130, padding: "5px 8px", fontSize: 12 }} value={dateEnd} onChange={(e) => setDateEnd(e.target.value)} />
-                </div>
+        <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+            {/* Tab Navigation */}
+            <div className="tabs" style={{ marginBottom: 20, display: "flex", gap: 8 }}>
+                <button
+                    className={`tab ${activeTab === "presenze" ? "active" : ""}`}
+                    onClick={() => setActiveTab("presenze")}
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                >
+                    {Icons.dashboard} Presenze
+                </button>
+                <button
+                    className={`tab ${activeTab === "pianificazione" ? "active" : ""}`}
+                    onClick={() => setActiveTab("pianificazione")}
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                >
+                    {Icons.calendar} Pianificazione
+                </button>
+                <button
+                    className={`tab ${activeTab === "limitazioni" ? "active" : ""}`}
+                    onClick={() => setActiveTab("limitazioni")}
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                >
+                    🩺 Prescrizione e Note
+                </button>
+                <button
+                    className={`tab ${activeTab === "anagrafica" ? "active" : ""}`}
+                    onClick={() => setActiveTab("anagrafica")}
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                >
+                    {Icons.users} Anagrafica Personale
+                </button>
+                <button
+                    className={`tab ${activeTab === "motivi" ? "active" : ""}`}
+                    onClick={() => setActiveTab("motivi")}
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                >
+                    {Icons.settings} Motivi Assenza
+                </button>
+                <button
+                    className={`tab ${activeTab === "analisi" ? "active" : ""}`}
+                    onClick={() => setActiveTab("analisi")}
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                >
+                    {Icons.analytics} Analisi Avanzata
+                </button>
             </div>
 
-            {/* 
-              TABELLA DASHBOARD PRINCIPALE 
-              - Header sticky per le date
-              - Prime colonne sticky per Nome e Team
-            */}
+            <div style={{ flex: 1, overflowY: "auto" }}>
+                {activeTab === "presenze" && (
+                    <div className="fade-in">
+                        <div style={{ display: "flex", gap: 12, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
+                            {/* COUNTER: Present Employees */}
+                            <div style={{ padding: "8px 16px", background: "var(--success-muted)", borderRadius: "var(--radius-sm)", border: "1px solid rgba(34,197,94,0.2)" }}>
+                                <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>PRESENTI</span>
+                                <span style={{ fontSize: 18, fontWeight: 700, color: "var(--success)", marginLeft: 8 }}>{presenti}</span>
+                            </div>
+                            {/* COUNTER: Absent Employees */}
+                            <div style={{ padding: "8px 16px", background: "var(--danger-muted)", borderRadius: "var(--radius-sm)", border: "1px solid rgba(239,68,68,0.2)" }}>
+                                <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>ASSENTI</span>
+                                <span style={{ fontSize: 18, fontWeight: 700, color: "var(--danger)", marginLeft: 8 }}>{assenti}</span>
+                            </div>
+                            {/* COUNTER: Total */}
+                            <div style={{ padding: "8px 16px", background: "var(--info-muted)", borderRadius: "var(--radius-sm)", border: "1px solid rgba(59,130,246,0.2)" }}>
+                                <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>TOTALE</span>
+                                <span style={{ fontSize: 18, fontWeight: 700, color: "var(--info)", marginLeft: 8 }}>{filteredDipendenti.length}</span>
+                            </div>
+                            {/* DATE RANGE FILTER */}
+                            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+                                <label style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>DA</label>
+                                <input type="date" className="input" style={{ width: 130, padding: "5px 8px", fontSize: 12 }} value={dateStart} onChange={(e) => setDateStart(e.target.value)} />
+                                <label style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>A</label>
+                                <input type="date" className="input" style={{ width: 130, padding: "5px 8px", fontSize: 12 }} value={dateEnd} onChange={(e) => setDateEnd(e.target.value)} />
+                            </div>
+                        </div>
 
-            <div className="table-container">
-                <table style={{ borderCollapse: "separate", borderSpacing: 0 }}>
-                    {/* ... (thead) ... */}
-                    <thead>
-                        <tr>
-                            {/* COLONNA 1: Nominativo (Sticky Top & Left) */}
-                            <th style={{ padding: "16px 14px", width: 180, position: "sticky", top: 0, left: 0, background: "var(--bg-tertiary)", zIndex: 20, borderBottom: "2px solid var(--border)" }}>Dipendente</th>
+                        <div className="table-container">
+                            <table style={{ borderCollapse: "separate", borderSpacing: 0 }}>
+                                <thead>
+                                    <tr>
+                                        {/* COLONNA 1: Nominativo (Sticky Top & Left) */}
+                                        <th style={{ padding: "16px 14px", width: 180, position: "sticky", top: 0, left: 0, background: "var(--bg-tertiary)", zIndex: 20, borderBottom: "2px solid var(--border)" }}>Dipendente</th>
 
-                            {/* COLONNA 2: Team/Reparto (Sticky Top & Left) */}
-                            <th style={{ padding: "16px 8px", width: 60, position: "sticky", top: 0, left: 180, background: "var(--bg-tertiary)", zIndex: 20, borderBottom: "2px solid var(--border)", textAlign: 'center', borderRight: "2px solid var(--border)" }}>Team</th>
+                                        {/* COLONNA 2: Team/Reparto (Sticky Top & Left) */}
+                                        <th style={{ padding: "16px 8px", width: 60, position: "sticky", top: 0, left: 180, background: "var(--bg-tertiary)", zIndex: 20, borderBottom: "2px solid var(--border)", textAlign: 'center', borderRight: "2px solid var(--border)" }}>Team</th>
 
-                            {/* COLONNE DATE (Sticky Top) */}
-                            {visibleDays.map((day) => (
-                                <th
-                                    key={day.date}
-                                    style={{
-                                        position: "sticky",
-                                        top: 0,
-                                        zIndex: 10,
-                                        textAlign: "center",
-                                        padding: "10px 4px",
-                                        width: 60,
-                                        background: day.isToday ? "rgba(249, 115, 22, 0.2)" : "var(--bg-card)",
-                                        color: day.isToday ? "var(--accent)" : undefined,
-                                        borderBottom: "2px solid var(--border)",
-                                        borderLeft: "1px solid var(--border-light)" // Demarcation line
-                                    }}
-                                >
-                                    <div style={{ fontSize: 12, textTransform: "uppercase", lineHeight: 1.2, marginBottom: 4 }}>{day.dayName}</div>
-                                    <div style={{ fontSize: 15, fontWeight: 700 }}>{day.label}</div>
-                                </th>
-                            ))}
-
-                            {/* COLUMN: Assigned Machine (Sticky Top) */}
-                            <th style={{
-                                position: "sticky",
-                                top: 0,
-                                zIndex: 10,
-                                padding: "16px 16px",
-                                minWidth: 200,
-                                borderLeft: "2px solid var(--border-light)",
-                                background: "var(--bg-tertiary)",
-                                borderBottom: "2px solid var(--border)"
-                            }}>Macchina Assegnata</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {sortedDip.map((d, index) => {
-                            // Determine if this is the start of a new Team/Reparto group
-                            const isNewGroup = d.reparto_id !== lastReparto;
-                            lastReparto = d.reparto_id;
-
-                            // Visual styling for group separation: thicker top border if new group
-                            const rowStyle = isNewGroup && index !== 0
-                                ? { borderTop: "3px solid var(--border-dark)" } // Strong divider
-                                : { borderTop: "1px solid var(--border-light)" }; // Normal divider
-
-                            // Get assigments logic (same as before)
-                            const dipAss = assegnazioni ? assegnazioni.filter((a) => a.dipendente_id === d.id && a.data === today) : [];
-                            const macchineNames = dipAss.map((a) => {
-                                // 1. Try Machines
-                                const m = macchine ? macchine.find((mm) => mm.id === a.macchina_id) : null;
-                                if (m) return m.nome;
-
-                                // 2. Try Zones (using ID match on a.macchina_id or a.attivita_id if aligned)
-                                const z = zones ? zones.find((zz) => zz.id === a.macchina_id || zz.id === a.attivita_id) : null;
-                                if (z) {
-                                    // Find machines in this zone
-                                    const zoneMachines = macchine ? macchine.filter(m => m.zona === z.id).map(m => m.nome) : [];
-
-
-                                    return {
-                                        label: z.label || z.id,
-                                        machines: zoneMachines
-                                    };
-                                }
-
-                                return a.macchina_id || a.attivita_id || "N/A";
-                            });
-
-                            // -------------------------------------------------------------------------
-                            // RENDER RIGHE (Iterazione sui dipendenti ordinati)
-                            // -------------------------------------------------------------------------
-                            return (
-                                <tr key={d.id}>
-                                    {/* CELLA 1: Nominativo (Sticky) */}
-                                    <td style={{
-                                        padding: "4px 8px", // Reduced from 8px 8px
-                                        minWidth: 180, // Match header width
-                                        maxWidth: 180,
-                                        fontWeight: 500,
-                                        fontSize: 15, // Same as day font size
-                                        whiteSpace: "nowrap",
-                                        position: "sticky",
-                                        left: 0,
-                                        background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "var(--bg-card)", // Only here for interinale
-                                        zIndex: 5,
-                                        borderRight: "1px solid var(--border-light)",
-                                        overflow: "hidden",
-                                        textOverflow: "ellipsis",
-                                        ...rowStyle
-                                    }}>
-                                        {d.cognome} {(d.nome || "").charAt(0)}.
-                                        {dipWithAlerts.has(d.id) && (
-                                            <span style={{ marginLeft: 6, cursor: "help" }} title="Mancato riposo compensativo!">⚠️</span>
-                                        )}
-                                    </td>
-
-                                    {/* CELLA 2: Team (Sticky - Richiesta Utente) */}
-                                    <td style={{
-                                        padding: "4px 4px", // Reduced from 8px 4px
-                                        textAlign: "center",
-                                        fontWeight: 700,
-                                        fontSize: 15, // Same as nominativo font size
-                                        color: "var(--text-muted)",
-                                        position: "sticky",
-                                        left: 180,
-                                        background: "var(--bg-card)",
-                                        zIndex: 5,
-                                        borderRight: "2px solid var(--border)", // Divisore tra colonne fisse e scrollabili
-                                        ...rowStyle
-                                    }}>
-                                        {d.reparto_id ? d.reparto_id.replace(/^T/i, '') : ''}
-                                    </td>
-
-                                    {/* PRESENCE CELLS */}
-                                    {visibleDays.map((day) => {
-                                        const status = getPresenceStatus(d.id, day.date, day.isSunday);
-                                        const isPresent = status === true;
-                                        const sigla = (!isPresent && typeof status === "string") ? status : "-";
-                                        const isAbsence = !isPresent && sigla !== "-";
-
-                                        // Cell background logic
-                                        let cellBg = undefined;
-                                        if (isAbsence) {
-                                            cellBg = "rgba(249, 115, 22, 0.2)"; // Orange fill for absence
-                                        } else if (day.isSunday) {
-                                            cellBg = "rgba(99, 102, 241, 0.15)"; // Soft Indigo for Sunday
-                                        } else if (day.isToday) {
-                                            cellBg = "rgba(249, 115, 22, 0.04)";
-                                        }
-
-                                        return (
-                                            <td
+                                        {/* COLONNE DATE (Sticky Top) */}
+                                        {visibleDays.map((day) => (
+                                            <th
                                                 key={day.date}
                                                 style={{
+                                                    position: "sticky",
+                                                    top: 0,
+                                                    zIndex: 10,
                                                     textAlign: "center",
-                                                    padding: "2px 1px", // Reduced from 4px 1px
-                                                    background: cellBg,
-                                                    borderLeft: "1px solid var(--border-light)", // Demarcation line
-                                                    ...rowStyle
+                                                    padding: "10px 4px",
+                                                    width: 60,
+                                                    background: day.isToday ? "rgba(249, 115, 22, 0.2)" : "var(--bg-card)",
+                                                    color: day.isToday ? "var(--accent)" : undefined,
+                                                    borderBottom: "2px solid var(--border)",
+                                                    borderLeft: "1px solid var(--border-light)" // Demarcation line
                                                 }}
                                             >
-                                                <button
-                                                    onClick={(e) => toggleWeekPresenza(d.id, day.date, e)}
-                                                    style={{
-                                                        minWidth: 28,
-                                                        height: 20, // Reduced from 22
-                                                        padding: "0 1px", // Reduced from 0 2px
-                                                        border: "none",
-                                                        borderRadius: 4,
-                                                        cursor: "pointer",
-                                                        fontWeight: 700,
-                                                        // Status Color Logic
-                                                        background: "transparent", // No background for buttons
-                                                        color: isAbsence ? "#EA580C" : (isPresent ? "var(--text-primary)" : "var(--text-muted)"), // Orange text for absence
-                                                        boxShadow: "none",
-                                                        transition: "all 0.1s ease",
-                                                    }}
-                                                >
-                                                    {isPresent ? "1" : sigla}
-                                                </button>
-                                            </td>
+                                                <div style={{ fontSize: 12, textTransform: "uppercase", lineHeight: 1.2, marginBottom: 4 }}>{day.dayName}</div>
+                                                <div style={{ fontSize: 15, fontWeight: 700 }}>{day.label}</div>
+                                            </th>
+                                        ))}
+
+                                        {/* COLUMN: Assigned Machine (Sticky Top) */}
+                                        <th style={{
+                                            position: "sticky",
+                                            top: 0,
+                                            zIndex: 10,
+                                            padding: "16px 16px",
+                                            minWidth: 200,
+                                            borderLeft: "2px solid var(--border-light)",
+                                            background: "var(--bg-tertiary)",
+                                            borderBottom: "2px solid var(--border)"
+                                        }}>Macchina Assegnata</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {sortedDip.map((d, index) => {
+                                        // Determine if this is the start of a new Team/Reparto group
+                                        const isNewGroup = d.reparto_id !== lastReparto;
+                                        lastReparto = d.reparto_id;
+
+                                        // Visual styling for group separation: thicker top border if new group
+                                        const rowStyle = isNewGroup && index !== 0
+                                            ? { borderTop: "3px solid var(--border-dark)" } // Strong divider
+                                            : { borderTop: "1px solid var(--border-light)" }; // Normal divider
+
+                                        // Get assigments logic (same as before)
+                                        const dipAss = assegnazioni ? assegnazioni.filter((a) => a.dipendente_id === d.id && a.data === today) : [];
+                                        const macchineNames = dipAss.map((a) => {
+                                            // 1. Try Machines
+                                            const m = macchine ? macchine.find((mm) => mm.id === a.macchina_id) : null;
+                                            if (m) return m.nome;
+
+                                            // 2. Try Zones (using ID match on a.macchina_id or a.attivita_id if aligned)
+                                            const z = zones ? zones.find((zz) => zz.id === a.macchina_id || zz.id === a.attivita_id) : null;
+                                            if (z) {
+                                                // Find machines in this zone
+                                                const zoneMachines = macchine ? macchine.filter(m => m.zona === z.id).map(m => m.nome) : [];
+
+
+                                                return {
+                                                    label: z.label || z.id,
+                                                    machines: zoneMachines
+                                                };
+                                            }
+
+                                            return a.macchina_id || a.attivita_id || "N/A";
+                                        });
+
+                                        return (
+                                            <tr key={d.id}>
+                                                {/* CELLA 1: Nominativo (Sticky) */}
+                                                <td style={{
+                                                    padding: "4px 8px", // Reduced from 8px 8px
+                                                    minWidth: 180, // Match header width
+                                                    maxWidth: 180,
+                                                    fontWeight: 500,
+                                                    fontSize: 15, // Same as day font size
+                                                    whiteSpace: "nowrap",
+                                                    position: "sticky",
+                                                    left: 0,
+                                                    background: d.tipo === 'interinale' ? "rgba(236, 72, 153, 0.15)" : "var(--bg-card)", // Only here for interinale
+                                                    zIndex: 5,
+                                                    borderRight: "1px solid var(--border-light)",
+                                                    overflow: "hidden",
+                                                    textOverflow: "ellipsis",
+                                                    ...rowStyle
+                                                }}>
+                                                    {d.cognome} {(d.nome || "").charAt(0)}.
+                                                    {dipWithAlerts.has(d.id) && (
+                                                        <span style={{ marginLeft: 6, cursor: "help" }} title="Mancato riposo compensativo!">⚠️</span>
+                                                    )}
+                                                </td>
+
+                                                {/* CELLA 2: Team (Sticky - Richiesta Utente) */}
+                                                <td style={{
+                                                    padding: "4px 4px", // Reduced from 8px 4px
+                                                    textAlign: "center",
+                                                    fontWeight: 700,
+                                                    fontSize: 15, // Same as nominativo font size
+                                                    color: "var(--text-muted)",
+                                                    position: "sticky",
+                                                    left: 180,
+                                                    background: "var(--bg-card)",
+                                                    zIndex: 5,
+                                                    borderRight: "2px solid var(--border)", // Divisore tra colonne fisse e scrollabili
+                                                    ...rowStyle
+                                                }}>
+                                                    {d.reparto_id ? d.reparto_id.replace(/^T/i, '') : ''}
+                                                </td>
+
+                                                {/* PRESENCE CELLS */}
+                                                {visibleDays.map((day) => {
+                                                    const status = getPresenceStatus(d.id, day.date, day.isSunday);
+                                                    const isPresent = status === true;
+                                                    const sigla = (!isPresent && typeof status === "string") ? status : "-";
+                                                    const isAbsence = !isPresent && sigla !== "-";
+
+                                                    // Cell background logic
+                                                    let cellBg = undefined;
+                                                    if (isAbsence) {
+                                                        cellBg = "rgba(249, 115, 22, 0.2)"; // Orange fill for absence
+                                                    } else if (day.isSunday) {
+                                                        cellBg = "rgba(99, 102, 241, 0.15)"; // Soft Indigo for Sunday
+                                                    } else if (day.isToday) {
+                                                        cellBg = "rgba(249, 115, 22, 0.04)";
+                                                    }
+
+                                                    return (
+                                                        <td
+                                                            key={day.date}
+                                                            style={{
+                                                                textAlign: "center",
+                                                                padding: "2px 1px", // Reduced from 4px 1px
+                                                                background: cellBg,
+                                                                borderLeft: "1px solid var(--border-light)", // Demarcation line
+                                                                ...rowStyle
+                                                            }}
+                                                        >
+                                                            <button
+                                                                onClick={(e) => toggleWeekPresenza(d.id, day.date, e)}
+                                                                style={{
+                                                                    minWidth: 28,
+                                                                    height: 20, // Reduced from 22
+                                                                    padding: "0 1px", // Reduced from 0 2px
+                                                                    border: "none",
+                                                                    borderRadius: 4,
+                                                                    cursor: "pointer",
+                                                                    fontWeight: 700,
+                                                                    // Status Color Logic
+                                                                    background: "transparent", // No background for buttons
+                                                                    color: isAbsence ? "#EA580C" : (isPresent ? "var(--text-primary)" : "var(--text-muted)"), // Orange text for absence
+                                                                    boxShadow: "none",
+                                                                    transition: "all 0.1s ease",
+                                                                }}
+                                                            >
+                                                                {isPresent ? "1" : sigla}
+                                                            </button>
+                                                        </td>
+                                                    );
+                                                })}
+
+                                                {/* ASSIGNMENTS CELL */}
+                                                <td style={{
+                                                    padding: "4px 10px",
+                                                    borderLeft: "2px solid var(--border-light)",
+                                                    whiteSpace: "nowrap",
+                                                    ...rowStyle
+                                                }}>
+                                                    {macchineNames.length > 0 ? (
+                                                        macchineNames.map((item, i) => {
+                                                            const isZone = typeof item === 'object';
+                                                            const name = isZone ? item.label : item;
+                                                            const title = isZone ? `Macchine: ${item.machines.join(', ')}` : '';
+
+                                                            return (
+                                                                <span key={i} title={title} style={{
+                                                                    display: "inline-block",
+                                                                    padding: "2px 8px",
+                                                                    background: "var(--info-muted)",
+                                                                    color: "var(--info)",
+                                                                    borderRadius: 4,
+                                                                    fontWeight: 600,
+                                                                    fontSize: 15, // Same as nominativo font size
+                                                                    marginRight: 4,
+                                                                    cursor: isZone ? "pointer" : "default"
+                                                                }}>
+                                                                    {name}
+                                                                </span>
+                                                            );
+                                                        })
+                                                    ) : (
+                                                        <span style={{ color: "var(--text-muted)", fontSize: 11 }}>—</span>
+                                                    )}
+                                                </td>
+                                            </tr>
                                         );
                                     })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
 
-                                    {/* ASSIGNMENTS CELL */}
-                                    <td style={{
-                                        padding: "4px 10px",
-                                        borderLeft: "2px solid var(--border-light)",
-                                        whiteSpace: "nowrap",
-                                        ...rowStyle
-                                    }}>
-                                        {macchineNames.length > 0 ? (
-                                            macchineNames.map((item, i) => {
-                                                const isZone = typeof item === 'object';
-                                                const name = isZone ? item.label : item;
-                                                const title = isZone ? `Macchine: ${item.machines.join(', ')}` : '';
+                {activeTab === "anagrafica" && (
+                    <AdminSecurityWrapper showToast={showToast}>
+                        <AnagraficaView
+                            dipendenti={dipendenti}
+                            setDipendenti={setDipendenti}
+                            macchine={macchine}
+                            showToast={showToast}
+                            turnoCorrente={turnoCorrente}
+                        />
+                    </AdminSecurityWrapper>
+                )}
 
-                                                return (
-                                                    <span key={i} title={title} style={{
-                                                        display: "inline-block",
-                                                        padding: "2px 8px",
-                                                        background: "var(--info-muted)",
-                                                        color: "var(--info)",
-                                                        borderRadius: 4,
-                                                        fontWeight: 600,
-                                                        fontSize: 15, // Same as nominativo font size
-                                                        marginRight: 4,
-                                                        cursor: isZone ? "pointer" : "default"
-                                                    }}>
-                                                        {name}
-                                                    </span>
-                                                );
-                                            })
-                                        ) : (
-                                            <span style={{ color: "var(--text-muted)", fontSize: 11 }}>—</span>
-                                        )}
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
+                {activeTab === "motivi" && (
+                    <MotiviView
+                        motivi={motivi}
+                        setMotivi={setMotivi}
+                        showToast={showToast}
+                    />
+                )}
+
+                {activeTab === "analisi" && (
+                    <AnalisiAvanzataView
+                        dipendenti={dipendenti}
+                        presenze={presenze}
+                        motivi={motivi}
+                        globalDate={globalDate}
+                        turnoCorrente={turnoCorrente}
+                    />
+                )}
+
+                {activeTab === "pianificazione" && (
+                    <PlanningView
+                        dipendenti={dipendenti}
+                        setDipendenti={setDipendenti}
+                        presenze={presenze}
+                        turnoCorrente={turnoCorrente}
+                        globalDate={globalDate}
+                    />
+                )}
+
+                {activeTab === "limitazioni" && (
+                    <AdminSecurityWrapper showToast={showToast}>
+                        <LimitazioniView
+                            dipendenti={dipendenti}
+                            presenze={presenze}
+                        />
+                    </AdminSecurityWrapper>
+                )}
             </div>
 
             {/* Motivo Assenza Popup - Using Portal to escape overflow/stacking context */}
@@ -626,6 +732,6 @@ export default function DashboardView({ dipendenti, presenze, setPresenze, asseg
                 </>,
                 document.body
             )}
-        </div >
+        </div>
     );
 }

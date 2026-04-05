@@ -247,8 +247,7 @@ const PivotTableGroup = ({ dataGroups, macchine = [], hideFooter = false }) => {
                                 backgroundColor: col.footerNote ? '#FFCC00' : 'transparent',
                                 textAlign: 'center',
                                 padding: col.footerNote ? 2 : 0,
-                                fontWeight: 'bold',
-                                fontSize: 9
+                                fontWeight: 'bold'
                             }}>
                                 {col.footerNote || ''}
                             </td>

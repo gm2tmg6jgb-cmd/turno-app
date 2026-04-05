@@ -85,11 +85,7 @@ export default function SapFermiView({ macchine = [] }) {
     return (
         <div className="fade-in" style={{ height: "100%", overflowY: "auto", paddingBottom: 20 }}>
             <div className="card" style={{ marginBottom: 16 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
-                    <div>
-                        <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>Storico Fermi SAP</h2>
-                        <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>Visualizza i fermi macchina importati da SAP</p>
-                    </div>
+                <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
                     <div style={{ display: "flex", gap: 8 }}>
                         <button
                             className="btn btn-secondary btn-sm"
