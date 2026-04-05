@@ -164,7 +164,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           scData.forEach(row => {
             const mId = row.macchina_id.toUpperCase();
             if (!scMap[mId]) scMap[mId] = {};
-            scMap[mId][row.slot_index] = {
+            scMap[mId][row.slot_index - 1] = {
               componente: row.componente,
               progetto: row.progetto,
               fino: row.fino,
@@ -210,14 +210,12 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
       return dhIds.includes(machineId);
     }
     
-    // Support for moving MZA machines to Saldatura Laser
     if (activeTech === "saldatrici" || activeTech === "saldatura_laser") {
-      if (machineId === "MZA11006") return true;
+      if (machineId.startsWith("MZA")) return true;
+      if (machineId.startsWith("SCA") && machineId !== "SCA11151") return true;
     }
 
-    if (activeTech === "controllo_ut") {
-      if (machineId === "MZA10005") return true;
-    }
+
     
     const tec = tecnologie.find(t => t.id === activeTech);
     if (!tec) return true;
@@ -232,11 +230,10 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
       "DRA11044", "FRW11015", "EGW11006",
       "DRA11130", "DRA11131", "DRA11132", "DRA11133",
       "MON12051",
-      "SCA11051", "SCA11151",
       "DRA11037", "DRA10115",
-      "MZA10005", "MZA11006"
+      "MZA", "SCA"
     ];
-    if (customAssignedMachines.includes(machineId)) {
+    if (customAssignedMachines.some(id => machineId.startsWith(id))) {
       return false; 
     }
 
@@ -376,15 +373,33 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
     }
     setIsSavingSlot(true);
     try {
+      const dbSlotIndex = Number(slotIndex) + 1;
+      // REORDERED PAYLOAD to try and fix DB mapping issues
       const payload = {
-        macchina_id: machineId,
-        slot_index: slotIndex,
-        componente: componente || null,
-        progetto: progetto || null,
-        codice_materiale: codiceMateriale || null,
-        fino: fino || null,
+        codice_materiale: codiceMateriale ? String(codiceMateriale) : null,
+        fino: fino ? String(fino) : null,
+        macchina_id: String(machineId),
+        slot_index: dbSlotIndex,
+        componente: componente ? String(componente) : null,
+        progetto: progetto ? String(progetto) : null,
       };
-      const { error } = await supabase.from("slot_config").upsert(payload, { onConflict: "macchina_id,slot_index" });
+
+      console.log("DEBUG [handleSaveSlot] Reordered Payload:", payload);
+
+      const isUpdate = !!slotConfigs[machineId.toUpperCase()]?.[slotIndex];
+      let error;
+      if (isUpdate) {
+        const { error: updErr } = await supabase.from("slot_config")
+          .update(payload)
+          .eq("macchina_id", machineId)
+          .eq("slot_index", dbSlotIndex);
+        error = updErr;
+      } else {
+        const { error: insErr } = await supabase.from("slot_config")
+          .insert([payload]);
+        error = insErr;
+      }
+
       if (error) throw error;
       setSlotConfigs(prev => ({
         ...prev,
@@ -419,28 +434,44 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
     }
     setIsSavingSlot(true);
     try {
-      const payload = filteredMachines.map(m => {
-        const isCurrent = m.id === slotModalData.machineId;
-        const existing = slotConfigs[m.id.toUpperCase()]?.[slotIndex] || {};
-        return {
-          macchina_id: m.id,
-          slot_index: slotIndex,
-          componente: isCurrent ? (componente || null) : (existing.componente || null),
-          progetto: isCurrent ? (progetto || null) : (existing.progetto || null),
-          codice_materiale: isCurrent ? (codiceMateriale || null) : (existing.codice_materiale || null),
+      const dbSlotIndex = Number(slotIndex) + 1;
+      const promises = filteredMachines.map(m => {
+        const configId = m.ids ? m.ids[0] : m.id;
+        const isCurrent = configId === slotModalData.machineId;
+        const existing = slotConfigs[configId.toUpperCase()]?.[slotIndex];
+        
+        const payloadObj = {
+          codice_materiale: isCurrent ? (codiceMateriale || null) : (existing?.codice_materiale || null),
           fino: fino || null,
+          macchina_id: String(configId),
+          slot_index: dbSlotIndex,
+          componente: isCurrent ? (componente || null) : (existing?.componente || null),
+          progetto: isCurrent ? (progetto || null) : (existing?.progetto || null),
         };
+
+        if (existing) {
+          return supabase.from("slot_config")
+            .update(payloadObj)
+            .eq("macchina_id", configId)
+            .eq("slot_index", dbSlotIndex);
+        } else {
+          return supabase.from("slot_config").insert([payloadObj]);
+        }
       });
-      const { error } = await supabase.from("slot_config").upsert(payload, { onConflict: "macchina_id,slot_index" });
-      if (error) throw error;
+      
+      console.log("DEBUG [handleSaveSlotForAll] Count:", filteredMachines.length);
+      
+      const results = await Promise.all(promises);
+      const errors = results.filter(r => r.error);
+      if (errors.length > 0) throw errors[0].error;
       setSlotConfigs(prev => {
         const next = { ...prev };
         filteredMachines.forEach(m => {
-          const upId = m.id.toUpperCase();
-          const isCurrent = m.id === slotModalData.machineId;
-          const existing = next[upId]?.[slotIndex] || {};
-          next[upId] = {
-            ...(next[upId] || {}),
+          const configId = (m.ids ? m.ids[0] : m.id).toUpperCase();
+          const isCurrent = configId === slotModalData.machineId.toUpperCase();
+          const existing = next[configId]?.[slotIndex] || {};
+          next[configId] = {
+            ...(next[configId] || {}),
             [slotIndex]: {
               ...existing,
               componente: isCurrent ? (componente || null) : (existing.componente || null),
@@ -468,7 +499,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
       const { error } = await supabase.from("slot_config")
         .delete()
         .eq("macchina_id", machineId)
-        .eq("slot_index", slotIndex);
+        .eq("slot_index", parseInt(slotIndex) + 1);
       if (error) throw error;
       setSlotConfigs(prev => {
         const updated = { ...prev };
@@ -501,29 +532,43 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
 
     setIsSavingSlot(true);
     try {
-      const payload = filteredMachines.map(m => {
-        const existing = slotConfigs[m.id.toUpperCase()]?.[slotIndex] || {};
-        return {
-          macchina_id: m.id,
-          slot_index: parseInt(slotIndex),
-          // If the global input provides a value, overwrite. Otherwise keep existing (or null).
-          componente: componente || existing.componente || null,
-          progetto: existing.progetto || null,
-          codice_materiale: codiceMateriale || existing.codice_materiale || null,
-          fino: fino || existing.fino || null,
+      const dbSlotIndex = Number(slotIndex) + 1;
+      const promises = filteredMachines.map(m => {
+        const configId = m.ids ? m.ids[0] : m.id;
+        const existing = slotConfigs[configId.toUpperCase()]?.[slotIndex];
+        
+        const payloadObj = {
+          codice_materiale: codiceMateriale || existing?.codice_materiale || null,
+          fino: fino || existing?.fino || null,
+          macchina_id: String(configId),
+          slot_index: dbSlotIndex,
+          componente: componente || existing?.componente || null,
+          progetto: existing?.progetto || null,
         };
+
+        if (existing) {
+          return supabase.from("slot_config")
+            .update(payloadObj)
+            .eq("macchina_id", configId)
+            .eq("slot_index", dbSlotIndex);
+        } else {
+          return supabase.from("slot_config").insert([payloadObj]);
+        }
       });
 
-      const { error } = await supabase.from("slot_config").upsert(payload, { onConflict: "macchina_id,slot_index" });
-      if (error) throw error;
+      console.log("DEBUG [handleSaveGlobalSlot] Count:", filteredMachines.length, "Target Slot:", dbSlotIndex);
+
+      const results = await Promise.all(promises);
+      const errors = results.filter(r => r.error);
+      if (errors.length > 0) throw errors[0].error;
 
       setSlotConfigs(prev => {
         const next = { ...prev };
         filteredMachines.forEach(m => {
-          const upId = m.id.toUpperCase();
-          const existing = next[upId]?.[slotIndex] || {};
-          next[upId] = {
-            ...(next[upId] || {}),
+          const configId = (m.ids ? m.ids[0] : m.id).toUpperCase();
+          const existing = next[configId]?.[slotIndex] || {};
+          next[configId] = {
+            ...(next[configId] || {}),
             [slotIndex]: {
               ...existing,
               componente: componente || existing.componente || null,
@@ -697,8 +742,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           const EXTRA_TECS = [
             { id: "rg_loop_grande", label: "RG Loop Grande" },
             { id: "rg_mini_opf", label: "RG Mini OPF" },
-            { id: "dh", label: "DH" },
-            { id: "controllo_ut", label: "Controllo UT" }
+            { id: "dh", label: "DH" }
           ];
 
           // Combine with existing technologies, avoiding duplicates
@@ -712,7 +756,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           const labelMapping = {
             "tornitura soft": "Tornitura Soft",
             "marcatura laser dmc": "DMC",
-            "saldatura laser": "Saldatura Laser",
+            "saldatura laser": "Saldatura Laser + UT",
             stozzatura: "Stozzatura",
             milling: "Fresatura",
             brocciatura: "Brocciatura",
@@ -724,14 +768,13 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             "rectifica denti": "Rettifica Denti",
             "rg loop grande": "RG Loop Grande",
             "rg mini opf": "RG Mini OPF",
-            dh: "DH",
-            "controllo ut": "Controllo UT"
+            dh: "DH"
           };
 
           const desiredOrder = [
             "Tornitura Soft",
             "DMC",
-            "Saldatura Laser",
+            "Saldatura Laser + UT",
             "Stozzatura",
             "Fresatura",
             "Brocciatura",
@@ -743,14 +786,13 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             "Rettifica Denti",
             "RG Loop Grande",
             "RG Mini OPF",
-            "DH",
-            "Controllo UT"
+            "DH"
           ];
 
           return allTecs
             .filter(t => {
               const label = (t.label || "").toLowerCase();
-              return !label.includes("foratrice");
+              return !label.includes("foratrice") && !label.includes("automazione") && !label.includes("controllo ut");
             })
             .map(t => {
               const originalLabel = (t.label || "").toLowerCase();
@@ -839,9 +881,17 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               (hasSoftProduction.has(mid) && m.tecnologia_id !== "TH" && m.tecnologia_id?.toLowerCase() !== "tornitura_hard")
             );
 
-            // Always render exactly SLOT_COUNT slots. "Hidden" slot indices are invisible placeholders.
+            // Dynamic Slot Count: default (4/5/12) OR max configured index + 1 OR +1 extra if in edit mode
+            const configIdForCount = m.ids ? m.ids[0].toUpperCase() : mid;
+            const maxConfiguredIndex = Object.keys(slotConfigs[configIdForCount] || {}).reduce((mx, k) => Math.max(mx, parseInt(k)), -1);
+            
             const isZSA = m.ids?.includes("ZSA11019") || m.ids?.includes("ZSA11022") || mid === "ZSA11019" || mid === "ZSA11022";
-            const SLOT_COUNT = isZSA ? 12 : 4;
+            const isDMC = m.tecnologia_id === "marcatura laser dmc" || m.tecnologia_id === "DMC" || activeTech === "marcatura laser dmc";
+            const baseCount = isZSA ? 12 : (isDMC ? 5 : 4);
+            
+            let SLOT_COUNT = Math.max(baseCount, maxConfiguredIndex + 1);
+            if (isSlotEditMode) SLOT_COUNT += 1;
+
             const FERMI_IDX = SLOT_COUNT - 1;
             // Slots hidden per machine: index → invisible placeholder
             const hiddenSlots = new Set(mid === "RAA11009" ? [1, 2] : []);
@@ -871,8 +921,9 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               let productionInfo = null;
               let displayComp = null;
               let displayProj = null;
-              const slotConf = slotConfigs[mid]?.[i];
-              const machineHasAnyConfig = !!slotConfigs[mid];
+              const configId = m.ids ? m.ids[0].toUpperCase() : mid;
+              const slotConf = slotConfigs[configId]?.[i];
+              const machineHasAnyConfig = !!slotConfigs[configId];
               if (slotConf) {
                 displayComp = slotConf.componente || null;
                 const finoKey = slotConf.fino ? normFino(slotConf.fino) : null;
@@ -996,125 +1047,53 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                     }
 
                     // Last slot — FERMI (Downtimes)
-                    if (i === FERMI_IDX) {
-                      const idsToSum = m.ids || [m.id];
-                      let minutes = 0;
-                      let entries = [];
-                      idsToSum.forEach(id => {
-                        const fermi = fermiData[id.toUpperCase()];
-                        if (fermi) {
-                          minutes += (fermi.minutes || 0);
-                          if (Array.isArray(fermi.entries)) {
-                            entries = [...entries, ...fermi.entries];
-                          }
+                    if (i === FERMI_IDX && !isSlotEditMode) {
+                        // Downtime slot (only show if not in edit mode, or handle differently)
+                        // In edit mode we show the configuration overlay instead of the downtime record link
+                        const fermi = fermiData[mid] || { minutes: 0, entries: [] };
+                        let minutes = (fermi.minutes || 0);
+                        let entries = [...(fermi.entries || [])];
+                        // If it's a twin, add minutes from both but only if current is the "primary" ID or if we want to show combined
+                        if (m.ids && m.ids.length > 1) {
+                          minutes = 0;
+                          entries = [];
+                          m.ids.forEach(id => {
+                            const f = fermiData[id.toUpperCase()];
+                            if (f) {
+                              minutes += (f.minutes || 0);
+                              if (Array.isArray(f.entries)) entries = [...entries, ...f.entries];
+                            }
+                          });
                         }
-                      });
-
-                      const isCritical = minutes > 60;
-
-                      return (
-                        <div key={i} style={{ flex: "0 0 calc(25% - 9px)", minWidth: "100px", display: "flex", flexDirection: "column", gap: "3px" }}>
-                        <div style={{ height: "14px" }} />
-                        <div style={{
-                          height: "100px",
-                          backgroundColor: minutes > 0 ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.01)",
-                          color: "var(--text-primary)",
-                          borderRadius: "16px",
-                          textAlign: "left",
-                          boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                          border: minutes > 0 
-                            ? `1px solid ${isCritical ? "#ef4444" : "#f59e0b"}` 
-                            : "1px dashed var(--border)",
-                          display: "flex",
-                          flexDirection: "column",
-                          padding: "10px 14px",
-                          transition: "all 0.2s ease",
-                          cursor: "pointer",
-                          overflow: "hidden",
-                          position: "relative"
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.transform = "scale(1.05)";
-                          e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.08)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.transform = "scale(1)";
-                          e.currentTarget.style.backgroundColor = minutes > 0 ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.01)";
-                        }}
-                        onClick={() => handleOpenFermiModal(m)}
-                        >
-                          {minutes > 0 ? (
-                            <>
-                              <div style={{ 
-                                position: "absolute", 
-                                top: "0", 
-                                right: "0", 
-                                padding: "4px 8px", 
-                                background: isCritical ? "#ef4444" : "#f59e0b",
-                                color: "white",
-                                fontSize: "9px",
-                                fontWeight: "900",
-                                borderBottomLeftRadius: "8px",
-                                letterSpacing: "0.5px"
-                              }}>
-                                FERMI
-                              </div>
-                              <div style={{ display: "flex", alignItems: "baseline", gap: "4px", marginTop: "4px" }}>
-                                <span style={{ fontSize: "22px", fontWeight: "900", color: isCritical ? "#ef4444" : "#f59e0b" }}>{minutes}</span>
-                                <span style={{ fontSize: "10px", fontWeight: "700", opacity: 0.6 }}>min</span>
-                              </div>
-                              <div style={{ 
-                                fontSize: "11px", 
-                                fontWeight: "600", 
-                                color: "var(--text-secondary)",
-                                marginTop: "8px",
-                                display: "grid",
-                                gridTemplateColumns: "repeat(2, 1fr)",
-                                columnGap: "16px",
-                                rowGap: "4px",
-                                overflow: "hidden",
-                                lineHeight: "1.3"
-                              }}>
-                                {entries.map((entry, idx) => (
-                                  <div key={idx} style={{ 
-                                    display: "flex", 
-                                    gap: "6px", 
-                                    alignItems: "flex-start",
-                                    whiteSpace: "nowrap",
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis"
-                                  }}>
-                                    <span style={{ color: isCritical ? "#ef4444" : "#f59e0b", flexShrink: 0 }}>•</span>
-                                    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-                                      <span style={{ fontWeight: "800", opacity: 0.9, marginRight: "4px" }}>{entry.durata}m</span>
-                                      {entry.is_automazione && <span style={{ color: "#a855f7", fontWeight: "800" }}>A: </span>}
-                                      {m.isTwin && entry.macchina_id && (
-                                        <span style={{ opacity: 0.6 }}>({entry.macchina_id.replace(/\D/g, '').slice(-2)}) </span>
-                                      )}
-                                      {entry.motivo}
-                                    </span>
+                        const isCritical = minutes > 60;
+                        return (
+                          <div key={`fermi-${i}`} style={{ flex: "0 0 calc(25% - 9px)", minWidth: "100px", display: "flex", flexDirection: "column", gap: "3px" }}>
+                            <div style={{ height: "14px" }} />
+                            <div style={{
+                              height: "100px",
+                              backgroundColor: minutes > 0 ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.01)",
+                              borderRadius: "16px",
+                              border: minutes > 0 ? `1px solid ${isCritical ? "#ef4444" : "#f59e0b"}` : "1px dashed var(--border)",
+                              display: "flex", flexDirection: "column", padding: "10px 14px", cursor: "pointer", position: "relative"
+                            }} onClick={() => handleOpenFermiModal(m)}>
+                              {minutes > 0 ? (
+                                <>
+                                  <div style={{ position: "absolute", top: 0, right: 0, padding: "4px 8px", background: isCritical ? "#ef4444" : "#f59e0b", color: "white", fontSize: "9px", fontWeight: "900", borderBottomLeftRadius: "8px" }}>FERMI</div>
+                                  <div style={{ display: "flex", alignItems: "baseline", gap: "4px", marginTop: "4px" }}>
+                                    <span style={{ fontSize: "22px", fontWeight: "900", color: isCritical ? "#ef4444" : "#f59e0b" }}>{minutes}</span>
+                                    <span style={{ fontSize: "10px", fontWeight: "700", opacity: 0.6 }}>min</span>
                                   </div>
-                                ))}
-                              </div>
-                            </>
-                          ) : (
-                            <div style={{ 
-                              height: "100%", 
-                              display: "flex", 
-                              flexDirection: "column", 
-                              justifyContent: "center", 
-                              alignItems: "center",
-                              gap: "4px",
-                              opacity: 0.4
-                            }}>
-                              <div style={{ fontSize: "20px" }}>{Icons.plus}</div>
-                              <div style={{ fontSize: "9px", fontWeight: "800", textAlign: "center" }}>RECORD<br/>FERMO</div>
+                                </>
+                              ) : (
+                                <div style={{ height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", opacity: 0.4 }}>
+                                  <div style={{ fontSize: "20px" }}>{Icons.plus}</div>
+                                  <div style={{ fontSize: "9px", fontWeight: "800", textAlign: "center" }}>RECORD<br/>FERMO</div>
+                                </div>
+                              )}
                             </div>
-                          )}
-                        </div>
-                        </div>
-                      );
-                    }
+                          </div>
+                        );
+                      }
 
                     const hasData = !!displayComp || !!productionInfo;
                     const bgGradient = hasData 
@@ -1163,9 +1142,10 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                         onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
                         onClick={() => {
                           if (isSlotEditMode) {
-                            const existing = slotConfigs[mid]?.[i];
+                            const configId = m.ids ? m.ids[0].toUpperCase() : mid;
+                            const existing = slotConfigs[configId]?.[i];
                             setSlotModalData({
-                              machineId: mid,
+                              machineId: configId,
                               slotIndex: i,
                               componente: existing?.componente || displayComp || "",
                               progetto: existing?.progetto || "",
@@ -1199,9 +1179,9 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                               backdropFilter: "blur(1px)"
                             }}>
                               <div style={{ textAlign: "center" }}>
-                                <div style={{ fontSize: "18px" }}>✏️</div>
+                                <div style={{ fontSize: "18px" }}>{slotConfigs[m.ids ? m.ids[0].toUpperCase() : mid]?.[i] ? "✏️" : "➕"}</div>
                                 <div style={{ fontSize: "9px", fontWeight: "900", color: "white", letterSpacing: "0.5px", marginTop: "2px" }}>
-                                  {slotConfigs[mid]?.[i] ? "MODIFICA" : "CONFIGURA"}
+                                  {slotConfigs[m.ids ? m.ids[0].toUpperCase() : mid]?.[i] ? "MODIFICA" : "AGGIUNGI"}
                                 </div>
                               </div>
                             </div>

@@ -446,7 +446,30 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
                 let isStrategic = false;
                 let strategyType = "";
 
-                if (dayOfWeek === 6 && slotObj.id === "S") {
+                const ITALIAN_HOLIDAYS = [
+                    "01-01", "01-06", "04-25", "05-01", "06-02", "08-15",
+                    "11-01", "12-08", "12-25", "12-26"
+                ];
+                const isHoliday = (dateObj) => {
+                    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+                    const dayStr = String(dateObj.getDate()).padStart(2, '0');
+                    return ITALIAN_HOLIDAYS.includes(`${m}-${dayStr}`);
+                };
+
+                let isPonte = false;
+                let ponteName = "";
+                
+                if (dayOfWeek === 1) { // Monday
+                    const nextDate = new Date(d); nextDate.setDate(d.getDate() + 1);
+                    if (isHoliday(nextDate)) { isPonte = true; ponteName = "Ponte (Lunedì pre-festivo)"; }
+                } else if (dayOfWeek === 5) { // Friday
+                    const prevDate = new Date(d); prevDate.setDate(d.getDate() - 1);
+                    if (isHoliday(prevDate)) { isPonte = true; ponteName = "Ponte (Venerdì post-festivo)"; }
+                }
+
+                if (isPonte) {
+                    isStrategic = true; strategyType = ponteName;
+                } else if (dayOfWeek === 6 && slotObj.id === "S") {
                     isStrategic = true; strategyType = "Sabato Sera";
                 } else if (dayOfWeek === 6 && slotObj.id === "N") {
                     isStrategic = true; strategyType = "Sabato Notte";
