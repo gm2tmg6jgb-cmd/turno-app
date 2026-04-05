@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Icons } from "../components/ui/Icons";
 import { supabase } from "../lib/supabase";
 import { Modal } from "../components/ui/Modal";
-import { formatItalianDate } from "../lib/dateUtils";
-import { TURNI } from "../data/constants";
+import { formatItalianDate, getLocalDate } from "../lib/dateUtils";
+import { TURNI, ORARI_TURNI } from "../data/constants";
 
 const normFino = s => { const n = parseInt(s, 10); return isNaN(n) ? (s || "").toUpperCase() : String(n); };
 
@@ -37,13 +37,13 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
 
   // New Machine State
   const [showNewMachineModal, setShowNewMachineModal] = useState(false);
-  const [newMachineForm, setNewMachineForm] = useState({ id: "", nome: "", tecnologia_id: "" });
+  const [newMachineForm, setNewMachineForm] = useState({ id: "", nome: "", tecnologia_id: "", target_performance: 91, target_quality: 98 });
   const [isSavingMachine, setIsSavingMachine] = useState(false);
   const [temporaryMachines, setTemporaryMachines] = useState([]); // To show new machines immediately
 
   // Edit Machine State
   const [showEditMachineModal, setShowEditMachineModal] = useState(false);
-  const [editMachineForm, setEditMachineForm] = useState({ id: "", nome: "", tecnologia_id: "" });
+  const [editMachineForm, setEditMachineForm] = useState({ id: "", nome: "", tecnologia_id: "", target_performance: 91, target_quality: 98 });
   const [isDeletingMachine, setIsDeletingMachine] = useState(false);
   const [deletedMachineIds, setDeletedMachineIds] = useState(new Set());
 
@@ -552,6 +552,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         id: newMachineForm.id.toUpperCase(),
         nome: newMachineForm.nome || newMachineForm.id,
         tecnologia_id: newMachineForm.tecnologia_id,
+        target_performance: newMachineForm.target_performance,
+        target_quality: newMachineForm.target_quality,
         attivo: true,
       };
 
@@ -578,6 +580,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
       const payload = {
         nome: editMachineForm.nome || editMachineForm.id,
         tecnologia_id: editMachineForm.tecnologia_id,
+        target_performance: editMachineForm.target_performance,
+        target_quality: editMachineForm.target_quality,
       };
       
       const { error } = await supabase.from("macchine")
@@ -914,10 +918,35 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
 
           return processedMachines.map((m) => {
             const mid = m.id.toUpperCase();
+            
+            // KPI Calculation Logic
+            const shiftMinutes = (turnoCorrente && turnoCorrente !== "ALL") ? 360 : 1440;
+            const fermi = fermiData[mid] || { minutes: 0, entries: [] };
+            let totalDowntime = fermi.minutes || 0;
+            if (m.ids && m.ids.length > 1) {
+              totalDowntime = 0;
+              m.ids.forEach(id => {
+                totalDowntime += (fermiData[id.toUpperCase()]?.minutes || 0);
+              });
+            }
+            
+            const availability = Math.max(0, (shiftMinutes - totalDowntime) / shiftMinutes);
+            const prodHours = (shiftMinutes - totalDowntime) / 60;
+            const displayProdHours = `${Math.floor(prodHours)}h`;
+            const displayTotalHours = `${Math.floor(shiftMinutes / 60)}h`;
+            
+            // Dynamic Performance/Quality for OEE calculation
+            const targetPerf = (m.target_performance || 91) / 100;
+            const targetQual = (m.target_quality || 98) / 100;
+            
+            const performance = targetPerf; // Placeholder constant efficiency
+            const oee = availability * performance * targetQual;
+            
             const isFRW = mid === "FRW10075"; // FRW10075 → SG5 / DCT300
             const isFRW74 = mid === "FRW10074"; // FRW10074 → SAP FRW14410
             const isMZA = mid === "MZA10005";
             const isRAA = mid === "RAA11009";
+            const isZSA = mid.startsWith("ZSA");
             const isSingle = mid === "BOA10094" || mid === "RAA11009" || mid === "DRA10116" || mid === "DRA10009";
             const isDouble = mid === "DRA10109";
             const isSpecial = isFRW || isMZA || isRAA || isSingle || isDouble || m.isTwin;
@@ -1040,299 +1069,238 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
 
             return (
               <div key={m.id} style={{
-                backgroundColor: "var(--bg-card)",
-                borderRadius: "16px",
+                backgroundColor: "#ffffff",
+                borderRadius: "24px",
                 padding: "24px",
-                border: "1px solid var(--border)",
+                border: "1px solid #eef2f6",
                 display: "flex",
                 flexDirection: "column",
-                gap: "20px",
-                boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                transition: "transform 0.2s ease",
-                minHeight: "480px",
-                height: "100%"
+                gap: "24px",
+                boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.05)",
+                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                minHeight: "520px",
+                height: "100%",
+                color: "#1e293b",
+                position: "relative"
               }}>
-                <div style={{ borderBottom: "1px solid var(--border)", paddingBottom: "12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                {/* Header */}
+                <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <div>
-                      <div style={{ fontWeight: "900", fontSize: "20px", color: "var(--accent)", display: "flex", alignItems: "center", gap: "8px" }}>
-                        {m.id}
-                        {isSlotEditMode && (
-                          <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditMachineForm({
-                                id: m.id,
-                                nome: m.nome || m.id,
-                                tecnologia_id: m.tecnologia_id || ""
-                              });
-                              setShowEditMachineModal(true);
-                            }}
-                            style={{ 
-                              background: "none", 
-                              border: "none", 
-                              cursor: "pointer", 
-                              fontSize: "14px", 
-                              padding: "4px",
-                              opacity: 0.6,
-                              transition: "opacity 0.2s"
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.opacity = 1}
-                            onMouseLeave={(e) => e.currentTarget.style.opacity = 0.6}
-                            title="Modifica Macchina"
-                          >
-                            ✏️
-                          </button>
-                        )}
-                      </div>
-                      {m.nome && m.nome !== m.id && (
-                        <div style={{ fontSize: "14px", color: "var(--text-muted)", marginTop: "2px" }}>{m.nome}</div>
-                      )}
-                    </div>
+                    <h2 style={{ 
+                      fontWeight: "900", 
+                      fontSize: "26px", 
+                      color: "#10b981", 
+                      margin: 0,
+                      letterSpacing: "-0.5px"
+                    }}>
+                      {m.id}
+                    </h2>
+                    <span style={{ 
+                      backgroundColor: "#ffedd5", 
+                      color: "#9a3412", 
+                      fontSize: "10px", 
+                      fontWeight: "900", 
+                      padding: "2px 8px", 
+                      borderRadius: "6px",
+                      letterSpacing: "0.5px",
+                      textTransform: "uppercase"
+                    }}>
+                      Nuovo
+                    </span>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-muted)", letterSpacing: "0.5px" }}>TOT. PEZZI</div>
-                    <div style={{ fontSize: "24px", fontWeight: "900", color: "#10b981" }}>{headerTotal}</div>
+                    <div style={{ fontSize: "10px", fontWeight: "700", color: "#94a3b8", letterSpacing: "0.5px", textTransform: "uppercase" }}>Tot. Pezzi</div>
+                    <div style={{ fontSize: "28px", fontWeight: "900", color: "#1e293b" }}>{headerTotal}</div>
                   </div>
                 </div>
- 
+
+                {/* KPI Boxes */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
+                  {/* OEE */}
+                  <div style={{ backgroundColor: "#f8fafc", borderRadius: "16px", padding: "14px", border: "1px solid #f1f5f9" }}>
+                    <div style={{ fontSize: "9px", fontWeight: "800", color: "#94a3b8", marginBottom: "4px", textTransform: "uppercase" }}>OEE</div>
+                    <div style={{ fontSize: "20px", fontWeight: "900", color: "#10b981" }}>{Math.round(oee * 100)}%</div>
+                    <div style={{ height: "4px", backgroundColor: "#e2e8f0", borderRadius: "2px", marginTop: "8px", overflow: "hidden" }}>
+                      <div style={{ width: `${oee * 100}%`, height: "100%", backgroundColor: "#10b981" }} />
+                    </div>
+                  </div>
+                  {/* Performance */}
+                  <div style={{ backgroundColor: "#f8fafc", borderRadius: "16px", padding: "14px", border: "1px solid #f1f5f9" }}>
+                    <div style={{ fontSize: "9px", fontWeight: "800", color: "#94a3b8", marginBottom: "4px", textTransform: "uppercase" }}>Performance</div>
+                    <div style={{ fontSize: "20px", fontWeight: "900", color: "#1e293b" }}>{Math.round(performance * 100)}%</div>
+                    <div style={{ height: "4px", backgroundColor: "#e2e8f0", borderRadius: "2px", marginTop: "8px", overflow: "hidden" }}>
+                      <div style={{ width: `${performance * 100}%`, height: "100%", backgroundColor: "#3b82f6" }} />
+                    </div>
+                  </div>
+                  {/* Ore Prod */}
+                  <div style={{ backgroundColor: "#f8fafc", borderRadius: "16px", padding: "14px", border: "1px solid #f1f5f9" }}>
+                    <div style={{ fontSize: "9px", fontWeight: "800", color: "#94a3b8", marginBottom: "4px", textTransform: "uppercase" }}>Ore Prod.</div>
+                    <div style={{ fontSize: "20px", fontWeight: "900", color: "#1e293b" }}>{displayProdHours}</div>
+                    <div style={{ fontSize: "10px", fontWeight: "600", color: "#94a3b8" }}>su {displayTotalHours}</div>
+                  </div>
+                </div>
+
+                <div style={{ height: "1px", backgroundColor: "#f1f5f9" }} />
+
+                {/* Slots Grid */}
                 <div style={{ 
-                  display: "flex", 
-                  gap: "12px", 
-                  justifyContent: "start",
-                  flexWrap: "wrap",
-                  width: "100%"
+                  display: "grid", 
+                  gridTemplateColumns: "repeat(3, 1fr)", 
+                  gap: "12px",
+                  flex: 1
                 }}>
-                  {Array.from({ length: SLOT_COUNT }).map((_, i) => {
-                    const isFermi = i === FERMI_IDX;
-                    const slotData = computedSlotData[i];
+                  {Array.from({ length: 6 }).map((_, i) => {
+                    // In edit mode, we want to show all 6 possible slots to allow configuration
+                    // In normal mode, we only show what's configured or has production
+                    const slotData = computedSlotData[i] || { isConfigured: false, displayComp: "+" };
                     
-                    // In View Mode: hide slots with 0 pieces OR unconfigured
-                    if (!isSlotEditMode && !isFermi) {
-                      const totalQty = slotData?.productionInfo?.total || 0;
-                      if (!slotData?.isConfigured || totalQty === 0) {
-                        return null;
-                      }
-                    }
-                    // Hidden slots: invisible placeholder that still holds its space
-                    if (hiddenSlots.has(i)) {
-                      return (
-                        <div key={i} style={{ flex: "0 0 calc(25% - 9px)", display: "flex", flexDirection: "column", gap: "3px", visibility: "hidden", pointerEvents: "none" }}>
-                          <div style={{ height: "14px" }} />
-                          <div style={{ height: "100px" }} />
-                        </div>
-                      );
+                    if (!isSlotEditMode) {
+                      if (!slotData?.isConfigured && (slotData?.productionInfo?.total ?? 0) === 0) return <div key={i} />;
                     }
 
-                    // Use pre-computed slot data for production slots
-                    let productionInfo = null;
-                    let displayComp = null;
-                    let displayProj = null;
-                    if (i < FERMI_IDX) {
-                      const pre = computedSlotData[i];
-                      if (pre && !pre.hidden) {
-                        productionInfo = pre.productionInfo;
-                        displayComp = pre.displayComp;
-                        displayProj = pre.displayProj;
-                      }
-                    }
-
-                    // Last slot — FERMI (Downtimes)
-                    if (i === FERMI_IDX && !isSlotEditMode) {
-                        // Downtime slot (only show if not in edit mode, or handle differently)
-                        // In edit mode we show the configuration overlay instead of the downtime record link
-                        const fermi = fermiData[mid] || { minutes: 0, entries: [] };
-                        let minutes = (fermi.minutes || 0);
-                        let entries = [...(fermi.entries || [])];
-                        // If it's a twin, add minutes from both but only if current is the "primary" ID or if we want to show combined
-                        if (m.ids && m.ids.length > 1) {
-                          minutes = 0;
-                          entries = [];
-                          m.ids.forEach(id => {
-                            const f = fermiData[id.toUpperCase()];
-                            if (f) {
-                              minutes += (f.minutes || 0);
-                              if (Array.isArray(f.entries)) entries = [...entries, ...f.entries];
-                            }
-                          });
-                        }
-                        const isCritical = minutes > 60;
-                        return (
-                          <div key={`fermi-${i}`} style={{ flex: "0 0 calc(25% - 9px)", minWidth: "100px", display: "flex", flexDirection: "column", gap: "3px" }}>
-                            <div style={{ height: "14px" }} />
-                            <div style={{
-                              height: "100px",
-                              backgroundColor: minutes > 0 ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.01)",
-                              borderRadius: "16px",
-                              border: minutes > 0 ? `1px solid ${isCritical ? "#ef4444" : "#f59e0b"}` : "1px dashed var(--border)",
-                              display: "flex", flexDirection: "column", padding: "10px 14px", cursor: "pointer", position: "relative"
-                            }} onClick={() => handleOpenFermiModal(m)}>
-                              {minutes > 0 ? (
-                                <>
-                                  <div style={{ position: "absolute", top: 0, right: 0, padding: "4px 8px", background: isCritical ? "#ef4444" : "#f59e0b", color: "white", fontSize: "9px", fontWeight: "900", borderBottomLeftRadius: "8px" }}>FERMI</div>
-                                  <div style={{ display: "flex", alignItems: "baseline", gap: "4px", marginTop: "4px" }}>
-                                    <span style={{ fontSize: "22px", fontWeight: "900", color: isCritical ? "#ef4444" : "#f59e0b" }}>{minutes}</span>
-                                    <span style={{ fontSize: "10px", fontWeight: "700", opacity: 0.6 }}>min</span>
-                                  </div>
-                                </>
-                              ) : (
-                                <div style={{ height: "100%", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", opacity: 0.4 }}>
-                                  <div style={{ fontSize: "20px" }}>{Icons.plus}</div>
-                                  <div style={{ fontSize: "9px", fontWeight: "800", textAlign: "center" }}>RECORD<br/>FERMO</div>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      }
-
-                    const hasData = !!displayComp || !!productionInfo;
-                    const bgGradient = hasData 
-                      ? "linear-gradient(145deg, #10b981, #059669)" // Green if data
-                      : "linear-gradient(145deg, #3c6ef0, #2f5bd6)"; // Blue if empty
-
-                    // Extract total quantity and materials from refactored structure
-                    const totalQty = productionInfo?.total ?? 0;
-                    const materials = productionInfo?.materials ?? [];
+                    const totalQty = slotData?.productionInfo?.total ?? 0;
+                    const displayComp = slotData?.displayComp || "—";
+                    const isConfigured = !!slotData?.isConfigured;
+                    const hasProduction = totalQty > 0;
+                    
+                    const bgColor = isConfigured ? "#10b981" : "#f1f5f9";
+                    const textColor = isConfigured ? "#ffffff" : "#64748b";
 
                     return (
-                      <div key={i} style={{ flex: "0 0 calc(25% - 9px)", minWidth: "100px", display: "flex", flexDirection: "column", gap: "3px" }}>
-                        {/* Project label above slot */}
-                        <div style={{
-                          height: "18px",
-                          fontSize: "12px",
-                          fontWeight: "700",
-                          color: "var(--text-muted)",
-                          textAlign: "center",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                          letterSpacing: "0.3px",
-                          lineHeight: "18px"
-                        }}>
-                          {displayProj || ""}
-                        </div>
-                        {/* Slot card */}
-                        <div style={{
-                          height: "100px",
-                          background: bgGradient,
-                          color: "white",
-                          borderRadius: "15px",
-                          textAlign: "left",
-                          boxShadow: "0 8px 18px rgba(0,0,0,0.15)",
-                          display: "flex",
-                          flexDirection: "column",
-                          justifyContent: "center",
-                          padding: "10px 14px",
-                          transition: "transform 0.2s ease",
-                          cursor: "pointer",
-                          overflow: "hidden",
-                          position: "relative"
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.05)"}
-                        onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
-                        onClick={() => {
-                          if (isSlotEditMode) {
-                            const configId = m.ids ? m.ids[0].toUpperCase() : mid;
-                            const existing = slotConfigs[configId]?.[i];
-                            setSlotModalData({
-                              machineId: configId,
-                              slotIndex: i,
-                              componente: existing?.componente || displayComp || "",
-                              progetto: existing?.progetto || "",
-                              codiceMateriale: existing?.codice_materiale || "",
-                              fino: existing?.fino || "",
+                      <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+                        {isConfigured ? (
+                          <div style={{ fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>8Fe</div>
+                        ) : <div style={{ height: "15px" }} />}
+                        
+                        <div 
+                          onClick={() => {
+                            if (isSlotEditMode) {
+                                const configId = m.ids ? m.ids[0].toUpperCase() : mid;
+                                const existing = slotConfigs[configId]?.[i];
+                                setSlotModalData({
+                                  machineId: configId,
+                                  slotIndex: i,
+                                  componente: existing?.componente || displayComp || "",
+                                  progetto: existing?.progetto || "",
+                                  codiceMateriale: existing?.codice_materiale || "",
+                                  fino: existing?.fino || "",
+                                });
+                                setShowSlotModal(true);
+                                return;
+                            }
+                            setProdModalData({
+                              machineId: m.id,
+                              comp: displayComp,
+                              proj: slotData.displayProj,
+                              materials: slotData.productionInfo?.materials || [],
+                              totalQty
                             });
-                            setShowSlotModal(true);
-                            return;
-                          }
-                          setProdModalData({
-                            machineId: m.id,
-                            comp: displayComp,
-                            proj: displayProj,
-                            materials,
-                            totalQty
-                          });
-                          setShowProdModal(true);
-                        }}
+                            setShowProdModal(true);
+                          }}
+                          style={{
+                            backgroundColor: bgColor,
+                            borderRadius: "18px",
+                            padding: "12px",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: textColor,
+                            cursor: "pointer",
+                            transition: "all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                            position: "relative",
+                            boxShadow: isConfigured ? "0 8px 15px -3px rgba(16, 185, 129, 0.2)" : "none",
+                            border: isConfigured ? "none" : "1px dashed #cbd5e1",
+                            height: "100px",
+                            width: "100%",
+                            textAlign: "center"
+                          }}
+                          onMouseEnter={(e) => {
+                            if (isConfigured) e.currentTarget.style.transform = "translateY(-4px)";
+                          }}
+                          onMouseLeave={(e) => {
+                            if (isConfigured) e.currentTarget.style.transform = "translateY(0)";
+                          }}
                         >
-                          {/* Edit mode overlay */}
+                          <div style={{ fontSize: "16px", fontWeight: "800", letterSpacing: "-0.5px", marginBottom: "2px" }}>{displayComp}</div>
+                          <div style={{ fontSize: "32px", fontWeight: "900", lineHeight: "1" }}>
+                            {isConfigured ? (hasProduction ? totalQty : "0") : ""}
+                          </div>
                           {isSlotEditMode && (
-                            <div style={{
-                              position: "absolute",
-                              inset: 0,
-                              background: "rgba(0,0,0,0.55)",
-                              borderRadius: "15px",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              zIndex: 2,
-                              backdropFilter: "blur(1px)"
-                            }}>
-                              {/* Direct Delete Button (X) */}
-                              {slotConfigs[m.ids ? m.ids[0].toUpperCase() : mid]?.[i] && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteSlot(m.ids ? m.ids[0].toUpperCase() : mid, i);
-                                  }}
-                                  style={{
-                                    position: "absolute",
-                                    top: "6px",
-                                    right: "6px",
-                                    width: "22px",
-                                    height: "22px",
-                                    borderRadius: "50%",
-                                    background: "rgba(239, 68, 68, 0.9)",
-                                    color: "white",
-                                    border: "none",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    fontSize: "12px",
-                                    fontWeight: "bold",
-                                    cursor: "pointer",
-                                    zIndex: 3,
-                                    boxShadow: "0 2px 4px rgba(0,0,0,0.2)"
-                                  }}
-                                  title="Elimina Slot"
-                                >
-                                  ×
-                                </button>
-                              )}
-                              <div style={{ textAlign: "center" }}>
-                                <div style={{ fontSize: "18px" }}>{slotConfigs[m.ids ? m.ids[0].toUpperCase() : mid]?.[i] ? "✏️" : "➕"}</div>
-                                <div style={{ fontSize: "9px", fontWeight: "900", color: "white", letterSpacing: "0.5px", marginTop: "2px" }}>
-                                  {slotConfigs[m.ids ? m.ids[0].toUpperCase() : mid]?.[i] ? "MODIFICA" : "AGGIUNGI"}
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                          {hasData ? (
-                            <>
-                              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
-                                <span style={{ fontSize: "14px", fontWeight: "700", opacity: 0.85 }}>{displayComp}</span>
-                                <span style={{ fontSize: "28px", fontWeight: "900", lineHeight: 1 }}>{totalQty}</span>
-                              </div>
-                            </>
-                          ) : (
-                            <div style={{
-                              height: "100%",
-                              display: "flex",
-                              flexDirection: "column",
-                              justifyContent: "center",
-                              alignItems: "center",
-                              gap: "4px"
-                            }}>
-                              <div style={{ fontSize: "20px" }}>{Icons.plus}</div>
-                              <div style={{ fontSize: "9px", fontWeight: "800" }}>RECORD</div>
-                            </div>
+                             <div style={{ position: "absolute", top: 6, right: 6, fontSize: "10px" }}>✏️</div>
                           )}
                         </div>
                       </div>
                     );
                   })}
+
+                  {/* Unified "+ RECORD FERMO" action button box as seen in photo - placed AFTER the map slots */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                    <div style={{ height: "15px" }} /> {/* Spacer to align with 8Fe labels */}
+                    <div 
+                      onClick={() => handleOpenFermiModal(m)}
+                      style={{
+                        backgroundColor: "#ffffff",
+                        borderRadius: "18px",
+                        padding: "16px 12px",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#94a3b8",
+                        cursor: "pointer",
+                        height: "100px",
+                        width: "100%",
+                        border: "1px dashed #e2e8f0",
+                        transition: "all 0.2s"
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = "#f8fafc";
+                        e.currentTarget.style.borderColor = "#cbd5e1";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = "#ffffff";
+                        e.currentTarget.style.borderColor = "#e2e8f0";
+                      }}
+                    >
+                      <div style={{ fontSize: "20px", fontWeight: "300", marginBottom: "4px" }}>+</div>
+                      <div style={{ fontSize: "10px", fontWeight: "800", textAlign: "center", lineHeight: "1.2" }}>RECORD<br/>FERMO</div>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Edit Machine Button (Absolute overlay if in edit mode) */}
+                {isSlotEditMode && (
+                   <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditMachineForm({
+                        id: m.id,
+                        nome: m.nome || m.id,
+                        tecnologia_id: m.tecnologia_id || "",
+                        target_performance: m.target_performance || 91,
+                        target_quality: m.target_quality || 98
+                      });
+                      setShowEditMachineModal(true);
+                    }}
+                    style={{ 
+                      position: "absolute",
+                      top: 12,
+                      left: 12,
+                      background: "white", 
+                      border: "1px solid #e2e8f0", 
+                      borderRadius: "50%",
+                      width: "32px",
+                      height: "32px",
+                      cursor: "pointer", 
+                      fontSize: "14px",
+                      boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+                    }}
+                    title="Modifica Macchina"
+                  >
+                    ✏️
+                  </button>
+                )}
               </div>
             );
           });
@@ -1658,10 +1626,33 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 {tecnologie.map(t => (
                   <option key={t.id} value={t.id}>{t.label}</option>
                 ))}
-                {/* Fallbacks for internal IDs */}
                 <option value="DMC">Marcatura Laser DMC</option>
                 <option value="ZSA">ZSA (Zahnstangen)</option>
               </select>
+            </div>
+            <div style={{ display: "flex", gap: "12px" }}>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label" style={{ fontWeight: "700" }}>Target Performance (%)</label>
+                <input
+                  type="number"
+                  className="input"
+                  min="0"
+                  max="100"
+                  value={newMachineForm.target_performance}
+                  onChange={e => setNewMachineForm(p => ({ ...p, target_performance: parseInt(e.target.value) || 0 }))}
+                />
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label" style={{ fontWeight: "700" }}>Target Qualità (%)</label>
+                <input
+                  type="number"
+                  className="input"
+                  min="0"
+                  max="100"
+                  value={newMachineForm.target_quality}
+                  onChange={e => setNewMachineForm(p => ({ ...p, target_quality: parseInt(e.target.value) || 0 }))}
+                />
+              </div>
             </div>
           </div>
         </Modal>
@@ -1729,6 +1720,30 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 <option value="DMC">Marcatura Laser DMC</option>
                 <option value="ZSA">ZSA (Zahnstangen)</option>
               </select>
+            </div>
+            <div style={{ display: "flex", gap: "12px" }}>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label" style={{ fontWeight: "700" }}>Target Performance (%)</label>
+                <input
+                  type="number"
+                  className="input"
+                  min="0"
+                  max="100"
+                  value={editMachineForm.target_performance}
+                  onChange={e => setEditMachineForm(p => ({ ...p, target_performance: parseInt(e.target.value) || 0 }))}
+                />
+              </div>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label className="form-label" style={{ fontWeight: "700" }}>Target Qualità (%)</label>
+                <input
+                  type="number"
+                  className="input"
+                  min="0"
+                  max="100"
+                  value={editMachineForm.target_quality}
+                  onChange={e => setEditMachineForm(p => ({ ...p, target_quality: parseInt(e.target.value) || 0 }))}
+                />
+              </div>
             </div>
           </div>
         </Modal>
