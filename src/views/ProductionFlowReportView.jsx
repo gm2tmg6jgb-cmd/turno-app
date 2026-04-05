@@ -665,7 +665,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 fontSize: "14px",
                 outline: "none",
                 cursor: "pointer",
-                fontFamily: "inherit"
+                fontFamily: "inherit",
+                width: "210px"
               }}
             />
           </div>
@@ -685,7 +686,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 fontWeight: "700",
                 fontSize: "14px",
                 outline: "none",
-                cursor: "pointer"
+                cursor: "pointer",
+                width: "210px"
               }}
             >
               <option value="ALL">Tutti i turni</option>
@@ -713,7 +715,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                     border: "1px solid var(--border)",
                     backgroundColor: "var(--bg-card)",
                     color: "var(--text-primary)",
-                    width: "200px",
+                    width: "210px",
                     outline: "none",
                     fontSize: "14px"
                   }}
@@ -737,7 +739,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 fontSize: "13px",
                 cursor: "pointer",
                 transition: "all 0.2s",
-                whiteSpace: "nowrap"
+                whiteSpace: "nowrap",
+                width: "210px"
               }}
             >
               {isSlotEditMode ? "✓ Esci da Configura" : "⚙ Configura Singolo"}
@@ -758,7 +761,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 fontSize: "13px",
                 cursor: "pointer",
                 transition: "all 0.2s",
-                whiteSpace: "nowrap"
+                whiteSpace: "nowrap",
+                width: "210px"
               }}
             >
               ➕ Nuova Macchina
@@ -927,17 +931,15 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               (hasSoftProduction.has(mid) && m.tecnologia_id !== "TH" && m.tecnologia_id?.toLowerCase() !== "tornitura_hard")
             );
 
-            // Dynamic Slot Count: default (4/5/12) OR max configured index + 1 OR +1 extra if in edit mode
+            // Dynamic Slot Count: only configured slots + 1 extra if in edit mode
             const configIdForCount = m.ids ? m.ids[0].toUpperCase() : mid;
-            const maxConfiguredIndex = Object.keys(slotConfigs[configIdForCount] || {}).reduce((mx, k) => Math.max(mx, parseInt(k)), -1);
+            const configuredIndices = Object.keys(slotConfigs[configIdForCount] || {}).map(k => parseInt(k));
+            const maxConfiguredIndex = configuredIndices.length > 0 ? Math.max(...configuredIndices) : -1;
             
-            const isZSA = m.ids?.includes("ZSA11019") || m.ids?.includes("ZSA11022") || mid === "ZSA11019" || mid === "ZSA11022";
-            const isDMC = m.tecnologia_id === "marcatura laser dmc" || m.tecnologia_id === "DMC" || activeTech === "marcatura laser dmc";
-            const baseCount = mid === "ZSA11022" ? 2 : (isZSA ? 12 : (isDMC ? 6 : 4));
-            
-            let SLOT_COUNT = Math.max(baseCount, maxConfiguredIndex + 1);
-            if (isSlotEditMode) SLOT_COUNT += 1;
+            let prodSlots = maxConfiguredIndex + 1;
+            if (isSlotEditMode) prodSlots += 1;
 
+            const SLOT_COUNT = prodSlots + 1; // Total slots including Fermi
             const FERMI_IDX = SLOT_COUNT - 1;
             // Slots hidden per machine: index → invisible placeholder
             const hiddenSlots = new Set(mid === "RAA11009" ? [1, 2] : []);
@@ -962,7 +964,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               Object.assign(mProdForPre, productionData[m.id] || {});
             }
             const prodComponentsForPre = Object.keys(mProdForPre);
-            const computedSlotData = Array.from({ length: FERMI_IDX }).map((_, i) => {
+            const computedSlotData = Array.from({ length: prodSlots }).map((_, i) => {
               if (hiddenSlots.has(i)) return { hidden: true };
               let productionInfo = null;
               let displayComp = null;
@@ -1105,9 +1107,12 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                     const isFermi = i === FERMI_IDX;
                     const slotData = computedSlotData[i];
                     
-                    // IF not in edit mode, only show configured slots (except FERMI)
-                    if (!isSlotEditMode && !isFermi && !slotData?.isConfigured) {
-                      return null;
+                    // In View Mode: hide slots with 0 pieces OR unconfigured
+                    if (!isSlotEditMode && !isFermi) {
+                      const totalQty = slotData?.productionInfo?.total || 0;
+                      if (!slotData?.isConfigured || totalQty === 0) {
+                        return null;
+                      }
                     }
                     // Hidden slots: invisible placeholder that still holds its space
                     if (hiddenSlots.has(i)) {
