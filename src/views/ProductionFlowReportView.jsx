@@ -52,13 +52,13 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
       setLoading(true);
       try {
         const date = globalDate || new Date().toISOString().split("T")[0];
-        
+
         // 1. Fetch production
         let query = supabase.from("conferme_sap").select("*").eq("data", date);
         if (turnoCorrente && turnoCorrente !== "ALL") {
           query = query.eq("turno_id", turnoCorrente);
         }
-        
+
         const { data: prodData, error } = await query;
         if (error) throw error;
 
@@ -153,9 +153,9 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             if (!fMap[mId]) fMap[mId] = { minutes: 0, entries: [] };
             fMap[mId].minutes += (row.durata_minuti || 0);
             if (row.motivo) {
-              fMap[mId].entries.push({ 
-                motivo: row.motivo, 
-                durata: row.durata_minuti, 
+              fMap[mId].entries.push({
+                motivo: row.motivo,
+                durata: row.durata_minuti,
                 is_automazione: row.is_automazione,
                 macchina_id: row.macchina_id
               });
@@ -196,10 +196,10 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
   const allMachines = React.useMemo(() => {
     // Combine base macchine with newly added/edited ones, respecting deletions
     const combined = [...macchine].filter(m => !deletedMachineIds.has(m.id.toUpperCase()));
-    
+
     temporaryMachines.forEach(tm => {
       if (deletedMachineIds.has(tm.id.toUpperCase())) return;
-      
+
       const idx = combined.findIndex(m => m.id.toUpperCase() === tm.id.toUpperCase());
       if (idx !== -1) {
         combined[idx] = { ...combined[idx], ...tm };
@@ -234,17 +234,17 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
       const dhIds = ["DRA11130", "DRA11131", "DRA11132", "DRA11133", "MON12051", "SCA11051", "SCA11151"];
       return dhIds.includes(machineId);
     }
-    
+
     if (activeTech === "saldatrici" || activeTech === "saldatura_laser") {
       if (machineId.startsWith("MZA")) return true;
       if (machineId.startsWith("SCA") && machineId !== "SCA11151") return true;
     }
 
 
-    
+
     const tec = tecnologie.find(t => t.id === activeTech);
     if (!tec) return true;
-    
+
     const label = tec.label?.toLowerCase() || "";
     const isSoftView = label.includes("tornitura soft");
     const isHardView = label.includes("tornitura hard");
@@ -259,7 +259,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
       "MZA", "SCA"
     ];
     if (customAssignedMachines.some(id => machineId.startsWith(id))) {
-      return false; 
+      return false;
     }
 
     if (machineId.startsWith("DRA")) {
@@ -310,7 +310,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
     if (minutesB !== minutesA) {
       return minutesB - minutesA;
     }
-    
+
     // Fallback to alphabetical
     return a.id.localeCompare(b.id);
   });
@@ -329,10 +329,10 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
 
   const handleOpenFermiModal = (machine) => {
     setSelectedMachine(machine);
-    setFermiForm({ 
-      motivo: "", 
-      durata: "", 
-      note: "", 
+    setFermiForm({
+      motivo: "",
+      durata: "",
+      note: "",
       is_automazione: false,
       target_macchina_id: (machine.ids && machine.ids.length > 0) ? machine.ids[0] : machine.id
     });
@@ -371,8 +371,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           ...prev,
           [mId]: {
             minutes: (current.minutes || 0) + payload.durata_minuti,
-            entries: [...safeEntries, { 
-              motivo: payload.motivo, 
+            entries: [...safeEntries, {
+              motivo: payload.motivo,
               durata: payload.durata_minuti,
               is_automazione: payload.is_automazione,
               macchina_id: payload.macchina_id
@@ -453,7 +453,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
   const handleDeleteSlot = async (machineIdParam, slotIndexParam) => {
     const machineId = machineIdParam || slotModalData.machineId;
     const slotIndex = (slotIndexParam !== undefined) ? slotIndexParam : slotModalData.slotIndex;
-    
+
     if (!window.confirm(`Sei sicuro di voler eliminare lo Slot ${parseInt(slotIndex) + 1} per ${machineId}?\nLe configurazioni verranno rimosse permanentemente.`)) {
       return;
     }
@@ -526,13 +526,13 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         target_performance: editMachineForm.target_performance,
         target_quality: editMachineForm.target_quality,
       };
-      
+
       const { error } = await supabase.from("macchine")
         .update(payload)
         .eq("id", editMachineForm.id);
-      
+
       if (error) throw error;
-      
+
       // Update local state (temporaryMachines and prop-based macchine if possible)
       setTemporaryMachines(prev => {
         const idx = prev.findIndex(m => m.id === editMachineForm.id);
@@ -560,18 +560,18 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
     if (!window.confirm(`Sei sicuro di voler ELIMINARE DEFINITIVAMENTE la macchina ${editMachineForm.id}?\nQuesta azione non può essere annullata.`)) {
       return;
     }
-    
+
     setIsDeletingMachine(true);
     try {
       const { error } = await supabase.from("macchine")
         .delete()
         .eq("id", editMachineForm.id);
-      
+
       if (error) throw error;
-      
+
       // Update local state to hide it
       setDeletedMachineIds(prev => new Set([...prev, editMachineForm.id.toUpperCase()]));
-      
+
       setShowEditMachineModal(false);
       alert("Macchina eliminata con successo!");
     } catch (err) {
@@ -589,11 +589,11 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         <div>
           <h1 style={{ fontSize: "28px", fontWeight: "800", marginBottom: "8px" }}>Report Flusso di Processo</h1>
           <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>
-            Dati del <strong>{formatItalianDate(globalDate || new Date().toISOString().split("T")[0])}</strong> - 
+            Dati del <strong>{formatItalianDate(globalDate || new Date().toISOString().split("T")[0])}</strong> -
             Turno <strong>{turnoCorrente === "ALL" ? "Tutti" : turnoCorrente}</strong>
           </p>
         </div>
-        
+
         <div style={{ display: "flex", gap: "12px", alignItems: "flex-end" }}>
           {/* Date picker */}
           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
@@ -729,380 +729,380 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
 
       {/* MAIN LAYOUT: Sidebar (Tabs) + Content (Grid) */}
       <div style={{ display: "flex", gap: "24px", alignItems: "flex-start", width: "100%" }}>
-        
+
         {/* TABS SIDEBAR */}
-        <div style={{ 
-          display: "flex", 
-          flexDirection: "column", 
-          gap: "8px", 
-          width: "180px", 
-          minWidth: "180px", 
-          position: "sticky", 
+        <div style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: "8px",
+          width: "180px",
+          minWidth: "180px",
+          position: "sticky",
           top: "0",
           maxHeight: "calc(100vh - 120px)",
           overflowY: "auto",
           paddingRight: "8px"
         }}>
-          <button onClick={() => setActiveTech("TUTTO")} style={{...tabStyle("TUTTO"), textAlign: "left", width: "100%"}}>Tutte le tecnologie</button>
+          <button onClick={() => setActiveTech("TUTTO")} style={{ ...tabStyle("TUTTO"), textAlign: "left", width: "100%" }}>Tutte le tecnologie</button>
           {(() => {
-          const EXTRA_TECS = [
-            { id: "rg_loop_grande", label: "RG Loop Grande" },
-            { id: "rg_mini_opf", label: "RG Mini OPF" },
-            { id: "dh", label: "DH" }
-          ];
+            const EXTRA_TECS = [
+              { id: "rg_loop_grande", label: "RG Loop Grande" },
+              { id: "rg_mini_opf", label: "RG Mini OPF" },
+              { id: "dh", label: "DH" }
+            ];
 
-          // Combine with existing technologies, avoiding duplicates
-          const allTecs = [...tecnologie];
-          EXTRA_TECS.forEach(extra => {
-            if (!allTecs.some(t => t.id === extra.id)) {
-              allTecs.push(extra);
-            }
-          });
-
-          const labelMapping = {
-            "tornitura soft": "Tornitura Soft",
-            "marcatura laser dmc": "DMC",
-            "saldatura laser": "Saldatura Laser + UT",
-            stozzatura: "Stozzatura",
-            milling: "Fresatura",
-            brocciatura: "Brocciatura",
-            dentatura: "Dentatura",
-            sbavatura: "Sbavatura",
-            "tornitura hard": "Tornitura Hard",
-            levigatura: "Levigatura",
-            "tornitura rettifica cono": "Rettifica Cono",
-            "rectifica denti": "Rettifica Denti",
-            "rg loop grande": "RG Loop Grande",
-            "rg mini opf": "RG Mini OPF",
-            dh: "DH"
-          };
-
-          const desiredOrder = [
-            "Tornitura Soft",
-            "DMC",
-            "Saldatura Laser + UT",
-            "Stozzatura",
-            "Fresatura",
-            "Brocciatura",
-            "Dentatura",
-            "Sbavatura",
-            "Tornitura Hard",
-            "Levigatura",
-            "Rettifica Cono",
-            "Rettifica Denti",
-            "RG Loop Grande",
-            "RG Mini OPF",
-            "DH"
-          ];
-
-          return allTecs
-            .filter(t => {
-              const label = (t.label || "").toLowerCase();
-              return !label.includes("foratrice") && !label.includes("automazione") && !label.includes("controllo ut");
-            })
-            .map(t => {
-              const originalLabel = (t.label || "").toLowerCase();
-              let displayLabel = t.label;
-              for (const [key, val] of Object.entries(labelMapping)) {
-                if (originalLabel === key || originalLabel.includes(key)) {
-                  displayLabel = val;
-                  break;
-                }
+            // Combine with existing technologies, avoiding duplicates
+            const allTecs = [...tecnologie];
+            EXTRA_TECS.forEach(extra => {
+              if (!allTecs.some(t => t.id === extra.id)) {
+                allTecs.push(extra);
               }
-              return { ...t, displayLabel };
-            })
-            .sort((a, b) => {
-              let idxA = desiredOrder.indexOf(a.displayLabel);
-              let idxB = desiredOrder.indexOf(b.displayLabel);
-              if (idxA === -1) idxA = 999;
-              if (idxB === -1) idxB = 999;
-              return idxA - idxB;
-            })
-            .map(t => (
-              <button key={t.id} onClick={() => setActiveTech(t.id)} style={{...tabStyle(t.id), textAlign: "left", width: "100%"}}>
-                {t.displayLabel}
-              </button>
-            ));
-        })()}
+            });
+
+            const labelMapping = {
+              "tornitura soft": "Tornitura Soft",
+              "marcatura laser dmc": "DMC",
+              "saldatura laser": "Saldatura Laser + UT",
+              stozzatura: "Stozzatura",
+              milling: "Fresatura",
+              brocciatura: "Brocciatura",
+              dentatura: "Dentatura",
+              sbavatura: "Sbavatura",
+              "tornitura hard": "Tornitura Hard",
+              levigatura: "Levigatura",
+              "tornitura rettifica cono": "Rettifica Cono",
+              "rectifica denti": "Rettifica Denti",
+              "rg loop grande": "RG Loop Grande",
+              "rg mini opf": "RG Mini OPF",
+              dh: "DH"
+            };
+
+            const desiredOrder = [
+              "Tornitura Soft",
+              "DMC",
+              "Saldatura Laser + UT",
+              "Stozzatura",
+              "Fresatura",
+              "Brocciatura",
+              "Dentatura",
+              "Sbavatura",
+              "Tornitura Hard",
+              "Levigatura",
+              "Rettifica Cono",
+              "Rettifica Denti",
+              "RG Loop Grande",
+              "RG Mini OPF",
+              "DH"
+            ];
+
+            return allTecs
+              .filter(t => {
+                const label = (t.label || "").toLowerCase();
+                return !label.includes("foratrice") && !label.includes("automazione") && !label.includes("controllo ut");
+              })
+              .map(t => {
+                const originalLabel = (t.label || "").toLowerCase();
+                let displayLabel = t.label;
+                for (const [key, val] of Object.entries(labelMapping)) {
+                  if (originalLabel === key || originalLabel.includes(key)) {
+                    displayLabel = val;
+                    break;
+                  }
+                }
+                return { ...t, displayLabel };
+              })
+              .sort((a, b) => {
+                let idxA = desiredOrder.indexOf(a.displayLabel);
+                let idxB = desiredOrder.indexOf(b.displayLabel);
+                if (idxA === -1) idxA = 999;
+                if (idxB === -1) idxB = 999;
+                return idxA - idxB;
+              })
+              .map(t => (
+                <button key={t.id} onClick={() => setActiveTech(t.id)} style={{ ...tabStyle(t.id), textAlign: "left", width: "100%" }}>
+                  {t.displayLabel}
+                </button>
+              ));
+          })()}
         </div>
 
         {/* MACHINES GRID CONTENT */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "20px", flex: 1, alignContent: "start", paddingBottom: "40px" }}>
           {(() => {
-          // Define twin groups
-          const twinGroups = [
-            ["DRA10063", "DRA10064"],
-            ["DRA10065", "DRA10066"],
-            ["DRA10067", "DRA10068"],
-            ["DRA10069", "DRA10070"],
-            ["DRA10097", "DRA10098"],
-            ["DRA10099", "DRA10100"],
-            ["DRA10101", "DRA10107"],
-            ["DRA10102", "DRA10108"],
-            ["DRA10110", "DRA10111"],
-            ["DRA10113", "DRA10114"],
-          ];
-          
-          const processedMachines = [];
-          const seenInTwin = new Set();
+            // Define twin groups
+            const twinGroups = [
+              ["DRA10063", "DRA10064"],
+              ["DRA10065", "DRA10066"],
+              ["DRA10067", "DRA10068"],
+              ["DRA10069", "DRA10070"],
+              ["DRA10097", "DRA10098"],
+              ["DRA10099", "DRA10100"],
+              ["DRA10101", "DRA10107"],
+              ["DRA10102", "DRA10108"],
+              ["DRA10110", "DRA10111"],
+              ["DRA10113", "DRA10114"],
+            ];
 
-          // Helper to find which group a machine belongs to
-          const getGroup = (id) => twinGroups.find(group => group.includes(id));
+            const processedMachines = [];
+            const seenInTwin = new Set();
 
-          filteredMachines.forEach(m => {
-            const group = getGroup(m.id);
-            if (group) {
-              const groupKey = `TWIN_${group.join("_")}`;
-              if (!seenInTwin.has(groupKey)) {
-                processedMachines.push({
-                  id: group.join(" + "),
-                  ids: group,
-                  nome: null,
-                  isTwin: true
-                });
-                seenInTwin.add(groupKey);
-              }
-            } else {
-              processedMachines.push(m);
-            }
-          });
+            // Helper to find which group a machine belongs to
+            const getGroup = (id) => twinGroups.find(group => group.includes(id));
 
-          return processedMachines.map((m) => {
-            const mid = m.id.toUpperCase();
-            
-            // KPI Calculation Logic
-            const shiftMinutes = (turnoCorrente && turnoCorrente !== "ALL") ? 360 : 1440;
-            const fermi = fermiData[mid] || { minutes: 0, entries: [] };
-            let totalDowntime = (fermi.minutes || 0);
-            if (m.ids && m.ids.length > 1) {
-              totalDowntime = 0;
-              m.ids.forEach(id => {
-                totalDowntime += (fermiData[id.toUpperCase()]?.minutes || 0);
-              });
-            }
-            
-            const availability = Math.max(0, (shiftMinutes - totalDowntime) / shiftMinutes);
-            const prodHours = Math.max(0, (shiftMinutes - totalDowntime) / 60);
-
-            const isFRW = mid === "FRW10075";
-            const isFRW74 = mid === "FRW10074";
-            const isMZA = mid === "MZA10005";
-            const isRAA = mid === "RAA11009";
-            const isZSA = mid.startsWith("ZSA");
-            const isRGMin = mid === "DRA11044" || mid === "FRW11015" || mid === "EGW11006";
-
-            // Pre-compute production slot data early to use in KPI calculations
-            const configId = m.ids ? m.ids[0].toUpperCase() : mid;
-            const configuredIndices = Object.keys(slotConfigs[configId] || {}).map(k => parseInt(k));
-            const maxConfiguredIndex = configuredIndices.length > 0 ? Math.max(...configuredIndices) : -1;
-            
-            // For legacy hardcoded machines (ZSA, FRW74, MZA, etc.) that have no slot_config entries,
-            // use a machine-specific default slot count so their hardcoded logic still works.
-            let fallbackSlots = 0;
-            if (maxConfiguredIndex < 0) {
-              if (isZSA) fallbackSlots = 11; // SG2,SG3,SG4,SG5,SG6,SG7,SG8,SGR,PG,FG5/7,RG
-              else if (isFRW74) fallbackSlots = 4;
-              else if (isMZA) fallbackSlots = 1;
-              else if (isRAA) fallbackSlots = 1;
-              else if (isRGMin) fallbackSlots = 1;
-              else if (isFRW) fallbackSlots = 1;
-            }
-            
-            let prodSlots = maxConfiguredIndex >= 0 ? maxConfiguredIndex + 1 : fallbackSlots;
-            if (isSlotEditMode) prodSlots += 1;
-
-            const SLOT_COUNT = prodSlots + 1;
-            const FERMI_IDX = SLOT_COUNT - 1;
-            const hiddenSlots = new Set(mid === "RAA11009" ? [1, 2] : []);
-
-            const mProdForPre = {};
-            const sumProd = (mId) => {
-              const singleProd = productionData[mId.toUpperCase()] || {};
-              Object.keys(singleProd).forEach(comp => {
-                if (!mProdForPre[comp]) mProdForPre[comp] = { total: 0, scarti: 0, materials: [] };
-                mProdForPre[comp].total += (singleProd[comp].total || 0);
-                mProdForPre[comp].scarti += (singleProd[comp].scarti || 0);
-                (singleProd[comp].materials || []).forEach(mat => {
-                  const ext = mProdForPre[comp].materials.find(x => x.code === mat.code);
-                  if (ext) { ext.qty += mat.qty; ext.scarti += (mat.scarti || 0); }
-                  else mProdForPre[comp].materials.push({...mat});
-                });
-              });
-            };
-            if (m.ids) m.ids.forEach(sumProd); else sumProd(mid);
-
-            const computedSlotData = Array.from({ length: prodSlots }).map((_, i) => {
-              if (hiddenSlots.has(i)) return { hidden: true };
-              let productionInfo = null;
-              let displayComp = null;
-              let displayProj = null;
-              const slotConf = slotConfigs[configId]?.[i];
-              if (slotConf) {
-                displayComp = slotConf.componente || null;
-                const finoKey = slotConf.fino ? normFino(slotConf.fino) : null;
-                if (slotConf.codice_materiale && finoKey) {
-                  const matFilter = slotConf.codice_materiale.toUpperCase();
-                  const qty = prodByFino[finoKey]?.prod?.[matFilter] || 0;
-                  const sca = prodByFino[finoKey]?.scarti?.[matFilter] || 0;
-                  productionInfo = { total: qty, scarti: sca, materials: [] };
-                } else if (slotConf.codice_materiale) {
-                  const matFilter = slotConf.codice_materiale.toUpperCase();
-                  const info = prodByMaterialGlobal[matFilter] || { total: 0, scarti: 0 };
-                  productionInfo = { total: info.total, scarti: info.scarti, materials: [] };
-                } else {
-                  const sourceProd = mProdForPre;
-                  if (displayComp && sourceProd[displayComp]) productionInfo = sourceProd[displayComp];
-                }
-                displayProj = slotConf.progetto || productionInfo?.materials?.[0]?.progetto || null;
-              } else if (isFRW) {
-                productionInfo = mProdForPre["SG5"]; displayComp = "SG5"; displayProj = "DCT 300";
-              } else if (isFRW74) {
-                const frw74Prod = productionData["FRW14410"] || {};
-                const frw74Comps = Object.keys(frw74Prod);
-                if (frw74Comps[i]) { displayComp = frw74Comps[i]; productionInfo = frw74Prod[displayComp]; }
-              } else if (isMZA) {
-                displayComp = i === 0 ? "CONTROLLO UT" : null;
-              } else if (isRAA) {
-                productionInfo = i === 0 ? mProdForPre["PG"] : null; displayComp = i === 0 ? "PG" : null; displayProj = i === 0 ? "M0154996/S" : null;
-              } else if (isRGMin) {
-                displayComp = i === 0 ? "RG" : null;
-              } else if (isZSA) {
-                const zsaComps = ["SG2", "SG3", "SG4", "SG5", "SG6", "SG7", "SG8", "SGR", "PG", "FG5/7", "RG"];
-                if (i < FERMI_IDX) {
-                   displayComp = zsaComps[i] || null;
-                   if (displayComp) productionInfo = mProdForPre[displayComp];
+            filteredMachines.forEach(m => {
+              const group = getGroup(m.id);
+              if (group) {
+                const groupKey = `TWIN_${group.join("_")}`;
+                if (!seenInTwin.has(groupKey)) {
+                  processedMachines.push({
+                    id: group.join(" + "),
+                    ids: group,
+                    nome: null,
+                    isTwin: true
+                  });
+                  seenInTwin.add(groupKey);
                 }
               } else {
-                const comps = Object.keys(mProdForPre);
-                if (comps[i]) { displayComp = comps[i]; productionInfo = mProdForPre[displayComp]; if (productionInfo?.materials?.length > 0) displayProj = productionInfo.materials[0].progetto; }
+                processedMachines.push(m);
               }
-              return { productionInfo, displayComp, displayProj, isConfigured: !!slotConf, jph_target: slotConf?.jph_target || 0 };
             });
 
-            // Re-calculate KPI based on JPH (Machine-Centric Model)
-            // headerTotal = SUM of all pieces (for logistics display)
-            const headerTotal = computedSlotData.reduce((s, sd) => s + (sd.hidden ? 0 : (sd.productionInfo?.total || 0)), 0);
-            
-            // actualMachineWork = SUM of all pieces (machine produced all these in the same time window)
-            const actualMachineWork = headerTotal;
-            
-            // machineTargetJPH = MAX JPH among slots (machine speed - doesn't sum, changes per component)
-            const machineTargetJPH = Math.max(0, ...computedSlotData.map(sd => sd.jph_target || 0));
-            const expectedPieces = prodHours * machineTargetJPH;
+            return processedMachines.map((m) => {
+              const mid = m.id.toUpperCase();
 
-            const targetPerf = (m.target_performance || 91) / 100;
-            const targetQual = (m.target_quality || 98) / 100;
+              // KPI Calculation Logic
+              const shiftMinutes = (turnoCorrente && turnoCorrente !== "ALL") ? 360 : 1440;
+              const fermi = fermiData[mid] || { minutes: 0, entries: [] };
+              let totalDowntime = (fermi.minutes || 0);
+              if (m.ids && m.ids.length > 1) {
+                totalDowntime = 0;
+                m.ids.forEach(id => {
+                  totalDowntime += (fermiData[id.toUpperCase()]?.minutes || 0);
+                });
+              }
 
-            const performance = machineTargetJPH > 0 ? (expectedPieces > 0 ? (actualMachineWork / expectedPieces) : 1) : targetPerf;
-            
-            const displayProdHours = `${Math.floor(prodHours)}h`;
-            const displayTotalHours = `${Math.floor(shiftMinutes / 60)}h`;
-            
+              const availability = Math.max(0, (shiftMinutes - totalDowntime) / shiftMinutes);
+              const prodHours = Math.max(0, (shiftMinutes - totalDowntime) / 60);
 
-            return (
-              <div key={m.id} style={{
-                backgroundColor: "#ffffff",
-                borderRadius: "24px",
-                padding: "24px",
-                border: "1px solid #eef2f6",
-                display: "flex",
-                flexDirection: "column",
-                gap: "24px",
-                boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.05)",
-                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                minHeight: "520px",
-                height: "100%",
-                color: "#1e293b",
-                position: "relative"
-              }}>
-                {/* Header */}
-                <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <h2 style={{ 
-                      fontWeight: "900", 
-                      fontSize: "26px", 
-                      color: "#10b981", 
-                      margin: 0,
-                      letterSpacing: "-0.5px"
-                    }}>
-                      {m.id}
-                    </h2>
-                    <span style={{ 
-                      backgroundColor: "#ffedd5", 
-                      color: "#9a3412", 
-                      fontSize: "10px", 
-                      fontWeight: "900", 
-                      padding: "2px 8px", 
-                      borderRadius: "6px",
-                      letterSpacing: "0.5px",
-                      textTransform: "uppercase"
-                    }}>
-                      Nuovo
-                    </span>
+              const isFRW = mid === "FRW10075";
+              const isFRW74 = mid === "FRW10074";
+              const isMZA = mid === "MZA10005";
+              const isRAA = mid === "RAA11009";
+              const isZSA = mid.startsWith("ZSA");
+              const isRGMin = mid === "DRA11044" || mid === "FRW11015" || mid === "EGW11006";
+
+              // Pre-compute production slot data early to use in KPI calculations
+              const configId = m.ids ? m.ids[0].toUpperCase() : mid;
+              const configuredIndices = Object.keys(slotConfigs[configId] || {}).map(k => parseInt(k));
+              const maxConfiguredIndex = configuredIndices.length > 0 ? Math.max(...configuredIndices) : -1;
+
+              // For legacy hardcoded machines (ZSA, FRW74, MZA, etc.) that have no slot_config entries,
+              // use a machine-specific default slot count so their hardcoded logic still works.
+              let fallbackSlots = 0;
+              if (maxConfiguredIndex < 0) {
+                if (isZSA) fallbackSlots = 11; // SG2,SG3,SG4,SG5,SG6,SG7,SG8,SGR,PG,FG5/7,RG
+                else if (isFRW74) fallbackSlots = 4;
+                else if (isMZA) fallbackSlots = 1;
+                else if (isRAA) fallbackSlots = 1;
+                else if (isRGMin) fallbackSlots = 1;
+                else if (isFRW) fallbackSlots = 1;
+              }
+
+              let prodSlots = maxConfiguredIndex >= 0 ? maxConfiguredIndex + 1 : fallbackSlots;
+              if (isSlotEditMode) prodSlots += 1;
+
+              const SLOT_COUNT = prodSlots + 1;
+              const FERMI_IDX = SLOT_COUNT - 1;
+              const hiddenSlots = new Set(mid === "RAA11009" ? [1, 2] : []);
+
+              const mProdForPre = {};
+              const sumProd = (mId) => {
+                const singleProd = productionData[mId.toUpperCase()] || {};
+                Object.keys(singleProd).forEach(comp => {
+                  if (!mProdForPre[comp]) mProdForPre[comp] = { total: 0, scarti: 0, materials: [] };
+                  mProdForPre[comp].total += (singleProd[comp].total || 0);
+                  mProdForPre[comp].scarti += (singleProd[comp].scarti || 0);
+                  (singleProd[comp].materials || []).forEach(mat => {
+                    const ext = mProdForPre[comp].materials.find(x => x.code === mat.code);
+                    if (ext) { ext.qty += mat.qty; ext.scarti += (mat.scarti || 0); }
+                    else mProdForPre[comp].materials.push({ ...mat });
+                  });
+                });
+              };
+              if (m.ids) m.ids.forEach(sumProd); else sumProd(mid);
+
+              const computedSlotData = Array.from({ length: prodSlots }).map((_, i) => {
+                if (hiddenSlots.has(i)) return { hidden: true };
+                let productionInfo = null;
+                let displayComp = null;
+                let displayProj = null;
+                const slotConf = slotConfigs[configId]?.[i];
+                if (slotConf) {
+                  displayComp = slotConf.componente || null;
+                  const finoKey = slotConf.fino ? normFino(slotConf.fino) : null;
+                  if (slotConf.codice_materiale && finoKey) {
+                    const matFilter = slotConf.codice_materiale.toUpperCase();
+                    const qty = prodByFino[finoKey]?.prod?.[matFilter] || 0;
+                    const sca = prodByFino[finoKey]?.scarti?.[matFilter] || 0;
+                    productionInfo = { total: qty, scarti: sca, materials: [] };
+                  } else if (slotConf.codice_materiale) {
+                    const matFilter = slotConf.codice_materiale.toUpperCase();
+                    const info = prodByMaterialGlobal[matFilter] || { total: 0, scarti: 0 };
+                    productionInfo = { total: info.total, scarti: info.scarti, materials: [] };
+                  } else {
+                    const sourceProd = mProdForPre;
+                    if (displayComp && sourceProd[displayComp]) productionInfo = sourceProd[displayComp];
+                  }
+                  displayProj = slotConf.progetto || productionInfo?.materials?.[0]?.progetto || null;
+                } else if (isFRW) {
+                  productionInfo = mProdForPre["SG5"]; displayComp = "SG5"; displayProj = "DCT 300";
+                } else if (isFRW74) {
+                  const frw74Prod = productionData["FRW14410"] || {};
+                  const frw74Comps = Object.keys(frw74Prod);
+                  if (frw74Comps[i]) { displayComp = frw74Comps[i]; productionInfo = frw74Prod[displayComp]; }
+                } else if (isMZA) {
+                  displayComp = i === 0 ? "CONTROLLO UT" : null;
+                } else if (isRAA) {
+                  productionInfo = i === 0 ? mProdForPre["PG"] : null; displayComp = i === 0 ? "PG" : null; displayProj = i === 0 ? "M0154996/S" : null;
+                } else if (isRGMin) {
+                  displayComp = i === 0 ? "RG" : null;
+                } else if (isZSA) {
+                  const zsaComps = ["SG2", "SG3", "SG4", "SG5", "SG6", "SG7", "SG8", "SGR", "PG", "FG5/7", "RG"];
+                  if (i < FERMI_IDX) {
+                    displayComp = zsaComps[i] || null;
+                    if (displayComp) productionInfo = mProdForPre[displayComp];
+                  }
+                } else {
+                  const comps = Object.keys(mProdForPre);
+                  if (comps[i]) { displayComp = comps[i]; productionInfo = mProdForPre[displayComp]; if (productionInfo?.materials?.length > 0) displayProj = productionInfo.materials[0].progetto; }
+                }
+                return { productionInfo, displayComp, displayProj, isConfigured: !!slotConf, jph_target: slotConf?.jph_target || 0 };
+              });
+
+              // Re-calculate KPI based on JPH (Machine-Centric Model)
+              // headerTotal = SUM of all pieces (for logistics display)
+              const headerTotal = computedSlotData.reduce((s, sd) => s + (sd.hidden ? 0 : (sd.productionInfo?.total || 0)), 0);
+
+              // actualMachineWork = SUM of all pieces (machine produced all these in the same time window)
+              const actualMachineWork = headerTotal;
+
+              // machineTargetJPH = MAX JPH among slots (machine speed - doesn't sum, changes per component)
+              const machineTargetJPH = Math.max(0, ...computedSlotData.map(sd => sd.jph_target || 0));
+              const expectedPieces = prodHours * machineTargetJPH;
+
+              const targetPerf = (m.target_performance || 91) / 100;
+              const targetQual = (m.target_quality || 98) / 100;
+
+              const performance = machineTargetJPH > 0 ? (expectedPieces > 0 ? (actualMachineWork / expectedPieces) : 1) : targetPerf;
+
+              const displayProdHours = `${Math.floor(prodHours)}h`;
+              const displayTotalHours = `${Math.floor(shiftMinutes / 60)}h`;
+
+
+              return (
+                <div key={m.id} style={{
+                  backgroundColor: "#ffffff",
+                  borderRadius: "24px",
+                  padding: "24px",
+                  border: "1px solid #eef2f6",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "24px",
+                  boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.05)",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  minHeight: "520px",
+                  height: "100%",
+                  color: "#1e293b",
+                  position: "relative"
+                }}>
+                  {/* Header */}
+                  <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                      <h2 style={{
+                        fontWeight: "900",
+                        fontSize: "26px",
+                        color: "#10b981",
+                        margin: 0,
+                        letterSpacing: "-0.5px"
+                      }}>
+                        {m.id}
+                      </h2>
+                      <span style={{
+                        backgroundColor: "#ffedd5",
+                        color: "#9a3412",
+                        fontSize: "10px",
+                        fontWeight: "900",
+                        padding: "2px 8px",
+                        borderRadius: "6px",
+                        letterSpacing: "0.5px",
+                        textTransform: "uppercase"
+                      }}>
+                        Nuovo
+                      </span>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: "10px", fontWeight: "700", color: "#94a3b8", letterSpacing: "0.5px", textTransform: "uppercase" }}>Tot. Pezzi</div>
+                      <div style={{ fontSize: "28px", fontWeight: "900", color: "#1e293b" }}>{headerTotal}</div>
+                    </div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: "10px", fontWeight: "700", color: "#94a3b8", letterSpacing: "0.5px", textTransform: "uppercase" }}>Tot. Pezzi</div>
-                    <div style={{ fontSize: "28px", fontWeight: "900", color: "#1e293b" }}>{headerTotal}</div>
-                  </div>
-                </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                  {/* Performance */}
-                  <div style={{ backgroundColor: "#f8fafc", borderRadius: "16px", padding: "14px", border: "1px solid #f1f5f9" }}>
-                    <div style={{ fontSize: "9px", fontWeight: "800", color: "#94a3b8", marginBottom: "4px", textTransform: "uppercase" }}>Performance</div>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
-                      <div style={{ fontSize: "20px", fontWeight: "900", color: "#1e293b" }}>{Math.round(performance * 100)}%</div>
-                      <div style={{ fontSize: "10px", fontWeight: "600", color: "#64748b" }}>
-                        ({actualMachineWork} / {Math.round(expectedPieces)})
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                    {/* Performance */}
+                    <div style={{ backgroundColor: "#f8fafc", borderRadius: "16px", padding: "14px", border: "1px solid #f1f5f9" }}>
+                      <div style={{ fontSize: "9px", fontWeight: "800", color: "#94a3b8", marginBottom: "4px", textTransform: "uppercase" }}>Performance</div>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
+                        <div style={{ fontSize: "20px", fontWeight: "900", color: "#1e293b" }}>{Math.round(performance * 100)}%</div>
+                        <div style={{ fontSize: "10px", fontWeight: "600", color: "#64748b" }}>
+                          ({actualMachineWork} / {Math.round(expectedPieces)})
+                        </div>
+                      </div>
+                      <div style={{ height: "4px", backgroundColor: "#e2e8f0", borderRadius: "2px", marginTop: "8px", overflow: "hidden" }}>
+                        <div style={{ width: `${performance * 100}%`, height: "100%", backgroundColor: "#3b82f6" }} />
                       </div>
                     </div>
-                    <div style={{ height: "4px", backgroundColor: "#e2e8f0", borderRadius: "2px", marginTop: "8px", overflow: "hidden" }}>
-                      <div style={{ width: `${performance * 100}%`, height: "100%", backgroundColor: "#3b82f6" }} />
+                    {/* Ore Prod */}
+                    <div style={{ backgroundColor: "#f8fafc", borderRadius: "16px", padding: "14px", border: "1px solid #f1f5f9" }}>
+                      <div style={{ fontSize: "9px", fontWeight: "800", color: "#94a3b8", marginBottom: "4px", textTransform: "uppercase" }}>Ore Prod.</div>
+                      <div style={{ fontSize: "20px", fontWeight: "900", color: "#1e293b" }}>{displayProdHours}</div>
+                      <div style={{ fontSize: "10px", fontWeight: "600", color: "#94a3b8" }}>su {displayTotalHours}</div>
                     </div>
                   </div>
-                  {/* Ore Prod */}
-                  <div style={{ backgroundColor: "#f8fafc", borderRadius: "16px", padding: "14px", border: "1px solid #f1f5f9" }}>
-                    <div style={{ fontSize: "9px", fontWeight: "800", color: "#94a3b8", marginBottom: "4px", textTransform: "uppercase" }}>Ore Prod.</div>
-                    <div style={{ fontSize: "20px", fontWeight: "900", color: "#1e293b" }}>{displayProdHours}</div>
-                    <div style={{ fontSize: "10px", fontWeight: "600", color: "#94a3b8" }}>su {displayTotalHours}</div>
-                  </div>
-                </div>
 
-                <div style={{ height: "1px", backgroundColor: "#f1f5f9" }} />
+                  <div style={{ height: "1px", backgroundColor: "#f1f5f9" }} />
 
-                {/* Slots Grid */}
-                <div style={{ 
-                  display: "grid", 
-                  gridTemplateColumns: "repeat(4, 90px)", 
-                  gap: "10px",
-                  flexWrap: "wrap"
-                }}>
-                  {computedSlotData.map((_, i) => {
-                    // In edit mode last slot is the "+" new slot
-                    // In normal mode only show configured or slots with production
-                    const slotData = computedSlotData[i] || { isConfigured: false, displayComp: "+" };
-                    
-                    if (!isSlotEditMode) {
-                      if (!slotData?.isConfigured && (slotData?.productionInfo?.total ?? 0) === 0) return <div key={i} />;
-                    }
+                  {/* Slots Grid */}
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(4, 90px)",
+                    gap: "10px",
+                    flexWrap: "wrap"
+                  }}>
+                    {computedSlotData.map((_, i) => {
+                      // In edit mode last slot is the "+" new slot
+                      // In normal mode only show configured or slots with production
+                      const slotData = computedSlotData[i] || { isConfigured: false, displayComp: "+" };
 
-                    const totalQty = slotData?.productionInfo?.total ?? 0;
-                    const displayComp = slotData?.displayComp || "—";
-                    const isConfigured = !!slotData?.isConfigured;
-                    const hasProduction = totalQty > 0;
-                    
-                    const bgColor = isConfigured ? "#10b981" : "#f1f5f9";
-                    const textColor = isConfigured ? "#ffffff" : "#64748b";
+                      if (!isSlotEditMode) {
+                        if (!slotData?.isConfigured && (slotData?.productionInfo?.total ?? 0) === 0) return <div key={i} />;
+                      }
 
-                    return (
-                      <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
-                        {isConfigured ? (
-                          <div style={{ fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>8Fe</div>
-                        ) : <div style={{ height: "15px" }} />}
-                        
-                        <div 
-                          onClick={() => {
-                            if (isSlotEditMode) {
+                      const totalQty = slotData?.productionInfo?.total ?? 0;
+                      const displayComp = slotData?.displayComp || "—";
+                      const isConfigured = !!slotData?.isConfigured;
+                      const hasProduction = totalQty > 0;
+
+                      const bgColor = isConfigured ? "#10b981" : "#f1f5f9";
+                      const textColor = isConfigured ? "#ffffff" : "#64748b";
+
+                      return (
+                        <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+                          {isConfigured ? (
+                            <div style={{ fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>8Fe</div>
+                          ) : <div style={{ height: "15px" }} />}
+
+                          <div
+                            onClick={() => {
+                              if (isSlotEditMode) {
                                 const configId = m.ids ? m.ids[0].toUpperCase() : mid;
                                 const existing = slotConfigs[configId]?.[i];
                                 setSlotModalData({
@@ -1116,139 +1116,139 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                                 });
                                 setShowSlotModal(true);
                                 return;
-                            }
-                            setProdModalData({
-                              machineId: m.id,
-                              comp: displayComp,
-                              proj: slotData.displayProj,
-                              materials: slotData.productionInfo?.materials || [],
-                              totalQty
-                            });
-                            setShowProdModal(true);
-                          }}
-                          style={{
-                            backgroundColor: bgColor,
-                            borderRadius: "14px",
-                            padding: "8px 4px",
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: textColor,
-                            cursor: "pointer",
-                            transition: "all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)",
-                            position: "relative",
-                            boxShadow: isConfigured ? "0 8px 15px -3px rgba(16, 185, 129, 0.2)" : "none",
-                            border: isConfigured ? "none" : "1px dashed #cbd5e1",
-                            height: "90px",
-                            width: "90px",
-                            minWidth: "90px",
-                            maxWidth: "90px",
-                            textAlign: "center",
-                            flexShrink: 0,
-                            boxSizing: "border-box"
-                          }}
-                          onMouseEnter={(e) => {
-                            if (isConfigured) e.currentTarget.style.transform = "translateY(-4px)";
-                          }}
-                          onMouseLeave={(e) => {
-                            if (isConfigured) e.currentTarget.style.transform = "translateY(0)";
-                          }}
-                        >
-                          <div style={{ fontSize: "16px", fontWeight: "800", letterSpacing: "-0.5px", marginBottom: "2px" }}>{displayComp}</div>
-                          <div style={{ fontSize: "32px", fontWeight: "900", lineHeight: "1" }}>
-                            {isConfigured ? (hasProduction ? totalQty : "0") : ""}
+                              }
+                              setProdModalData({
+                                machineId: m.id,
+                                comp: displayComp,
+                                proj: slotData.displayProj,
+                                materials: slotData.productionInfo?.materials || [],
+                                totalQty
+                              });
+                              setShowProdModal(true);
+                            }}
+                            style={{
+                              backgroundColor: bgColor,
+                              borderRadius: "14px",
+                              padding: "8px 4px",
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              color: textColor,
+                              cursor: "pointer",
+                              transition: "all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)",
+                              position: "relative",
+                              boxShadow: isConfigured ? "0 8px 15px -3px rgba(16, 185, 129, 0.2)" : "none",
+                              border: isConfigured ? "none" : "1px dashed #cbd5e1",
+                              height: "90px",
+                              width: "90px",
+                              minWidth: "90px",
+                              maxWidth: "90px",
+                              textAlign: "center",
+                              flexShrink: 0,
+                              boxSizing: "border-box"
+                            }}
+                            onMouseEnter={(e) => {
+                              if (isConfigured) e.currentTarget.style.transform = "translateY(-4px)";
+                            }}
+                            onMouseLeave={(e) => {
+                              if (isConfigured) e.currentTarget.style.transform = "translateY(0)";
+                            }}
+                          >
+                            <div style={{ fontSize: "16px", fontWeight: "800", letterSpacing: "-0.5px", marginBottom: "2px" }}>{displayComp}</div>
+                            <div style={{ fontSize: "32px", fontWeight: "900", lineHeight: "1" }}>
+                              {isConfigured ? (hasProduction ? totalQty : "0") : ""}
+                            </div>
+                            {isConfigured && (
+                              <div style={{
+                                fontSize: "11px",
+                                fontWeight: "900",
+                                marginTop: "2px",
+                                opacity: (slotData?.productionInfo?.scarti || 0) > 0 ? 1 : 0.7,
+                                color: (slotData?.productionInfo?.scarti || 0) > 0 ? "#ff4444" : "rgba(255,255,255,0.9)"
+                              }}>
+                                SCARTO: {slotData?.productionInfo?.scarti || 0}
+                              </div>
+                            )}
+                            {isSlotEditMode && (
+                              <div style={{ position: "absolute", top: 6, right: 6, fontSize: "10px" }}>✏️</div>
+                            )}
                           </div>
-                          {isConfigured && (
-                             <div style={{ 
-                               fontSize: "11px", 
-                               fontWeight: "900", 
-                               marginTop: "2px", 
-                               opacity: (slotData?.productionInfo?.scarti || 0) > 0 ? 1 : 0.7,
-                               color: (slotData?.productionInfo?.scarti || 0) > 0 ? "#ff4444" : "rgba(255,255,255,0.9)"
-                             }}>
-                               SCARTO: {slotData?.productionInfo?.scarti || 0}
-                             </div>
-                          )}
-                          {isSlotEditMode && (
-                             <div style={{ position: "absolute", top: 6, right: 6, fontSize: "10px" }}>✏️</div>
-                          )}
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
 
-                  {/* Unified "+ RECORD FERMO" action button box as seen in photo - placed AFTER the map slots */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                    <div style={{ height: "15px" }} /> {/* Spacer to align with 8Fe labels */}
-                    <div 
-                      onClick={() => handleOpenFermiModal(m)}
-                      style={{
-                        backgroundColor: "#ffffff",
-                        borderRadius: "18px",
-                        padding: "16px 12px",
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "#94a3b8",
-                        cursor: "pointer",
-                        height: "100px",
-                        width: "100%",
-                        border: "1px dashed #e2e8f0",
-                        transition: "all 0.2s"
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = "#f8fafc";
-                        e.currentTarget.style.borderColor = "#cbd5e1";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = "#ffffff";
-                        e.currentTarget.style.borderColor = "#e2e8f0";
-                      }}
-                    >
-                      <div style={{ fontSize: "20px", fontWeight: "300", marginBottom: "4px" }}>+</div>
-                      <div style={{ fontSize: "10px", fontWeight: "800", textAlign: "center", lineHeight: "1.2" }}>RECORD<br/>FERMO</div>
+                    {/* Unified "+ RECORD FERMO" action button box as seen in photo - placed AFTER the map slots */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                      <div style={{ height: "15px" }} /> {/* Spacer to align with 8Fe labels */}
+                      <div
+                        onClick={() => handleOpenFermiModal(m)}
+                        style={{
+                          backgroundColor: "#ffffff",
+                          borderRadius: "18px",
+                          padding: "16px 12px",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          color: "#94a3b8",
+                          cursor: "pointer",
+                          height: "100px",
+                          width: "100%",
+                          border: "1px dashed #e2e8f0",
+                          transition: "all 0.2s"
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = "#f8fafc";
+                          e.currentTarget.style.borderColor = "#cbd5e1";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = "#ffffff";
+                          e.currentTarget.style.borderColor = "#e2e8f0";
+                        }}
+                      >
+                        <div style={{ fontSize: "20px", fontWeight: "300", marginBottom: "4px" }}>+</div>
+                        <div style={{ fontSize: "10px", fontWeight: "800", textAlign: "center", lineHeight: "1.2" }}>RECORD<br />FERMO</div>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Edit Machine Button (Absolute overlay if in edit mode) */}
-                {isSlotEditMode && (
-                   <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setEditMachineForm({
-                        id: m.id,
-                        nome: m.nome || m.id,
-                        tecnologia_id: m.tecnologia_id || "",
-                        target_performance: m.target_performance || 91,
-                        target_quality: m.target_quality || 98
-                      });
-                      setShowEditMachineModal(true);
-                    }}
-                    style={{ 
-                      position: "absolute",
-                      top: 12,
-                      left: 12,
-                      background: "white", 
-                      border: "1px solid #e2e8f0", 
-                      borderRadius: "50%",
-                      width: "32px",
-                      height: "32px",
-                      cursor: "pointer", 
-                      fontSize: "14px",
-                      boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
-                    }}
-                    title="Modifica Macchina"
-                  >
-                    ✏️
-                  </button>
-                )}
-              </div>
-            );
-          });
-        })()}
+                  {/* Edit Machine Button (Absolute overlay if in edit mode) */}
+                  {isSlotEditMode && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditMachineForm({
+                          id: m.id,
+                          nome: m.nome || m.id,
+                          tecnologia_id: m.tecnologia_id || "",
+                          target_performance: m.target_performance || 91,
+                          target_quality: m.target_quality || 98
+                        });
+                        setShowEditMachineModal(true);
+                      }}
+                      style={{
+                        position: "absolute",
+                        top: 12,
+                        left: 12,
+                        background: "white",
+                        border: "1px solid #e2e8f0",
+                        borderRadius: "50%",
+                        width: "32px",
+                        height: "32px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)"
+                      }}
+                      title="Modifica Macchina"
+                    >
+                      ✏️
+                    </button>
+                  )}
+                </div>
+              );
+            });
+          })()}
         </div>
       </div>
 
@@ -1317,13 +1317,17 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             </div>
             <div className="form-group">
               <label className="form-label" style={{ fontWeight: "700" }}>Progetto</label>
-              <input
-                type="text"
+              <select
                 className="input"
-                placeholder="Es. DCT Eco, DCT 300..."
-                value={slotModalData.progetto}
+                style={{ appearance: "auto" }}
+                value={slotModalData.progetto || ""}
                 onChange={e => setSlotModalData(p => ({ ...p, progetto: e.target.value }))}
-              />
+              >
+                <option value="">Seleziona Progetto...</option>
+                <option value="8Fe">8Fe</option>
+                <option value="DCT Eco">DCT Eco</option>
+                <option value="DCT 300">DCT 300</option>
+              </select>
             </div>
             <div className="form-group">
               <label className="form-label" style={{ fontWeight: "700" }}>Target JPH (Pezzi/Ora)</label>
@@ -1402,14 +1406,14 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
       )}
 
       {showFermiModal && (
-        <Modal 
-          title={`Registra Fermo - ${selectedMachine?.id}`} 
+        <Modal
+          title={`Registra Fermo - ${selectedMachine?.id}`}
           onClose={() => setShowFermiModal(false)}
           footer={(
             <div style={{ display: "flex", gap: "12px", width: "100%" }}>
-              <button 
-                className="btn btn-primary" 
-                style={{ flex: 1 }} 
+              <button
+                className="btn btn-primary"
+                style={{ flex: 1 }}
                 onClick={handleSaveFermoDirect}
                 disabled={isSaving}
               >

@@ -41,6 +41,14 @@ export default function ProductionReportView({
   const [selectedProduction, setSelectedProduction] = useState(null);
   const [rawProductionData, setRawProductionData] = useState([]);
   const [rawDowntimeData, setRawDowntimeData] = useState([]);
+  // Component configs: array of { id, componente, macchina_id, progetto, codici[], fino }
+  const [componentConfigs, setComponentConfigs] = useState([]);
+  // Component config modal
+  const [editingComponent, setEditingComponent] = useState(null);
+  // Machine fino modal (kept as optional fallback)
+  const [editingMachine, setEditingMachine] = useState(null);
+  // Local overrides for machine fino
+  const [localMachineFinos, setLocalMachineFinos] = useState({});
 
   // Sync with global shift if it changes externally
   useEffect(() => {
@@ -48,6 +56,77 @@ export default function ProductionReportView({
       setSelectedTurno(turnoCorrente);
     }
   }, [turnoCorrente]);
+
+  // Sync machine finos from prop
+  useEffect(() => {
+    const initial = {};
+    macchine.forEach(m => { if (m.fino) initial[m.id] = m.fino; });
+    setLocalMachineFinos(initial);
+  }, [macchine]);
+
+  // Fetch component configs (array, supports multiple per componente)
+  useEffect(() => {
+    const load = async () => {
+      const { data, error } = await supabase.from("componente_report_config").select("*");
+      if (!error && data) setComponentConfigs(data);
+    };
+    load();
+  }, []);
+
+  const reloadComponentConfigs = async () => {
+    const { data } = await supabase.from("componente_report_config").select("*");
+    if (data) setComponentConfigs(data);
+  };
+
+  const handleSaveComponentConfig = async () => {
+    if (!editingComponent) return;
+    const codes = editingComponent.codicisText
+      .split(/[,\n]+/)
+      .map(c => c.trim().toUpperCase())
+      .filter(Boolean);
+    const payload = {
+      componente: editingComponent.componente,
+      macchina_id: editingComponent.macchina_id || null,
+      progetto: editingComponent.progetto || null,
+      codici: codes,
+      fino: editingComponent.fino || null,
+    };
+    let error;
+    if (editingComponent.id) {
+      // Update existing row
+      ({ error } = await supabase.from("componente_report_config").update(payload).eq("id", editingComponent.id));
+    } else {
+      // Insert new row
+      ({ error } = await supabase.from("componente_report_config").insert([payload]));
+    }
+    if (!error) {
+      await reloadComponentConfigs();
+      setEditingComponent(null);
+    } else {
+      alert("Errore salvataggio: " + error.message);
+    }
+  };
+
+  const handleDeleteComponentConfig = async (id) => {
+    if (!window.confirm("Eliminare questa configurazione?")) return;
+    const { error } = await supabase.from("componente_report_config").delete().eq("id", id);
+    if (!error) await reloadComponentConfigs();
+    else alert("Errore eliminazione: " + error.message);
+  };
+
+  const handleSaveMachineFino = async () => {
+    if (!editingMachine) return;
+    const { error } = await supabase
+      .from("macchine")
+      .update({ fino: editingMachine.fino || null })
+      .eq("id", editingMachine.id);
+    if (!error) {
+      setLocalMachineFinos(prev => ({ ...prev, [editingMachine.id]: editingMachine.fino }));
+      setEditingMachine(null);
+    } else {
+      alert("Errore salvataggio fino: " + error.message);
+    }
+  };
 
   const components = [
     "SG1",
@@ -163,14 +242,63 @@ export default function ProductionReportView({
     const isSoftView = label.includes("tornitura soft");
     const isHardView = label.includes("tornitura hard");
 
+    // Build compound key (fino::mat) → config (machine + component)
+    // Primary match: (fino + materiale) uniquely identifies machine + component
+    const compoundLookup = {}; // "FINO::MAT" → config
+    const matOnlyLookup = {};  // "::MAT" → config (configs without fino)
+    componentConfigs.forEach(cfg => {
+      if (!cfg.macchina_id) return;
+      (cfg.codici || []).forEach(code => {
+        const mat = code.toUpperCase();
+        if (cfg.fino) {
+          compoundLookup[`${cfg.fino.toUpperCase()}::${mat}`] = cfg;
+        } else {
+          matOnlyLookup[`::${mat}`] = cfg;
+        }
+      });
+    });
+
+    // Build fino → machineId fallback (for records with macchina_id or machine fino set)
+    const finoToMachineId = {};
+    macchine.forEach(m => {
+      const fino = (localMachineFinos[m.id] ?? m.fino);
+      if (fino) finoToMachineId[fino.trim().toUpperCase()] = m.id;
+    });
+
     // Process Production
     rawProductionData.forEach((row) => {
-      const rawMachineId = row.macchina_id || row.work_center_sap;
-      if (!rawMachineId) return;
-
-      const machineId = getPrimaryMachineId(rawMachineId);
+      const rawMachineId = row.macchina_id;
+      const rowFino = row.fino ? String(row.fino).trim().toUpperCase() : "";
       const mat = String(row.materiale || "").toUpperCase();
       const isSoftMat = mat.endsWith("/S");
+
+      let machineId = null;
+      let compKey = null;
+
+      // PRIMARY: compound key match (fino+mat) → gives both machine AND component directly
+      const cfgMatch = compoundLookup[`${rowFino}::${mat}`] || matOnlyLookup[`::${mat}`];
+      if (cfgMatch) {
+        machineId = getPrimaryMachineId(cfgMatch.macchina_id);
+        compKey = cfgMatch.componente;
+      } else {
+        // FALLBACK: use macchina_id from the row, then fino-based machine lookup
+        machineId = rawMachineId ? getPrimaryMachineId(rawMachineId) : null;
+        if (!machineId && rowFino && finoToMachineId[rowFino]) {
+          machineId = getPrimaryMachineId(finoToMachineId[rowFino]);
+        }
+        if (!machineId) return;
+
+        // Component from anagrafica
+        const info = anagrafica[mat];
+        if (info?.componente) {
+          const project = info.progetto || (mat.startsWith("M016") ? "DCT Eco" : mat.startsWith("M015") ? "8Fe" : "DCT 300");
+          compKey = info.componente;
+          if (project === "DCT Eco") compKey += "_ECO";
+          else if (project === "8Fe") compKey += "_8FE";
+        }
+      }
+
+      if (!machineId || !compKey) return;
 
       // Apply dynamic DRA splitting logic
       if (activeTech !== "TUTTO" && machineId.startsWith("DRA")) {
@@ -178,33 +306,17 @@ export default function ProductionReportView({
         if (isHardView && isSoftMat) return;
       }
 
-      const info = anagrafica[mat];
-      const project =
-        info?.progetto ||
-        (mat.startsWith("M016")
-          ? "DCT Eco"
-          : mat.startsWith("M015")
-            ? "8Fe"
-            : "DCT 300");
-      const compName = info?.componente;
-
-      if (compName) {
-        let key = compName;
-        if (project === "DCT Eco") key += "_ECO";
-        else if (project === "8Fe") key += "_8FE";
-
-        let targetMachineId = machineId;
-        if (rawMachineId === "FRW10193" && (key === "SG3_8FE" || key === "SG4_8FE")) {
-          targetMachineId = "FRW10079";
-        }
-
-        if (!newMatrice[targetMachineId]) newMatrice[targetMachineId] = {};
-        newMatrice[targetMachineId][key] = (newMatrice[targetMachineId][key] || 0) + (row.qta_ottenuta || 0);
-
-        if (!newDetailedProduction[targetMachineId]) newDetailedProduction[targetMachineId] = {};
-        if (!newDetailedProduction[targetMachineId][key]) newDetailedProduction[targetMachineId][key] = [];
-        newDetailedProduction[targetMachineId][key].push({ ...row, _original_machine: rawMachineId });
+      let targetMachineId = machineId;
+      if (rawMachineId === "FRW10193" && (compKey === "SG3_8FE" || compKey === "SG4_8FE")) {
+        targetMachineId = "FRW10079";
       }
+
+      if (!newMatrice[targetMachineId]) newMatrice[targetMachineId] = {};
+      newMatrice[targetMachineId][compKey] = (newMatrice[targetMachineId][compKey] || 0) + (row.qta_ottenuta || 0);
+
+      if (!newDetailedProduction[targetMachineId]) newDetailedProduction[targetMachineId] = {};
+      if (!newDetailedProduction[targetMachineId][compKey]) newDetailedProduction[targetMachineId][compKey] = [];
+      newDetailedProduction[targetMachineId][compKey].push({ ...row, _original_machine: rawMachineId || machineId });
     });
 
     // Process Downtime
@@ -212,19 +324,13 @@ export default function ProductionReportView({
       const rawMachineId = row.macchina_id;
       if (!rawMachineId) return;
       const mId = getPrimaryMachineId(rawMachineId);
-
-      // Downtime logic: if DRA, show only in the relevant view if possible. 
-      // Since downtime doesn't have a material, we show it if the machine has relevant production today 
-      // or just show it in both if we are unsure.
-      // For now, we follow the machine categorization if activeTech matches.
-      
       newDowntimeMap[mId] = (newDowntimeMap[mId] || 0) + (row.durata_minuti || 0);
       if (!newDetailedDowntime[mId]) newDetailedDowntime[mId] = [];
       newDetailedDowntime[mId].push({ ...row, _original_machine: rawMachineId });
     });
 
     return { matrice: newMatrice, detailedProduction: newDetailedProduction, downtimeMap: newDowntimeMap, detailedDowntime: newDetailedDowntime };
-  }, [rawProductionData, rawDowntimeData, activeTech, anagrafica, tecnologie]);
+  }, [rawProductionData, rawDowntimeData, activeTech, anagrafica, tecnologie, componentConfigs, macchine, localMachineFinos]);
 
 
   const activeTechMachines = useMemo(() => {
@@ -760,6 +866,7 @@ export default function ProductionReportView({
                 </th>
                 {components.map((comp, idx) => {
                   const isColHovered = hoveredCol === comp;
+                  const isConfigured = componentConfigs.some(c => c.componente === comp);
                   return (
                     <th
                       key={idx}
@@ -769,18 +876,35 @@ export default function ProductionReportView({
                         border: "1px solid var(--border)",
                         padding: "8px",
                         textAlign: "center",
-                        backgroundColor: isColHovered
-                          ? "#eef2ff"
-                          : "var(--bg-secondary)",
+                        backgroundColor: isColHovered ? "#eef2ff" : "var(--bg-secondary)",
                         fontWeight: "600",
                         fontSize: "13px",
                         minWidth: "70px",
                         color: "var(--text-primary)",
                         fontFamily: "inherit",
                         transition: "background-color 0.1s",
+                        position: "relative",
                       }}
                     >
                       {comp.replace("_ECO", "").replace("_8FE", "")}
+                      <span
+                        title={isConfigured ? `${componentConfigs.filter(c=>c.componente===comp).length} macchine configurate` : "Clicca per aggiungere"}
+                        onClick={() => setEditingComponent({
+                          componente: comp,
+                          macchina_id: "",
+                          progetto: "",
+                          codicisText: "",
+                          fino: "",
+                        })}
+                        style={{
+                          display: "inline-block",
+                          marginLeft: "4px",
+                          cursor: "pointer",
+                          color: isConfigured ? "#10b981" : "#9ca3af",
+                          fontSize: "11px",
+                          verticalAlign: "middle",
+                        }}
+                      >⚙</span>
                     </th>
                   );
                 })}
@@ -812,6 +936,11 @@ export default function ProductionReportView({
                     }}
                   >
                     <td
+                      onClick={() => setEditingMachine({
+                        id: machineId,
+                        nome: displayLabel,
+                        fino: localMachineFinos[machineId] ?? (macchine.find(m => m.id === machineId)?.fino || ""),
+                      })}
                       style={{
                         padding: "12px 16px",
                         fontWeight: "600",
@@ -819,14 +948,24 @@ export default function ProductionReportView({
                         borderRight: "1px solid var(--border)",
                         position: "sticky",
                         left: 0,
-                        backgroundColor: isRowHovered
-                          ? "#eef2ff"
-                          : "var(--bg-card)",
+                        backgroundColor: isRowHovered ? "#eef2ff" : "var(--bg-card)",
                         zIndex: 10,
                         whiteSpace: "nowrap",
                         transition: "background-color 0.1s",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
                       }}
                     >
+                      <span
+                        title={localMachineFinos[machineId] ? `Fino: ${localMachineFinos[machineId]}` : "Configura fino"}
+                        style={{
+                          width: "7px", height: "7px", borderRadius: "50%", flexShrink: 0,
+                          backgroundColor: localMachineFinos[machineId] ? "#10b981" : "#d1d5db",
+                          display: "inline-block",
+                        }}
+                      />
                       {displayLabel}
                     </td>
                     <td
@@ -871,31 +1010,30 @@ export default function ProductionReportView({
                     </td>
 
                     {components.map((comp, cidx) => {
-                      const val = matrice[machineId]
-                        ? matrice[machineId][comp]
-                        : "";
+                      const machineData = matrice[machineId] || {};
+                      const val = machineData[comp] || 0;
+                      const hasProduction = Number(val) > 0;
                       const isColHovered = hoveredCol === comp;
+                      
+                      const details = (detailedProduction[machineId] && detailedProduction[machineId][comp]) || [];
+                      const mats = Array.from(new Set(details.map(d => d?.materiale).filter(Boolean)));
+                      const opCodes = Array.from(new Set(details.map(d => d?.fino).filter(Boolean)));
+
                       return (
                         <td
                           key={cidx}
                           onMouseEnter={() => setHoveredCol(comp)}
                           onMouseLeave={() => setHoveredCol(null)}
                           onClick={() => {
-                            if (
-                              val !== undefined &&
-                              val !== "" &&
-                              Number(val) > 0
-                            ) {
-                              const rawDetails =
-                                detailedProduction[machineId]?.[comp] || [];
+                            if (hasProduction) {
+                              const rawDetails = details;
                               const groupedDetails = Object.values(
                                 rawDetails.reduce((acc, curr) => {
                                   const mat = curr.materiale || "N/A";
                                   if (!acc[mat]) {
                                     acc[mat] = { ...curr, qta_ottenuta: 0 };
                                   }
-                                  acc[mat].qta_ottenuta +=
-                                    curr.qta_ottenuta || 0;
+                                  acc[mat].qta_ottenuta += curr.qta_ottenuta || 0;
                                   return acc;
                                 }, {}),
                               );
@@ -928,6 +1066,31 @@ export default function ProductionReportView({
                           }}
                         >
                           {val || "0"}
+                          {hasProduction && (
+                            <div style={{ 
+                              fontSize: "9px", 
+                              color: "var(--text-muted)", 
+                              marginTop: "2px", 
+                              lineHeight: "1.1",
+                              fontWeight: "400",
+                              pointerEvents: "none"
+                            }}>
+                              <div style={{ 
+                                whiteSpace: "nowrap", 
+                                overflow: "hidden", 
+                                textOverflow: "ellipsis", 
+                                maxWidth: "70px", 
+                                margin: "0 auto" 
+                              }}>
+                                {mats.join(", ")}
+                              </div>
+                              {opCodes.length > 0 && (
+                                <div style={{ color: "var(--accent)", fontSize: "8px" }}>
+                                  op: {opCodes.join("/")}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </td>
                       );
                     })}
@@ -1323,6 +1486,163 @@ export default function ProductionReportView({
           </div>
         </div>
       )}
+
+      {/* Component Config Modal */}
+      <ComponentConfigModal
+        editing={editingComponent}
+        onChange={setEditingComponent}
+        onSave={handleSaveComponentConfig}
+        onClose={() => setEditingComponent(null)}
+        onDelete={handleDeleteComponentConfig}
+        existingConfigs={componentConfigs}
+        macchine={macchine}
+      />
+
+      {/* Machine Fino Modal */}
+      <MachineFineModal
+        editing={editingMachine}
+        onChange={setEditingMachine}
+        onSave={handleSaveMachineFino}
+        onClose={() => setEditingMachine(null)}
+      />
+    </div>
+  );
+}
+
+/* ───────────── COMPONENT CONFIG MODAL ───────────── */
+function ComponentConfigModal({ editing, onChange, onSave, onClose, onDelete, existingConfigs, macchine }) {
+  if (!editing) return null;
+  const existing = (existingConfigs || []).filter(c => c.componente === editing.componente);
+  return (
+    <div style={{
+      position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.55)",
+      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000,
+      backdropFilter: "blur(4px)",
+    }} onClick={onClose}>
+      <div style={{
+        background: "var(--bg-card)", borderRadius: "16px", padding: "28px",
+        width: "460px", maxHeight: "85vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+      }} onClick={e => e.stopPropagation()}>
+        <h2 style={{ fontSize: "18px", fontWeight: "800", marginBottom: "4px" }}>
+          ⚙ Configura: <span style={{ color: "var(--accent)" }}>{editing.componente}</span>
+        </h2>
+        <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "16px" }}>
+          Associa macchina + fino + codici materiale. La combinazione <strong>fino + materiale</strong> identifica univocamente la macchina.
+        </p>
+
+        {/* Existing configs for this component */}
+        {existing.length > 0 && (
+          <div style={{ marginBottom: "20px" }}>
+            <label style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-muted)", display: "block", marginBottom: "8px" }}>CONFIGURAZIONI ESISTENTI</label>
+            {existing.map(cfg => (
+              <div key={cfg.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px", backgroundColor: "var(--bg-secondary)", borderRadius: "8px", marginBottom: "6px", fontSize: "13px" }}>
+                <span style={{ flex: 1 }}>
+                  <strong>{cfg.macchina_id || "—"}</strong>
+                  {cfg.fino && <span style={{ color: "var(--text-muted)", marginLeft: "6px" }}>op:{cfg.fino}</span>}
+                  <span style={{ color: "var(--text-muted)", marginLeft: "6px" }}>{(cfg.codici||[]).length} codici</span>
+                </span>
+                <button
+                  onClick={() => onChange({ ...cfg, codicisText: (cfg.codici||[]).join("\n") })}
+                  style={{ padding: "4px 10px", borderRadius: "6px", border: "1px solid var(--border)", background: "none", cursor: "pointer", fontSize: "12px" }}
+                >Modifica</button>
+                <button
+                  onClick={() => onDelete(cfg.id)}
+                  style={{ padding: "4px 10px", borderRadius: "6px", border: "none", background: "#fee2e2", color: "#dc2626", cursor: "pointer", fontSize: "12px" }}
+                >✕</button>
+              </div>
+            ))}
+            <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: "16px 0" }} />
+            <p style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "12px" }}>Aggiungi nuova associazione:</p>
+          </div>
+        )}
+
+        <label style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-muted)", display: "block", marginBottom: "4px" }}>MACCHINA *</label>
+        <select
+          value={editing.macchina_id || ""}
+          onChange={e => onChange({ ...editing, macchina_id: e.target.value })}
+          style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--border)", marginBottom: "16px", backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: "14px" }}
+        >
+          <option value="">— Seleziona macchina —</option>
+          {(macchine || []).map(m => (
+            <option key={m.id} value={m.id}>{m.id} {m.nome ? `— ${m.nome}` : ""}</option>
+          ))}
+        </select>
+
+        <label style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-muted)", display: "block", marginBottom: "4px" }}>FINO (operazione SAP) *</label>
+        <input
+          type="text"
+          value={editing.fino}
+          onChange={e => onChange({ ...editing, fino: e.target.value })}
+          placeholder="es. 50, TORNS..."
+          style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--border)", marginBottom: "16px", backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: "14px", boxSizing: "border-box" }}
+        />
+
+        <label style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-muted)", display: "block", marginBottom: "4px" }}>CODICI MATERIALE *</label>
+        <p style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "6px" }}>Uno per riga oppure separati da virgola</p>
+        <textarea
+          value={editing.codicisText}
+          onChange={e => onChange({ ...editing, codicisText: e.target.value })}
+          rows={5}
+          placeholder={"M0170686/S\nM0170687\nM0170688"}
+          style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--border)", marginBottom: "16px", backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: "13px", fontFamily: "monospace", resize: "vertical", boxSizing: "border-box" }}
+        />
+
+        <label style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-muted)", display: "block", marginBottom: "4px" }}>PROGETTO</label>
+        <select
+          value={editing.progetto}
+          onChange={e => onChange({ ...editing, progetto: e.target.value })}
+          style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--border)", marginBottom: "24px", backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: "14px" }}
+        >
+          <option value="">— Nessuno —</option>
+          <option value="DCT 300">DCT 300</option>
+          <option value="8Fe">8Fe</option>
+          <option value="DCT Eco">DCT Eco</option>
+        </select>
+
+        <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={{ padding: "8px 20px", borderRadius: "8px", border: "1px solid var(--border)", background: "none", cursor: "pointer", fontWeight: "600" }}>Chiudi</button>
+          <button onClick={onSave} style={{ padding: "8px 20px", borderRadius: "8px", border: "none", background: "#10b981", color: "white", cursor: "pointer", fontWeight: "700" }}>Salva</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ───────────── MACHINE FINO MODAL ───────────── */
+function MachineFineModal({ editing, onChange, onSave, onClose }) {
+  if (!editing) return null;
+  return (
+    <div style={{
+      position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.55)",
+      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000,
+      backdropFilter: "blur(4px)",
+    }} onClick={onClose}>
+      <div style={{
+        background: "var(--bg-card)", borderRadius: "16px", padding: "28px",
+        width: "360px", boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+      }} onClick={e => e.stopPropagation()}>
+        <h2 style={{ fontSize: "18px", fontWeight: "800", marginBottom: "4px" }}>
+          🔩 Macchina: <span style={{ color: "var(--accent)" }}>{editing.nome}</span>
+        </h2>
+        <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "20px" }}>
+          Imposta il codice <strong>fino</strong> SAP per abbinare i record di <code>conferme_sap</code>.
+        </p>
+
+        <label style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-muted)", display: "block", marginBottom: "4px" }}>FINO</label>
+        <input
+          type="text"
+          value={editing.fino}
+          onChange={e => onChange({ ...editing, fino: e.target.value })}
+          placeholder="es. TORNS"
+          style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--border)", marginBottom: "24px", backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: "15px", fontWeight: "700", boxSizing: "border-box" }}
+          autoFocus
+        />
+
+        <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+          <button onClick={onClose} style={{ padding: "8px 20px", borderRadius: "8px", border: "1px solid var(--border)", background: "none", cursor: "pointer", fontWeight: "600" }}>Annulla</button>
+          <button onClick={onSave} style={{ padding: "8px 20px", borderRadius: "8px", border: "none", background: "#3b82f6", color: "white", cursor: "pointer", fontWeight: "700" }}>Salva</button>
+        </div>
+      </div>
     </div>
   );
 }
