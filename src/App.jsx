@@ -249,7 +249,7 @@ export default function App() {
         <div className="sidebar-header">
           <div className="sidebar-logo">
             <div className="sidebar-logo-icon">B</div>
-            <div className="sidebar-logo-text">BAP1 Production</div>
+            <div className="sidebar-logo-text">BAP1 - Production</div>
           </div>
 
         </div>
