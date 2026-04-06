@@ -232,12 +232,19 @@ export default function AssegnazioniView({
     return (
         <div className="fade-in" style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
             <div style={{ flex: 1, overflowY: "auto", paddingRight: 8, paddingBottom: 20 }}>
-                {/* DEBUG PANEL - REMOVE LATER */}
-
+                {/* Local Header */}
+                <div style={{ marginBottom: 24 }}>
+                    <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>
+                        Pianificazione Postazioni
+                    </h1>
+                    <p style={{ margin: "4px 0 0 0", color: "var(--text-secondary)", fontSize: 14 }}>
+                        Assegna gli operatori presenti alle macchine e alle attività del turno corrente.
+                    </p>
+                </div>
 
                 <div className="alert alert-info" style={{ marginBottom: 20 }}>
                     <span style={{ flexShrink: 0 }}>{Icons.clock}</span>
-                    Assegna gli operatori presenti alle macchine o alle attività extra. Gli operatori già assegnati non compaiono nell'elenco.
+                    Gli operatori già assegnati non compaiono nell'elenco. Puoi forzare l'assegnazione anche per gli assenti.
                 </div>
 
                 <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 12, color: "var(--text-secondary)" }}>MACCHINE DI PRODUZIONE</h3>

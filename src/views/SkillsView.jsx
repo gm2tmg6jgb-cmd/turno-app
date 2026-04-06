@@ -146,6 +146,16 @@ export default function SkillsView({ dipendenti, setDipendenti, macchine, showTo
 
     return (
         <div className="fade-in">
+            {/* Local Header */}
+            <div style={{ marginBottom: 24 }}>
+                <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>
+                    Matrice Competenze
+                </h1>
+                <p style={{ margin: "4px 0 0 0", color: "var(--text-secondary)", fontSize: 14 }}>
+                    Gestione e monitoraggio dei livelli di autonomia degli operatori sulle macchine.
+                </p>
+            </div>
+
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                 <div style={{ display: "flex", alignItems: "flex-end", gap: 12 }}>
                     <input

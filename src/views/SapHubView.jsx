@@ -36,8 +36,8 @@ export default function SapHubView({
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                         <div style={{ fontSize: 24 }}>🛰️</div>
                         <div>
-                            <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Hub Dati SAP</h2>
-                            <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0 }}>Gestione integrata flussi di produzione e fermi</p>
+                            <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>Hub Dati SAP</h1>
+                            <p style={{ fontSize: 14, color: "var(--text-secondary)", margin: "4px 0 0 0" }}>Gestione integrata flussi di produzione e fermi SAP</p>
                         </div>
                     </div>
                 </div>

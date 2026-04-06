@@ -16,8 +16,12 @@ export default function FormazioneView({ dipendenti, turnoCorrente }) {
 
     return (
         <div className="fade-in">
+            {/* Local Header */}
             <div style={{ marginBottom: 24 }}>
-                <p style={{ color: "var(--text-secondary)", fontSize: 14 }}>
+                <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>
+                    Gestione Formazione
+                </h1>
+                <p style={{ margin: "4px 0 0 0", color: "var(--text-secondary)", fontSize: 14 }}>
                     Elenco del personale con stato <strong>In formazione</strong>. Monitoraggio delle competenze in fase di crescita.
                 </p>
             </div>

@@ -430,7 +430,7 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
     return (
         <div className="fade-in" style={{ height: "100%", overflowY: "auto", paddingRight: 8, paddingBottom: 20 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                    <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Report Fine Turno</h2>
+                    <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>Report Fine Turno</h1>
 
                 <div style={{ display: "flex", gap: 12, alignItems: "center", background: "var(--bg-card)", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)" }}>
                     {/* Date Picker */}

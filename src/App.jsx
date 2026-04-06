@@ -248,10 +248,10 @@ export default function App() {
       <div className="sidebar">
         <div className="sidebar-header">
           <div className="sidebar-logo">
-            <div className="sidebar-logo-icon">T</div>
-            <div className="sidebar-logo-text">TurnoApp</div>
+            <div className="sidebar-logo-icon">B</div>
+            <div className="sidebar-logo-text">BAP1 Production</div>
           </div>
-          <div className="sidebar-subtitle">Gestione Personale</div>
+
         </div>
 
         <div className="sidebar-turno-badge" style={{ margin: "16px 12px", padding: "20px 18px", gap: 14 }}>
@@ -392,19 +392,19 @@ export default function App() {
 
       {/* Main */}
       <div className="main">
-        <div className="main-header">
-          <div>
-            <h1>{viewTitles[currentView]}</h1>
-            <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
-              {reparto ? reparto.nome : "Tutti i Reparti"} • {turno?.nome} ({activeTurnoSlot?.nome}) • {new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })}
+        {currentView === "dashboard" && (
+          <div className="main-header">
+            <div>
+              <h1>{viewTitles[currentView]}</h1>
+              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+                {reparto ? reparto.nome : "Tutti i Reparti"} • {turno?.nome} ({activeTurnoSlot?.nome}) • {new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })}
+              </div>
+            </div>
+            <div className="main-header-actions">
+              <button className="btn btn-primary" onClick={handleSendPlan}>{Icons.send} Invia Piano Turno</button>
             </div>
           </div>
-          <div className="main-header-actions">
-            {currentView === "dashboard" && (
-              <button className="btn btn-primary" onClick={handleSendPlan}>{Icons.send} Invia Piano Turno</button>
-            )}
-          </div>
-        </div>
+        )}
 
         <div className="main-content">
           {currentView === "dashboard" && (
