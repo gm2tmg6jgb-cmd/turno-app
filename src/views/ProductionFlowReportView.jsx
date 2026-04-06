@@ -603,7 +603,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               value={globalDate || ""}
               onChange={(e) => setGlobalDate?.(e.target.value)}
               style={{
-                padding: "8px 12px",
+                padding: "0 12px",
                 borderRadius: "10px",
                 border: "1px solid var(--border)",
                 backgroundColor: "var(--bg-card)",
@@ -613,7 +613,9 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 outline: "none",
                 cursor: "pointer",
                 fontFamily: "inherit",
-                width: "210px"
+                width: "160px",
+                height: "38px",
+                boxSizing: "border-box"
               }}
             />
           </div>
@@ -625,7 +627,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               value={turnoCorrente || "ALL"}
               onChange={(e) => setTurnoCorrente?.(e.target.value)}
               style={{
-                padding: "9px 12px",
+                padding: "0 12px",
                 borderRadius: "10px",
                 border: "1px solid var(--border)",
                 backgroundColor: "var(--bg-card)",
@@ -634,7 +636,9 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 fontSize: "14px",
                 outline: "none",
                 cursor: "pointer",
-                width: "210px"
+                width: "160px",
+                height: "38px",
+                boxSizing: "border-box"
               }}
             >
               <option value="ALL">Tutti i turni</option>
@@ -677,7 +681,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             <button
               onClick={() => setIsSlotEditMode(prev => !prev)}
               style={{
-                padding: "9px 16px",
+                padding: "0 16px",
                 borderRadius: "10px",
                 border: `1px solid ${isSlotEditMode ? "var(--accent)" : "var(--border)"}`,
                 backgroundColor: isSlotEditMode ? "var(--accent)" : "var(--bg-card)",
@@ -687,7 +691,9 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 cursor: "pointer",
                 transition: "all 0.2s",
                 whiteSpace: "nowrap",
-                width: "210px"
+                width: "160px",
+                height: "38px",
+                boxSizing: "border-box"
               }}
             >
               {isSlotEditMode ? "✓ Esci da Configura" : "⚙ Configura Singolo"}
@@ -699,7 +705,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             <button
               onClick={() => setShowNewMachineModal(true)}
               style={{
-                padding: "9px 16px",
+                padding: "0 16px",
                 borderRadius: "10px",
                 border: "1px solid #10b981",
                 backgroundColor: "#10b981",
@@ -709,7 +715,9 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 cursor: "pointer",
                 transition: "all 0.2s",
                 whiteSpace: "nowrap",
-                width: "210px"
+                width: "160px",
+                height: "38px",
+                boxSizing: "border-box"
               }}
             >
               ➕ Nuova Macchina
