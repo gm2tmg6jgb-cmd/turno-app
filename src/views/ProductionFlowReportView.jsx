@@ -32,7 +32,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
   const [prodByMaterialGlobal, setProdByMaterialGlobal] = useState({});
   const [isSlotEditMode, setIsSlotEditMode] = useState(false);
   const [showSlotModal, setShowSlotModal] = useState(false);
-  const [slotModalData, setSlotModalData] = useState({ machineId: "", slotIndex: 0, componente: "", progetto: "", codiceMateriale: "", fino: "" });
+  const [slotModalData, setSlotModalData] = useState({ machineId: "", slotIndex: 0, componente: "", progetto: "", codiceMateriale: "", fino: "", jph_target: 0 });
   const [isSavingSlot, setIsSavingSlot] = useState(false);
 
   // New Machine State
@@ -65,7 +65,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         // Group by machine and component
         const grouped = {};
         const prodByMat = {}; // Direct index: { work_center: { material_code: qty } }
-        const prodByMatGlobal = {}; // Global index: { material_code: qty } across all machines
+        const prodByMatGlobal = {}; // Global index: { material_code: qty } 
+        const scartiByMatGlobal = {}; // Global index: { material_code: scarti }
         const prodByFinoMap = {}; // Global index by fino: { fino: { material_code: qty } }
         const softMachines = new Set();
 
@@ -88,27 +89,33 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
 
           // Global index by material (all machines)
           if (mat) {
-            prodByMatGlobal[mat] = (prodByMatGlobal[mat] || 0) + qty;
+            if (!prodByMatGlobal[mat]) prodByMatGlobal[mat] = { total: 0, scarti: 0 };
+            prodByMatGlobal[mat].total += qty;
+            prodByMatGlobal[mat].scarti += (row.qta_scarto || 0);
           }
 
           // Global index by fino (operation number) — machine-agnostic
           if (mat && fino) {
-            if (!prodByFinoMap[fino]) prodByFinoMap[fino] = {};
-            prodByFinoMap[fino][mat] = (prodByFinoMap[fino][mat] || 0) + qty;
+            if (!prodByFinoMap[fino]) prodByFinoMap[fino] = { prod: {}, scarti: {} };
+            prodByFinoMap[fino].prod[mat] = (prodByFinoMap[fino].prod[mat] || 0) + qty;
+            prodByFinoMap[fino].scarti[mat] = (prodByFinoMap[fino].scarti[mat] || 0) + (row.qta_scarto || 0);
           }
 
           const addToGroup = (map, key) => {
             if (!key || !comp) return;
             if (!map[key]) map[key] = {};
-            if (!map[key][comp]) map[key][comp] = { total: 0, materials: [] };
+            if (!map[key][comp]) map[key][comp] = { total: 0, scarti: 0, materials: [] };
             map[key][comp].total += qty;
+            map[key][comp].scarti = (map[key][comp].scarti || 0) + (row.qta_scarto || 0);
             const existingMat = map[key][comp].materials.find(m => m.code === mat);
             if (existingMat) {
               existingMat.qty += qty;
+              existingMat.scarti = (existingMat.scarti || 0) + (row.qta_scarto || 0);
             } else {
               map[key][comp].materials.push({
                 code: mat,
                 qty,
+                scarti: row.qta_scarto || 0,
                 progetto: row.progetto || "",
                 sapCode: row.work_center_sap || row.macchina_id || ""
               });
@@ -129,6 +136,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         setProdByMaterial(prodByMat);
         setProdByFino(prodByFinoMap);
         setProdByMaterialGlobal(prodByMatGlobal);
+        // We could add setScartiByMaterialGlobal if needed, but let's just use prodByMaterialGlobal as an object with both
+        // For now I'll just store scarti in a ref or local var if I need it machine-wide.
         setHasSoftProduction(softMachines);
 
         // 3. Fetch Fermi (downtimes)
@@ -167,6 +176,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               progetto: row.progetto,
               fino: row.fino,
               codice_materiale: row.codice_materiale,
+              jph_target: row.jph_target || 0
             };
           });
         }
@@ -397,6 +407,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         slot_index: dbSlotIndex,
         componente: componente ? String(componente) : null,
         progetto: progetto ? String(progetto) : null,
+        jph_target: Number(slotModalData.jph_target) || 0,
       };
 
       console.log("DEBUG [handleSaveSlot] Reordered Payload:", payload);
@@ -425,6 +436,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             progetto: progetto || null,
             codice_materiale: codiceMateriale || null,
             fino: fino || null,
+            jph_target: Number(slotModalData.jph_target) || 0,
           }
         }
       }));
@@ -437,75 +449,6 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
     }
   };
 
-  const handleSaveSlotForAll = async () => {
-    const { slotIndex, componente, progetto, codiceMateriale, fino } = slotModalData;
-    if (!componente) {
-      alert("Il campo Componente è obbligatorio per la macchina corrente.");
-      return;
-    }
-    const count = filteredMachines.length - 1; // escludo quella corrente
-    if (!window.confirm(`Sei sicuro di voler applicare l'OP (Fino) "${fino || 'Vuoto'}" a TUTTE le altre ${count} macchine in questa tab?\nLa macchina corrente salverà tutti i campi, le altre solo l'OP.`)) {
-      return;
-    }
-    setIsSavingSlot(true);
-    try {
-      const dbSlotIndex = Number(slotIndex) + 1;
-      const promises = filteredMachines.map(m => {
-        const configId = m.ids ? m.ids[0] : m.id;
-        const isCurrent = configId === slotModalData.machineId;
-        const existing = slotConfigs[configId.toUpperCase()]?.[slotIndex];
-        
-        const payloadObj = {
-          codice_materiale: isCurrent ? (codiceMateriale || null) : (existing?.codice_materiale || null),
-          fino: fino || null,
-          macchina_id: String(configId),
-          slot_index: dbSlotIndex,
-          componente: isCurrent ? (componente || null) : (existing?.componente || null),
-          progetto: isCurrent ? (progetto || null) : (existing?.progetto || null),
-        };
-
-        if (existing) {
-          return supabase.from("slot_config")
-            .update(payloadObj)
-            .eq("macchina_id", configId)
-            .eq("slot_index", dbSlotIndex);
-        } else {
-          return supabase.from("slot_config").insert([payloadObj]);
-        }
-      });
-      
-      console.log("DEBUG [handleSaveSlotForAll] Count:", filteredMachines.length);
-      
-      const results = await Promise.all(promises);
-      const errors = results.filter(r => r.error);
-      if (errors.length > 0) throw errors[0].error;
-      setSlotConfigs(prev => {
-        const next = { ...prev };
-        filteredMachines.forEach(m => {
-          const configId = (m.ids ? m.ids[0] : m.id).toUpperCase();
-          const isCurrent = configId === slotModalData.machineId.toUpperCase();
-          const existing = next[configId]?.[slotIndex] || {};
-          next[configId] = {
-            ...(next[configId] || {}),
-            [slotIndex]: {
-              ...existing,
-              componente: isCurrent ? (componente || null) : (existing.componente || null),
-              progetto: isCurrent ? (progetto || null) : (existing.progetto || null),
-              codice_materiale: isCurrent ? (codiceMateriale || null) : (existing.codice_materiale || null),
-              fino: fino || null,
-            }
-          };
-        });
-        return next;
-      });
-      setShowSlotModal(false);
-    } catch (err) {
-      console.error("Errore salvataggio slot globale:", err);
-      alert("Errore durante il salvataggio globale: " + (err?.message || JSON.stringify(err)));
-    } finally {
-      setIsSavingSlot(false);
-    }
-  };
 
   const handleDeleteSlot = async (machineIdParam, slotIndexParam) => {
     const machineId = machineIdParam || slotModalData.machineId;
@@ -876,7 +819,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         </div>
 
         {/* MACHINES GRID CONTENT */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "20px", flex: 1, alignContent: "start", paddingBottom: "40px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: "20px", flex: 1, alignContent: "start", paddingBottom: "40px" }}>
           {(() => {
           // Define twin groups
           const twinGroups = [
@@ -922,7 +865,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             // KPI Calculation Logic
             const shiftMinutes = (turnoCorrente && turnoCorrente !== "ALL") ? 360 : 1440;
             const fermi = fermiData[mid] || { minutes: 0, entries: [] };
-            let totalDowntime = fermi.minutes || 0;
+            let totalDowntime = (fermi.minutes || 0);
             if (m.ids && m.ids.length > 1) {
               totalDowntime = 0;
               m.ids.forEach(id => {
@@ -931,115 +874,84 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
             }
             
             const availability = Math.max(0, (shiftMinutes - totalDowntime) / shiftMinutes);
-            const prodHours = (shiftMinutes - totalDowntime) / 60;
-            const displayProdHours = `${Math.floor(prodHours)}h`;
-            const displayTotalHours = `${Math.floor(shiftMinutes / 60)}h`;
-            
-            // Dynamic Performance/Quality for OEE calculation
-            const targetPerf = (m.target_performance || 91) / 100;
-            const targetQual = (m.target_quality || 98) / 100;
-            
-            const performance = targetPerf; // Placeholder constant efficiency
-            const oee = availability * performance * targetQual;
-            
-            const isFRW = mid === "FRW10075"; // FRW10075 → SG5 / DCT300
-            const isFRW74 = mid === "FRW10074"; // FRW10074 → SAP FRW14410
+            const prodHours = Math.max(0, (shiftMinutes - totalDowntime) / 60);
+
+            const isFRW = mid === "FRW10075";
+            const isFRW74 = mid === "FRW10074";
             const isMZA = mid === "MZA10005";
             const isRAA = mid === "RAA11009";
             const isZSA = mid.startsWith("ZSA");
-            const isSingle = mid === "BOA10094" || mid === "RAA11009" || mid === "DRA10116" || mid === "DRA10009";
-            const isDouble = mid === "DRA10109";
-            const isSpecial = isFRW || isMZA || isRAA || isSingle || isDouble || m.isTwin;
-            
             const isRGMin = mid === "DRA11044" || mid === "FRW11015" || mid === "EGW11006";
-            
-            // Logic to identify if it's a "Tornitura Soft" machine (same as filtering)
-            const isSoftMachine = mid.startsWith("DRA") && (
-              m.tecnologia_id === "TS" || 
-              m.tecnologia_id?.toLowerCase() === "tornitura_soft" ||
-              (hasSoftProduction.has(mid) && m.tecnologia_id !== "TH" && m.tecnologia_id?.toLowerCase() !== "tornitura_hard")
-            );
 
-            // Dynamic Slot Count: only configured slots + 1 extra if in edit mode
-            const configIdForCount = m.ids ? m.ids[0].toUpperCase() : mid;
-            const configuredIndices = Object.keys(slotConfigs[configIdForCount] || {}).map(k => parseInt(k));
+            // Pre-compute production slot data early to use in KPI calculations
+            const configId = m.ids ? m.ids[0].toUpperCase() : mid;
+            const configuredIndices = Object.keys(slotConfigs[configId] || {}).map(k => parseInt(k));
             const maxConfiguredIndex = configuredIndices.length > 0 ? Math.max(...configuredIndices) : -1;
             
-            let prodSlots = maxConfiguredIndex + 1;
+            // For legacy hardcoded machines (ZSA, FRW74, MZA, etc.) that have no slot_config entries,
+            // use a machine-specific default slot count so their hardcoded logic still works.
+            let fallbackSlots = 0;
+            if (maxConfiguredIndex < 0) {
+              if (isZSA) fallbackSlots = 11; // SG2,SG3,SG4,SG5,SG6,SG7,SG8,SGR,PG,FG5/7,RG
+              else if (isFRW74) fallbackSlots = 4;
+              else if (isMZA) fallbackSlots = 1;
+              else if (isRAA) fallbackSlots = 1;
+              else if (isRGMin) fallbackSlots = 1;
+              else if (isFRW) fallbackSlots = 1;
+            }
+            
+            let prodSlots = maxConfiguredIndex >= 0 ? maxConfiguredIndex + 1 : fallbackSlots;
             if (isSlotEditMode) prodSlots += 1;
 
-            const SLOT_COUNT = prodSlots + 1; // Total slots including Fermi
+            const SLOT_COUNT = prodSlots + 1;
             const FERMI_IDX = SLOT_COUNT - 1;
-            // Slots hidden per machine: index → invisible placeholder
             const hiddenSlots = new Set(mid === "RAA11009" ? [1, 2] : []);
 
-            // Pre-compute production slot data (identical logic to slot rendering)
-            // so headerTotal always exactly matches the sum of displayed slot values
             const mProdForPre = {};
-            if (m.ids) {
-              m.ids.forEach(id => {
-                const singleProd = productionData[id.toUpperCase()] || {};
-                Object.keys(singleProd).forEach(comp => {
-                  if (!mProdForPre[comp]) mProdForPre[comp] = { total: 0, materials: [] };
-                  mProdForPre[comp].total += singleProd[comp].total;
-                  singleProd[comp].materials.forEach(mat => {
-                    const ext = mProdForPre[comp].materials.find(x => x.code === mat.code);
-                    if (ext) ext.qty += mat.qty;
-                    else mProdForPre[comp].materials.push({...mat});
-                  });
+            const sumProd = (mId) => {
+              const singleProd = productionData[mId.toUpperCase()] || {};
+              Object.keys(singleProd).forEach(comp => {
+                if (!mProdForPre[comp]) mProdForPre[comp] = { total: 0, scarti: 0, materials: [] };
+                mProdForPre[comp].total += (singleProd[comp].total || 0);
+                mProdForPre[comp].scarti += (singleProd[comp].scarti || 0);
+                (singleProd[comp].materials || []).forEach(mat => {
+                  const ext = mProdForPre[comp].materials.find(x => x.code === mat.code);
+                  if (ext) { ext.qty += mat.qty; ext.scarti += (mat.scarti || 0); }
+                  else mProdForPre[comp].materials.push({...mat});
                 });
               });
-            } else {
-              Object.assign(mProdForPre, productionData[m.id] || {});
-            }
-            const prodComponentsForPre = Object.keys(mProdForPre);
+            };
+            if (m.ids) m.ids.forEach(sumProd); else sumProd(mid);
+
             const computedSlotData = Array.from({ length: prodSlots }).map((_, i) => {
               if (hiddenSlots.has(i)) return { hidden: true };
               let productionInfo = null;
               let displayComp = null;
               let displayProj = null;
-              const configId = m.ids ? m.ids[0].toUpperCase() : mid;
               const slotConf = slotConfigs[configId]?.[i];
-              const machineHasAnyConfig = !!slotConfigs[configId];
               if (slotConf) {
                 displayComp = slotConf.componente || null;
                 const finoKey = slotConf.fino ? normFino(slotConf.fino) : null;
                 if (slotConf.codice_materiale && finoKey) {
-                  // Filter by both material code AND fino
                   const matFilter = slotConf.codice_materiale.toUpperCase();
-                  const qty = prodByFino[finoKey]?.[matFilter] || 0;
-                  displayProj = slotConf.progetto || null;
-                  productionInfo = { total: qty, materials: qty > 0 ? [{ code: matFilter, qty, progetto: displayProj || "" }] : [] };
+                  const qty = prodByFino[finoKey]?.prod?.[matFilter] || 0;
+                  const sca = prodByFino[finoKey]?.scarti?.[matFilter] || 0;
+                  productionInfo = { total: qty, scarti: sca, materials: [] };
                 } else if (slotConf.codice_materiale) {
-                  // Only material code
                   const matFilter = slotConf.codice_materiale.toUpperCase();
-                  const qty = prodByMaterialGlobal[matFilter] || 0;
-                  displayProj = slotConf.progetto || null;
-                  productionInfo = { total: qty, materials: qty > 0 ? [{ code: matFilter, qty, progetto: displayProj || "" }] : [] };
-                } else if (finoKey) {
-                  // Only fino
-                  const finoMats = prodByFino[finoKey] || {};
-                  const total = Object.values(finoMats).reduce((s, v) => s + v, 0);
-                  const materials = Object.entries(finoMats).map(([code, qty]) => ({ code, qty, progetto: "" }));
-                  if (total > 0) {
-                    productionInfo = { total, materials };
-                    displayProj = slotConf.progetto || null;
-                  }
+                  const info = prodByMaterialGlobal[matFilter] || { total: 0, scarti: 0 };
+                  productionInfo = { total: info.total, scarti: info.scarti, materials: [] };
                 } else {
-                  const sourceProd = productionData[mid] || {};
-                  if (displayComp && sourceProd[displayComp]) {
-                    productionInfo = sourceProd[displayComp];
-                    displayProj = slotConf.progetto || productionInfo?.materials?.[0]?.progetto || null;
-                  }
+                  const sourceProd = mProdForPre;
+                  if (displayComp && sourceProd[displayComp]) productionInfo = sourceProd[displayComp];
                 }
-              } else if (machineHasAnyConfig) {
-                // empty slot
+                displayProj = slotConf.progetto || productionInfo?.materials?.[0]?.progetto || null;
               } else if (isFRW) {
                 productionInfo = mProdForPre["SG5"]; displayComp = "SG5"; displayProj = "DCT 300";
               } else if (isFRW74) {
                 const frw74Prod = productionData["FRW14410"] || {};
                 const frw74Comps = Object.keys(frw74Prod);
-                if (frw74Comps[i]) { displayComp = frw74Comps[i]; productionInfo = frw74Prod[displayComp]; if (productionInfo?.materials?.length > 0) displayProj = productionInfo.materials[0].progetto; }
+                if (frw74Comps[i]) { displayComp = frw74Comps[i]; productionInfo = frw74Prod[displayComp]; }
               } else if (isMZA) {
                 displayComp = i === 0 ? "CONTROLLO UT" : null;
               } else if (isRAA) {
@@ -1049,23 +961,35 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               } else if (isZSA) {
                 const zsaComps = ["SG2", "SG3", "SG4", "SG5", "SG6", "SG7", "SG8", "SGR", "PG", "FG5/7", "RG"];
                 if (i < FERMI_IDX) {
-                  displayComp = zsaComps[i] || null;
-                  if (displayComp) {
-                    productionInfo = mProdForPre[displayComp];
-                    if (productionInfo?.materials?.length > 0) displayProj = productionInfo.materials[0].progetto;
-                  }
+                   displayComp = zsaComps[i] || null;
+                   if (displayComp) productionInfo = mProdForPre[displayComp];
                 }
-              } else if (mid === "DRA10060") {
-                const compMap = ["SG2", "SGR"]; const projMap = ["M0153389/S", "M0153391/S"];
-                const prodSources = [mProdForPre, productionData["DRA14100"] || {}];
-                displayComp = compMap[i] || null;
-                if (displayComp) { productionInfo = prodSources[i][displayComp]; displayProj = productionInfo?.materials?.[0]?.progetto || projMap[i] || ""; }
               } else {
-                if (prodComponentsForPre[i]) { displayComp = prodComponentsForPre[i]; productionInfo = mProdForPre[displayComp]; if (productionInfo?.materials?.length > 0) displayProj = productionInfo.materials[0].progetto; }
+                const comps = Object.keys(mProdForPre);
+                if (comps[i]) { displayComp = comps[i]; productionInfo = mProdForPre[displayComp]; if (productionInfo?.materials?.length > 0) displayProj = productionInfo.materials[0].progetto; }
               }
-              return { productionInfo, displayComp, displayProj, isConfigured: !!slotConf };
+              return { productionInfo, displayComp, displayProj, isConfigured: !!slotConf, jph_target: slotConf?.jph_target || 0 };
             });
-            const headerTotal = computedSlotData.reduce((sum, s) => sum + (s.hidden ? 0 : (s.productionInfo?.total || 0)), 0);
+
+            // Re-calculate KPI based on JPH (Machine-Centric Model)
+            // headerTotal = SUM of all pieces (for logistics display)
+            const headerTotal = computedSlotData.reduce((s, sd) => s + (sd.hidden ? 0 : (sd.productionInfo?.total || 0)), 0);
+            
+            // actualMachineWork = SUM of all pieces (machine produced all these in the same time window)
+            const actualMachineWork = headerTotal;
+            
+            // machineTargetJPH = MAX JPH among slots (machine speed - doesn't sum, changes per component)
+            const machineTargetJPH = Math.max(0, ...computedSlotData.map(sd => sd.jph_target || 0));
+            const expectedPieces = prodHours * machineTargetJPH;
+
+            const targetPerf = (m.target_performance || 91) / 100;
+            const targetQual = (m.target_quality || 98) / 100;
+
+            const performance = machineTargetJPH > 0 ? (expectedPieces > 0 ? (actualMachineWork / expectedPieces) : 1) : targetPerf;
+            
+            const displayProdHours = `${Math.floor(prodHours)}h`;
+            const displayTotalHours = `${Math.floor(shiftMinutes / 60)}h`;
+            
 
             return (
               <div key={m.id} style={{
@@ -1114,20 +1038,16 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                   </div>
                 </div>
 
-                {/* KPI Boxes */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
-                  {/* OEE */}
-                  <div style={{ backgroundColor: "#f8fafc", borderRadius: "16px", padding: "14px", border: "1px solid #f1f5f9" }}>
-                    <div style={{ fontSize: "9px", fontWeight: "800", color: "#94a3b8", marginBottom: "4px", textTransform: "uppercase" }}>OEE</div>
-                    <div style={{ fontSize: "20px", fontWeight: "900", color: "#10b981" }}>{Math.round(oee * 100)}%</div>
-                    <div style={{ height: "4px", backgroundColor: "#e2e8f0", borderRadius: "2px", marginTop: "8px", overflow: "hidden" }}>
-                      <div style={{ width: `${oee * 100}%`, height: "100%", backgroundColor: "#10b981" }} />
-                    </div>
-                  </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
                   {/* Performance */}
                   <div style={{ backgroundColor: "#f8fafc", borderRadius: "16px", padding: "14px", border: "1px solid #f1f5f9" }}>
                     <div style={{ fontSize: "9px", fontWeight: "800", color: "#94a3b8", marginBottom: "4px", textTransform: "uppercase" }}>Performance</div>
-                    <div style={{ fontSize: "20px", fontWeight: "900", color: "#1e293b" }}>{Math.round(performance * 100)}%</div>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
+                      <div style={{ fontSize: "20px", fontWeight: "900", color: "#1e293b" }}>{Math.round(performance * 100)}%</div>
+                      <div style={{ fontSize: "10px", fontWeight: "600", color: "#64748b" }}>
+                        ({actualMachineWork} / {Math.round(expectedPieces)})
+                      </div>
+                    </div>
                     <div style={{ height: "4px", backgroundColor: "#e2e8f0", borderRadius: "2px", marginTop: "8px", overflow: "hidden" }}>
                       <div style={{ width: `${performance * 100}%`, height: "100%", backgroundColor: "#3b82f6" }} />
                     </div>
@@ -1145,13 +1065,13 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 {/* Slots Grid */}
                 <div style={{ 
                   display: "grid", 
-                  gridTemplateColumns: "repeat(3, 1fr)", 
-                  gap: "12px",
-                  flex: 1
+                  gridTemplateColumns: "repeat(4, 90px)", 
+                  gap: "10px",
+                  flexWrap: "wrap"
                 }}>
-                  {Array.from({ length: 6 }).map((_, i) => {
-                    // In edit mode, we want to show all 6 possible slots to allow configuration
-                    // In normal mode, we only show what's configured or has production
+                  {computedSlotData.map((_, i) => {
+                    // In edit mode last slot is the "+" new slot
+                    // In normal mode only show configured or slots with production
                     const slotData = computedSlotData[i] || { isConfigured: false, displayComp: "+" };
                     
                     if (!isSlotEditMode) {
@@ -1184,6 +1104,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                                   progetto: existing?.progetto || "",
                                   codiceMateriale: existing?.codice_materiale || "",
                                   fino: existing?.fino || "",
+                                  jph_target: existing?.jph_target || 0,
                                 });
                                 setShowSlotModal(true);
                                 return;
@@ -1199,8 +1120,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                           }}
                           style={{
                             backgroundColor: bgColor,
-                            borderRadius: "18px",
-                            padding: "12px",
+                            borderRadius: "14px",
+                            padding: "8px 4px",
                             display: "flex",
                             flexDirection: "column",
                             alignItems: "center",
@@ -1211,9 +1132,13 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                             position: "relative",
                             boxShadow: isConfigured ? "0 8px 15px -3px rgba(16, 185, 129, 0.2)" : "none",
                             border: isConfigured ? "none" : "1px dashed #cbd5e1",
-                            height: "100px",
-                            width: "100%",
-                            textAlign: "center"
+                            height: "90px",
+                            width: "90px",
+                            minWidth: "90px",
+                            maxWidth: "90px",
+                            textAlign: "center",
+                            flexShrink: 0,
+                            boxSizing: "border-box"
                           }}
                           onMouseEnter={(e) => {
                             if (isConfigured) e.currentTarget.style.transform = "translateY(-4px)";
@@ -1226,6 +1151,17 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                           <div style={{ fontSize: "32px", fontWeight: "900", lineHeight: "1" }}>
                             {isConfigured ? (hasProduction ? totalQty : "0") : ""}
                           </div>
+                          {isConfigured && (
+                             <div style={{ 
+                               fontSize: "11px", 
+                               fontWeight: "900", 
+                               marginTop: "2px", 
+                               opacity: (slotData?.productionInfo?.scarti || 0) > 0 ? 1 : 0.7,
+                               color: (slotData?.productionInfo?.scarti || 0) > 0 ? "#ff4444" : "rgba(255,255,255,0.9)"
+                             }}>
+                               SCARTO: {slotData?.productionInfo?.scarti || 0}
+                             </div>
+                          )}
                           {isSlotEditMode && (
                              <div style={{ position: "absolute", top: 6, right: 6, fontSize: "10px" }}>✏️</div>
                           )}
@@ -1323,14 +1259,6 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               >
                 {isSavingSlot ? "..." : "Salva Solo Questa"}
               </button>
-              <button
-                className="btn btn-primary"
-                style={{ flex: 2, background: "var(--accent)", minWidth: "200px" }}
-                onClick={handleSaveSlotForAll}
-                disabled={isSavingSlot}
-              >
-                {isSavingSlot ? "..." : "Applica SOLO Fino a Tutte le Macchine"}
-              </button>
               {slotConfigs[slotModalData.machineId]?.[slotModalData.slotIndex] && (
                 <button
                   className="btn btn-secondary"
@@ -1387,6 +1315,16 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                 placeholder="Es. DCT Eco, DCT 300..."
                 value={slotModalData.progetto}
                 onChange={e => setSlotModalData(p => ({ ...p, progetto: e.target.value }))}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label" style={{ fontWeight: "700" }}>Target JPH (Pezzi/Ora)</label>
+              <input
+                type="number"
+                className="input"
+                placeholder="Es. 60"
+                value={slotModalData.jph_target || ""}
+                onChange={e => setSlotModalData(p => ({ ...p, jph_target: parseInt(e.target.value) || 0 }))}
               />
             </div>
           </div>
