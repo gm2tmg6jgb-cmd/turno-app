@@ -20,6 +20,12 @@ import PrioritiesSummaryView from "./views/PrioritiesSummaryView";
 import ProductionReportView from "./views/ProductionReportView";
 import ProductionFlowReportView from "./views/ProductionFlowReportView";
 import AnagraficaFermiView from "./views/AnagraficaFermiView";
+import SkillsView from "./views/SkillsView";
+import FormazioneView from "./views/FormazioneView";
+import ZoneView from "./views/ZoneView";
+import Op10View from "./views/Op10View";
+import AnagraficaView from "./views/AnagraficaView";
+import MotiviView from "./views/MotiviView";
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 export default function App() {
@@ -196,19 +202,19 @@ export default function App() {
     { id: "prioritiesSummary", label: "Riepilogo Priorità", icon: Icons.dashboard, status: "new" },
     { id: "productionFlowReport", label: "Flusso Report Produzione", icon: Icons.report, status: "new" },
     { id: "productionReport", label: "Report Produzione", icon: Icons.report },
+    { id: "anagrafica", label: "Anagrafica Dipendenti", icon: Icons.user },
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings },
     { id: "zones", label: "Anagrafica Zone", icon: Icons.settings },
+    { id: "motivi", label: "Motivi Assenza", icon: Icons.settings },
     { id: "inventory", label: "Inventario", icon: Icons.report },
   ];
 
   const viewTitles = {
     dashboard: "Gestione dipendenti",
     assegnazioni: "Assegnazione Macchine",
-
     op10: "Asservimento OP10",
     report: "Report Fine Turno",
-
     sapHub: "Hub Gestione SAP",
     processFlow: "Flusso di Processo",
     weisserPriorities: "Priorità Macchine",
@@ -216,8 +222,10 @@ export default function App() {
     productionFlowReport: "Flusso Report Produzione",
     productionReport: "Report Produzione",
     fermi: "Report Fermi",
+    anagrafica: "Anagrafica Dipendenti",
     anagraficaFermi: "Anagrafica Fermi Macchine",
     anagraficaMacchine: "Anagrafica Macchine",
+    motivi: "Gestione Motivi Assenza",
     zones: "Anagrafica Zone",
     lpaPlan: "Piano LPA 2026",
     skills: "Matrice Competenze",
@@ -474,7 +482,7 @@ export default function App() {
           )}
 
           {currentView === "processFlow" && (
-            <ProcessFlowView macchine={macchine} showToast={showToast} setCurrentView={setCurrentView} />
+            <ProcessFlowView macchine={macchine} showToast={showToast} setCurrentView={setCurrentView} globalDate={globalDate} turnoCorrente={turnoCorrente} setTurnoCorrente={setTurnoCorrente} />
           )}
           {currentView === "weisserPriorities" && (
             <WeisserPrioritiesView turnoCorrente={turnoCorrente} />
@@ -523,7 +531,7 @@ export default function App() {
             </AdminSecurityWrapper>
           )}
 
-          {currentView === "op10" && <Op10View globalDate={globalDate} setGlobalDate={setGlobalDate} />}
+          {currentView === "op10" && <Op10View globalDate={globalDate} setGlobalDate={setGlobalDate} turnoCorrente={turnoCorrente} />}
           {currentView === "skills" && (
             <SkillsView dipendenti={dipendenti} setDipendenti={setDipendenti} macchine={macchine} showToast={showToast} turnoCorrente={turnoCorrente} />
           )}
@@ -536,6 +544,24 @@ export default function App() {
               presenze={presenze}
               turnoCorrente={turnoCorrente}
             />
+          )}
+
+          {currentView === "anagrafica" && (
+            <AdminSecurityWrapper title="Anagrafica Dipendenti">
+              <AnagraficaView
+                dipendenti={dipendenti}
+                setDipendenti={setDipendenti}
+                macchine={macchine}
+                showToast={showToast}
+                turnoCorrente={turnoCorrente}
+              />
+            </AdminSecurityWrapper>
+          )}
+
+          {currentView === "motivi" && (
+            <AdminSecurityWrapper title="Gestione Motivi">
+              <MotiviView motivi={motivi} setMotivi={setMotivi} showToast={showToast} />
+            </AdminSecurityWrapper>
           )}
 
           {currentView === "inventory" && <InventoryView showToast={showToast} macchine={macchine} />}

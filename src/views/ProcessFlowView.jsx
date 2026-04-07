@@ -3,6 +3,7 @@ import { supabase, fetchAllRows } from "../lib/supabase";
 import { getCurrentWeekRange } from "../lib/dateUtils";
 import { Icons } from "../components/ui/Icons";
 import ImportView from "./ImportView";
+import { TURNI } from "../data/constants";
 
 const PROCESS_STEPS = [
     { code: "DRA", label: "Soft Turning", phase: "start_soft" },
@@ -56,15 +57,26 @@ function getWeekDays(mondayStr) {
     return days;
 }
 
-export default function ProcessFlowView({ macchine, showToast, setCurrentView }) {
+export default function ProcessFlowView({ macchine, showToast, setCurrentView, globalDate, turnoCorrente, setTurnoCorrente }) {
     const [showImportModal, setShowImportModal] = useState(false);
     const [viewMode, setViewMode] = useState("weekly"); // "weekly" | "daily"
-    const [wDate, setWDate] = useState(() => new Date().toISOString().split("T")[0]);
+    const [wDate, setWDate] = useState(() => globalDate || new Date().toISOString().split("T")[0]);
+    const [localTurno, setLocalTurno] = useState(turnoCorrente || "ALL");
     const [activeTab, setActiveTab] = useState("BAP1");
     const [wWeek, setWWeek] = useState(() => getCurrentWeekRange().monday);
     const [loading, setLoading] = useState(false);
     const [flowDataBySection, setFlowDataBySection] = useState({});
     const [selectedDetail, setSelectedDetail] = useState(null);
+
+    // Sync wDate with globalDate when it changes in the sidebar
+    useEffect(() => {
+        if (globalDate) setWDate(globalDate);
+    }, [globalDate]);
+
+    // Sync localTurno with turnoCorrente when it changes
+    useEffect(() => {
+        if (turnoCorrente) setLocalTurno(turnoCorrente);
+    }, [turnoCorrente]);
 
     // Initialize empty structures for all sections
     const getInitFlow = () => PROCESS_STEPS.map(step => {
@@ -98,41 +110,100 @@ export default function ProcessFlowView({ macchine, showToast, setCurrentView })
             const { data: wcFasiRes } = await fetchAllRows(() => supabase.from("wc_fasi_mapping").select("*"));
             const wcFasiMapping = wcFasiRes || [];
 
-            const getStageFromWC = (wc) => {
-                if (!wc || wcFasiMapping.length === 0) return null;
+            // 2b. Fetch slot configurations for fallback material-based matching
+            const { data: slotConfigRes } = await fetchAllRows(() => supabase.from("slot_config").select("*"));
+            const matToMachineMap = {}; // material: machineId
+            const matFinoToMachineMap = {}; // material+fino: machineId
+
+            if (slotConfigRes) {
+                slotConfigRes.forEach(sc => {
+                    const mId = sc.macchina_id?.toUpperCase();
+                    const mat = sc.codice_materiale?.toUpperCase();
+                    const fino = sc.fino ? String(parseInt(sc.fino, 10)) : null;
+
+                    if (mId && mat) {
+                        // Store simple material match
+                        if (!matToMachineMap[mat]) matToMachineMap[mat] = mId;
+                        // Store specific material+operation match
+                        if (fino) {
+                            matFinoToMachineMap[`${mat}_${fino}`] = mId;
+                        }
+                    }
+                });
+            }
+
+            const getStageFromWC = (wc, matCode) => {
+                // Try wc_fasi_mapping lookup first
+                if (wc && wcFasiMapping.length > 0) {
+                    const wcUp = wc.toUpperCase();
+
+                    // 1. Prima controlla i match esatti
+                    for (const m of wcFasiMapping) {
+                        if (m.match_type === "exact" && wcUp === m.work_center.toUpperCase()) {
+                            // For DRA exact matches that might be start_soft/start_hard,
+                            // use material suffix to disambiguate if needed
+                            return m.fase;
+                        }
+                    }
+
+                    // 2. Poi i match a prefisso — for DRA, use material suffix to pick start_soft/start_hard
+                    const draMatches = [];
+                    for (const m of wcFasiMapping) {
+                        if (m.match_type !== "exact" && wcUp.startsWith(m.work_center.toUpperCase())) {
+                            draMatches.push(m.fase);
+                        }
+                    }
+                    if (draMatches.length === 1) return draMatches[0];
+                    if (draMatches.length > 1) {
+                        // Ambiguous (e.g. DRA→start_soft AND DRA→start_hard): use material suffix
+                        const isSoft = matCode && matCode.endsWith("/S");
+                        if (draMatches.includes("start_soft") && draMatches.includes("start_hard")) {
+                            return isSoft ? "start_soft" : "start_hard";
+                        }
+                        return draMatches[0];
+                    }
+                }
+
+                // Fallback: if no WC or not in mapping, infer from macchina_id prefix
+                if (!wc) return null;
                 const wcUp = wc.toUpperCase();
-
-                // 1. Prima controlla i match esatti
-                for (const m of wcFasiMapping) {
-                    if (m.match_type === "exact" && wcUp === m.work_center.toUpperCase()) {
-                        return m.fase;
-                    }
-                }
-
-                // 2. Poi i match a prefisso
-                for (const m of wcFasiMapping) {
-                    if (m.match_type !== "exact" && wcUp.startsWith(m.work_center.toUpperCase())) {
-                        return m.fase;
-                    }
-                }
-
+                const isSoft = matCode && matCode.endsWith("/S");
+                if (wcUp.startsWith("DRA")) return isSoft ? "start_soft" : "start_hard";
+                if (wcUp.startsWith("ZSA")) return "dmc";
+                if (wcUp.startsWith("SCA")) return "laser_welding";
+                if (wcUp.startsWith("MZA")) return "ut";
+                if (wcUp.startsWith("STW")) return "shaping";
+                if (wcUp.startsWith("FRA") || wcUp.startsWith("FRW")) return "milling";
+                if (wcUp.startsWith("RAA")) return "broaching";
+                if (wcUp.startsWith("EGW")) return "deburring";
+                if (wcUp.startsWith("HOK")) return "ht";
+                if (wcUp.startsWith("OKU")) return "shot_peening";
+                if (wcUp.startsWith("SLA")) return "grinding_cone";
+                if (wcUp.startsWith("SLW")) return "teeth_grinding";
+                if (wcUp.startsWith("WSH")) return "washing";
                 return null;
             };
 
             // 3. Fetch production data based on ViewMode
-            let query = supabase.from("conferme_sap").select("data, materiale, work_center_sap, qta_ottenuta, turno_id");
+            let query = supabase.from("conferme_sap").select("data, materiale, work_center_sap, macchina_id, fino, qta_ottenuta, turno_id");
             let weekDaysDates = [];
             if (viewMode === "weekly") {
                 weekDaysDates = getWeekDays(wWeek);
                 query = query.gte("data", weekDaysDates[0]).lte("data", weekDaysDates[6]);
             } else {
                 query = query.eq("data", wDate);
+                // Apply turno filter in daily mode
+                if (localTurno && localTurno !== "ALL") {
+                    query = query.eq("turno_id", localTurno);
+                }
             }
             const { data: dataRes } = await fetchAllRows(() => query);
 
             const SEZIONI = viewMode === "weekly"
                 ? ["Riepilogo Settimanale", ...DAYS_NAMES]
-                : ["Totale Giorno", "Turno A", "Turno B", "Turno C", "Turno D"];
+                : (localTurno && localTurno !== "ALL")
+                    ? [`Turno ${localTurno}`]
+                    : ["Totale Giorno", "Turno A", "Turno B", "Turno C", "Turno D"];
 
             const newFlowData = {};
             SEZIONI.forEach(sec => {
@@ -171,8 +242,23 @@ export default function ProcessFlowView({ macchine, showToast, setCurrentView })
                         }
                     }
 
-                    const phase = getStageFromWC(r.work_center_sap);
+                    // Use macchina_id first (same priority as ProductionFlowReportView), fall back to work_center_sap
+                    let wcField = (r.macchina_id?.trim() || r.work_center_sap?.trim() || "").toUpperCase() || null;
+                    
+                    // FALLBACK: If still no WC/Machine, use slot_config map by material
+                    if (!wcField) {
+                        const fino = r.fino ? String(parseInt(r.fino, 10)) : null;
+                        if (fino && matFinoToMachineMap[`${matCode}_${fino}`]) {
+                            wcField = matFinoToMachineMap[`${matCode}_${fino}`];
+                        } else if (matToMachineMap[matCode]) {
+                            wcField = matToMachineMap[matCode];
+                        }
+                    }
+
+                    const phase = getStageFromWC(wcField || null, matCode);
                     if (!phase) return;
+
+                    const macchinaLabel = r.work_center_sap || r.macchina_id || "";
 
                     const addValue = (sectionName) => {
                         const sec = newFlowData[sectionName];
@@ -185,7 +271,7 @@ export default function ProcessFlowView({ macchine, showToast, setCurrentView })
                                 sec[stepIdx].projects[projIdx].records.push({
                                     ...r,
                                     matCode,
-                                    macchina: r.work_center_sap
+                                    macchina: macchinaLabel
                                 });
                                 sec[stepIdx].total = sec[stepIdx].projects.reduce((acc, p) => acc + p.value, 0);
                             }
@@ -202,12 +288,18 @@ export default function ProcessFlowView({ macchine, showToast, setCurrentView })
                         addValue("Riepilogo Settimanale");
                     } else {
                         const t_id = r.turno_id || "N/D";
-                        const targetSection = `Turno ${t_id}`;
-                        if (!newFlowData[targetSection]) {
-                            newFlowData[targetSection] = getInitFlow();
+                        if (localTurno && localTurno !== "ALL") {
+                            // Specific turno selected: only add to that section
+                            addValue(`Turno ${t_id}`);
+                        } else {
+                            // All turni: add to per-turno section + Totale Giorno
+                            const targetSection = `Turno ${t_id}`;
+                            if (!newFlowData[targetSection]) {
+                                newFlowData[targetSection] = getInitFlow();
+                            }
+                            addValue(targetSection);
+                            addValue("Totale Giorno");
                         }
-                        addValue(targetSection);
-                        addValue("Totale Giorno");
                     }
                 });
             }
@@ -224,7 +316,7 @@ export default function ProcessFlowView({ macchine, showToast, setCurrentView })
     useEffect(() => {
         fetchData();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [wWeek, viewMode, wDate]);
+    }, [wWeek, viewMode, wDate, localTurno]);
 
     const renderFlow = (title) => {
         const isFunctional = activeTab === "BAP1";
@@ -461,6 +553,30 @@ export default function ProcessFlowView({ macchine, showToast, setCurrentView })
                             setWDate(d.toISOString().split("T")[0]);
                         }}>Succ. →</button>
                         <button className="btn btn-secondary btn-sm" onClick={() => setWDate(new Date().toISOString().split("T")[0])}>Oggi</button>
+                        {/* Filtro turno in modalità giornaliera */}
+                        <select
+                            value={localTurno}
+                            onChange={(e) => {
+                                setLocalTurno(e.target.value);
+                                if (setTurnoCorrente) setTurnoCorrente(e.target.value !== "ALL" ? e.target.value : turnoCorrente);
+                            }}
+                            style={{
+                                padding: "4px 10px",
+                                borderRadius: "8px",
+                                border: "1px solid var(--border)",
+                                background: localTurno !== "ALL" ? "var(--accent-muted)" : "var(--bg-tertiary)",
+                                color: localTurno !== "ALL" ? "var(--accent)" : "var(--text-primary)",
+                                fontWeight: "700",
+                                fontSize: "13px",
+                                cursor: "pointer",
+                                fontFamily: "inherit",
+                            }}
+                        >
+                            <option value="ALL">Tutti i turni</option>
+                            {TURNI.map(t => (
+                                <option key={t.id} value={t.id}>Turno {t.id} — {t.coordinatore}</option>
+                            ))}
+                        </select>
                     </>
                 )}
 
