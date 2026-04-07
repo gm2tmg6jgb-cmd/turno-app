@@ -19,6 +19,7 @@ import WeisserPrioritiesView from "./views/WeisserPrioritiesView";
 import PrioritiesSummaryView from "./views/PrioritiesSummaryView";
 import ProductionReportView from "./views/ProductionReportView";
 import ProductionFlowReportView from "./views/ProductionFlowReportView";
+import AnagraficaFermiView from "./views/AnagraficaFermiView";
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 export default function App() {
@@ -196,6 +197,7 @@ export default function App() {
     { id: "productionFlowReport", label: "Flusso Report Produzione", icon: Icons.report, status: "new" },
     { id: "productionReport", label: "Report Produzione", icon: Icons.report },
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine },
+    { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings },
     { id: "zones", label: "Anagrafica Zone", icon: Icons.settings },
     { id: "inventory", label: "Inventario", icon: Icons.report },
   ];
@@ -504,6 +506,15 @@ export default function App() {
             <AdminSecurityWrapper title="Anagrafica Macchine">
               <AnagraficaMacchineView macchine={macchine} setMacchine={setMacchine} tecnologie={tecnologie} zone={zone} showToast={showToast} />
             </AdminSecurityWrapper>
+          )}
+
+          {currentView === "anagraficaFermi" && (
+            <AnagraficaFermiView
+              motiviFermo={motiviFermo}
+              setMotiviFermo={setMotiviFermo}
+              tecnologie={tecnologie}
+              showToast={showToast}
+            />
           )}
 
           {currentView === "zones" && (

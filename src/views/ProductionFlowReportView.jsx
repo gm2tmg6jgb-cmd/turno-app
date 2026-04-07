@@ -998,6 +998,22 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               const displayProdHours = `${Math.floor(prodHours)}h`;
               const displayTotalHours = `${Math.floor(shiftMinutes / 60)}h`;
 
+              // Theoretical time to produce all pieces (per-slot: pieces / JPH * 60 min)
+              const theoreticalMinutes = computedSlotData.reduce((sum, sd) => {
+                if (!sd || sd.hidden) return sum;
+                const pieces = sd.productionInfo?.total || 0;
+                const jph = sd.jph_target || 0;
+                if (jph > 0 && pieces > 0) return sum + (pieces / jph * 60);
+                return sum;
+              }, 0);
+              const theoreticalH = Math.floor(theoreticalMinutes / 60);
+              const theoreticalM = Math.round(theoreticalMinutes % 60);
+              const displayTheoretical = theoreticalMinutes === 0 ? "—" : (theoreticalH > 0 ? `${theoreticalH}h ${theoreticalM}m` : `${Math.round(theoreticalMinutes)}m`);
+
+              // Unjustified minutes: shift time not covered by downtimes or production
+              const unjustifiedMinutes = Math.round(Math.max(0, shiftMinutes - totalDowntime - theoreticalMinutes));
+              const isFullyJustified = unjustifiedMinutes <= 5; // 5-min tolerance
+
 
               return (
                 <div key={m.id} style={{
@@ -1046,25 +1062,39 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                     </div>
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "10px" }}>
                     {/* Performance */}
-                    <div style={{ backgroundColor: "#f8fafc", borderRadius: "16px", padding: "14px", border: "1px solid #f1f5f9" }}>
-                      <div style={{ fontSize: "9px", fontWeight: "800", color: "#94a3b8", marginBottom: "4px", textTransform: "uppercase" }}>Performance</div>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: "6px" }}>
-                        <div style={{ fontSize: "20px", fontWeight: "900", color: "#1e293b" }}>{Math.round(performance * 100)}%</div>
-                        <div style={{ fontSize: "10px", fontWeight: "600", color: "#64748b" }}>
-                          ({actualMachineWork} / {Math.round(expectedPieces)})
-                        </div>
+                    <div style={{ backgroundColor: "#f8fafc", borderRadius: "14px", padding: "12px", border: "1px solid #f1f5f9" }}>
+                      <div style={{ fontSize: "8px", fontWeight: "800", color: "#94a3b8", marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Performance</div>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: "4px", flexWrap: "wrap" }}>
+                        <div style={{ fontSize: "18px", fontWeight: "900", color: "#1e293b" }}>{Math.round(performance * 100)}%</div>
+                        <div style={{ fontSize: "9px", fontWeight: "600", color: "#64748b" }}>({actualMachineWork}/{Math.round(expectedPieces)})</div>
                       </div>
                       <div style={{ height: "4px", backgroundColor: "#e2e8f0", borderRadius: "2px", marginTop: "8px", overflow: "hidden" }}>
-                        <div style={{ width: `${performance * 100}%`, height: "100%", backgroundColor: "#3b82f6" }} />
+                        <div style={{ width: `${Math.min(performance * 100, 100)}%`, height: "100%", backgroundColor: performance >= (m.target_performance || 91) / 100 ? "#10b981" : "#f59e0b" }} />
                       </div>
                     </div>
                     {/* Ore Prod */}
-                    <div style={{ backgroundColor: "#f8fafc", borderRadius: "16px", padding: "14px", border: "1px solid #f1f5f9" }}>
-                      <div style={{ fontSize: "9px", fontWeight: "800", color: "#94a3b8", marginBottom: "4px", textTransform: "uppercase" }}>Ore Prod.</div>
-                      <div style={{ fontSize: "20px", fontWeight: "900", color: "#1e293b" }}>{displayProdHours}</div>
-                      <div style={{ fontSize: "10px", fontWeight: "600", color: "#94a3b8" }}>su {displayTotalHours}</div>
+                    <div style={{ backgroundColor: "#f8fafc", borderRadius: "14px", padding: "12px", border: "1px solid #f1f5f9" }}>
+                      <div style={{ fontSize: "8px", fontWeight: "800", color: "#94a3b8", marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Ore Prod.</div>
+                      <div style={{ fontSize: "18px", fontWeight: "900", color: "#1e293b" }}>{displayProdHours}</div>
+                      <div style={{ fontSize: "9px", fontWeight: "600", color: "#94a3b8" }}>su {displayTotalHours}</div>
+                    </div>
+                    {/* Tempo Teorico Pezzi */}
+                    <div style={{ backgroundColor: "#f8fafc", borderRadius: "14px", padding: "12px", border: "1px solid #f1f5f9" }}>
+                      <div style={{ fontSize: "8px", fontWeight: "800", color: "#94a3b8", marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Tempo Pezzi</div>
+                      <div style={{ fontSize: "18px", fontWeight: "900", color: "#1e293b" }}>{displayTheoretical}</div>
+                      <div style={{ fontSize: "9px", fontWeight: "600", color: "#94a3b8" }}>stima teorica</div>
+                    </div>
+                    {/* Da Giustificare */}
+                    <div style={{ backgroundColor: isFullyJustified ? "#f0fdf4" : "#fff7f7", borderRadius: "14px", padding: "12px", border: `1px solid ${isFullyJustified ? "#bbf7d0" : "#fee2e2"}` }}>
+                      <div style={{ fontSize: "8px", fontWeight: "800", color: isFullyJustified ? "#16a34a" : "#dc2626", marginBottom: "4px", textTransform: "uppercase", letterSpacing: "0.5px" }}>Δ Giustificare</div>
+                      <div style={{ fontSize: "18px", fontWeight: "900", color: isFullyJustified ? "#16a34a" : "#dc2626" }}>
+                        {isFullyJustified ? "✓" : `${unjustifiedMinutes}m`}
+                      </div>
+                      <div style={{ fontSize: "9px", fontWeight: "600", color: isFullyJustified ? "#86efac" : "#f87171" }}>
+                        {isFullyJustified ? "coperto" : "da fermi"}
+                      </div>
                     </div>
                   </div>
 
@@ -1178,40 +1208,91 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                       );
                     })}
 
-                    {/* Unified "+ RECORD FERMO" action button box as seen in photo - placed AFTER the map slots */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
-                      <div style={{ height: "15px" }} /> {/* Spacer to align with 8Fe labels */}
+                    {/* RECORD FERMO — aligned with production slots, shows existing downtime */}
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+                      <div style={{ fontSize: "11px", fontWeight: "800", color: totalDowntime > 0 ? "#f97316" : "#cbd5e1", textTransform: "uppercase", height: "15px", lineHeight: "15px" }}>
+                        {totalDowntime > 0 ? `⏱ ${totalDowntime}m` : ""}
+                      </div>
                       <div
                         onClick={() => handleOpenFermiModal(m)}
                         style={{
-                          backgroundColor: "#ffffff",
-                          borderRadius: "18px",
-                          padding: "16px 12px",
+                          backgroundColor: totalDowntime > 0 ? "#fff7ed" : "#ffffff",
+                          borderRadius: "14px",
+                          padding: "8px 4px",
                           display: "flex",
                           flexDirection: "column",
                           alignItems: "center",
                           justifyContent: "center",
-                          color: "#94a3b8",
+                          color: totalDowntime > 0 ? "#f97316" : "#94a3b8",
                           cursor: "pointer",
-                          height: "100px",
-                          width: "100%",
-                          border: "1px dashed #e2e8f0",
-                          transition: "all 0.2s"
+                          height: "90px",
+                          width: "90px",
+                          minWidth: "90px",
+                          maxWidth: "90px",
+                          border: totalDowntime > 0 ? "1px solid #fed7aa" : "1px dashed #e2e8f0",
+                          transition: "all 0.2s",
+                          flexShrink: 0,
+                          boxSizing: "border-box",
+                          textAlign: "center"
                         }}
                         onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = "#f8fafc";
-                          e.currentTarget.style.borderColor = "#cbd5e1";
+                          e.currentTarget.style.backgroundColor = totalDowntime > 0 ? "#ffedd5" : "#f8fafc";
+                          e.currentTarget.style.borderColor = totalDowntime > 0 ? "#f97316" : "#cbd5e1";
                         }}
                         onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = "#ffffff";
-                          e.currentTarget.style.borderColor = "#e2e8f0";
+                          e.currentTarget.style.backgroundColor = totalDowntime > 0 ? "#fff7ed" : "#ffffff";
+                          e.currentTarget.style.borderColor = totalDowntime > 0 ? "#fed7aa" : "#e2e8f0";
                         }}
                       >
-                        <div style={{ fontSize: "20px", fontWeight: "300", marginBottom: "4px" }}>+</div>
-                        <div style={{ fontSize: "10px", fontWeight: "800", textAlign: "center", lineHeight: "1.2" }}>RECORD<br />FERMO</div>
+                        <div style={{ fontSize: "20px", fontWeight: "300", marginBottom: "2px" }}>+</div>
+                        <div style={{ fontSize: "10px", fontWeight: "800", lineHeight: "1.2" }}>RECORD<br />FERMO</div>
+                        {totalDowntime > 0 && (
+                          <div style={{ fontSize: "10px", fontWeight: "700", color: "#f97316", marginTop: "3px" }}>
+                            {(m.ids ? m.ids.reduce((s, id) => s + (fermiData[id.toUpperCase()]?.entries?.length || 0), 0) : (fermi.entries?.length || 0))} rec.
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
+
+                  {/* Fermi registrati — visible below slots when entries exist */}
+                  {(() => {
+                    const allEntries = m.ids
+                      ? m.ids.flatMap(id => fermiData[id.toUpperCase()]?.entries || [])
+                      : (fermi.entries || []);
+                    if (allEntries.length === 0) return null;
+                    return (
+                      <div style={{ borderTop: "1px solid #f1f5f9", marginTop: "12px", paddingTop: "12px" }}>
+                        <div style={{ fontSize: "9px", fontWeight: "800", color: "#94a3b8", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: "8px" }}>
+                          Fermi Registrati ({allEntries.length})
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                          {allEntries.map((entry, idx) => (
+                            <div key={idx} style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "10px",
+                              padding: "6px 10px",
+                              borderRadius: "8px",
+                              fontSize: "12px",
+                              background: entry.is_automazione ? "rgba(168,85,247,0.05)" : "rgba(249,115,22,0.05)",
+                              borderLeft: `3px solid ${entry.is_automazione ? "#a855f7" : "#f97316"}`,
+                              transition: "all 0.2s"
+                            }}>
+                              <span style={{ fontWeight: "900", color: entry.is_automazione ? "#a855f7" : "#ea580c", width: "32px", fontSize: "13px" }}>{entry.durata}m</span>
+                              <span style={{ color: "var(--text-primary)", fontWeight: "700", flex: 1 }}>{entry.motivo}</span>
+                              {entry.is_automazione && (
+                                <span style={{ fontSize: "8px", fontWeight: "900", color: "white", background: "#a855f7", padding: "2px 6px", borderRadius: "4px", letterSpacing: "0.3px" }}>AUTO</span>
+                              )}
+                              {entry.macchina_id && m.ids && (
+                                <span style={{ fontSize: "9px", fontWeight: "800", color: "#94a3b8", background: "var(--bg-tertiary)", padding: "2px 6px", borderRadius: "4px" }}>{entry.macchina_id}</span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Edit Machine Button (Absolute overlay if in edit mode) */}
                   {isSlotEditMode && (
