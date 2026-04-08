@@ -77,7 +77,9 @@ export default function DashboardView({
         const pasquetta = new Date(easter);
         pasquetta.setDate(pasquetta.getDate() + 1);
 
-        if (d.getTime() === pasquetta.getTime()) return true;
+        const dt = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const pt = new Date(pasquetta.getFullYear(), pasquetta.getMonth(), pasquetta.getDate());
+        return dt.getTime() === pt.getTime();
 
         return false;
     };
@@ -116,7 +118,8 @@ export default function DashboardView({
         return map;
     }, [presenze]);
 
-    const [motivoPopup, setMotivoPopup] = useState(null); // { dipId, date, x, y }
+    const [selectedCells, setSelectedCells] = useState([]); // Array of { dipId, date }
+    const [isSaving, setIsSaving] = useState(false);
 
     const getPresenceStatus = (dipId, date, isSunday) => {
         const key = `${dipId}-${date}`;
@@ -126,7 +129,7 @@ export default function DashboardView({
             if (p.presente) return true;
             if (p.motivo_assenza) {
                 const m = motivi.find(ma => ma.id === p.motivo_assenza);
-                return m ? m.sigla : "?";
+                return m ? m.sigla : p.motivo_assenza;
             }
             return false;
         }
@@ -136,88 +139,75 @@ export default function DashboardView({
         return true;
     };
 
-    const toggleWeekPresenza = async (dipId, date, event) => {
-        const isSunday = new Date(date).getDay() === 0;
-        const status = getPresenceStatus(dipId, date, isSunday);
-        const isCurrentlyPresent = status === true;
-
-        const rect = event.currentTarget.getBoundingClientRect();
-        const spaceBelow = window.innerHeight - rect.bottom;
-        const ESTIMATED_HEIGHT = 200;
-        const placement = spaceBelow < ESTIMATED_HEIGHT ? 'top' : 'bottom';
-
-        setMotivoPopup({
-            dipId,
-            date,
-            x: rect.left,
-            y: placement === 'bottom' ? rect.bottom + 4 : rect.top - 4,
-            placement,
-            status: isCurrentlyPresent
-        });
-    };
-
-    const confirmPresenza = async (isPresent, motivo = null, turnoId = null) => {
-        if (!motivoPopup) return;
-        const { dipId, date } = motivoPopup;
-        const currentP = presenceMap[`${dipId}-${date}`];
-        const newTurno = turnoId || currentP?.turno_id || turnoCorrente || "D";
-
-        // Optimistic Update
-        setPresenze((prev) => {
-            const exists = prev.find(p => p.dipendente_id === dipId && p.data === date);
-            if (exists) {
-                return prev.map(p => p.dipendente_id === dipId && p.data === date
-                    ? { ...p, presente: isPresent, motivo_assenza: isPresent ? null : (motivo || p.motivo_assenza), turno_id: newTurno }
-                    : p);
+    const handleCellClick = (dipId, date, event) => {
+        if (event.shiftKey && selectedCells.length > 0) {
+            const lastSelected = selectedCells[0];
+            if (lastSelected.dipId === dipId) {
+                const start = new Date(lastSelected.date);
+                const end = new Date(date);
+                const [minD, maxD] = start < end ? [start, end] : [end, start];
+                
+                const newSelection = [];
+                let curr = new Date(minD);
+                while (curr <= maxD) {
+                    newSelection.push({ dipId, date: getLocalDate(curr) });
+                    curr.setDate(curr.getDate() + 1);
+                }
+                setSelectedCells(newSelection);
             } else {
-                return [...prev, { dipendente_id: dipId, data: date, presente: isPresent, motivo_assenza: isPresent ? null : motivo, turno_id: newTurno }];
+                setSelectedCells([{ dipId, date }]);
             }
-        });
-
-        setMotivoPopup(null);
-        if (!isPresent && motivo) {
-            const motivoObj = motivi.find(m => m.id === motivo);
-            showToast(`Assenza registrata: ${motivoObj?.label}`, "warning");
-        } else if (isPresent) {
-            showToast(`Presenza confermata${turnoId ? ' in turno ' + turnoId : ''}`, "success");
-        }
-
-        try {
-            const { error } = await supabase.from('presenze').upsert({
-                dipendente_id: dipId,
-                data: date,
-                presente: isPresent,
-                motivo_assenza: isPresent ? null : (motivo || currentP?.motivo_assenza),
-                turno_id: newTurno
-            }, { onConflict: 'dipendente_id, data' });
-
-            if (error) throw error;
-        } catch (error) {
-            console.error("Error saving presence state:", error);
-            showToast("Errore salvataggio", "error");
+        } else {
+            setSelectedCells([{ dipId, date }]);
         }
     };
 
-    const deletePresenza = async () => {
-        if (!motivoPopup) return;
-        const { dipId, date } = motivoPopup;
-
-        // Optimistic Update
-        setPresenze((prev) => prev.filter(p => !(p.dipendente_id === dipId && p.data === date)));
-        setMotivoPopup(null);
-        showToast("Dato rimosso", "info");
-
+    const saveMassPresenza = async (isPresent, motivoId = null, turnoId = null) => {
+        if (selectedCells.length === 0) return;
+        setIsSaving(true);
         try {
-            const { error } = await supabase
-                .from('presenze')
-                .delete()
-                .eq('dipendente_id', dipId)
-                .eq('data', date);
+            const updates = selectedCells.map(cell => {
+                const currentP = presenceMap[`${cell.dipId}-${cell.date}`];
+                return {
+                    dipendente_id: cell.dipId,
+                    data: cell.date,
+                    presente: isPresent,
+                    motivo_assenza: isPresent ? null : (motivoId || currentP?.motivo_assenza),
+                    turno_id: turnoId || currentP?.turno_id || turnoCorrente || "D"
+                };
+            });
+            
+            if (!isPresent && !motivoId && !turnoId) {
+                // Delete logic
+                for (const cell of selectedCells) {
+                    await supabase
+                        .from('presenze')
+                        .delete()
+                        .eq('dipendente_id', cell.dipId)
+                        .eq('data', cell.date);
+                }
+                setPresenze(prev => prev.filter(p => !selectedCells.some(s => s.dipId === p.dipendente_id && s.date === p.data)));
+                showToast("Presenze rimosse", "info");
+            } else {
+                const { data, error } = await supabase
+                    .from('presenze')
+                    .upsert(updates, { onConflict: 'dipendente_id,data' })
+                    .select();
 
-            if (error) throw error;
+                if (error) throw error;
+                
+                setPresenze(prev => {
+                    const filtered = prev.filter(p => !selectedCells.some(s => s.dipId === p.dipendente_id && s.date === p.data));
+                    return [...filtered, ...data];
+                });
+                showToast(`Aggiornate ${selectedCells.length} presenze`, "success");
+            }
         } catch (error) {
-            console.error("Error deleting presence:", error);
-            showToast("Errore cancellazione", "error");
+            console.error("Error saving massive presence:", error);
+            showToast("Errore durante il salvataggio", "error");
+        } finally {
+            setIsSaving(false);
+            setSelectedCells([]);
         }
     };
 
@@ -501,6 +491,8 @@ export default function DashboardView({
 
                                                 {/* PRESENCE CELLS */}
                                                 {visibleDays.map((day) => {
+                                                    const isSelected = selectedCells.some(s => s.dipId === d.id && s.date === day.date);
+                                                    
                                                     const status = getPresenceStatus(d.id, day.date, day.isSunday);
                                                     const isPresent = status === true;
                                                     const sigla = (!isPresent && typeof status === "string") ? status : "-";
@@ -508,7 +500,9 @@ export default function DashboardView({
 
                                                     // Cell background logic
                                                     let cellBg = undefined;
-                                                    if (isAbsence) {
+                                                    if (isSelected) {
+                                                        cellBg = "var(--accent-muted)";
+                                                    } else if (isAbsence) {
                                                         cellBg = "rgba(249, 115, 22, 0.2)"; // Orange fill for absence
                                                     } else if (day.isSunday) {
                                                         cellBg = "rgba(99, 102, 241, 0.15)"; // Soft Indigo for Sunday
@@ -519,33 +513,36 @@ export default function DashboardView({
                                                     return (
                                                         <td
                                                             key={day.date}
+                                                            onClick={(e) => handleCellClick(d.id, day.date, e)}
                                                             style={{
                                                                 textAlign: "center",
-                                                                padding: "2px 1px", // Reduced from 4px 1px
+                                                                padding: 0, 
                                                                 background: cellBg,
-                                                                borderLeft: "1px solid var(--border-light)", // Demarcation line
+                                                                borderLeft: "1px solid var(--border-light)",
+                                                                height: 34,
+                                                                cursor: "pointer",
                                                                 ...rowStyle
                                                             }}
                                                         >
-                                                            <button
-                                                                onClick={(e) => toggleWeekPresenza(d.id, day.date, e)}
-                                                                style={{
-                                                                    minWidth: 28,
-                                                                    height: 20, // Reduced from 22
-                                                                    padding: "0 1px", // Reduced from 0 2px
-                                                                    border: "none",
-                                                                    borderRadius: 4,
-                                                                    cursor: "pointer",
-                                                                    fontWeight: 700,
-                                                                    // Status Color Logic
-                                                                    background: "transparent", // No background for buttons
-                                                                    color: isAbsence ? "#EA580C" : (isPresent ? "var(--text-primary)" : "var(--text-muted)"), // Orange text for absence
-                                                                    boxShadow: "none",
-                                                                    transition: "all 0.1s ease",
-                                                                }}
-                                                            >
-                                                                {isPresent ? "1" : sigla}
-                                                            </button>
+                                                            <div style={{
+                                                                width: "100%",
+                                                                height: "100%",
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                fontWeight: 700,
+                                                                fontSize: 14,
+                                                                color: isAbsence ? "#EA580C" : (isPresent ? "var(--text-primary)" : "var(--text-muted)"),
+                                                            }}>
+                                                                {isPresent ? (
+                                                                    (() => {
+                                                                        const key = `${d.id}-${day.date}`;
+                                                                        const p = presenceMap[key];
+                                                                        const tId = p?.turno_id || d.turno_default || "D";
+                                                                        return tId === "D" ? "1" : tId;
+                                                                    })()
+                                                                ) : sigla}
+                                                            </div>
                                                         </td>
                                                     );
                                                 })}
@@ -646,96 +643,134 @@ export default function DashboardView({
                 )}
             </div>
 
-            {/* Motivo Assenza Popup - Using Portal to escape overflow/stacking context */}
-            {motivoPopup && createPortal(
-                <>
-                    <div style={{ position: "fixed", inset: 0, zIndex: 9999 }} onClick={() => setMotivoPopup(null)} />
+            {/* MODAL GESTIONE PRESENZE MASSIVA */}
+            {selectedCells.length > 0 && !isSaving && (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+                    background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center",
+                    zIndex: 1000, backdropFilter: "blur(4px)"
+                }} onClick={() => setSelectedCells([])}>
                     <div style={{
-                        position: "fixed",
-                        left: Math.min(motivoPopup.x, window.innerWidth - 180),
-                        top: (motivoPopup.placement === 'bottom' || !motivoPopup.placement) ? motivoPopup.y : undefined,
-                        bottom: motivoPopup.placement === 'top' ? (window.innerHeight - motivoPopup.y) : undefined,
-                        zIndex: 10000,
-                        background: "var(--bg-card)",
-                        border: "1px solid var(--border)",
-                        borderRadius: "var(--radius)",
-                        padding: 6,
-                        boxShadow: "0 8px 30px rgba(0,0,0,0.4)",
-                        minWidth: 160,
-                    }}>
-                        <div style={{ fontSize: 10, color: "var(--text-muted)", padding: "4px 8px", fontWeight: 600, textTransform: "uppercase" }}>Tipo Presenza / Assenza</div>
-                        <div
-                            onClick={() => confirmPresenza(true)}
-                            style={{
-                                padding: "6px 8px", fontSize: 12, cursor: "pointer", borderRadius: 4,
-                                display: "flex", alignItems: "center", gap: 6, fontWeight: 700,
-                                color: "var(--success)", background: "rgba(34,197,94,0.1)", marginBottom: 4
-                            }}
-                        >
-                            <div style={{ width: 12, height: 12, borderRadius: 2, background: "var(--success)" }}></div>
-                            <span>PRESENTE</span>
-                        </div>
-                        {motivi.map((m) => (
-                            <div
-                                key={m.id}
-                                onClick={() => confirmPresenza(false, m.id)}
-                                style={{
-                                    padding: "6px 8px",
-                                    fontSize: 12,
-                                    cursor: "pointer",
-                                    borderRadius: 4,
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 6,
-                                    transition: "background 0.1s",
-                                }}
-                                onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-                            >
-                                <div style={{ width: 12, height: 12, borderRadius: 2, background: m.colore, marginRight: 6 }}></div>
-                                <span>{m.label}</span>
+                        background: "var(--bg-card)", padding: 24, borderRadius: 16, width: 380,
+                        boxShadow: "0 20px 40px rgba(0,0,0,0.4)", border: "1px solid var(--border)"
+                    }} onClick={e => e.stopPropagation()}>
+                        <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between", alignItems: "start" }}>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>Gestisci Presenze</h3>
+                                <div style={{ fontSize: 13, color: "var(--text-muted)", marginTop: 4 }}>
+                                    Conferma presenza o giustifica assenza
+                                </div>
                             </div>
-                        ))}
+                            <button className="btn-ghost" onClick={() => setSelectedCells([])}>{Icons.x}</button>
+                        </div>
 
-                        <div style={{ margin: "8px 0", borderTop: "1px solid var(--border-light)" }} />
-                        <div style={{ fontSize: 10, color: "var(--text-muted)", padding: "4px 8px", fontWeight: 600, textTransform: "uppercase" }}>Cambia Turno / Conferma</div>
-
-                        <div style={{ display: "flex", gap: 4, padding: "4px" }}>
-                            {["A", "B", "C", "D"].map(t => (
-                                <button
-                                    key={t}
-                                    onClick={() => confirmPresenza(true, null, t)}
-                                    style={{
-                                        flex: 1, height: 28, fontSize: 11, fontWeight: 700, borderRadius: 4,
-                                        border: "1px solid var(--border)", background: "var(--bg-secondary)", cursor: "pointer"
+                        {/* Date Range Selector */}
+                        <div style={{ display: "flex", gap: 10, marginBottom: 20, alignItems: "center" }}>
+                            <div style={{ flex: 1 }}>
+                                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--text-muted)", marginBottom: 4 }}>DA</label>
+                                <input 
+                                    type="date" className="input" style={{ width: "100%", fontSize: 12, padding: "6px" }}
+                                    value={selectedCells[0]?.date}
+                                    onChange={(e) => {
+                                        const newDate = e.target.value;
+                                        const dipId = selectedCells[0].dipId;
+                                        const endDate = selectedCells[selectedCells.length - 1].date;
+                                        const start = new Date(newDate);
+                                        const end = new Date(endDate);
+                                        const [minD, maxD] = start < end ? [start, end] : [end, start];
+                                        const newSelection = [];
+                                        let curr = new Date(minD);
+                                        while (curr <= maxD) {
+                                            newSelection.push({ dipId, date: getLocalDate(curr) });
+                                            curr.setDate(curr.getDate() + 1);
+                                        }
+                                        setSelectedCells(newSelection);
                                     }}
-                                >
-                                    {t}
-                                </button>
-                            ))}
-                            <button
-                                onClick={deletePresenza}
-                                title="Svuota / Cancella dato"
-                                style={{
-                                    width: 28, height: 28, fontSize: 14, borderRadius: 4,
-                                    border: "1px solid var(--danger)", background: "rgba(239, 68, 68, 0.1)",
-                                    color: "var(--danger)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center"
-                                }}
+                                />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--text-muted)", marginBottom: 4 }}>A</label>
+                                <input 
+                                    type="date" className="input" style={{ width: "100%", fontSize: 12, padding: "6px" }}
+                                    value={selectedCells[selectedCells.length - 1]?.date}
+                                    onChange={(e) => {
+                                        const newDate = e.target.value;
+                                        const dipId = selectedCells[0].dipId;
+                                        const startDate = selectedCells[0].date;
+                                        const start = new Date(startDate);
+                                        const end = new Date(newDate);
+                                        const [minD, maxD] = start < end ? [start, end] : [end, start];
+                                        const newSelection = [];
+                                        let curr = new Date(minD);
+                                        while (curr <= maxD) {
+                                            newSelection.push({ dipId, date: getLocalDate(curr) });
+                                            curr.setDate(curr.getDate() + 1);
+                                        }
+                                        setSelectedCells(newSelection);
+                                    }}
+                                />
+                            </div>
+                        </div>
+
+                        <div style={{ padding: "8px", background: "var(--bg-secondary)", borderRadius: 8, marginBottom: 20, textAlign: "center", border: "1px dashed var(--border)" }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: "var(--info)" }}>
+                                {selectedCells.length} giorni selezionati
+                            </span>
+                        </div>
+
+                        <div style={{ marginBottom: 20 }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
+                                {["M", "P", "S", "N", "D"].map(tId => (
+                                    <button 
+                                        key={tId} onClick={() => saveMassPresenza(true, null, tId)}
+                                        style={{ padding: "10px 0", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", fontWeight: 800, fontSize: 16, cursor: "pointer" }}
+                                    >
+                                        {tId}
+                                    </button>
+                                ))}
+                            </div>
+                            <button 
+                                onClick={() => saveMassPresenza(true, null, null)}
+                                style={{ width: "100%", marginTop: 8, padding: "10px", borderRadius: 8, background: "var(--success)", color: "white", border: "none", fontWeight: 700, cursor: "pointer" }}
                             >
-                                {Icons.trash}
+                                Conferma Presenza Standard
                             </button>
                         </div>
-                        <button
-                            onClick={() => confirmPresenza(true)}
-                            style={{
-                                width: "100%", marginTop: 4, padding: "8px", background: "var(--success)",
-                                color: "white", border: "none", borderRadius: 4, fontWeight: 700, cursor: "pointer"
-                            }}
+
+                        <div style={{ marginBottom: 20 }}>
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+                                {(() => {
+                                    // Ensure PF and PR are always available even if not in DB yet
+                                    const allMotivi = [...motivi];
+                                    if (!allMotivi.find(m => m.id === 'PF')) {
+                                        allMotivi.push({ id: "PF", label: "Pianificazione Ferie", sigla: "PF", colore: "#f97316" });
+                                    }
+                                    if (!allMotivi.find(m => m.id === 'PR')) {
+                                        allMotivi.push({ id: "PR", label: "Pianificazione ROL", sigla: "PR", colore: "#f97316" });
+                                    }
+                                    
+                                    return allMotivi.map(m => (
+                                        <button 
+                                            key={m.id} onClick={() => saveMassPresenza(false, m.id)}
+                                            style={{ padding: "8px 4px", borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: m.colore, fontWeight: 700, fontSize: 11, cursor: "pointer", textAlign: "center" }}
+                                        >
+                                            <div style={{ fontWeight: 900, fontSize: 13 }}>{m.sigla}</div>
+                                            <div style={{ fontSize: 9, opacity: 0.8 }}>{m.label}</div>
+                                        </button>
+                                    ));
+                                })()}
+                            </div>
+                        </div>
+
+                        <button 
+                            className="btn btn-secondary" 
+                            style={{ width: "100%", color: "var(--danger)" }}
+                            onClick={() => saveMassPresenza(false, null, null)}
                         >
-                            Conferma Presenza
+                            {Icons.trash} Rimuovi Marcatura
                         </button>
                     </div>
-                </>,
-                document.body
+                </div>
             )}
         </div>
     );

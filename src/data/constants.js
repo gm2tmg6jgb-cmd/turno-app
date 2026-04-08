@@ -161,6 +161,8 @@ export const MOTIVI_ASSENZA = [
     { id: "congedo", label: "Congedo Parentale", sigla: "CP", colore: "#EC4899", icona: "👶" },
     { id: "l104", label: "Legge 104", sigla: "104", colore: "#6366F1", icona: "📑" },
     { id: "formazione", label: "Formazione", sigla: "FO", colore: "#3B82F6", icona: "📚" },
+    { id: "PF", label: "Pianificazione Ferie", sigla: "PF", colore: "#f97316", icona: "📅" },
+    { id: "PR", label: "Pianificazione ROL", sigla: "PR", colore: "#f97316", icona: "⏱️" },
     { id: "altro", label: "Altro", sigla: "A", colore: "#6B7280", icona: "📌" },
 ];
 

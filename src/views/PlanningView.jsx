@@ -4,9 +4,9 @@ import { Icons } from "../components/ui/Icons";
 import { getSlotForGroup } from "../lib/shiftRotation";
 import { supabase } from "../lib/supabase";
 
-export default function PlanningView({ 
-    dipendenti, setDipendenti, 
-    presenze = [], 
+export default function PlanningView({
+    dipendenti, setDipendenti,
+    presenze = [],
     pianificazione = [], setPianificazione,
     turnoCorrente, globalDate,
     motivi = [], showToast
@@ -16,7 +16,16 @@ export default function PlanningView({
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
-        if (globalDate) setCurrentDate(new Date(globalDate));
+        if (globalDate) {
+            setCurrentDate(new Date(globalDate));
+            // Auto-scroll to active date column after a short delay to ensure render
+            setTimeout(() => {
+                const activeCell = document.querySelector(`[data-date="${globalDate}"]`);
+                if (activeCell) {
+                    activeCell.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                }
+            }, 100);
+        }
     }, [globalDate]);
 
     // --- HOLIDAY LOGIC (Shared with Dashboard) ---
@@ -50,9 +59,9 @@ export default function PlanningView({
         const easter = getEaster(year);
         const pasquetta = new Date(easter);
         pasquetta.setDate(pasquetta.getDate() + 1);
-        const dt = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-        const pt = new Date(pasquetta.getFullYear(), pasquetta.getMonth(), pasquetta.getDate()).getTime();
-        return dt === pt;
+        const dt = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const pt = new Date(pasquetta.getFullYear(), pasquetta.getMonth(), pasquetta.getDate());
+        return dt.getTime() === pt.getTime();
     };
 
     // Use memo to create a fast lookup for planning
@@ -88,7 +97,7 @@ export default function PlanningView({
 
     const days = getDaysInMonth(currentDate);
     const monthName = currentDate.toLocaleDateString("it-IT", { month: "long", year: "numeric" });
-    const todayStr = new Date().toISOString().split("T")[0];
+    const activeDateStr = globalDate || new Date().toISOString().split("T")[0];
 
     // Tutti i dipendenti del turno corrente, ordinati per reparto poi cognome
     const sortedDipendenti = dipendenti
@@ -112,14 +121,14 @@ export default function PlanningView({
 
     const handleCellClick = (dipId, date, event) => {
         const key = `${dipId}_${date}`;
-        
+
         if (event.shiftKey && selectedCells.length > 0) {
             const lastSelected = selectedCells[0];
             if (lastSelected.dipId === dipId) {
                 const start = new Date(lastSelected.date);
                 const end = new Date(date);
                 const [minD, maxD] = start < end ? [start, end] : [end, start];
-                
+
                 const newSelection = [];
                 let curr = new Date(minD);
                 while (curr <= maxD) {
@@ -145,7 +154,7 @@ export default function PlanningView({
                 turno_id: turnoId || null,
                 motivo_assenza: motivoAssenza || null
             }));
-            
+
             if (!turnoId && !motivoAssenza) {
                 for (const cell of selectedCells) {
                     await supabase
@@ -163,7 +172,7 @@ export default function PlanningView({
                     .select();
 
                 if (error) throw error;
-                
+
                 setPianificazione(prev => {
                     const filtered = prev.filter(p => !selectedCells.some(s => s.dipId === p.dipendente_id && s.date === p.data));
                     return [...filtered, ...data];
@@ -215,17 +224,17 @@ export default function PlanningView({
                             <th style={{ padding: "16px 8px", width: 60, position: "sticky", top: 0, left: 180, background: "var(--bg-tertiary)", zIndex: 20, borderBottom: "2px solid var(--border)", textAlign: 'center', borderRight: "1px solid var(--border-light)" }}>Team</th>
                             <th style={{ padding: "16px 4px", width: 50, position: "sticky", top: 0, left: 240, background: "var(--bg-tertiary)", zIndex: 20, borderBottom: "2px solid var(--border)", textAlign: 'center', fontSize: 10, borderRight: "1px solid var(--border-light)" }}>FERIE</th>
                             <th style={{ padding: "16px 4px", width: 50, position: "sticky", top: 0, left: 290, background: "var(--bg-tertiary)", zIndex: 20, borderBottom: "2px solid var(--border)", textAlign: 'center', fontSize: 10, borderRight: "2px solid var(--border)" }}>ROL</th>
-                            
+
                             {days.map(d => (
-                                <th key={d.date} style={{
+                                <th key={d.date} data-date={d.date} style={{
                                     position: "sticky",
                                     top: 0,
                                     zIndex: 10,
                                     minWidth: 60,
                                     textAlign: "center",
                                     padding: "10px 4px",
-                                    background: d.date === todayStr ? "rgba(249, 115, 22, 0.2)" : (d.isWeekend ? "rgba(99, 102, 241, 0.15)" : "var(--bg-card)"),
-                                    color: d.date === todayStr ? "var(--accent)" : undefined,
+                                    background: d.date === activeDateStr ? "rgba(249, 115, 22, 0.2)" : (d.isWeekend ? "rgba(99, 102, 241, 0.15)" : "var(--bg-card)"),
+                                    color: d.date === activeDateStr ? "var(--accent)" : undefined,
                                     borderBottom: "2px solid var(--border)",
                                     borderLeft: "1px solid var(--border-light)"
                                 }}>
@@ -286,22 +295,30 @@ export default function PlanningView({
                                     <td style={{
                                         padding: "4px 4px",
                                         textAlign: "center",
-                                        fontWeight: 800,
-                                        fontSize: 13,
-                                        color: "var(--success)",
+                                        fontWeight: 700,
+                                        fontSize: 15,
                                         position: "sticky",
                                         left: 240,
-                                        background: "var(--bg-card)",
                                         zIndex: 5,
                                         borderRight: "1px solid var(--border-light)",
-                                        ...rowStyle
+                                        ...rowStyle,
+                                        ...(() => {
+                                            const base = d.ferie_residue || 0;
+                                            const plannedHours = pianificazione
+                                                .filter(p => p.dipendente_id === d.id && p.motivo_assenza?.toUpperCase() === 'PF')
+                                                .length * 8;
+                                            const balance = Math.floor((base - plannedHours) / 8);
+                                            return balance < 0
+                                                ? { background: "var(--danger)", color: "white" }
+                                                : { background: "var(--bg-card)", color: "var(--success)" };
+                                        })()
                                     }}>
                                         {d.tipo !== 'interinale' ? (() => {
                                             const base = d.ferie_residue || 0;
                                             const plannedHours = pianificazione
-                                                .filter(p => p.dipendente_id === d.id && (p.motivo_assenza === 'FERIE' || p.motivo_assenza === 'ferie_fermo'))
+                                                .filter(p => p.dipendente_id === d.id && p.motivo_assenza?.toUpperCase() === 'PF')
                                                 .length * 8;
-                                            return Math.max(0, (base - plannedHours) / 8).toFixed(1);
+                                            return Math.floor((base - plannedHours) / 8);
                                         })() : '-'}
                                     </td>
 
@@ -309,22 +326,30 @@ export default function PlanningView({
                                     <td style={{
                                         padding: "4px 4px",
                                         textAlign: "center",
-                                        fontWeight: 800,
-                                        fontSize: 13,
-                                        color: "var(--warning)",
+                                        fontWeight: 700,
+                                        fontSize: 15,
                                         position: "sticky",
                                         left: 290,
-                                        background: "var(--bg-card)",
                                         zIndex: 5,
                                         borderRight: "2px solid var(--border)",
-                                        ...rowStyle
+                                        ...rowStyle,
+                                        ...(() => {
+                                            const base = d.rol_residui || 0;
+                                            const plannedHours = pianificazione
+                                                .filter(p => p.dipendente_id === d.id && p.motivo_assenza?.toUpperCase() === 'PR')
+                                                .length * 8;
+                                            const balance = Math.floor((base - plannedHours) / 8);
+                                            return balance < 0
+                                                ? { background: "var(--danger)", color: "white" }
+                                                : { background: "var(--bg-card)", color: "var(--warning)" };
+                                        })()
                                     }}>
                                         {d.tipo !== 'interinale' ? (() => {
                                             const base = d.rol_residui || 0;
                                             const plannedHours = pianificazione
-                                                .filter(p => p.dipendente_id === d.id && (p.motivo_assenza === 'ROL' || p.motivo_assenza === 'rol_fermo'))
+                                                .filter(p => p.dipendente_id === d.id && p.motivo_assenza?.toUpperCase() === 'PR')
                                                 .length * 8;
-                                            return Math.max(0, (base - plannedHours) / 8).toFixed(1);
+                                            return Math.floor((base - plannedHours) / 8);
                                         })() : '-'}
                                     </td>
 
@@ -332,47 +357,54 @@ export default function PlanningView({
                                         const key = `${d.id}_${day.date}`;
                                         const planned = planLookup[key];
                                         const isSelected = selectedCells.some(s => s.dipId === d.id && s.date === day.date);
-                                        
+
                                         let displayLabel = "";
                                         let displayColor = "transparent";
                                         let isPlanned = !!planned;
                                         let isAbsence = false;
 
-                                        if (planned) {
-                                            if (planned.motivo_assenza) {
-                                                const mot = motivi.find(m => m.id === planned.motivo_assenza);
-                                                displayLabel = mot?.sigla || "A";
-                                                displayColor = mot?.colore || "var(--danger)";
-                                                isAbsence = true;
+                                            if (planned) {
+                                                if (planned.motivo_assenza) {
+                                                    const mot = motivi.find(m => m.id === planned.motivo_assenza);
+                                                    displayLabel = mot?.sigla || planned.motivo_assenza || "A";
+                                                    // ORANGE for PF/PR, Indigo for others
+                                                    displayColor = (displayLabel === 'PF' || displayLabel === 'PR') ? "#f97316" : "#6366f1";
+                                                    isAbsence = true;
+                                                } else {
+                                                    const tId = planned.turno_id || "D";
+                                                    displayLabel = tId === "D" ? "1" : tId; // Restore as 1
+                                                    displayColor = "#6366f1"; // Unique planning color (Indigo)
+                                                }
                                             } else {
-                                                displayLabel = planned.turno_id || "D";
-                                                const turn = TURNI.find(t => t.id === planned.turno_id);
-                                                displayColor = turn?.colore || "#666";
-                                            }
-                                        } else {
-                                            const actual = presenze.find(p => p.dipendente_id === d.id && p.data === day.date);
-                                            if (actual && !actual.presente) {
-                                                const mot = motivi.find(m => m.id === actual.motivo_assenza);
-                                                displayLabel = mot?.sigla || "A";
-                                                displayColor = mot?.colore || "var(--danger)";
-                                                isAbsence = true;
-                                            } else if (day.isWeekend) {
-                                                displayLabel = "-";
-                                                displayColor = "var(--text-muted)";
-                                            } else {
-                                                const group = d.turno || d.turno_default || "D";
-                                                const slot = getSlotForGroup(group, day.date);
-                                                if (slot) {
-                                                    displayLabel = slot.id;
-                                                    const turn = TURNI.find(t => t.id === group);
-                                                    displayColor = turn?.colore || "#666";
+                                                const actual = presenze.find(p => p.dipendente_id === d.id && p.data === day.date);
+                                                if (actual && !actual.presente) {
+                                                    const mot = motivi.find(m => m.id === actual.motivo_assenza);
+                                                    displayLabel = mot?.sigla || "A";
+                                                    displayColor = mot?.colore || "var(--danger)";
+                                                    isAbsence = true;
+                                                } else if (actual && actual.presente) {
+                                                    const tId = actual.turno_id || "D";
+                                                    displayLabel = tId === "D" ? "1" : tId; // Restore as 1
+                                                    const turn = TURNI.find(t => t.id === tId);
+                                                    displayColor = turn?.colore || "var(--success)";
+                                                } else if (day.isWeekend) {
+                                                    displayLabel = "-";
+                                                    displayColor = "var(--text-muted)";
+                                                } else {
+                                                    // AUTOMATION: Show all suggested shifts, D becomes 1
+                                                    const group = d.turno || d.turno_default || "D";
+                                                    const slot = getSlotForGroup(group, day.date);
+                                                    if (slot) {
+                                                        displayLabel = slot.id === "D" ? "1" : slot.id;
+                                                        const turn = TURNI.find(t => t.id === group) || TURNI.find(t => t.id === "D");
+                                                        displayColor = turn?.colore || "#666";
+                                                    }
                                                 }
                                             }
-                                        }
 
                                         return (
-                                            <td 
-                                                key={day.date} 
+                                            <td
+                                                key={day.date}
                                                 onClick={(e) => handleCellClick(d.id, day.date, e)}
                                                 style={{
                                                     textAlign: "center",
@@ -380,7 +412,7 @@ export default function PlanningView({
                                                     width: 60,
                                                     minWidth: 60,
                                                     height: 34,
-                                                    background: isSelected ? "var(--accent-muted)" : (day.isWeekend ? "rgba(99, 102, 241, 0.05)" : (isPlanned || isAbsence ? displayColor : "transparent")),
+                                                    background: isSelected ? "var(--accent-muted)" : (d.date === activeDateStr ? "rgba(249, 115, 22, 0.08)" : (day.isWeekend ? "rgba(99, 102, 241, 0.05)" : (isPlanned || isAbsence ? displayColor : "transparent"))),
                                                     borderLeft: "1px solid var(--border-light)",
                                                     cursor: "pointer",
                                                     ...rowStyle
@@ -448,9 +480,9 @@ export default function PlanningView({
                         <div style={{ display: "flex", gap: 10, marginBottom: 20, alignItems: "center" }}>
                             <div style={{ flex: 1 }}>
                                 <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--text-muted)", marginBottom: 4 }}>DA</label>
-                                <input 
-                                    type="date" 
-                                    className="input" 
+                                <input
+                                    type="date"
+                                    className="input"
                                     style={{ width: "100%", fontSize: 12, padding: "6px" }}
                                     value={selectedCells[0]?.date}
                                     onChange={(e) => {
@@ -473,9 +505,9 @@ export default function PlanningView({
                             </div>
                             <div style={{ flex: 1 }}>
                                 <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--text-muted)", marginBottom: 4 }}>A</label>
-                                <input 
-                                    type="date" 
-                                    className="input" 
+                                <input
+                                    type="date"
+                                    className="input"
                                     style={{ width: "100%", fontSize: 12, padding: "6px" }}
                                     value={selectedCells[selectedCells.length - 1]?.date}
                                     onChange={(e) => {
@@ -509,7 +541,7 @@ export default function PlanningView({
                                 {["M", "P", "S", "N", "D"].map(tId => {
                                     const turn = TURNI.find(t => t.id === tId) || { colore: "#666" };
                                     return (
-                                        <button 
+                                        <button
                                             key={tId}
                                             onClick={() => savePlanningRecord(tId, null)}
                                             style={{
@@ -530,33 +562,42 @@ export default function PlanningView({
                             </div>
                         </div>
 
-                        <div style={{ marginBottom: 20 }}>
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-                                {motivi.map(m => (
-                                    <button 
-                                        key={m.id}
-                                        onClick={() => savePlanningRecord(null, m.id)}
-                                        style={{
-                                            padding: "8px 4px",
-                                            borderRadius: 8,
-                                            border: "1px solid var(--border)",
-                                            background: "transparent",
-                                            color: m.colore,
-                                            fontWeight: 700,
-                                            fontSize: 11,
-                                            cursor: "pointer",
-                                            textAlign: "center"
-                                        }}
-                                    >
-                                        <div style={{ fontWeight: 900, fontSize: 13 }}>{m.sigla}</div>
-                                        <div style={{ fontSize: 9, opacity: 0.8 }}>{m.label}</div>
-                                    </button>
-                                ))}
+                                {(() => {
+                                    // Ensure PF and PR are always available even if not in DB yet
+                                    const allMotivi = [...motivi];
+                                    if (!allMotivi.find(m => m.id === 'PF')) {
+                                        allMotivi.push({ id: "PF", label: "Pianificazione Ferie", sigla: "PF", colore: "#f97316" });
+                                    }
+                                    if (!allMotivi.find(m => m.id === 'PR')) {
+                                        allMotivi.push({ id: "PR", label: "Pianificazione ROL", sigla: "PR", colore: "#f97316" });
+                                    }
+                                    
+                                    return allMotivi.map(m => (
+                                        <button
+                                            key={m.id}
+                                            onClick={() => savePlanningRecord(null, m.id)}
+                                            style={{
+                                                padding: "8px 4px",
+                                                borderRadius: 8,
+                                                border: "1px solid var(--border)",
+                                                background: "transparent",
+                                                color: m.colore,
+                                                fontWeight: 700,
+                                                fontSize: 11,
+                                                cursor: "pointer",
+                                                textAlign: "center"
+                                            }}
+                                        >
+                                            <div style={{ fontWeight: 900, fontSize: 13 }}>{m.sigla}</div>
+                                            <div style={{ fontSize: 9, opacity: 0.8 }}>{m.label}</div>
+                                        </button>
+                                    ));
+                                })()}
                             </div>
-                        </div>
 
-                        <button 
-                            className="btn btn-secondary" 
+                        <button
+                            className="btn btn-secondary"
                             style={{ width: "100%", color: "var(--danger)" }}
                             onClick={() => savePlanningRecord(null, null)}
                         >

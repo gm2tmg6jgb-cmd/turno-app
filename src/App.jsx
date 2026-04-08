@@ -97,12 +97,17 @@ export default function App() {
           supabase.from('tecnologie_fermo').select('*').order('ordine'),
         ]);
 
-        if (errDip) throw errDip;
+        if (errDip) {
+          console.warn("⚠️ Errore caricamento dipendenti (colonne mancanti?):", errDip);
+        }
         if (errMac) throw errMac;
         if (errZone) throw errZone;
         if (errAtt) throw errAtt;
         if (errAss) throw errAss;
         if (errPres) throw errPres;
+        if (errPian) {
+          console.warn("⚠️ Tabella pianificazione non trovata:", errPian);
+        }
 
         // --- AUTO-GENERATE PRESENCE FOR TODAY IF MISSING ---
         const today = getLocalDate(new Date());
@@ -165,7 +170,13 @@ export default function App() {
         setTecnologie(tecnologieHelper || []);
       } catch (error) {
         console.error("❌ Error fetching data:", error);
-        showToast("Errore caricamento dati: " + error.message, "error");
+        // If it's the planning table missing, we can still load
+        if (error.message?.includes('pianificazione') || error.message?.includes('404')) {
+          console.warn("⚠️ Tabella pianificazione non trovata. Funzionalità limitata.");
+          showToast("Tabella Pianificazione non trovata sul database remoto.", "warning");
+        } else {
+          showToast("Errore caricamento dati: " + error.message, "error");
+        }
       } finally {
         setIsLoading(false);
       }
