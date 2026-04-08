@@ -16,7 +16,8 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
     const [newDip, setNewDip] = useState({
         nome: "", cognome: "", turno: "D", reparto: "T11", tipo: "indeterminato",
         competenze: {}, ruolo: "operatore", agenzia: "", scadenza: "", l104: "",
-        attivo: true, data_fine_rapporto: ""
+        attivo: true, data_fine_rapporto: "",
+        ferie_residue: 0, rol_residui: 0
     });
 
     const filtered = dipendenti.filter((d) => {
@@ -53,7 +54,9 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
                     scadenza: newDip.tipo === 'interinale' ? (newDip.scadenza || null) : null,
                     l104: newDip.l104 || null,
                     attivo: newDip.attivo ?? true,
-                    data_fine_rapporto: newDip.attivo === false ? (newDip.data_fine_rapporto || null) : null
+                    data_fine_rapporto: newDip.attivo === false ? (newDip.data_fine_rapporto || null) : null,
+                    ferie_residue: (parseFloat(newDip.ferie_residue) || 0) * 8,
+                    rol_residui: (parseFloat(newDip.rol_residui) || 0) * 8
                 };
 
                 const { error } = await supabase
@@ -81,7 +84,9 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
                     scadenza: newDip.tipo === 'interinale' ? (newDip.scadenza || null) : null,
                     l104: newDip.l104 || null,
                     attivo: newDip.attivo ?? true,
-                    data_fine_rapporto: newDip.attivo === false ? (newDip.data_fine_rapporto || null) : null
+                    data_fine_rapporto: newDip.attivo === false ? (newDip.data_fine_rapporto || null) : null,
+                    ferie_residue: (parseFloat(newDip.ferie_residue) || 0) * 8,
+                    rol_residui: (parseFloat(newDip.rol_residui) || 0) * 8
                 };
 
                 const { data, error } = await supabase
@@ -115,7 +120,9 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
             scadenza: "",
             l104: "",
             attivo: true,
-            data_fine_rapporto: ""
+            data_fine_rapporto: "",
+            ferie_residue: 0,
+            rol_residui: 0
         });
         setIsEditing(false);
         setCurrentDipId(null);
@@ -124,8 +131,10 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
     const openEdit = (dip) => {
         setNewDip({
             ...dip,
-            turno: dip.turno_default || dip.turno || "D", // Fix: Load from turno_default
-            reparto: dip.reparto || dip.reparto_id || "T11" // Ensure fallback for team too just in case
+            turno: dip.turno_default || dip.turno || "D", 
+            reparto: dip.reparto || dip.reparto_id || "T11",
+            ferie_residue: (dip.ferie_residue || 0) / 8,
+            rol_residui: (dip.rol_residui || 0) / 8
         });
         setCurrentDipId(dip.id);
         setIsEditing(true);
@@ -321,6 +330,32 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
                                     <input className="input" type="date" value={newDip.data_fine_rapporto || ""} onChange={(e) => setNewDip({ ...newDip, data_fine_rapporto: e.target.value })} />
                                 </div>
                             )}
+
+                            {newDip.tipo !== 'interinale' && (
+                                <>
+                                    <div className="form-group">
+                                        <label className="form-label" style={{ color: "var(--success)" }}>Ferie Residue (Giorni)</label>
+                                        <input 
+                                            className="input" 
+                                            type="number" 
+                                            step="0.1"
+                                            value={newDip.ferie_residue} 
+                                            onChange={(e) => setNewDip({ ...newDip, ferie_residue: e.target.value })} 
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label" style={{ color: "var(--warning)" }}>ROL Residui (Giorni)</label>
+                                        <input 
+                                            className="input" 
+                                            type="number" 
+                                            step="0.1"
+                                            value={newDip.rol_residui} 
+                                            onChange={(e) => setNewDip({ ...newDip, rol_residui: e.target.value })} 
+                                        />
+                                    </div>
+                                </>
+                            )}
+
                             <div className="form-group" style={{ gridColumn: "span 2" }}>
                                 <div className="alert alert-info" style={{ marginTop: 0, padding: "8px 12px" }}>
                                     <span style={{ fontSize: 14, marginRight: 6 }}>🔒</span>

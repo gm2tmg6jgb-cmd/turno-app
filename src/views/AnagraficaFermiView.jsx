@@ -38,8 +38,10 @@ export default function AnagraficaFermiView({ motiviFermo, setMotiviFermo, tecno
 
         try {
             if (isCreating) {
-                // Auto-generate ID from Label
-                const generatedId = formData.label.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_');
+                // Auto-generate ID from Label + Technology
+                const tecPrefix = formData.tecnologia_id || (formData.is_automazione ? "automazione" : "global");
+                const labelSlug = formData.label.toLowerCase().trim().replace(/[^a-z0-9]+/g, '_');
+                const generatedId = `${tecPrefix}_${labelSlug}`;
                 const payload = { ...formData, id: generatedId };
 
                 // Create
@@ -107,70 +109,86 @@ export default function AnagraficaFermiView({ motiviFermo, setMotiviFermo, tecno
                 {/* LISTA MOTIVI */}
                 <div className="card" style={{ padding: 0, overflow: "hidden" }}>
                     {(() => {
-                        // Separate Automazione from others
-                        const automazioneMotivi = motiviFermo.filter(m => m.is_automazione);
-                        const machineMotivi = motiviFermo.filter(m => !m.is_automazione);
+                        // Helper to render a table list
+                        const renderTable = (list, typeLabel, color) => (
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 10, fontWeight: 900, color: color || "var(--text-muted)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px", paddingLeft: "4px" }}>
+                                    {typeLabel} ({list.length})
+                                </div>
+                                <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 4px" }}>
+                                    <tbody>
+                                        {list.sort((a, b) => a.label.localeCompare(b.label)).map(m => (
+                                            <tr key={m.id} style={{ backgroundColor: "rgba(0,0,0,0.02)", borderRadius: "8px" }}>
+                                                <td style={{ padding: "8px 10px", width: "32px", fontSize: 16, borderRadius: "8px 0 0 8px" }}>{m.icona}</td>
+                                                <td style={{ padding: "8px 10px" }}>
+                                                    <div style={{ fontWeight: 700, fontSize: 13 }}>{m.label}</div>
+                                                    <div style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "monospace" }}>ID: {m.id}</div>
+                                                </td>
+                                                <td style={{ padding: "8px 10px", textAlign: "right", borderRadius: "0 8px 8px 0" }}>
+                                                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 4 }}>
+                                                        <button className="btn-action edit" style={{ padding: "4px" }} onClick={() => handleEdit(m)}>{Icons.edit}</button>
+                                                        <button className="btn-action delete" style={{ padding: "4px" }} onClick={() => handleDelete(m.id)}>{Icons.trash}</button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {list.length === 0 && (
+                                            <tr>
+                                                <td colSpan="3" style={{ padding: "12px", textAlign: "center", color: "var(--text-muted)", fontSize: 12, fontStyle: "italic" }}>
+                                                    Nessuna causale
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        );
 
-                        // Group machineMotivi by technology
-                        const groupedByTec = machineMotivi.reduce((acc, m) => {
-                            const tecId = m.tecnologia_id || "unassigned";
-                            if (!acc[tecId]) acc[tecId] = [];
-                            acc[tecId].push(m);
-                            return acc;
-                        }, {});
+                        // Define groups: Global + each Technology
+                        const groups = [
+                            { id: null, label: "🌎 Globali / Comuni", color: "#64748b" },
+                            ...tecnologie.map(t => ({ id: t.id, label: `⚙️ ${t.label}`, color: "#3b82f6" }))
+                        ];
 
-                        const renderSection = (title, list, color) => {
-                            if (list.length === 0) return null;
+                        return groups.map(group => {
+                            const groupMotivi = motiviFermo.filter(m => (m.tecnologia_id === group.id) || (group.id === null && !m.tecnologia_id));
+                            const machineList = groupMotivi.filter(m => !m.is_automazione);
+                            const autoList = groupMotivi.filter(m => m.is_automazione);
+
+                            if (groupMotivi.length === 0) return null;
+
                             return (
-                                <div key={title} style={{ marginBottom: 24 }}>
+                                <div key={group.id || "global"} style={{ marginBottom: 48, background: "var(--bg-card)" }}>
                                     <div style={{ 
-                                        padding: "12px 18px", 
-                                        background: color ? `${color}15` : "var(--bg-tertiary)", 
-                                        borderBottom: "1px solid var(--border)",
+                                        padding: "14px 20px", 
+                                        background: "var(--bg-tertiary)",
+                                        borderBottom: "2px solid var(--border)",
                                         display: "flex",
                                         alignItems: "center",
-                                        gap: "10px"
+                                        gap: "12px",
+                                        marginBottom: 20
                                     }}>
-                                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: color || "var(--text-muted)" }} />
-                                        <h3 style={{ fontSize: 13, fontWeight: 800, margin: 0, color: color || "var(--text-primary)", textTransform: "uppercase", letterSpacing: "1px" }}>
-                                            {title}
+                                        <div style={{ width: 12, height: 12, borderRadius: "50%", background: group.color }} />
+                                        <h3 style={{ fontSize: 16, fontWeight: 900, margin: 0, color: "var(--text-primary)", textTransform: "uppercase", letterSpacing: "1px" }}>
+                                            {group.label}
                                         </h3>
-                                        <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: "auto" }}>{list.length} causali</span>
                                     </div>
-                                    <div style={{ padding: "8px" }}>
-                                        <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 4px" }}>
-                                            <tbody>
-                                                {list.sort((a, b) => a.label.localeCompare(b.label)).map(m => (
-                                                    <tr key={m.id} style={{ backgroundColor: "rgba(0,0,0,0.02)", borderRadius: "8px" }}>
-                                                        <td style={{ padding: "10px 12px", width: "40px", fontSize: 18, borderRadius: "8px 0 0 8px" }}>{m.icona}</td>
-                                                        <td style={{ padding: "10px 12px" }}>
-                                                            <div style={{ fontWeight: 700, fontSize: 14 }}>{m.label}</div>
-                                                            <div style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "monospace" }}>ID: {m.id}</div>
-                                                        </td>
-                                                        <td style={{ padding: "10px 12px", textAlign: "right", borderRadius: "0 8px 8px 0" }}>
-                                                            <div style={{ display: "flex", justifyContent: "flex-end", gap: 6 }}>
-                                                                <button className="btn-action edit" onClick={() => handleEdit(m)}>{Icons.edit}</button>
-                                                                <button className="btn-action delete" onClick={() => handleDelete(m.id)}>{Icons.trash}</button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                                    <div style={{ 
+                                        display: "flex", 
+                                        flexDirection: "column",
+                                        gap: 32, 
+                                        padding: "0 20px 20px 20px"
+                                    }}>
+                                        <div style={{ background: "rgba(59, 130, 246, 0.03)", padding: "16px", borderRadius: "12px", border: "1px solid rgba(59, 130, 246, 0.1)" }}>
+                                            {renderTable(machineList, "⚙️ Fermi Macchina", "#3b82f6")}
+                                        </div>
+                                        <div style={{ background: "rgba(168, 85, 247, 0.03)", padding: "16px", borderRadius: "12px", border: "1px solid rgba(168, 85, 247, 0.1)" }}>
+                                            {renderTable(autoList, "🤖 Fermi Automazione", "#a855f7")}
+                                        </div>
                                     </div>
                                 </div>
                             );
-                        };
-
-                        return (
-                            <>
-                                {renderSection("🤖 Automazione (Globali)", automazioneMotivi, "#a855f7")}
-                                {Object.entries(groupedByTec).map(([tecId, list]) => {
-                                    const tecLabel = tecnologie.find(t => t.id === tecId)?.label || "Senza Tecnologia";
-                                    return renderSection(`⚙️ ${tecLabel}`, list, "#3b82f6");
-                                })}
-                            </>
-                        );
+                        });
                     })()}
                 </div>
 
@@ -215,21 +233,19 @@ export default function AnagraficaFermiView({ motiviFermo, setMotiviFermo, tecno
                             </div>
                         </div>
 
-                        {!formData.is_automazione && (
-                            <div className="form-group">
-                                <label className="form-label">Tecnologia Associata (Opzionale)</label>
-                                <select 
-                                    className="select-input" 
-                                    value={formData.tecnologia_id || ""} 
-                                    onChange={e => setFormData({ ...formData, tecnologia_id: e.target.value || null })}
-                                >
-                                    <option value="">Tutte le tecnologie</option>
-                                    {tecnologie.map(t => (
-                                        <option key={t.id} value={t.id}>{t.label}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
+                        <div className="form-group">
+                            <label className="form-label">Tecnologia Associata (Opzionale)</label>
+                            <select 
+                                className="select-input" 
+                                value={formData.tecnologia_id || ""} 
+                                onChange={e => setFormData({ ...formData, tecnologia_id: e.target.value || null })}
+                            >
+                                <option value="">Global / Tutte le tecnologie</option>
+                                {tecnologie.map(t => (
+                                    <option key={t.id} value={t.id}>{t.label}</option>
+                                ))}
+                            </select>
+                        </div>
 
                         <div style={{ marginTop: 24, display: "flex", gap: 10 }}>
                             <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleSave}>

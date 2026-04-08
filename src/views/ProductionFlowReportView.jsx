@@ -1127,7 +1127,7 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                       return (
                         <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
                           {isConfigured ? (
-                            <div style={{ fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>8Fe</div>
+                            <div style={{ fontSize: "11px", fontWeight: "800", color: "#64748b", textTransform: "uppercase" }}>{slotData.displayProj || ""}</div>
                           ) : <div style={{ height: "15px" }} />}
 
                           <div

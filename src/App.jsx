@@ -45,6 +45,7 @@ export default function App() {
   const [attivita, setAttivita] = useState([]);
   const [assegnazioni, setAssegnazioni] = useState([]);
   const [presenze, setPresenze] = useState([]);
+  const [pianificazione, setPianificazione] = useState([]);
   const [motivi, setMotivi] = useState([]);
   const [motiviFermo, setMotiviFermo] = useState([]);
   const [tecnologie, setTecnologie] = useState([]);
@@ -79,6 +80,7 @@ export default function App() {
           { data: attHelper, error: errAtt },
           { data: assHelper, error: errAss },
           { data: presHelper, error: errPres },
+          { data: pianHelper, error: errPian },
           { data: motiviHelper },
           { data: motiviFermoHelper },
           { data: tecnologieHelper },
@@ -89,6 +91,7 @@ export default function App() {
           supabase.from('attivita').select('*'),
           supabase.from('assegnazioni').select('*'),
           supabase.from('presenze').select('*'),
+          supabase.from('pianificazione').select('*'),
           supabase.from('motivi_assenza').select('*'),
           supabase.from('motivi_fermo').select('*').order('label'),
           supabase.from('tecnologie_fermo').select('*').order('ordine'),
@@ -156,6 +159,7 @@ export default function App() {
         setAttivita(attHelper || []);
         setAssegnazioni(assHelper || []);
         setPresenze(finalPresenze);
+        setPianificazione(pianHelper || []);
         setMotivi(motiviHelper || []);
         setMotiviFermo(motiviFermoHelper || []);
         setTecnologie(tecnologieHelper || []);
@@ -202,11 +206,9 @@ export default function App() {
     { id: "prioritiesSummary", label: "Riepilogo Priorità", icon: Icons.dashboard, status: "new" },
     { id: "productionFlowReport", label: "Flusso Report Produzione", icon: Icons.report, status: "new" },
     { id: "productionReport", label: "Report Produzione", icon: Icons.report },
-    { id: "anagrafica", label: "Anagrafica Dipendenti", icon: Icons.user },
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings },
     { id: "zones", label: "Anagrafica Zone", icon: Icons.settings },
-    { id: "motivi", label: "Motivi Assenza", icon: Icons.settings },
     { id: "inventory", label: "Inventario", icon: Icons.report },
   ];
 
@@ -351,11 +353,9 @@ export default function App() {
                 {renderItem(ni("inventory"))}
 
                 <div className="nav-section-label">Anagrafiche</div>
-                {renderItem(ni("anagrafica"))}
                 {renderItem(ni("anagraficaMacchine"))}
                 {renderItem(ni("zones"))}
                 {renderItem(ni("anagraficaFermi"))}
-                {renderItem(ni("motivi"))}
 
 
               </>
@@ -423,6 +423,8 @@ export default function App() {
               setDipendenti={setDipendenti}
               presenze={presenze}
               setPresenze={setPresenze}
+              pianificazione={pianificazione}
+              setPianificazione={setPianificazione}
               assegnazioni={assegnazioni}
               macchine={macchine}
               repartoCorrente={repartoCorrente}

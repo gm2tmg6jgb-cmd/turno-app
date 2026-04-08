@@ -17,7 +17,8 @@ export default function DashboardView({
     assegnazioni, macchine,
     repartoCorrente, turnoCorrente,
     showToast, motivi, setMotivi,
-    zones, globalDate
+    zones, globalDate,
+    pianificazione, setPianificazione
 }) {
     if (!dipendenti) return <div className="p-4 text-center">Caricamento dipendenti...</div>;
 
@@ -626,8 +627,12 @@ export default function DashboardView({
                         dipendenti={dipendenti}
                         setDipendenti={setDipendenti}
                         presenze={presenze}
+                        pianificazione={pianificazione}
+                        setPianificazione={setPianificazione}
                         turnoCorrente={turnoCorrente}
                         globalDate={globalDate}
+                        motivi={motivi}
+                        showToast={showToast}
                     />
                 )}
 
