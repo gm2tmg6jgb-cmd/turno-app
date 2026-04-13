@@ -100,14 +100,9 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
 
     const [wWeek, setWWeek] = useState(() => {
         const range = getCurrentWeekRange();
-        const monday = new Date(range.monday + "T12:00:00");
-        const today = new Date();
-        if (today.getDay() === 1 || today.getDay() === 2) {
-            monday.setDate(monday.getDate() - 7);
-        }
-        return monday.toISOString().split("T")[0];
+        return range.monday;
     });
-    const [wDate, setWDate] = useState(() => globalDate || new Date().toISOString().split("T")[0]);
+    const [wDate, setWDate] = useState(() => new Date().toISOString().split("T")[0]);
     const [activeProject, setActiveProject] = useState("DCT300"); // used only for modal context
     const [localTurno, setLocalTurno] = useState(turnoCorrente || "ALL");
     const [loading, setLoading] = useState(false);
