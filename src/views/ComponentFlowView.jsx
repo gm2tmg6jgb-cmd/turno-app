@@ -130,8 +130,6 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
     const [componentsByProject, setComponentsByProject] = useState({});
     const [compMappings, setCompMappings] = useState({});
     const [selectedDetail, setSelectedDetail] = useState(null);
-    const [mappingModal, setMappingModal] = useState(null);
-    const [masterAnagraficaModal, setMasterAnagraficaModal] = useState(false);
     const [isConfigMode, setIsConfigMode] = useState(false);
     const [quickConfigModal, setQuickConfigModal] = useState(null); // { project, comp, phase }
     const [dynamicOverrides, setDynamicOverrides] = useState([]);
@@ -426,14 +424,6 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                         }}
                     >
                         {isConfigMode ? "✓ Fine Config" : "⚙ Configura Celle"}
-                    </button>
-
-                    <button
-                        onClick={() => setMasterAnagraficaModal(true)}
-                        className="btn btn-secondary"
-                        style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: "6px", fontWeight: "700" }}
-                    >
-                        📋 <span style={{ fontSize: "13px" }}>Gestione Anagrafica</span>
                     </button>
 
                     {viewMode === "weekly" ? (
@@ -759,25 +749,7 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                                 <td style={{ padding: "10px", fontSize: "13px" }}>{r.turno_id}</td>
                                                 <td style={{ padding: "10px", fontSize: "13px", fontWeight: "bold" }}>{r.macchina}</td>
                                                 <td style={{ padding: "10px", fontSize: "14px", fontWeight: "bold", textAlign: "right", color: "#3c6ef0" }}>{r.qta_ottenuta}</td>
-                                                <td style={{ padding: "10px", textAlign: "center" }}>
-                                                    <button
-                                                        onClick={() => {
-                                                            const existingMats = compMappings[selectedDetail.compName] || [];
-                                                            setMappingModal({
-                                                                mat: existingMats[0] || r.materiale,
-                                                                mat2: existingMats[1] || "",
-                                                                machine: r.macchina || "",
-                                                                fino: r.fino,
-                                                                currentPhase: selectedDetail.phaseId,
-                                                                currentComp: selectedDetail.compName,
-                                                                project: selectedDetail.project
-                                                            });
-                                                        }}
-                                                        style={{ border: "none", background: "none", cursor: "pointer", color: "var(--text-muted)" }}
-                                                    >
-                                                        {Icons.edit}
-                                                    </button>
-                                                </td>
+                                                <td style={{ padding: "10px", fontSize: "14px", fontWeight: "bold", textAlign: "right", color: "#3c6ef0" }}>{r.qta_ottenuta}</td>
                                             </tr>
                                         ))
                                     ) : (
@@ -808,242 +780,6 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                 </div>
             )}
 
-            {/* Change Mapping Modal */}
-            {mappingModal && (
-                <div className="modal-backdrop" style={{ zIndex: 2000 }}>
-                    <div className="modal-content" style={{ width: "400px", padding: "24px" }}>
-                        <h2 style={{ fontSize: "18px", marginBottom: "20px" }}>Associa a {mappingModal.currentComp}</h2>
-
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
-                            <div>
-                                <label style={{ display: "block", fontSize: "11px", marginBottom: "4px", fontWeight: "bold" }}>Codice Materiale 1</label>
-                                <input
-                                    type="text"
-                                    placeholder="es: 2511108150"
-                                    value={mappingModal.mat}
-                                    onChange={(e) => setMappingModal({ ...mappingModal, mat: e.target.value.toUpperCase() })}
-                                    style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border)" }}
-                                />
-                            </div>
-                            <div>
-                                <label style={{ display: "block", fontSize: "11px", marginBottom: "4px", fontWeight: "bold" }}>Codice Materiale 2 (Opt)</label>
-                                <input
-                                    type="text"
-                                    placeholder="es: 2511108160"
-                                    value={mappingModal.mat2}
-                                    onChange={(e) => setMappingModal({ ...mappingModal, mat2: e.target.value.toUpperCase() })}
-                                    style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border)" }}
-                                />
-                            </div>
-                        </div>
-
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "20px" }}>
-                            <div>
-                                <label style={{ display: "block", fontSize: "11px", marginBottom: "4px", fontWeight: "bold" }}>Operazione (Fino a)</label>
-                                <input
-                                    type="text"
-                                    placeholder="es: 0010"
-                                    value={mappingModal.fino}
-                                    onChange={(e) => setMappingModal({ ...mappingModal, fino: e.target.value })}
-                                    style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border)" }}
-                                />
-                            </div>
-                            <div>
-                                <label style={{ display: "block", fontSize: "11px", marginBottom: "4px", fontWeight: "bold" }}>Macchina</label>
-                                <input
-                                    type="text"
-                                    placeholder="es: DRA101"
-                                    value={mappingModal.machine}
-                                    onChange={(e) => setMappingModal({ ...mappingModal, machine: e.target.value.toUpperCase() })}
-                                    style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border)" }}
-                                />
-                            </div>
-                        </div>
-
-                        <div style={{ marginBottom: "16px" }}>
-                            <label style={{ display: "block", fontSize: "12px", marginBottom: "6px" }}>Componente Destinatario</label>
-                            <select
-                                value={mappingModal.currentComp}
-                                onChange={(e) => setMappingModal({ ...mappingModal, currentComp: e.target.value })}
-                                style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border)" }}
-                            >
-                                {(PROJECT_COMPONENTS[mappingModal.project] || PROJECT_COMPONENTS[selectedDetail?.project] || []).map(c => (
-                                    <option key={c} value={c}>{c}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        <div style={{ marginBottom: "24px" }}>
-                            <label style={{ display: "block", fontSize: "12px", marginBottom: "6px" }}>Fase Destinataria</label>
-                            <select
-                                value={mappingModal.currentPhase}
-                                onChange={(e) => setMappingModal({ ...mappingModal, currentPhase: e.target.value })}
-                                style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border)" }}
-                            >
-                                {PROCESS_STEPS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-                            </select>
-                        </div>
-
-                        <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px" }}>
-                            <button className="btn btn-secondary" onClick={() => setMappingModal(null)}>Annulla</button>
-
-                            {/* Delete Button (only if we have at least one material or machine) */}
-                            {(mappingModal.mat || mappingModal.machine) && (
-                                <button
-                                    className="btn btn-danger"
-                                    style={{ background: "#ef4444", color: "white" }}
-                                    onClick={async () => {
-                                        if (!window.confirm("Sei sicuro di voler eliminare questa associazione?")) return;
-                                        try {
-                                            if (mappingModal.mat) {
-                                                await supabase.from('anagrafica_materiali').delete().eq('codice', mappingModal.mat);
-                                                if (mappingModal.mat2) {
-                                                    await supabase.from('anagrafica_materiali').delete().eq('codice', mappingModal.mat2);
-                                                }
-                                            }
-                                            if (mappingModal.machine) {
-                                                await supabase.from('wc_fasi_mapping').delete().eq('work_center', mappingModal.machine);
-                                            }
-                                            showToast("Associazione eliminata con successo!");
-                                            setMappingModal(null);
-                                            setSelectedDetail(null);
-                                            fetchData();
-                                        } catch (err) {
-                                            console.error(err);
-                                            showToast("Errore durante l'eliminazione", "error");
-                                        }
-                                    }}
-                                >
-                                    Elimina
-                                </button>
-                            )}
-
-                            <button className="btn btn-primary" onClick={async () => {
-                                try {
-                                    const matsToSave = [mappingModal.mat, mappingModal.mat2].filter(m => m && m.trim() !== "");
-
-                                    for (const mCode of matsToSave) {
-                                        // 1. Double Material Save in anagrafica_materiali
-                                        const { data: existing, error: selErr } = await supabase
-                                            .from('anagrafica_materiali')
-                                            .select('id')
-                                            .eq('codice', mCode)
-                                            .maybeSingle();
-
-                                        if (selErr) {
-                                            console.error("Select error:", selErr);
-                                            showToast(`Errore lettura materiale ${mCode}: ${selErr.message}`, "error");
-                                            return;
-                                        }
-
-                                        const payload = {
-                                            codice: mCode,
-                                            componente: mappingModal.currentComp,
-                                            progetto: mappingModal.project
-                                        };
-
-                                        if (existing) {
-                                            const { error: updErr } = await supabase.from('anagrafica_materiali').update(payload).eq('id', existing.id);
-                                            if (updErr) {
-                                                console.error("Update error:", updErr);
-                                                showToast(`Errore aggiornamento ${mCode}: ${updErr.message}`, "error");
-                                                return;
-                                            }
-                                        } else {
-                                            const { error: insErr } = await supabase.from('anagrafica_materiali').insert(payload);
-                                            if (insErr) {
-                                                console.error("Insert error:", insErr);
-                                                showToast(`Errore inserimento ${mCode}: ${insErr.message}`, "error");
-                                                return;
-                                            }
-                                        }
-
-                                        // Save material+fino→phase override to DB (persisted)
-                                        const finoStr = String(mappingModal.fino || "").padStart(4, "0");
-                                        const ovPayload = {
-                                            materiale: mCode,
-                                            fino: finoStr,
-                                            fase: mappingModal.currentPhase,
-                                            componente: mappingModal.currentComp,
-                                            progetto: mappingModal.project
-                                        };
-                                        // Try DB first; if table missing, fall back to local state
-                                        const { data: existingOv, error: selOvErr } = await supabase
-                                            .from('material_fino_overrides')
-                                            .select('id')
-                                            .eq('materiale', mCode)
-                                            .eq('fino', finoStr)
-                                            .maybeSingle();
-                                        const tableExists = !selOvErr || selOvErr.code !== 'PGRST205';
-                                        if (tableExists) {
-                                            if (existingOv) {
-                                                const { error: ovErr } = await supabase.from('material_fino_overrides').update(ovPayload).eq('id', existingOv.id);
-                                                if (ovErr) { console.error("Override update error:", ovErr); showToast(`Errore salvataggio override: ${ovErr.message}`, "error"); return; }
-                                            } else {
-                                                const { error: ovErr } = await supabase.from('material_fino_overrides').insert(ovPayload);
-                                                if (ovErr) { console.error("Override insert error:", ovErr); showToast(`Errore salvataggio override: ${ovErr.message}`, "error"); return; }
-                                            }
-                                        } else {
-                                            // Table not created yet — store in session state with a warning
-                                            console.warn("Tabella material_fino_overrides non trovata, usando stato locale");
-                                            setDynamicOverrides(prev => {
-                                                const filtered = prev.filter(o => o.mat !== mCode || o.fino !== finoStr);
-                                                return [...filtered, { mat: mCode, fino: finoStr, phase: mappingModal.currentPhase, comp: mappingModal.currentComp }];
-                                            });
-                                            showToast("⚠️ Tabella material_fino_overrides mancante: crea la tabella in Supabase per rendere il salvataggio permanente", "error");
-                                        }
-                                    }
-
-                                    // 2. Machine Persistence if provided
-                                    if (mappingModal.machine && mappingModal.machine.trim() !== "") {
-                                        const { data: mRows, error: mSelErr } = await supabase
-                                            .from('wc_fasi_mapping')
-                                            .select('id')
-                                            .eq('work_center', mappingModal.machine)
-                                            .limit(1);
-
-                                        if (mSelErr) {
-                                            console.error("Machine select error:", mSelErr);
-                                            showToast(`Errore lettura macchina: ${mSelErr.message}`, "error");
-                                            return;
-                                        }
-
-                                        const mExisting = mRows?.[0] || null;
-                                        const mPayload = {
-                                            work_center: mappingModal.machine,
-                                            fase: mappingModal.currentPhase,
-                                            match_type: 'exact'
-                                        };
-
-                                        let mErr;
-                                        if (mExisting) {
-                                            const { error } = await supabase.from('wc_fasi_mapping').update(mPayload).eq('id', mExisting.id);
-                                            mErr = error;
-                                        } else {
-                                            const { error } = await supabase.from('wc_fasi_mapping').insert(mPayload);
-                                            mErr = error;
-                                        }
-
-                                        if (mErr) {
-                                            console.error("Machine save error:", mErr);
-                                            showToast(`Errore salvataggio macchina: ${mErr.message}`, "error");
-                                            return;
-                                        }
-                                    }
-
-                                    showToast("Salvataggio permanente completato!");
-                                    setMappingModal(null);
-                                    setSelectedDetail(null);
-                                    setRefreshTick(t => t + 1);
-                                } catch (err) {
-                                    console.error("Save error:", err);
-                                    showToast("Errore durante il salvataggio", "error");
-                                }
-                            }}>Salva Permanentemente</button>
-                        </div>
-                    </div>
-                </div>
-            )}
             {/* Target Settings Modal */}
             {targetModal && (
                 <div className="modal-backdrop" style={{ zIndex: 3000 }}>
@@ -1085,11 +821,7 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                     </div>
                 </div>
             )}
-            {/* Master Anagrafica Modal */}
-            {masterAnagraficaModal && <MasterAnagraficaModal 
-                onClose={() => { setMasterAnagraficaModal(false); fetchData(); }} 
-                showToast={showToast} 
-            />}
+            {/* Target Settings Modal */}
 
             {/* Quick Config Modal (Configura Singolo) */}
             {quickConfigModal && (
@@ -1104,116 +836,6 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
     );
 }
 
-// --- MASTER ANAGRAFICA MODAL COMPONENT ---
-function MasterAnagraficaModal({ onClose, showToast }) {
-    const [loading, setLoading] = useState(true);
-    const [list, setList] = useState([]);
-    const [search, setSearch] = useState("");
-    const [newRow, setNewRow] = useState({ codice: "", componente: "", progetto: "DCT300" });
-
-    const fetchAll = async () => {
-        setLoading(true);
-        const { data } = await supabase.from('anagrafica_materiali').select('*').order('codice');
-        setList(data || []);
-        setLoading(false);
-    };
-
-    useEffect(() => { fetchAll(); }, []);
-
-    const handleAdd = async () => {
-        if (!newRow.codice || !newRow.componente) return showToast("Compila tutti i campi", "error");
-        const payload = {
-            codice: newRow.codice.toUpperCase().trim(),
-            componente: newRow.componente.toUpperCase().trim(),
-            progetto: newRow.progetto
-        };
-        const { error } = await supabase.from('anagrafica_materiali').insert(payload);
-        if (error) return showToast("Errore: " + error.message, "error");
-        showToast("Materiale aggiunto!", "success");
-        setNewRow({ codice: "", componente: "", progetto: "DCT300" });
-        fetchAll();
-    };
-
-    const handleDelete = async (id) => {
-        if (!confirm("Sei sicuro di voler eliminare questa mappatura?")) return;
-        const { error } = await supabase.from('anagrafica_materiali').delete().eq('id', id);
-        if (error) return showToast("Errore eliminazione", "error");
-        showToast("Eliminato");
-        fetchAll();
-    };
-
-    const filtered = list.filter(item => 
-        item.codice.toLowerCase().includes(search.toLowerCase()) || 
-        item.componente.toLowerCase().includes(search.toLowerCase())
-    );
-
-    return (
-        <div className="modal-backdrop" style={{ zIndex: 4000 }}>
-            <div className="modal-content" style={{ width: "900px", height: "80vh", display: "flex", flexDirection: "column", padding: "30px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
-                    <h2 style={{ margin: 0, fontSize: "28px", fontWeight: "900" }}>📦 Gestione Anagrafica Materiali</h2>
-                    <button className="btn btn-secondary" onClick={onClose} style={{ borderRadius: "50%", width: "40px", height: "40px", padding: 0 }}>✕</button>
-                </div>
-
-                {/* Add Form */}
-                <div style={{ padding: "20px", background: "var(--bg-tertiary)", borderRadius: "12px", marginBottom: "24px", display: "flex", gap: "10px", alignItems: "flex-end" }}>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: "11px", fontWeight: "800", marginBottom: "5px", opacity: 0.6 }}>CODICE SAP</div>
-                        <input className="input" placeholder="M00..." value={newRow.codice} onChange={e => setNewRow({...newRow, codice: e.target.value})} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: "11px", fontWeight: "800", marginBottom: "5px", opacity: 0.6 }}>COMPONENTE</div>
-                        <input className="input" placeholder="SG..." value={newRow.componente} onChange={e => setNewRow({...newRow, componente: e.target.value})} />
-                    </div>
-                    <div style={{ width: "150px" }}>
-                         <div style={{ fontSize: "11px", fontWeight: "800", marginBottom: "5px", opacity: 0.6 }}>PROGETTO</div>
-                         <select className="input" value={newRow.progetto} onChange={e => setNewRow({...newRow, progetto: e.target.value})}>
-                            {PROJECTS.map(p => <option key={p} value={p}>{p}</option>)}
-                         </select>
-                    </div>
-                    <button className="btn btn-primary" onClick={handleAdd} style={{ height: "44px", padding: "0 24px" }}>Aggiungi</button>
-                </div>
-
-                {/* Search */}
-                <div style={{ marginBottom: "15px" }}>
-                    <input className="input" placeholder="Cerca codice o componente..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: "100%" }} />
-                </div>
-
-                {/* List */}
-                <div style={{ flex: 1, overflow: "auto", borderRadius: "12px", border: "1px solid var(--border-light)" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                        <thead style={{ position: "sticky", top: 0, background: "var(--bg-card)", borderBottom: "2px solid var(--border)" }}>
-                            <tr>
-                                <th style={{ textAlign: "left", padding: "12px 20px" }}>Codice SAP</th>
-                                <th style={{ textAlign: "left", padding: "12px 20px" }}>Componente</th>
-                                <th style={{ textAlign: "left", padding: "12px 20px" }}>Progetto</th>
-                                <th style={{ textAlign: "center", padding: "12px 20px" }}>Azioni</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr><td colSpan="4" style={{ textAlign: "center", padding: "40px" }}>Caricamento...</td></tr>
-                            ) : filtered.map(item => (
-                                <tr key={item.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
-                                    <td style={{ padding: "12px 20px", fontWeight: "700" }}>{item.codice}</td>
-                                    <td style={{ padding: "12px 20px" }}>{item.componente}</td>
-                                    <td style={{ padding: "12px 20px" }}>
-                                        <span style={{ padding: "4px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: "800", background: "rgba(0,0,0,0.05)" }}>
-                                            {item.progetto}
-                                        </span>
-                                    </td>
-                                    <td style={{ padding: "12px 20px", textAlign: "center" }}>
-                                        <button className="btn btn-secondary" onClick={() => handleDelete(item.id)} style={{ padding: "4px 8px", fontSize: "12px", color: "red" }}>Elimina</button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    );
-}
 // --- QUICK CONFIG MODAL (CONFIGURA SINGOLO) ---
 function QuickConfigModal({ data, onClose, onSave, showToast }) {
     const [form, setForm] = useState({
