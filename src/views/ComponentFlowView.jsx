@@ -59,7 +59,7 @@ const PROJECT_TARGETS = {
 };
 
 const EXCLUDED_PHASES = {
-    "DCT300": ["dmc", "broaching"], // milling tolto dalle globali per attivazione selettiva su SG4
+    "DCT300": ["dmc", "broaching", "milling"], // milling tolto dalle globali per attivazione selettiva su SG4? No, ora rimosso su richiesta
     "8Fe": [],
     "DCT ECO": ["start_soft", "dmc", "broaching", "laser_welding_soft_2"],
     "RG + DH": ["shaping", "broaching", "laser_welding_soft_2", "milling", "ut", "grinding_cone", "laser_welding", "start_hard"]
