@@ -132,6 +132,8 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
     const [selectedDetail, setSelectedDetail] = useState(null);
     const [mappingModal, setMappingModal] = useState(null);
     const [masterAnagraficaModal, setMasterAnagraficaModal] = useState(false);
+    const [isConfigMode, setIsConfigMode] = useState(false);
+    const [quickConfigModal, setQuickConfigModal] = useState(null); // { project, comp, phase }
     const [dynamicOverrides, setDynamicOverrides] = useState([]);
     const [refreshTick, setRefreshTick] = useState(0);
 
@@ -413,6 +415,20 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                     </select>
 
                     <button
+                        onClick={() => setIsConfigMode(!isConfigMode)}
+                        className="btn"
+                        style={{ 
+                            padding: "8px 12px", display: "flex", alignItems: "center", gap: "6px", fontWeight: "700",
+                            background: isConfigMode ? "var(--accent)" : "var(--bg-tertiary)",
+                            color: isConfigMode ? "white" : "var(--text-secondary)",
+                            border: "1px solid var(--border)",
+                            boxShadow: isConfigMode ? "0 0 10px var(--accent)" : "none"
+                        }}
+                    >
+                        {isConfigMode ? "✓ Fine Config" : "⚙ Configura Celle"}
+                    </button>
+
+                    <button
                         onClick={() => setMasterAnagraficaModal(true)}
                         className="btn btn-secondary"
                         style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: "6px", fontWeight: "700" }}
@@ -629,31 +645,61 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                                                 borderRight: step.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none"
                                                             }}>
                                                                 <div
-                                                                    onClick={() => {
-                                                                        setSelectedDetail({
-                                                                            title: `${comp} - ${step.label}`,
-                                                                            phaseId: step.id,
-                                                                            compName: comp,
-                                                                            records: data?.records || [],
-                                                                            project: proj
-                                                                        });
+                                                                    className="production-cell-container"
+                                                                    style={{ position: "relative" }}
+                                                                    onClick={(e) => {
+                                                                        if (isConfigMode) {
+                                                                            e.stopPropagation();
+                                                                            setQuickConfigModal({
+                                                                                project: proj,
+                                                                                comp: comp,
+                                                                                phase: step.id,
+                                                                                phaseLabel: step.label
+                                                                            });
+                                                                        } else {
+                                                                            setSelectedDetail({
+                                                                                title: `${comp} - ${step.label}`,
+                                                                                phaseId: step.id,
+                                                                                compName: comp,
+                                                                                records: data?.records || [],
+                                                                                project: proj
+                                                                            });
+                                                                        }
                                                                     }}
-                                                                    style={{
-                                                                        width: "75px",
-                                                                        height: "45px",
-                                                                        background: !hasProduction ? "var(--bg-tertiary)" : (isSuccess ? "linear-gradient(135deg, #22c55e, #16a34a)" : "linear-gradient(135deg, #ef4444, #dc2626)"),
-                                                                        borderRadius: "10px",
-                                                                        display: "flex",
-                                                                        alignItems: "center",
-                                                                        justifyContent: "center",
-                                                                        color: hasProduction ? "white" : "var(--text-muted)",
-                                                                        fontSize: "22px",
-                                                                        fontWeight: "900",
-                                                                        cursor: "pointer",
-                                                                        boxShadow: hasProduction ? `0 6px 15px ${isSuccess ? "#22c55e44" : "#ef444444"}` : "none",
-                                                                        transition: "all 0.1s"
-                                                                    }}>
-                                                                    {qty > 0 ? qty : ""}
+                                                                >
+                                                                    <div
+                                                                        style={{
+                                                                            width: "75px",
+                                                                            height: "45px",
+                                                                            background: !hasProduction ? "var(--bg-tertiary)" : (isSuccess ? "linear-gradient(135deg, #22c55e, #16a34a)" : "linear-gradient(135deg, #ef4444, #dc2626)"),
+                                                                            borderRadius: "10px",
+                                                                            display: "flex",
+                                                                            alignItems: "center",
+                                                                            justifyContent: "center",
+                                                                            color: hasProduction ? "white" : "var(--text-muted)",
+                                                                            fontSize: "16px",
+                                                                            fontWeight: "900",
+                                                                            boxShadow: hasProduction ? "0 4px 12px rgba(0,0,0,0.15)" : "none",
+                                                                            cursor: "pointer",
+                                                                            border: isConfigMode ? "2px dashed var(--accent)" : "1px solid rgba(255,255,255,0.1)",
+                                                                            transition: "all 0.2s"
+                                                                        }}
+                                                                    >
+                                                                        {qty > 0 ? qty : ""}
+
+                                                                        {isConfigMode && (
+                                                                            <div style={{
+                                                                                position: "absolute", top: -6, right: -6,
+                                                                                background: "var(--bg-card)", borderRadius: "50%",
+                                                                                width: "20px", height: "20px", display: "flex",
+                                                                                alignItems: "center", justifyContent: "center",
+                                                                                fontSize: "12px", boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+                                                                                border: "1px solid var(--accent)", color: "var(--accent)"
+                                                                            }}>
+                                                                                ⚙️
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         );
@@ -1044,6 +1090,16 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                 onClose={() => { setMasterAnagraficaModal(false); fetchData(); }} 
                 showToast={showToast} 
             />}
+
+            {/* Quick Config Modal (Configura Singolo) */}
+            {quickConfigModal && (
+                <QuickConfigModal 
+                    data={quickConfigModal}
+                    onClose={() => setQuickConfigModal(null)}
+                    onSave={() => { setQuickConfigModal(null); fetchData(); }}
+                    showToast={showToast}
+                />
+            )}
         </div>
     );
 }
@@ -1153,6 +1209,117 @@ function MasterAnagraficaModal({ onClose, showToast }) {
                             ))}
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+    );
+}
+// --- QUICK CONFIG MODAL (CONFIGURA SINGOLO) ---
+function QuickConfigModal({ data, onClose, onSave, showToast }) {
+    const [form, setForm] = useState({
+        fino: "",
+        componente: data.comp || "",
+        codice: ""
+    });
+    const [isSaving, setIsSaving] = useState(false);
+
+    // Auto-fill existing if possible? For now just empty for speed
+    
+    const handleSave = async () => {
+        if (!form.fino || !form.componente || !form.codice) {
+            return showToast("Tutti i campi sono obbligatori", "error");
+        }
+        setIsSaving(true);
+        try {
+            const matCode = form.codice.toUpperCase().trim();
+            const finoStr = String(form.fino).padStart(4, "0");
+
+            // 1. Update Anagrafica Materiali (Code -> Component/Project)
+            const { data: existingMat } = await supabase.from('anagrafica_materiali').select('id').eq('codice', matCode).maybeSingle();
+            const matPayload = { codice: matCode, componente: form.componente.toUpperCase(), progetto: data.project };
+            
+            if (existingMat) {
+                await supabase.from('anagrafica_materiali').update(matPayload).eq('id', existingMat.id);
+            } else {
+                await supabase.from('anagrafica_materiali').insert(matPayload);
+            }
+
+            // 2. Update Phase Mapping (Code + Fino -> Phase)
+            const ovPayload = { 
+                materiale: matCode, 
+                fino: finoStr, 
+                fase: data.phase, 
+                componente: form.componente.toUpperCase(), 
+                progetto: data.project 
+            };
+            
+            const { data: existingOv } = await supabase.from('material_fino_overrides').select('id').eq('materiale', matCode).eq('fino', finoStr).maybeSingle();
+            
+            if (existingOv) {
+                await supabase.from('material_fino_overrides').update(ovPayload).eq('id', existingOv.id);
+            } else {
+                await supabase.from('material_fino_overrides').insert(ovPayload);
+            }
+
+            showToast("Mappatura salvata con successo!");
+            onSave();
+        } catch (err) {
+            console.error(err);
+            showToast("Errore durante il salvataggio", "error");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    return (
+        <div className="modal-backdrop" style={{ zIndex: 5000 }}>
+            <div className="modal-content" style={{ width: "450px", padding: "24px", borderRadius: "20px" }}>
+                <div style={{ marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <h3 style={{ margin: 0, fontWeight: "900", fontSize: "18px" }}>⚙️ Configura Singolo Cell</h3>
+                    <button className="btn btn-secondary btn-sm" onClick={onClose}>✕</button>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                    <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: 0 }}>
+                        Stai configurando la fase <strong style={{ color: "var(--accent)" }}>{data.phaseLabel}</strong> del progetto <strong>{data.project}</strong>.
+                    </p>
+
+                    <div className="form-group">
+                        <label className="form-label" style={{ fontWeight: "700", fontSize: "11px", textTransform: "uppercase" }}>OP Macchina (Fino) *</label>
+                        <input 
+                            className="input" 
+                            placeholder="Es. 0140, 0010..." 
+                            value={form.fino} 
+                            onChange={e => setForm({...form, fino: e.target.value})}
+                        />
+                    </div>
+
+                    <div className="form-group">
+                        <label className="form-label" style={{ fontWeight: "700", fontSize: "11px", textTransform: "uppercase" }}>Componente *</label>
+                        <input 
+                            className="input" 
+                            placeholder="Es. SG3..." 
+                            value={form.componente} 
+                            onChange={e => setForm({...form, componente: e.target.value.toUpperCase()})}
+                        />
+                    </div>
+
+                    <div className="form-group">
+                        <label className="form-label" style={{ fontWeight: "700", fontSize: "11px", textTransform: "uppercase" }}>Codice Materiale *</label>
+                        <input 
+                            className="input" 
+                            placeholder="Es. M0153389/S" 
+                            value={form.codice} 
+                            onChange={e => setForm({...form, codice: e.target.value.toUpperCase()})}
+                        />
+                    </div>
+                </div>
+
+                <div style={{ marginTop: "24px", display: "flex", gap: "10px" }}>
+                    <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleSave} disabled={isSaving}>
+                        {isSaving ? "Salvataggio..." : "Salva Configurazione"}
+                    </button>
+                    <button className="btn btn-secondary" onClick={onClose}>Annulla</button>
                 </div>
             </div>
         </div>
