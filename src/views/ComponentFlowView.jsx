@@ -329,7 +329,11 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
             const newCompsByProject = {};
             PROJECTS.forEach(p => {
                 const fixed = PROJECT_COMPONENTS[p] || [];
-                const extra = Array.from(projComponentSets[p]).filter(c => !fixed.includes(c)).sort();
+                // Se è DCT300, escludiamo SG2 dagli extra per evitare dati sporchi in quella vista
+                const extra = Array.from(projComponentSets[p])
+                    .filter(c => !fixed.includes(c))
+                    .filter(c => !(p === "DCT300" && c === "SG2"))
+                    .sort();
                 newCompsByProject[p] = [...fixed, ...extra];
             });
             setComponentsByProject(newCompsByProject);
