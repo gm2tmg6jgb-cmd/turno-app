@@ -24,12 +24,13 @@ const PROCESS_STEPS = [
     { id: "washing", label: "Lavaggio", code: "WSH" }
 ];
 
-const PROJECTS = ["DCT300", "8 FE", "DCT ECO"];
+const PROJECTS = ["DCT300", "DCT ECO", "8 FE", "DH"];
 
 const PROJECT_COMPONENTS = {
     "DCT300": ["SG1", "DG-REV", "DG", "SG3", "SG4", "SG5", "SG6", "SG7", "SGR", "RG"],
-    "8 FE": ["SG2", "SG3", "SG4", "SG5", "SG6", "SG7", "SG8", "SGR", "PG", "FG5/7", "RG FD1", "RG FD2", "DH TORNITURA", "DH ASSEMBLAGGIO", "DH SALDATURA"],
-    "DCT ECO": ["SG2", "SG3", "SG4", "SG5", "SGR", "FD1", "FD2"]
+    "8 FE": ["SG2", "SG3", "SG4", "SG5", "SG6", "SG7", "SG8", "SGR", "PG", "FG5/7"],
+    "DCT ECO": ["SG1", "SG2", "SG3", "SG4", "SG5", "SGR"],
+    "DH": ["RG FD1", "RG FD2", "DH TORNITURA", "DH ASSEMBLAGGIO", "DH SALDATURA"]
 };
 
 const EXCLUDED_PHASES = {
@@ -91,11 +92,11 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
         return monday.toISOString().split("T")[0];
     });
     const [wDate, setWDate] = useState(() => globalDate || new Date().toISOString().split("T")[0]);
-    const [activeProject, setActiveProject] = useState("DCT300");
+    const [activeProject, setActiveProject] = useState("DCT300"); // used only for modal context
     const [localTurno, setLocalTurno] = useState(turnoCorrente || "ALL");
     const [loading, setLoading] = useState(false);
-    const [matrixData, setMatrixData] = useState({}); // { componentId: { phaseId: { value, records } } }
-    const [components, setComponents] = useState([]); // List of components for active project
+    const [matrixData, setMatrixData] = useState({}); // { projId: { compId: { phaseId: { value, records } } } }
+    const [componentsByProject, setComponentsByProject] = useState({}); // { projId: string[] }
     const [selectedDetail, setSelectedDetail] = useState(null);
     const [bulkText, setBulkText] = useState("");
     const [dynamicOverrides, setDynamicOverrides] = useState([]); // [{ mat, fino, phase, comp }] — session-only (bulk parser)
@@ -271,11 +272,14 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
 
             console.log(`[ComponentFlow] Fetch ${viewMode} - records grezzi: ${prodRes?.length ?? 0}`);
 
+            // newMatrix: { projId: { comp: { phase: { value, records } } } }
             const newMatrix = {};
-            const projectComponents = new Set();
-            let skippedNoInfo = 0, skippedNoPhase = 0, skippedWrongProject = 0;
-            const unmappedMaterials = {}; // mat → count
-            const unmappedWC = {}; // wc → count
+            const projComponentSets = {}; // { projId: Set<string> }
+            PROJECTS.forEach(p => { newMatrix[p] = {}; projComponentSets[p] = new Set(); });
+
+            let skippedNoInfo = 0, skippedNoPhase = 0;
+            const unmappedMaterials = {};
+            const unmappedWC = {};
 
             if (prodRes) {
                 prodRes.forEach(r => {
@@ -294,20 +298,13 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                     if (proj === "DCT Eco") proj = "DCT ECO";
                     if (proj === "DCTeco") proj = "DCT ECO";
 
-                    if (proj !== activeProject) { skippedWrongProject++; return; }
+                    if (!PROJECTS.includes(proj)) return; // skip unknown projects
 
                     const fino = String(r.fino || "").padStart(4, "0");
 
-                    // Check if there is a component override (DB or session)
                     const compOverride = [...dbMaterialOverrides, ...dynamicOverrides].find(o => o.mat.toUpperCase() === matCode && (o.fino === fino || !o.fino));
                     let comp = compOverride ? compOverride.comp : (info.componente || "ALTRO").toUpperCase();
-
                     if (comp === "SG2-REV") comp = "DG-REV";
-
-                    // EXCLUSION: Eliminate RG from 8 FE
-                    if (activeProject === "8 FE" && comp === "RG") return;
-
-                    projectComponents.add(comp);
 
                     const wc = (r.macchina_id || r.work_center_sap || "").toUpperCase();
                     const phase = getPhaseForRecord(r);
@@ -317,20 +314,15 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                         return;
                     }
 
-                    if (!newMatrix[comp]) newMatrix[comp] = {};
-                    if (!newMatrix[comp][phase]) newMatrix[comp][phase] = { value: 0, records: [] };
-
-                    newMatrix[comp][phase].value += (r.qta_ottenuta || 0);
-                    newMatrix[comp][phase].records.push({
-                        ...r,
-                        matCode,
-                        macchina: wc
-                    });
+                    projComponentSets[proj].add(comp);
+                    if (!newMatrix[proj][comp]) newMatrix[proj][comp] = {};
+                    if (!newMatrix[proj][comp][phase]) newMatrix[proj][comp][phase] = { value: 0, records: [] };
+                    newMatrix[proj][comp][phase].value += (r.qta_ottenuta || 0);
+                    newMatrix[proj][comp][phase].records.push({ ...r, matCode, macchina: wc });
                 });
             }
 
-            console.log(`[ComponentFlow] Scartati: ${skippedNoInfo} senza anagrafica, ${skippedWrongProject} progetto errato, ${skippedNoPhase} senza fase`);
-
+            console.log(`[ComponentFlow] Scartati: ${skippedNoInfo} senza anagrafica, ${skippedNoPhase} senza fase`);
             if (skippedNoInfo > 0) {
                 const top = Object.entries(unmappedMaterials).sort((a, b) => b[1] - a[1]).slice(0, 10);
                 console.log(`[ComponentFlow] Top materiali senza anagrafica:`, top.map(([m, n]) => `${m} (${n})`).join(", "));
@@ -342,12 +334,13 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
 
             setMatrixData(newMatrix);
 
-            const fixedList = PROJECT_COMPONENTS[activeProject] || [];
-            const foundOthers = Array.from(projectComponents)
-                .filter(c => !fixedList.includes(c))
-                .sort();
-
-            setComponents([...fixedList, ...foundOthers]);
+            const newCompsByProject = {};
+            PROJECTS.forEach(p => {
+                const fixed = PROJECT_COMPONENTS[p] || [];
+                const extra = Array.from(projComponentSets[p]).filter(c => !fixed.includes(c)).sort();
+                newCompsByProject[p] = [...fixed, ...extra];
+            });
+            setComponentsByProject(newCompsByProject);
 
         } catch (err) {
             console.error(err);
@@ -506,132 +499,146 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                 </div>
             )}
 
-            {/* Project Tabs */}
-            <div style={{ display: "flex", gap: "12px", marginBottom: "30px", borderBottom: "1px solid var(--border)" }}>
-                {PROJECTS.map(p => (
-                    <button
-                        key={p}
-                        onClick={() => setActiveProject(p)}
-                        style={{
-                            padding: "12px 24px",
-                            background: "transparent",
-                            border: "none",
-                            borderBottom: activeProject === p ? "3px solid #3c6ef0" : "3px solid transparent",
-                            color: activeProject === p ? "#3c6ef0" : "var(--text-muted)",
-                            fontWeight: activeProject === p ? "800" : "600",
-                            fontSize: "16px",
-                            cursor: "pointer",
-                            transition: "all 0.2s"
-                        }}
-                    >
-                        {p}
-                    </button>
-                ))}
-            </div>
+            {/* Sleek Mosaic Board (High Efficiency Layout) */}
+            {!loading && (
+                <div style={{ 
+                    display: "grid", 
+                    gridTemplateColumns: "1fr 1fr", 
+                    gridTemplateRows: "1fr 1fr",
+                    gap: "20px", 
+                    height: "calc(100vh - 140px)", 
+                    padding: "10px",
+                    overflow: "hidden"
+                }}>
+                    {PROJECTS.map((proj, idx) => {
+                        const projectComps = componentsByProject[proj] || [];
+                        const visibleSteps = PROCESS_STEPS.filter(s => !EXCLUDED_PHASES[proj]?.includes(s.id));
+                        
+                        if (projectComps.length === 0) return null;
 
-            {loading ? (
-                <div style={{ textAlign: "center", padding: "100px", color: "var(--text-muted)" }}>{Icons.loading} Caricamento flussi in corso...</div>
-            ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                    {components.length === 0 ? (
-                        <div className="card" style={{ textAlign: "center", padding: "40px", color: "var(--text-muted)" }}>
-                            Nessun dato di produzione trovato per il progetto {activeProject} in questa settimana.
-                        </div>
-                    ) : (
-                        <div style={{ overflowX: "auto" }}>
-                            <div style={{ minWidth: "fit-content", padding: "10px" }}>
-                                {/* Table Header - Phases */}
-                                <div style={{ display: "flex", marginBottom: "20px", paddingLeft: "150px" }}>
-                                    {visibleSteps.map((step, idx) => (
-                                        <div key={idx} style={{ width: "100px", textAlign: "center", flexShrink: 0, position: "relative" }}>
-                                            <div style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px" }}>{step.label}</div>
-                                            <div style={{ fontSize: "12px", fontWeight: "800", color: "#3c6ef0", marginTop: "4px" }}>{step.code}</div>
-                                            {idx < visibleSteps.length - 1 && (
-                                                <div style={{ position: "absolute", right: -15, top: "50%", color: "var(--border)", fontWeight: "bold" }}>→</div>
-                                            )}
-                                        </div>
-                                    ))}
+                        // Color Palette per Progetto
+                        const colors = {
+                            "DCT300": { main: "#3c6ef0", bg: "rgba(60, 110, 240, 0.05)" },
+                            "8 FE": { main: "#10b981", bg: "rgba(16, 185, 129, 0.05)" },
+                            "DCT ECO": { main: "#f59e0b", bg: "rgba(245, 158, 11, 0.05)" },
+                            "DH": { main: "#8b5cf6", bg: "rgba(139, 92, 246, 0.05)" } // Tono Indigo per Specials
+                        };
+                        const theme = colors[proj] || colors["DCT300"];
+
+                        return (
+                            <div key={proj} style={{ 
+                                display: "flex", 
+                                flexDirection: "column", 
+                                background: "var(--bg-card)", 
+                                borderRadius: "16px", 
+                                border: `1px solid ${theme.main}33`,
+                                boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+                                overflow: "hidden",
+                                // Layout a Quadrante 2x2
+                                gridColumn: "span 1"
+                            }}>
+                                {/* Header con Gradiente Soft */}
+                                <div style={{ 
+                                    padding: "10px 20px", 
+                                    background: `linear-gradient(90deg, ${theme.bg}, transparent)`,
+                                    borderBottom: `1px solid ${theme.main}22`,
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center"
+                                }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+                                        <div style={{ width: "15px", height: "15px", borderRadius: "50%", background: theme.main }} />
+                                        <h3 style={{ fontSize: "32px", fontWeight: "900", color: "var(--text-primary)", margin: 0 }}>{proj}</h3>
+                                    </div>
+                                    <span style={{ fontSize: "16px", fontWeight: "700", color: "var(--text-muted)" }}>{projectComps.length} OPERATIONAL UNITS</span>
                                 </div>
 
-                                {/* Component Rows */}
-                                {components.map((comp, cIdx) => (
-                                    <div key={comp} style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        padding: "16px 8px",
-                                        background: cIdx % 2 === 0 ? "rgba(0,0,0,0.03)" : "transparent",
-                                        borderBottom: "2px solid var(--border)",
-                                        marginBottom: "4px",
-                                        borderRadius: "8px"
-                                    }}>
-                                        {/* Component Label */}
-                                        <div style={{ width: "150px", flexShrink: 0, fontWeight: "800", fontSize: "15px", color: "var(--text-primary)" }}>
-                                            {comp}
+                                {/* Content con Scroll Interno */}
+                                <div style={{ flex: 1, overflow: "auto", padding: "12px" }}>
+                                    <div style={{ minWidth: "max-content" }}>
+                                        {/* Phases Row */}
+                                        <div style={{ display: "flex", marginBottom: "16px", paddingLeft: "170px" }}>
+                                            {visibleSteps.map((s, sIdx) => (
+                                                <div key={sIdx} style={{ width: "85px", textAlign: "center", flexShrink: 0 }}>
+                                                    <div style={{ fontSize: "15px", fontWeight: "800", color: "var(--text-muted)", opacity: 0.8 }}>{s.code}</div>
+                                                </div>
+                                            ))}
                                         </div>
 
-                                        {/* Process Boxes */}
-                                        <div style={{ display: "flex", gap: "0px" }}>
-                                            {visibleSteps.map((step, idx) => {
-                                                const data = matrixData[comp]?.[step.id];
-                                                const qty = data?.value || 0;
-                                                let isExcluded = COMPONENT_EXCLUSIONS[comp]?.includes(step.id);
+                                        {/* Component Rows */}
+                                        {projectComps.map((comp, cIdx) => (
+                                            <div key={comp} style={{
+                                                display: "flex",
+                                                alignItems: "center",
+                                                padding: "12px 0",
+                                                borderBottom: "1px solid var(--border-light)",
+                                                background: cIdx % 2 === 0 ? "rgba(0,0,0,0.01)" : "transparent"
+                                            }}>
+                                                <div style={{ 
+                                                    width: "170px", 
+                                                    flexShrink: 0, 
+                                                    fontSize: "18px", 
+                                                    fontWeight: "800", 
+                                                    color: "var(--text-primary)",
+                                                    whiteSpace: "nowrap",
+                                                    overflow: "hidden",
+                                                    textOverflow: "ellipsis"
+                                                }}>
+                                                    {comp}
+                                                </div>
 
-                                                // Dynamic exclusions for DCT 300
-                                                if (activeProject === "DCT300" && ["SG7", "SGR", "RG"].includes(comp) && step.id === "grinding_cone") {
-                                                    isExcluded = true;
-                                                }
+                                                <div style={{ display: "flex" }}>
+                                                    {visibleSteps.map((step, idx) => {
+                                                        const data = matrixData[proj]?.[comp]?.[step.id];
+                                                        const qty = data?.value || 0;
+                                                        let isExcluded = COMPONENT_EXCLUSIONS[comp]?.includes(step.id);
+                                                        
+                                                        if (proj === "DCT300" && ["SG7", "SGR", "RG"].includes(comp) && step.id === "grinding_cone") isExcluded = true;
+                                                        if (proj === "8 FE" && comp !== "SG3" && step.id === "laser_welding_soft_2") isExcluded = true;
+                                                        if (["DH", "8 FE", "DCT300"].includes(proj) && comp.startsWith("DH") && step.id !== "start_hard") isExcluded = true;
+                                                        if (proj === "DCT ECO" && comp.startsWith("RG") && step.id === "grinding_cone") isExcluded = true;
 
-                                                // Dynamic exclusions for 8 FE (Hide Soft Welding 2 unless it's SG3)
-                                                if (activeProject === "8 FE" && comp !== "SG3" && step.id === "laser_welding_soft_2") {
-                                                    isExcluded = true;
-                                                }
+                                                        if (isExcluded) return <div key={idx} style={{ width: "85px", flexShrink: 0 }} />;
 
-                                                // Dynamic exclusions for DH components (Only keep start_hard)
-                                                if (comp.startsWith("DH") && step.id !== "start_hard") {
-                                                    isExcluded = true;
-                                                }
-
-                                                if (isExcluded) return <div key={idx} style={{ width: "100px", flexShrink: 0 }} />;
-
-                                                return (
-                                                    <div key={idx} style={{ width: "100px", display: "flex", justifyContent: "center", flexShrink: 0 }}>
-                                                        <div
-                                                            onClick={() => {
-                                                                setSelectedDetail({
-                                                                    title: `${comp} - ${step.label}`,
-                                                                    phaseId: step.id,
-                                                                    compName: comp,
-                                                                    records: data?.records || []
-                                                                });
-                                                            }}
-                                                            style={{
-                                                                width: "80px",
-                                                                height: "50px",
-                                                                background: isExcluded ? "var(--bg-primary)" : (qty > 0 ? "linear-gradient(135deg, #3c6ef0, #1e40af)" : "var(--bg-tertiary)"),
-                                                                borderRadius: "10px",
-                                                                display: "flex",
-                                                                flexDirection: "column",
-                                                                alignItems: "center",
-                                                                justifyContent: "center",
-                                                                color: isExcluded ? "var(--text-muted)" : (qty > 0 ? "white" : "var(--text-muted)"),
-                                                                border: isExcluded ? "1px solid var(--border)" : (qty > 0 ? "none" : "1px dashed var(--border)"),
-                                                                boxShadow: (qty > 0 && !isExcluded) ? "0 4px 10px rgba(60, 110, 240, 0.2)" : "none",
-                                                                opacity: isExcluded ? 0.3 : (qty > 0 ? 1 : 0.6),
-                                                                transition: "all 0.2s",
-                                                                cursor: "pointer"
-                                                            }}>
-                                                            <div style={{ fontSize: "14px", fontWeight: "900" }}>{isExcluded ? "N/A" : qty}</div>
-                                                            {qty > 0 && !isExcluded && <div style={{ fontSize: "8px", fontWeight: "700", opacity: 0.8 }}>PEZZI</div>}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
+                                                        return (
+                                                            <div key={idx} style={{ width: "85px", display: "flex", justifyContent: "center", flexShrink: 0 }}>
+                                                                <div
+                                                                    onClick={() => {
+                                                                        setSelectedDetail({
+                                                                            title: `${comp} - ${step.label}`,
+                                                                            phaseId: step.id,
+                                                                            compName: comp,
+                                                                            records: data?.records || []
+                                                                        });
+                                                                    }}
+                                                                    style={{
+                                                                        width: "75px",
+                                                                        height: "45px",
+                                                                        background: qty > 0 ? `linear-gradient(135deg, ${theme.main}, ${theme.main}dd)` : "var(--bg-tertiary)",
+                                                                        borderRadius: "10px",
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center",
+                                                                        color: "white",
+                                                                        fontSize: "22px",
+                                                                        fontWeight: "900",
+                                                                        cursor: "pointer",
+                                                                        boxShadow: qty > 0 ? `0 6px 15px ${theme.main}44` : "none",
+                                                                        transition: "all 0.1s"
+                                                                    }}>
+                                                                    {qty > 0 ? qty : ""}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
                                     </div>
-                                ))}
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        );
+                    })}
                 </div>
             )}
 
