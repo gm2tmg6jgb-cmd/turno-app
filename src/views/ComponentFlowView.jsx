@@ -84,7 +84,8 @@ const MATERIAL_PHASE_OVERRIDES = [
     { mat: "M0153389/S", fino: "0020", phase: "start_soft" },
     { mat: "M0153389/S", fino: "0025", phase: "dmc" },
     { mat: "M0153389/S", fino: "0050", phase: "dmc" },
-    { mat: "M0153401/S", fino: "0020", phase: "start_soft" }
+    { mat: "M0153401/S", fino: "0020", phase: "start_soft" },
+    { mat: "M0153401/S", fino: "0025", phase: "dmc" }
 ];
 
 const MACHINE_PHASE_OVERRIDES = {
