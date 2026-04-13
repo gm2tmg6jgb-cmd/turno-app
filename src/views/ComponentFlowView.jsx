@@ -8,6 +8,7 @@ const PROCESS_STEPS = [
     { id: "start_soft", label: "Soft Turning", code: "DRA" },
     { id: "dmc", label: "DMC", code: "ZSA" },
     { id: "laser_welding", label: "Saldatura Soft", code: "SCA" },
+    { id: "laser_welding_soft_2", label: "Saldatura Soft 2", code: "SCA" },
     { id: "shaping", label: "Stozzatura", code: "STW" },
     { id: "milling", label: "Fresatura", code: "FRA" },
     { id: "broaching", label: "Brocciatura", code: "RAA" },
@@ -32,26 +33,29 @@ const PROJECT_COMPONENTS = {
 };
 
 const EXCLUDED_PHASES = {
-    "DCT300": ["dmc", "milling", "broaching"], // deburring rimosso per permetterne l'uso mirato
+    "DCT300": ["dmc"], // milling e broaching rimossi dalle globali per gestione granulare
     "8 FE": [],
-    "DCT ECO": ["start_soft", "dmc", "broaching"]
+    "DCT ECO": ["start_soft", "dmc"]
 };
 
 const COMPONENT_EXCLUSIONS = {
-    "SG1": ["start_soft", "ut", "shaping", "grinding_cone", "laser_welding_2", "deburring"],
+    "SG1": ["start_soft", "ut", "shaping", "grinding_cone", "laser_welding_2", "deburring", "laser_welding_soft_2", "milling", "broaching", "shot_peening"],
     "DG-REV": [
         "start_hard", "dmc", "laser_welding", "laser_welding_2", "ut", "shaping", 
         "milling", "broaching", "deburring", "grinding_cone", "teeth_grinding", 
-        "washing", "ht", "assembly", "welding", "quality", "shot_peening"
+        "washing", "ht", "assembly", "welding", "quality", "shot_peening", "laser_welding_soft_2"
     ],
-    "DG": ["shaping", "laser_welding_2", "ut", "start_hard", "deburring"],
-    "SG3": ["shaping", "laser_welding", "laser_welding_2", "ut", "deburring"],
-    "SG4": ["shaping", "laser_welding_2", "ut", "deburring"],
-    "SG7": ["laser_welding", "laser_welding_2", "ut", "deburring"], // shaping rimosso (visibile solo qui)
-    "SGR": ["shaping", "laser_welding_2", "ut", "deburring"],
-    "RG": ["shaping", "laser_welding", "laser_welding_2", "ut"], // deburring NON in lista (visibile solo qui)
-    "SG5": ["laser_welding", "laser_welding_2", "shaping", "shot_peening", "deburring"],
-    "SG6": ["laser_welding", "laser_welding_2", "shaping", "shot_peening", "deburring"]
+    "DG": ["shaping", "laser_welding_2", "ut", "start_hard", "deburring", "laser_welding_soft_2", "milling", "broaching", "shot_peening"],
+    "SG3": ["shaping", "laser_welding", "laser_welding_2", "ut", "deburring", "milling", "broaching", "shot_peening"],
+    "SG4": ["laser_welding_2", "ut", "deburring", "laser_welding_soft_2", "broaching", "shot_peening"],
+    "SG7": ["laser_welding", "laser_welding_2", "ut", "deburring", "laser_welding_soft_2", "milling", "broaching", "shaping", "shot_peening"],
+    "SGR": ["shaping", "laser_welding_2", "ut", "deburring", "laser_welding_soft_2", "milling", "broaching", "shot_peening"],
+    "RG": ["shaping", "laser_welding", "laser_welding_2", "ut", "laser_welding_soft_2", "milling", "broaching"], // shot_peening VISIBILE
+    "SG5": ["laser_welding", "laser_welding_2", "shaping", "shot_peening", "deburring", "laser_welding_soft_2", "milling", "broaching"],
+    "SG6": ["laser_welding", "laser_welding_2", "shaping", "shot_peening", "deburring", "laser_welding_soft_2", "milling", "broaching"],
+    "SG2": ["shaping", "milling", "broaching", "shot_peening", "laser_welding_2", "ut", "grinding_cone", "deburring", "laser_welding_soft_2"],
+    "PG": ["shaping", "laser_welding", "laser_welding_2", "ut", "deburring", "milling", "laser_welding_soft_2", "start_hard", "grinding_cone", "shot_peening"],
+    "FG5/7": ["shaping", "laser_welding", "laser_welding_2", "ut", "deburring", "milling", "laser_welding_soft_2", "start_hard", "grinding_cone", "broaching"] // shot_peening VISIBILE
 };
 
 const MATERIAL_PHASE_OVERRIDES = [
@@ -62,7 +66,10 @@ const MATERIAL_PHASE_OVERRIDES = [
     { mat: "2511108150", fino: "0110", phase: "shot_peening" },
     { mat: "2511108150", fino: "0120", phase: "start_hard" },
     { mat: "2511108150", fino: "0230", phase: "teeth_grinding" },
-    { mat: "2511108150", fino: "0250", phase: "washing" }
+    { mat: "2511108150", fino: "0250", phase: "washing" },
+    { mat: "M0153389/S", fino: "0020", phase: "start_soft" },
+    { mat: "M0153389/S", fino: "0025", phase: "dmc" },
+    { mat: "M0153389/S", fino: "0050", phase: "dmc" }
 ];
 
 const MACHINE_PHASE_OVERRIDES = {
