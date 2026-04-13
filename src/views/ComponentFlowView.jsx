@@ -33,7 +33,7 @@ const PROJECT_COMPONENTS = {
 };
 
 const EXCLUDED_PHASES = {
-    "DCT300": ["dmc"], // milling e broaching rimossi dalle globali per gestione granulare
+    "DCT300": ["dmc", "broaching"], // milling tolto dalle globali per attivazione selettiva su SG4
     "8 FE": [],
     "DCT ECO": ["start_soft", "dmc"]
 };
@@ -41,21 +41,24 @@ const EXCLUDED_PHASES = {
 const COMPONENT_EXCLUSIONS = {
     "SG1": ["start_soft", "ut", "shaping", "grinding_cone", "laser_welding_2", "deburring", "laser_welding_soft_2", "milling", "broaching", "shot_peening"],
     "DG-REV": [
-        "start_hard", "dmc", "laser_welding", "laser_welding_2", "ut", "shaping", 
-        "milling", "broaching", "deburring", "grinding_cone", "teeth_grinding", 
+        "start_hard", "dmc", "laser_welding", "laser_welding_2", "ut", "shaping",
+        "milling", "broaching", "deburring", "grinding_cone", "teeth_grinding",
         "washing", "ht", "assembly", "welding", "quality", "shot_peening", "laser_welding_soft_2"
     ],
     "DG": ["shaping", "laser_welding_2", "ut", "start_hard", "deburring", "laser_welding_soft_2", "milling", "broaching", "shot_peening"],
-    "SG3": ["shaping", "laser_welding", "laser_welding_2", "ut", "deburring", "milling", "broaching", "shot_peening"],
+    "SG3": ["shaping", "laser_welding", "laser_welding_2", "ut", "milling", "broaching", "shot_peening"],
     "SG4": ["laser_welding_2", "ut", "deburring", "laser_welding_soft_2", "broaching", "shot_peening"],
-    "SG7": ["laser_welding", "laser_welding_2", "ut", "deburring", "laser_welding_soft_2", "milling", "broaching", "shaping", "shot_peening"],
+    "SG7": ["laser_welding", "laser_welding_2", "ut", "deburring", "laser_welding_soft_2", "milling", "broaching", "shaping", "shot_peening", "start_hard"],
     "SGR": ["shaping", "laser_welding_2", "ut", "deburring", "laser_welding_soft_2", "milling", "broaching", "shot_peening"],
     "RG": ["shaping", "laser_welding", "laser_welding_2", "ut", "laser_welding_soft_2", "milling", "broaching"], // shot_peening VISIBILE
-    "SG5": ["laser_welding", "laser_welding_2", "shaping", "shot_peening", "deburring", "laser_welding_soft_2", "milling", "broaching"],
-    "SG6": ["laser_welding", "laser_welding_2", "shaping", "shot_peening", "deburring", "laser_welding_soft_2", "milling", "broaching"],
-    "SG2": ["shaping", "milling", "broaching", "shot_peening", "laser_welding_2", "ut", "grinding_cone", "deburring", "laser_welding_soft_2"],
+    "SG5": ["laser_welding", "laser_welding_2", "shaping", "shot_peening", "laser_welding_soft_2", "milling", "broaching"],
+    "SG6": ["laser_welding", "laser_welding_2", "shaping", "shot_peening", "deburring", "laser_welding_soft_2", "milling", "broaching", "start_hard"],
+    "SG2": ["shaping", "milling", "broaching", "shot_peening", "laser_welding_2", "ut", "grinding_cone", "laser_welding_soft_2"],
     "PG": ["shaping", "laser_welding", "laser_welding_2", "ut", "deburring", "milling", "laser_welding_soft_2", "start_hard", "grinding_cone", "shot_peening"],
-    "FG5/7": ["shaping", "laser_welding", "laser_welding_2", "ut", "deburring", "milling", "laser_welding_soft_2", "start_hard", "grinding_cone", "broaching"] // shot_peening VISIBILE
+    "FG5/7": ["shaping", "laser_welding", "laser_welding_2", "ut", "milling", "laser_welding_soft_2", "start_hard", "grinding_cone", "broaching"], // shot_peening VISIBILE
+    "SG8": ["milling", "broaching", "shaping", "deburring", "shot_peening", "start_hard", "laser_welding_2", "ut"],
+    "RG FD1": ["laser_welding", "shaping", "milling", "broaching", "laser_welding_2", "ut", "grinding_cone"],
+    "RG FD2": ["laser_welding", "shaping", "milling", "broaching", "laser_welding_2", "ut", "grinding_cone"]
 };
 
 const MATERIAL_PHASE_OVERRIDES = [
@@ -126,11 +129,11 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
         if (!bulkText.trim()) return;
         const lines = bulkText.split("\n");
         const newRules = [];
-        
+
         lines.forEach(line => {
             if (!line.trim()) return;
             const parts = line.toUpperCase().replace(/,/g, " ").replace(/-/g, " ").split(/\s+/);
-            
+
             // Cerca codice materiale (es. 2511108150 o M017... )
             const mat = parts.find(p => /^\d{5,}/.test(p) || p.startsWith("M01"));
             // Cerca fino (es. 0060, 0120) - di solito 4 cifre
@@ -241,7 +244,7 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
 
             // 3. Fetch production data
             const selectFields = "data, materiale, work_center_sap, macchina_id, qta_ottenuta, turno_id, fino";
-            
+
             const queryFactory = () => {
                 let q = supabase.from("conferme_sap").select(selectFields);
                 if (viewMode === "weekly") {
@@ -301,6 +304,9 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
 
                     if (comp === "SG2-REV") comp = "DG-REV";
 
+                    // EXCLUSION: Eliminate RG from 8 FE
+                    if (activeProject === "8 FE" && comp === "RG") return;
+
                     projectComponents.add(comp);
 
                     const wc = (r.macchina_id || r.work_center_sap || "").toUpperCase();
@@ -326,12 +332,12 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
             console.log(`[ComponentFlow] Scartati: ${skippedNoInfo} senza anagrafica, ${skippedWrongProject} progetto errato, ${skippedNoPhase} senza fase`);
 
             if (skippedNoInfo > 0) {
-                const top = Object.entries(unmappedMaterials).sort((a,b) => b[1]-a[1]).slice(0, 10);
-                console.log(`[ComponentFlow] Top materiali senza anagrafica:`, top.map(([m,n]) => `${m} (${n})`).join(", "));
+                const top = Object.entries(unmappedMaterials).sort((a, b) => b[1] - a[1]).slice(0, 10);
+                console.log(`[ComponentFlow] Top materiali senza anagrafica:`, top.map(([m, n]) => `${m} (${n})`).join(", "));
             }
             if (skippedNoPhase > 0) {
-                const top = Object.entries(unmappedWC).sort((a,b) => b[1]-a[1]).slice(0, 15);
-                console.log(`[ComponentFlow] Top work center senza fase:`, top.map(([wc,n]) => `${wc} (${n})`).join(", "));
+                const top = Object.entries(unmappedWC).sort((a, b) => b[1] - a[1]).slice(0, 15);
+                console.log(`[ComponentFlow] Top work center senza fase:`, top.map(([wc, n]) => `${wc} (${n})`).join(", "));
             }
 
             setMatrixData(newMatrix);
@@ -340,7 +346,7 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
             const foundOthers = Array.from(projectComponents)
                 .filter(c => !fixedList.includes(c))
                 .sort();
-            
+
             setComponents([...fixedList, ...foundOthers]);
 
         } catch (err) {
@@ -459,7 +465,7 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                         </div>
                     )}
 
-                    <button 
+                    <button
                         onClick={() => setShowParser(!showParser)}
                         style={{
                             padding: "6px 12px", background: "var(--bg-tertiary)", color: "var(--text-primary)",
@@ -482,8 +488,8 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                             <button className="btn btn-secondary btn-sm" onClick={() => setDynamicOverrides([])}>Svuota</button>
                         </div>
                     </div>
-                    
-                    <textarea 
+
+                    <textarea
                         value={bulkText}
                         onChange={(e) => setBulkText(e.target.value)}
                         placeholder="Incolla qui (es: SG1 LAVAGGIO 2511108150 0250)..."
@@ -549,9 +555,9 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
 
                                 {/* Component Rows */}
                                 {components.map((comp, cIdx) => (
-                                    <div key={comp} style={{ 
-                                        display: "flex", 
-                                        alignItems: "center", 
+                                    <div key={comp} style={{
+                                        display: "flex",
+                                        alignItems: "center",
                                         padding: "16px 8px",
                                         background: cIdx % 2 === 0 ? "rgba(0,0,0,0.03)" : "transparent",
                                         borderBottom: "2px solid var(--border)",
@@ -568,13 +574,28 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                             {visibleSteps.map((step, idx) => {
                                                 const data = matrixData[comp]?.[step.id];
                                                 const qty = data?.value || 0;
-                                                const isExcluded = COMPONENT_EXCLUSIONS[comp]?.includes(step.id);
-                                                
+                                                let isExcluded = COMPONENT_EXCLUSIONS[comp]?.includes(step.id);
+
+                                                // Dynamic exclusions for DCT 300
+                                                if (activeProject === "DCT300" && ["SG7", "SGR", "RG"].includes(comp) && step.id === "grinding_cone") {
+                                                    isExcluded = true;
+                                                }
+
+                                                // Dynamic exclusions for 8 FE (Hide Soft Welding 2 unless it's SG3)
+                                                if (activeProject === "8 FE" && comp !== "SG3" && step.id === "laser_welding_soft_2") {
+                                                    isExcluded = true;
+                                                }
+
+                                                // Dynamic exclusions for DH components (Only keep start_hard)
+                                                if (comp.startsWith("DH") && step.id !== "start_hard") {
+                                                    isExcluded = true;
+                                                }
+
                                                 if (isExcluded) return <div key={idx} style={{ width: "100px", flexShrink: 0 }} />;
 
                                                 return (
                                                     <div key={idx} style={{ width: "100px", display: "flex", justifyContent: "center", flexShrink: 0 }}>
-                                                        <div 
+                                                        <div
                                                             onClick={() => {
                                                                 setSelectedDetail({
                                                                     title: `${comp} - ${step.label}`,
@@ -584,21 +605,21 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                                                 });
                                                             }}
                                                             style={{
-                                                            width: "80px",
-                                                            height: "50px",
-                                                            background: isExcluded ? "var(--bg-primary)" : (qty > 0 ? "linear-gradient(135deg, #3c6ef0, #1e40af)" : "var(--bg-tertiary)"),
-                                                            borderRadius: "10px",
-                                                            display: "flex",
-                                                            flexDirection: "column",
-                                                            alignItems: "center",
-                                                            justifyContent: "center",
-                                                            color: isExcluded ? "var(--text-muted)" : (qty > 0 ? "white" : "var(--text-muted)"),
-                                                            border: isExcluded ? "1px solid var(--border)" : (qty > 0 ? "none" : "1px dashed var(--border)"),
-                                                            boxShadow: (qty > 0 && !isExcluded) ? "0 4px 10px rgba(60, 110, 240, 0.2)" : "none",
-                                                            opacity: isExcluded ? 0.3 : (qty > 0 ? 1 : 0.6),
-                                                            transition: "all 0.2s",
-                                                            cursor: "pointer"
-                                                        }}>
+                                                                width: "80px",
+                                                                height: "50px",
+                                                                background: isExcluded ? "var(--bg-primary)" : (qty > 0 ? "linear-gradient(135deg, #3c6ef0, #1e40af)" : "var(--bg-tertiary)"),
+                                                                borderRadius: "10px",
+                                                                display: "flex",
+                                                                flexDirection: "column",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                color: isExcluded ? "var(--text-muted)" : (qty > 0 ? "white" : "var(--text-muted)"),
+                                                                border: isExcluded ? "1px solid var(--border)" : (qty > 0 ? "none" : "1px dashed var(--border)"),
+                                                                boxShadow: (qty > 0 && !isExcluded) ? "0 4px 10px rgba(60, 110, 240, 0.2)" : "none",
+                                                                opacity: isExcluded ? 0.3 : (qty > 0 ? 1 : 0.6),
+                                                                transition: "all 0.2s",
+                                                                cursor: "pointer"
+                                                            }}>
                                                             <div style={{ fontSize: "14px", fontWeight: "900" }}>{isExcluded ? "N/A" : qty}</div>
                                                             {qty > 0 && !isExcluded && <div style={{ fontSize: "8px", fontWeight: "700", opacity: 0.8 }}>PEZZI</div>}
                                                         </div>
@@ -659,7 +680,7 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                                 <td style={{ padding: "10px", fontSize: "13px", fontWeight: "bold" }}>{r.macchina}</td>
                                                 <td style={{ padding: "10px", fontSize: "14px", fontWeight: "bold", textAlign: "right", color: "#3c6ef0" }}>{r.qta_ottenuta}</td>
                                                 <td style={{ padding: "10px", textAlign: "center" }}>
-                                                    <button 
+                                                    <button
                                                         onClick={() => {
                                                             const existingMats = compMappings[selectedDetail.compName] || [];
                                                             setMappingModal({
@@ -681,7 +702,7 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                     ) : (
                                         <tr>
                                             <td colSpan="6" style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>
-                                                Nessun record trovato in questa fase. 
+                                                Nessun record trovato in questa fase.
                                                 <div style={{ marginTop: "12px" }}>
                                                     <button className="btn btn-primary btn-sm" onClick={() => {
                                                         const existingMats = compMappings[selectedDetail.compName] || [];
@@ -710,48 +731,48 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                 <div className="modal-backdrop" style={{ zIndex: 2000 }}>
                     <div className="modal-content" style={{ width: "400px", padding: "24px" }}>
                         <h2 style={{ fontSize: "18px", marginBottom: "20px" }}>Associa a {mappingModal.currentComp}</h2>
-                        
+
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
                             <div>
                                 <label style={{ display: "block", fontSize: "11px", marginBottom: "4px", fontWeight: "bold" }}>Codice Materiale 1</label>
-                                <input 
+                                <input
                                     type="text"
                                     placeholder="es: 2511108150"
                                     value={mappingModal.mat}
-                                    onChange={(e) => setMappingModal({...mappingModal, mat: e.target.value.toUpperCase()})}
+                                    onChange={(e) => setMappingModal({ ...mappingModal, mat: e.target.value.toUpperCase() })}
                                     style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border)" }}
                                 />
                             </div>
                             <div>
                                 <label style={{ display: "block", fontSize: "11px", marginBottom: "4px", fontWeight: "bold" }}>Codice Materiale 2 (Opt)</label>
-                                <input 
+                                <input
                                     type="text"
                                     placeholder="es: 2511108160"
                                     value={mappingModal.mat2}
-                                    onChange={(e) => setMappingModal({...mappingModal, mat2: e.target.value.toUpperCase()})}
+                                    onChange={(e) => setMappingModal({ ...mappingModal, mat2: e.target.value.toUpperCase() })}
                                     style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border)" }}
                                 />
                             </div>
                         </div>
-                        
+
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "20px" }}>
                             <div>
                                 <label style={{ display: "block", fontSize: "11px", marginBottom: "4px", fontWeight: "bold" }}>Operazione (Fino a)</label>
-                                <input 
+                                <input
                                     type="text"
                                     placeholder="es: 0010"
                                     value={mappingModal.fino}
-                                    onChange={(e) => setMappingModal({...mappingModal, fino: e.target.value})}
+                                    onChange={(e) => setMappingModal({ ...mappingModal, fino: e.target.value })}
                                     style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border)" }}
                                 />
                             </div>
                             <div>
                                 <label style={{ display: "block", fontSize: "11px", marginBottom: "4px", fontWeight: "bold" }}>Macchina</label>
-                                <input 
+                                <input
                                     type="text"
                                     placeholder="es: DRA101"
                                     value={mappingModal.machine}
-                                    onChange={(e) => setMappingModal({...mappingModal, machine: e.target.value.toUpperCase()})}
+                                    onChange={(e) => setMappingModal({ ...mappingModal, machine: e.target.value.toUpperCase() })}
                                     style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border)" }}
                                 />
                             </div>
@@ -759,9 +780,9 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
 
                         <div style={{ marginBottom: "16px" }}>
                             <label style={{ display: "block", fontSize: "12px", marginBottom: "6px" }}>Componente Destinatario</label>
-                            <select 
+                            <select
                                 value={mappingModal.currentComp}
-                                onChange={(e) => setMappingModal({...mappingModal, currentComp: e.target.value})}
+                                onChange={(e) => setMappingModal({ ...mappingModal, currentComp: e.target.value })}
                                 style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border)" }}
                             >
                                 {components.map(c => <option key={c} value={c}>{c}</option>)}
@@ -770,9 +791,9 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
 
                         <div style={{ marginBottom: "24px" }}>
                             <label style={{ display: "block", fontSize: "12px", marginBottom: "6px" }}>Fase Destinataria</label>
-                            <select 
+                            <select
                                 value={mappingModal.currentPhase}
-                                onChange={(e) => setMappingModal({...mappingModal, currentPhase: e.target.value})}
+                                onChange={(e) => setMappingModal({ ...mappingModal, currentPhase: e.target.value })}
                                 style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border)" }}
                             >
                                 {PROCESS_STEPS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
@@ -781,11 +802,11 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
 
                         <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px" }}>
                             <button className="btn btn-secondary" onClick={() => setMappingModal(null)}>Annulla</button>
-                            
+
                             {/* Delete Button (only if we have at least one material or machine) */}
                             {(mappingModal.mat || mappingModal.machine) && (
-                                <button 
-                                    className="btn btn-danger" 
+                                <button
+                                    className="btn btn-danger"
                                     style={{ background: "#ef4444", color: "white" }}
                                     onClick={async () => {
                                         if (!window.confirm("Sei sicuro di voler eliminare questa associazione?")) return;
@@ -816,7 +837,7 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                             <button className="btn btn-primary" onClick={async () => {
                                 try {
                                     const matsToSave = [mappingModal.mat, mappingModal.mat2].filter(m => m && m.trim() !== "");
-                                    
+
                                     for (const mCode of matsToSave) {
                                         // 1. Double Material Save in anagrafica_materiali
                                         const { data: existing, error: selErr } = await supabase
