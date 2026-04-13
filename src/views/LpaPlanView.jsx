@@ -84,7 +84,13 @@ export default function LpaPlanView({ macchine, dipendenti, showToast, turnoCorr
     const [view, setView] = useState("dashboard"); // dashboard, stats, grid
     const [data, setData] = useState(() => {
         const saved = localStorage.getItem("lpa_data_2026");
-        return saved ? JSON.parse(saved) : {};
+        if (!saved) return {};
+        try {
+            const parsed = JSON.parse(saved);
+            return (parsed && typeof parsed === "object") ? parsed : {};
+        } catch (e) {
+            return {};
+        }
     });
 
     useEffect(() => {
@@ -159,7 +165,8 @@ export default function LpaPlanView({ macchine, dipendenti, showToast, turnoCorr
             });
         }
 
-        return resultByTurno[turnoCorrente || "A"];
+        const validTurno = (turnoCorrente && turni.includes(turnoCorrente)) ? turnoCorrente : "A";
+        return resultByTurno[validTurno];
     }, [currentWeek, machinesByTeam, macchine, turnoCorrente]);
 
     const updateStatus = (week, teamId, dayIdx, machineId, status) => {
@@ -396,7 +403,7 @@ export default function LpaPlanView({ macchine, dipendenti, showToast, turnoCorr
                     <div className="card" style={{ gridColumn: "span 4", padding: 20, textAlign: "center" }}>
                         <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 20 }}>Rendimento Programma LPA 2026</h3>
                         {(() => {
-                            const entries = Object.entries(data).filter(([key]) => key.startsWith(`${turnoCorrente}_`));
+                            const entries = Object.entries(data || {}).filter(([key]) => key.startsWith(`${turnoCorrente}_`));
                             const total = entries.length;
                             const completed = entries.filter(([_, v]) => v === "Sì").length;
                             const failures = entries.filter(([_, v]) => v === "No").length;

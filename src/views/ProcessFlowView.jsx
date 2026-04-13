@@ -26,12 +26,12 @@ const PROCESS_STEPS = [
 
 const PROJECTS = ["DCT300", "8Fedct", "DCTeco"];
 
-// Mapping of step codes to an array of project names that should NOT be displayed
+const TRACKED_COMPONENTS = ["SG1", "SG2", "SG3", "SG4", "SG5", "SG6", "SG7", "SG8", "SGR", "PG", "RG", "FG5/7"];
 const EXCLUDED_PROJECTS_BY_STEP = {
-    "DRA": ["DCTeco"], // previously ST
-    "ZSA": ["DCTeco", "DCT300"], // previously DMC
-    "EGW": ["DCT300"], // previously DBR
-    "FRA": ["DCT300"], // previously MIL
+    "DRA": ["DCTeco"], 
+    "ZSA": ["DCTeco", "DCT300"],
+    "EGW": ["DCT300"],
+    "FRA": ["DCT300"],
     "RAA": ["DCTeco", "DCT300"]
 };
 
@@ -80,15 +80,12 @@ export default function ProcessFlowView({ macchine, showToast, setCurrentView, g
 
     // Initialize empty structures for all sections
     const getInitFlow = () => PROCESS_STEPS.map(step => {
-        const exclusions = EXCLUDED_PROJECTS_BY_STEP[step.code] || [];
         return {
             code: step.code,
             label: step.label,
             phase: step.phase,
             total: 0,
-            projects: PROJECTS
-                .filter(p => !exclusions.includes(p))
-                .map(p => ({ name: p, value: 0, records: [] }))
+            components: {} // { "SG5": { value: 0, records: [] } }
         };
     });
 
@@ -265,16 +262,21 @@ export default function ProcessFlowView({ macchine, showToast, setCurrentView, g
                         if (!sec) return;
                         const stepIdx = sec.findIndex(s => s.phase === phase);
                         if (stepIdx !== -1) {
-                            const projIdx = sec[stepIdx].projects.findIndex(p => p.name === proj);
-                            if (projIdx !== -1) {
-                                sec[stepIdx].projects[projIdx].value += r.qta_ottenuta;
-                                sec[stepIdx].projects[projIdx].records.push({
-                                    ...r,
-                                    matCode,
-                                    macchina: macchinaLabel
-                                });
-                                sec[stepIdx].total = sec[stepIdx].projects.reduce((acc, p) => acc + p.value, 0);
+                            const componentName = info?.componente?.toUpperCase() || "ALTRO";
+                            
+                            if (!sec[stepIdx].components[componentName]) {
+                                sec[stepIdx].components[componentName] = { value: 0, records: [] };
                             }
+                            
+                            sec[stepIdx].components[componentName].value += r.qta_ottenuta;
+                            sec[stepIdx].components[componentName].records.push({
+                                ...r,
+                                matCode,
+                                componente: componentName,
+                                macchina: macchinaLabel
+                            });
+                            
+                            sec[stepIdx].total = Object.values(sec[stepIdx].components).reduce((acc, c) => acc + c.value, 0);
                         }
                     };
 
@@ -365,14 +367,14 @@ export default function ProcessFlowView({ macchine, showToast, setCurrentView, g
 
                         return (
                             <React.Fragment key={index}>
-                                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
-                                    {/* Main Box */}
+                                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px" }}>
+                                    {/* Main Box: Total per Phase */}
                                     <div
                                         style={{
                                             background: "linear-gradient(145deg, #3c6ef0, #2f5bd6)",
                                             color: "white",
-                                            width: "110px",
-                                            padding: "10px 8px",
+                                            width: "120px",
+                                            padding: "12px 8px",
                                             borderRadius: "15px",
                                             textAlign: "center",
                                             boxShadow: "0 8px 18px rgba(0,0,0,0.15)",
@@ -384,7 +386,7 @@ export default function ProcessFlowView({ macchine, showToast, setCurrentView, g
                                         }}
                                         onClick={() => {
                                             if (step.total > 0) {
-                                                const allRecords = step.projects.reduce((acc, p) => acc.concat(p.records), []);
+                                                const allRecords = Object.values(step.components).reduce((acc, c) => acc.concat(c.records), []);
                                                 setSelectedDetail({
                                                     title: `${title} - ${step.label} - Totale Generale`,
                                                     records: allRecords
@@ -405,40 +407,45 @@ export default function ProcessFlowView({ macchine, showToast, setCurrentView, g
                                         <div style={{ fontSize: "9px", opacity: 0.9, letterSpacing: 0.5, textTransform: "uppercase" }}>{step.label}</div>
                                     </div>
 
-                                    {/* Sub-Projects Boxes */}
-                                    <div style={{ display: "flex", gap: "6px", width: "100%", justifyContent: "center" }}>
-                                        {step.projects.map((proj, pIdx) => (
-                                            <div key={pIdx}
-                                                onClick={() => {
-                                                    if (proj.value > 0) {
-                                                        setSelectedDetail({
-                                                            title: `${title} - ${step.label} - ${proj.name}`,
-                                                            records: proj.records
-                                                        });
-                                                    }
-                                                }}
-                                                style={{
-                                                    background: "var(--bg-tertiary)",
-                                                    border: "1px solid var(--border)",
-                                                    borderRadius: "8px",
-                                                    padding: "6px 2px",
-                                                    textAlign: "center",
-                                                    flex: 1,
-                                                    minWidth: 0,
-                                                    cursor: proj.value > 0 ? "pointer" : "default",
-                                                    transition: "background 0.2s"
-                                                }}
-                                                onMouseEnter={(e) => {
-                                                    if (proj.value > 0) e.currentTarget.style.background = "var(--bg-hover)";
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    e.currentTarget.style.background = "var(--bg-tertiary)";
-                                                }}
-                                            >
-                                                <div style={{ fontSize: "9px", color: "var(--text-muted)", fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={proj.name}>{proj.name}</div>
-                                                <div style={{ fontSize: "13px", color: "var(--text-primary)", fontWeight: 800 }}>{proj.value}</div>
-                                            </div>
-                                        ))}
+                                    {/* Sub-Components Boxes: Detail per Component */}
+                                    <div style={{ display: "flex", gap: "4px", width: "100%", justifyContent: "center", flexWrap: "wrap", maxWidth: "160px" }}>
+                                        {Object.entries(step.components)
+                                            .sort((a, b) => b[1].value - a[1].value)
+                                            .slice(0, 12)
+                                            .map(([name, compData], cIdx) => {
+                                                const isTracked = TRACKED_COMPONENTS.includes(name);
+                                                return (
+                                                    <div key={cIdx}
+                                                        onClick={() => {
+                                                            if (compData.value > 0) {
+                                                                setSelectedDetail({
+                                                                    title: `${title} - ${step.label} - Componente ${name}`,
+                                                                    records: compData.records
+                                                                });
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            background: isTracked ? "rgba(60, 110, 240, 0.1)" : "var(--bg-tertiary)",
+                                                            border: isTracked ? "1px solid rgba(60, 110, 240, 0.4)" : "1px solid var(--border)",
+                                                            borderRadius: "6px",
+                                                            padding: "4px 2px",
+                                                            textAlign: "center",
+                                                            width: "48px",
+                                                            cursor: compData.value > 0 ? "pointer" : "default",
+                                                            transition: "all 0.2s"
+                                                        }}
+                                                        onMouseEnter={(e) => {
+                                                            if (compData.value > 0) e.currentTarget.style.background = "var(--bg-hover)";
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            e.currentTarget.style.background = isTracked ? "rgba(60, 110, 240, 0.1)" : "var(--bg-tertiary)";
+                                                        }}
+                                                    >
+                                                        <div style={{ fontSize: "8px", color: isTracked ? "#3c6ef0" : "var(--text-muted)", fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden" }}>{name}</div>
+                                                        <div style={{ fontSize: "11px", color: "var(--text-primary)", fontWeight: 800 }}>{compData.value}</div>
+                                                    </div>
+                                                );
+                                            })}
                                     </div>
                                 </div>
 

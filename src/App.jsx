@@ -25,6 +25,7 @@ import SkillsView from "./views/SkillsView";
 import FormazioneView from "./views/FormazioneView";
 import ZoneView from "./views/ZoneView";
 import Op10View from "./views/Op10View";
+import ComponentFlowView from "./views/ComponentFlowView";
 import AnagraficaView from "./views/AnagraficaView";
 import MotiviView from "./views/MotiviView";
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
@@ -215,6 +216,7 @@ export default function App() {
     { id: "formazione", label: "Formazione", icon: Icons.academic },
     { id: "lpaPlan", label: "Piano LPA", icon: Icons.calendar },
     { id: "processFlow", label: "Flusso di Processo", icon: Icons.users },
+    { id: "componentFlow", label: "Avanzamento Componenti", icon: Icons.report, status: "new" },
     { id: "weisserPriorities", label: "Priorità Macchine", icon: Icons.filter },
     { id: "prioritiesSummary", label: "Riepilogo Priorità", icon: Icons.dashboard, status: "new" },
     { id: "productionFlowReport", label: "Flusso Report Produzione", icon: Icons.report, status: "new" },
@@ -234,6 +236,7 @@ export default function App() {
     report: "Report Fine Turno",
     sapHub: "Hub Gestione SAP",
     processFlow: "Flusso di Processo",
+    componentFlow: "Avanzamento Componenti",
     weisserPriorities: "Priorità Macchine",
     prioritiesSummary: "Riepilogo Priorità Macchine",
     productionFlowReport: "Flusso Report Produzione",
@@ -360,6 +363,7 @@ export default function App() {
                 {renderItem(ni("op10"))}
                 {renderItem(ni("sapHub"))}
                 {renderItem(ni("processFlow"))}
+                {renderItem(ni("componentFlow"))}
                 {renderItem(ni("weisserPriorities"))}
                 {renderItem(ni("prioritiesSummary"))}
                 {renderItem(ni("productionFlowReport"))}
@@ -514,6 +518,9 @@ export default function App() {
 
           {currentView === "processFlow" && (
             <ProcessFlowView macchine={macchine} showToast={showToast} setCurrentView={setCurrentView} globalDate={globalDate} turnoCorrente={turnoCorrente} setTurnoCorrente={setTurnoCorrente} />
+          )}
+          {currentView === "componentFlow" && (
+            <ComponentFlowView macchine={macchine} showToast={showToast} globalDate={globalDate} />
           )}
           {currentView === "weisserPriorities" && (
             <WeisserPrioritiesView turnoCorrente={turnoCorrente} />

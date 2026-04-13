@@ -47,20 +47,71 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
   const [isDeletingMachine, setIsDeletingMachine] = useState(false);
   const [deletedMachineIds, setDeletedMachineIds] = useState(new Set());
 
+  // Week / Day view mode
+  const [viewMode, setViewMode] = useState("day"); // "day" | "week"
+
+  // Helper: converte Date a stringa locale "YYYY-MM-DD" senza problemi di timezone
+  const toLocalDateStr = (d) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+
+  const [weekStart, setWeekStart] = useState(() => {
+    const today = new Date();
+    const day = today.getDay(); // 0=dom, 1=lun...
+    const diff = (day === 0 ? -6 : 1 - day);
+    const mon = new Date(today);
+    mon.setDate(today.getDate() + diff);
+    return toLocalDateStr(mon);
+  });
+
+  const getWeekRange = (startDate) => {
+    // Costruisce il range evitando conversioni UTC
+    const [y, mo, d] = startDate.split("-").map(Number);
+    const start = new Date(y, mo - 1, d);
+    const end = new Date(y, mo - 1, d + 6);
+    return {
+      from: toLocalDateStr(start),
+      to: toLocalDateStr(end),
+    };
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
         const date = globalDate || new Date().toISOString().split("T")[0];
 
-        // 1. Fetch production
-        let query = supabase.from("conferme_sap").select("*").eq("data", date);
-        if (turnoCorrente && turnoCorrente !== "ALL") {
-          query = query.eq("turno_id", turnoCorrente);
-        }
+        // Paginating helper to bypass 1000 rows PostgREST limit
+        const fetchAll = async (table, selectCols = "*") => {
+          let allData = [];
+          let start = 0;
+          const step = 1000;
+          while (true) {
+            let q = supabase.from(table).select(selectCols).range(start, start + step - 1);
+            if (viewMode === "week") {
+              const { from, to } = getWeekRange(weekStart);
+              q = q.gte("data", from).lte("data", to);
+            } else {
+              q = q.eq("data", date);
+            }
+            if (turnoCorrente && turnoCorrente !== "ALL") {
+              q = q.eq("turno_id", turnoCorrente);
+            }
+            const { data, error } = await q;
+            if (error) throw error;
+            if (!data || data.length === 0) break;
+            allData = allData.concat(data);
+            if (data.length < step) break;
+            start += step;
+          }
+          return allData;
+        };
 
-        const { data: prodData, error } = await query;
-        if (error) throw error;
+        // 1. Fetch production (giornaliero o settimanale completi)
+        const prodData = await fetchAll("conferme_sap");
 
         // Group by machine and component
         const grouped = {};
@@ -140,12 +191,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         // For now I'll just store scarti in a ref or local var if I need it machine-wide.
         setHasSoftProduction(softMachines);
 
-        // 3. Fetch Fermi (downtimes)
-        let fermiQuery = supabase.from("fermi_macchina").select("macchina_id, durata_minuti, motivo, is_automazione").eq("data", date);
-        if (turnoCorrente && turnoCorrente !== "ALL") {
-          fermiQuery = fermiQuery.eq("turno_id", turnoCorrente);
-        }
-        const { data: fData } = await fermiQuery;
+        // 3. Fetch Fermi (downtimes completi)
+        const fData = await fetchAll("fermi_macchina", "macchina_id, durata_minuti, motivo, is_automazione");
         const fMap = {};
         if (fData) {
           fData.forEach(row => {
@@ -188,10 +235,10 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
       }
     };
 
-    if (globalDate) {
+    if (viewMode === "week" ? weekStart : globalDate) {
       fetchData();
     }
-  }, [globalDate, turnoCorrente]);
+  }, [globalDate, turnoCorrente, viewMode, weekStart]);
 
   const allMachines = React.useMemo(() => {
     // Combine base macchine with newly added/edited ones, respecting deletions
@@ -589,13 +636,53 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
         <div>
           <h1 style={{ fontSize: "28px", fontWeight: "800", marginBottom: "8px" }}>Report Flusso di Processo</h1>
           <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>
-            Dati del <strong>{formatItalianDate(globalDate || new Date().toISOString().split("T")[0])}</strong> -
+            {viewMode === "week" ? (() => {
+              const { from, to } = getWeekRange(weekStart);
+              return <><strong>Settimana</strong>: {formatItalianDate(from)} — {formatItalianDate(to)}</>;
+            })() : (
+              <>Dati del <strong>{formatItalianDate(globalDate || new Date().toISOString().split("T")[0])}</strong></>
+            )}{" — "}
             Turno <strong>{turnoCorrente === "ALL" ? "Tutti" : turnoCorrente}</strong>
           </p>
         </div>
 
         <div style={{ display: "flex", gap: "12px", alignItems: "flex-end" }}>
-          {/* Date picker */}
+
+          {/* Giorno / Settimana toggle */}
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-muted)", letterSpacing: "0.5px", textTransform: "uppercase" }}>Vista</label>
+            <div style={{ display: "flex", background: "var(--bg-tertiary)", borderRadius: "10px", border: "1px solid var(--border)", overflow: "hidden", height: "38px" }}>
+              <button
+                onClick={() => setViewMode("day")}
+                style={{
+                  padding: "0 14px",
+                  border: "none",
+                  background: viewMode === "day" ? "var(--accent)" : "transparent",
+                  color: viewMode === "day" ? "white" : "var(--text-secondary)",
+                  fontWeight: "700",
+                  fontSize: "13px",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+              >Giorno</button>
+              <button
+                onClick={() => setViewMode("week")}
+                style={{
+                  padding: "0 14px",
+                  border: "none",
+                  background: viewMode === "week" ? "var(--accent)" : "transparent",
+                  color: viewMode === "week" ? "white" : "var(--text-secondary)",
+                  fontWeight: "700",
+                  fontSize: "13px",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+              >Settimana</button>
+            </div>
+          </div>
+
+          {/* Date picker — solo in modalità giorno */}
+          {viewMode === "day" && (
           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
             <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-muted)", letterSpacing: "0.5px", textTransform: "uppercase" }}>Data</label>
             <input
@@ -619,6 +706,61 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               }}
             />
           </div>
+          )}
+
+          {/* Week picker — solo in modalità settimana */}
+          {viewMode === "week" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-muted)", letterSpacing: "0.5px", textTransform: "uppercase" }}>Settimana (da Lun)</label>
+            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+              <button
+                onClick={() => {
+                  const [y, m, d] = weekStart.split("-").map(Number);
+                  const dt = new Date(y, m - 1, d - 7);
+                  setWeekStart(toLocalDateStr(dt));
+                }}
+                style={{ height: "38px", padding: "0 10px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)", cursor: "pointer", fontSize: "16px" }}
+              >‹</button>
+              <input
+                type="date"
+                value={weekStart}
+                onChange={(e) => {
+                  if (!e.target.value) return;
+                  // Forza il lunedì della settimana selezionata
+                  const [y, m, d] = e.target.value.split("-").map(Number);
+                  const dt = new Date(y, m - 1, d);
+                  const day = dt.getDay();
+                  const diff = (day === 0 ? -6 : 1 - day);
+                  dt.setDate(dt.getDate() + diff);
+                  setWeekStart(toLocalDateStr(dt));
+                }}
+                style={{
+                  padding: "0 12px",
+                  borderRadius: "10px",
+                  border: "1px solid var(--border)",
+                  backgroundColor: "var(--bg-card)",
+                  color: "var(--text-primary)",
+                  fontWeight: "700",
+                  fontSize: "14px",
+                  outline: "none",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  width: "150px",
+                  height: "38px",
+                  boxSizing: "border-box"
+                }}
+              />
+              <button
+                onClick={() => {
+                  const [y, m, d] = weekStart.split("-").map(Number);
+                  const dt = new Date(y, m - 1, d + 7);
+                  setWeekStart(toLocalDateStr(dt));
+                }}
+                style={{ height: "38px", padding: "0 10px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)", cursor: "pointer", fontSize: "16px" }}
+              >›</button>
+            </div>
+          </div>
+          )}
 
           {/* Turno selector */}
           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
@@ -871,7 +1013,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
               const mid = m.id.toUpperCase();
 
               // KPI Calculation Logic
-              const shiftMinutes = (turnoCorrente && turnoCorrente !== "ALL") ? 360 : 1440;
+              const dayMultiplier = viewMode === "week" ? 7 : 1;
+              const shiftMinutes = ((turnoCorrente && turnoCorrente !== "ALL") ? 360 : 1440) * dayMultiplier;
               const fermi = fermiData[mid] || { minutes: 0, entries: [] };
               let totalDowntime = (fermi.minutes || 0);
               if (m.ids && m.ids.length > 1) {
