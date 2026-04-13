@@ -679,7 +679,7 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                                                             transition: "all 0.2s"
                                                                         }}
                                                                     >
-                                                                        {qty > 0 ? qty : ""}
+                                                                        {qty}
 
                                                                         {isConfigMode && (
                                                                             <div style={{
