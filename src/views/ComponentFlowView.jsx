@@ -85,7 +85,8 @@ const MATERIAL_PHASE_OVERRIDES = [
     { mat: "M0153389/S", fino: "0025", phase: "dmc" },
     { mat: "M0153389/S", fino: "0050", phase: "dmc" },
     { mat: "M0153401/S", fino: "0020", phase: "start_soft" },
-    { mat: "M0153401/S", fino: "0025", phase: "dmc" }
+    { mat: "M0153401/S", fino: "0025", phase: "dmc" },
+    { mat: "M0153401", fino: "0025", phase: "dmc" }
 ];
 
 const MACHINE_PHASE_OVERRIDES = {
@@ -199,6 +200,9 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                 // Manual fallback for requested items
                 if (!anagrafica["M0153401/S"]) {
                     anagrafica["M0153401/S"] = { codice: "M0153401/S", componente: "SG3", progetto: "8Fe" };
+                }
+                if (!anagrafica["M0153401"]) {
+                    anagrafica["M0153401"] = { codice: "M0153401", componente: "SG3", progetto: "8Fe" };
                 }
             }
             setCompMappings(compToMats); // Store this in state if needed or just use locally
