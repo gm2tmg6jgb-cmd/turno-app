@@ -11,6 +11,7 @@ import DashboardView from "./views/DashboardView";
 import AssegnazioniView from "./views/AssegnazioniView";
 import ReportView from "./views/ReportView";
 import AnagraficaMacchineView from "./views/AnagraficaMacchineView";
+import PlanningView from "./views/PlanningView";
 import SapHubView from "./views/SapHubView";
 import LpaPlanView from "./views/LpaPlanView";
 import InventoryView from "./views/InventoryView";
@@ -30,7 +31,7 @@ import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 export default function App() {
   const [currentView, setCurrentView] = useState("dashboard");
-  const repartoCorrente = "";
+  const repartoCorrente = ""; // Intenzionalmente vuota: mostra tutti i reparti. Estendibile in futuro con un selettore.
   const [turnoCorrente, setTurnoCorrente] = useState(() => localStorage.getItem("turnoCorrente") || getActiveGroup());
   const [globalDate, setGlobalDate] = useState(() => getLocalDate(new Date()));
 
@@ -205,6 +206,7 @@ export default function App() {
 
   const navItems = [
     { id: "dashboard", label: "Gestione Dipendenti", icon: Icons.dashboard },
+    { id: "planning", label: "Pianificazione", icon: Icons.calendar },
     { id: "assegnazioni", label: "Assegnazioni", icon: Icons.machine, badge: alertCount || null },
     { id: "report", label: "Report Fine Turno", icon: Icons.report, status: "mod" },
     { id: "sapHub", label: "Hub SAP", icon: Icons.settings, status: "new" },
@@ -220,6 +222,8 @@ export default function App() {
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings },
     { id: "zones", label: "Anagrafica Zone", icon: Icons.settings },
+    { id: "anagrafica", label: "Anagrafica Dipendenti", icon: Icons.users },
+    { id: "motivi", label: "Gestione Motivi", icon: Icons.settings },
     { id: "inventory", label: "Inventario", icon: Icons.report },
   ];
 
@@ -240,6 +244,7 @@ export default function App() {
     anagraficaMacchine: "Anagrafica Macchine",
     motivi: "Gestione Motivi Assenza",
     zones: "Anagrafica Zone",
+    planning: "Pianificazione Turni",
     lpaPlan: "Piano LPA 2026",
     skills: "Matrice Competenze",
     formazione: "Gestione Formazione Operatori",
@@ -343,8 +348,8 @@ export default function App() {
               <>
                 <div className="nav-section-label">Operatività</div>
                 {renderItem(ni("dashboard"))}
-                {renderItem(ni("planning"))}
                 {renderItem(ni("assegnazioni"))}
+                {renderItem(ni("planning"))}
 
                 <div className="nav-section-label">Sviluppo HR</div>
                 {renderItem(ni("skills"))}
@@ -353,7 +358,6 @@ export default function App() {
                 <div className="nav-section-label">Report & Dati</div>
                 {renderItem(ni("report"))}
                 {renderItem(ni("op10"))}
-                {renderItem(ni("fermi"))}
                 {renderItem(ni("sapHub"))}
                 {renderItem(ni("processFlow"))}
                 {renderItem(ni("weisserPriorities"))}
@@ -367,7 +371,8 @@ export default function App() {
                 {renderItem(ni("anagraficaMacchine"))}
                 {renderItem(ni("zones"))}
                 {renderItem(ni("anagraficaFermi"))}
-
+                {renderItem(ni("anagrafica"))}
+                {renderItem(ni("motivi"))}
 
               </>
             );
@@ -445,6 +450,19 @@ export default function App() {
               setMotivi={setMotivi}
               zones={zone}
               globalDate={globalDate}
+            />
+          )}
+          {currentView === "planning" && (
+            <PlanningView
+              dipendenti={dipendenti}
+              setDipendenti={setDipendenti}
+              presenze={presenze}
+              pianificazione={pianificazione}
+              setPianificazione={setPianificazione}
+              turnoCorrente={turnoCorrente}
+              globalDate={globalDate}
+              motivi={motivi}
+              showToast={showToast}
             />
           )}
           {currentView === "assegnazioni" && (

@@ -223,8 +223,6 @@ export default function LimitazioniView({ dipendenti, presenze = [] }) {
                                     <th style={{ textAlign: "center", background: "var(--bg-tertiary)" }}>Totale Assenze</th>
                                     <th style={{ textAlign: "center", background: "var(--bg-tertiary)" }}>Tasso di Assenza</th>
                                 </tr>
-                                ... // rows will be updated below
-
                             </thead>
                             <tbody>
                                 {absenceStats.map((d, i) => (

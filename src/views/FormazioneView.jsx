@@ -63,7 +63,7 @@ export default function FormazioneView({ dipendenti, turnoCorrente }) {
                                         </td>
                                         <td>
                                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                                {macchineFormazione.map(({ mId, m, val }) => {
+                                                {macchineFormazione.map(({ mId, val }) => {
                                                     const skill = LIVELLI_COMPETENZA.find(l => l.value === val);
                                                     return (
                                                         <div key={mId} style={{
