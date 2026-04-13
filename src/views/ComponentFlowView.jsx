@@ -8,7 +8,6 @@ const PROCESS_STEPS = [
     { id: "start_soft", label: "Soft Turning", code: "DRA" },
     { id: "dmc", label: "DMC", code: "ZSA" },
     { id: "laser_welding", label: "Saldatura Soft", code: "SCA" },
-    { id: "ut", label: "UT", code: "MZA" },
     { id: "shaping", label: "Stozzatura", code: "STW" },
     { id: "milling", label: "Fresatura", code: "FRA" },
     { id: "broaching", label: "Brocciatura", code: "RAA" },
@@ -18,6 +17,7 @@ const PROCESS_STEPS = [
     { id: "shot_peening", label: "Pallinatura", code: "OKU" },
     { id: "start_hard", label: "Tornitura Hard", code: "DRA" },
     { id: "laser_welding_2", label: "Saldatura Hard", code: "SCA" },
+    { id: "ut", label: "UT", code: "MZA" },
     { id: "grinding_cone", label: "Rettifica Cono", code: "SLA" },
     { id: "teeth_grinding", label: "Rettifica Denti", code: "SLW" },
     { id: "washing", label: "Lavaggio", code: "WSH" }
@@ -32,9 +32,41 @@ const PROJECT_COMPONENTS = {
 };
 
 const EXCLUDED_PHASES = {
-    "DCT300": ["dmc", "milling", "broaching", "deburring"],
+    "DCT300": ["dmc", "milling", "broaching"], // deburring rimosso per permetterne l'uso mirato
     "8 FE": [],
     "DCT ECO": ["start_soft", "dmc", "broaching"]
+};
+
+const COMPONENT_EXCLUSIONS = {
+    "SG1": ["start_soft", "ut", "shaping", "grinding_cone", "laser_welding_2", "deburring"],
+    "DG-REV": [
+        "start_hard", "dmc", "laser_welding", "laser_welding_2", "ut", "shaping", 
+        "milling", "broaching", "deburring", "grinding_cone", "teeth_grinding", 
+        "washing", "ht", "assembly", "welding", "quality", "shot_peening"
+    ],
+    "DG": ["shaping", "laser_welding_2", "ut", "start_hard", "deburring"],
+    "SG3": ["shaping", "laser_welding", "laser_welding_2", "ut", "deburring"],
+    "SG4": ["shaping", "laser_welding_2", "ut", "deburring"],
+    "SG7": ["laser_welding", "laser_welding_2", "ut", "deburring"], // shaping rimosso (visibile solo qui)
+    "SGR": ["shaping", "laser_welding_2", "ut", "deburring"],
+    "RG": ["shaping", "laser_welding", "laser_welding_2", "ut"], // deburring NON in lista (visibile solo qui)
+    "SG5": ["laser_welding", "laser_welding_2", "shaping", "shot_peening", "deburring"],
+    "SG6": ["laser_welding", "laser_welding_2", "shaping", "shot_peening", "deburring"]
+};
+
+const MATERIAL_PHASE_OVERRIDES = [
+    { mat: "2511108150/S", fino: "0060", phase: "laser_welding" },
+    { mat: "2511108150/S", fino: "0090", phase: "hobbing" },
+    { mat: "2511108150/T", phase: "ht" },
+    { mat: "2511108150", fino: "0100", phase: "shot_peening" },
+    { mat: "2511108150", fino: "0110", phase: "shot_peening" },
+    { mat: "2511108150", fino: "0120", phase: "start_hard" },
+    { mat: "2511108150", fino: "0230", phase: "teeth_grinding" },
+    { mat: "2511108150", fino: "0250", phase: "washing" }
+];
+
+const MACHINE_PHASE_OVERRIDES = {
+    "HOK11001": "ht"
 };
 
 export default function ComponentFlowView({ macchine, showToast, globalDate, turnoCorrente }) {
@@ -55,6 +87,69 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
     const [matrixData, setMatrixData] = useState({}); // { componentId: { phaseId: { value, records } } }
     const [components, setComponents] = useState([]); // List of components for active project
     const [selectedDetail, setSelectedDetail] = useState(null);
+    const [bulkText, setBulkText] = useState("");
+    const [dynamicOverrides, setDynamicOverrides] = useState([]); // [{ mat, fino, phase }]
+    const [showParser, setShowParser] = useState(false);
+
+    const PHASE_KEYWORDS = {
+        "SALDATURA SOFT": "laser_welding",
+        "SALDATURA HARD": "laser_welding_2",
+        "DENTATURA": "hobbing",
+        "TORNITURA HARD": "start_hard",
+        "TORNITURA SOFT": "start_soft",
+        "PALLINATURA": "shot_peening",
+        "RETTIFICA DENTI": "teeth_grinding",
+        "LAVAGGIO": "washing",
+        "TRATTAMENTO": "ht",
+        "TT": "ht",
+        "HOK": "ht"
+    };
+
+    const toLocalDateStr = (d) => {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+    };
+
+    const handleBulkParse = () => {
+        if (!bulkText.trim()) return;
+        const lines = bulkText.split("\n");
+        const newRules = [];
+        
+        lines.forEach(line => {
+            if (!line.trim()) return;
+            const parts = line.toUpperCase().replace(/,/g, " ").replace(/-/g, " ").split(/\s+/);
+            
+            // Cerca codice materiale (es. 2511108150 o M017... )
+            const mat = parts.find(p => /^\d{5,}/.test(p) || p.startsWith("M01"));
+            // Cerca fino (es. 0060, 0120) - di solito 4 cifre
+            const fino = parts.find(p => /^\d{4}$/.test(p));
+            // Cerca fase (keyword match)
+            let phase = null;
+            for (const [key, val] of Object.entries(PHASE_KEYWORDS)) {
+                if (line.toUpperCase().includes(key)) {
+                    phase = val;
+                    break;
+                }
+            }
+
+            if (mat && phase) {
+                newRules.push({ mat, fino, phase });
+            }
+        });
+
+        if (newRules.length > 0) {
+            setDynamicOverrides(prev => {
+                // Evita duplicati
+                const existing = new Set(prev.map(r => `${r.mat}-${r.fino}-${r.phase}`));
+                const filtered = newRules.filter(r => !existing.has(`${r.mat}-${r.fino}-${r.phase}`));
+                return [...prev, ...filtered];
+            });
+            setBulkText("");
+            showToast(`Caricate ${newRules.length} nuove regole!`, "success");
+        }
+    };
 
     const fetchData = async () => {
         setLoading(true);
@@ -72,24 +167,39 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
             const { data: wcFasiRes } = await fetchAllRows(() => supabase.from("wc_fasi_mapping").select("*"));
             const wcFasiMapping = wcFasiRes || [];
 
-            const getPhaseFromWC = (wc, matCode) => {
-                const wcUp = (wc || "").toUpperCase();
+            const getPhaseForRecord = (r) => {
+                const wc = (r.macchina_id || r.work_center_sap || "").toUpperCase();
+                const matCode = (r.materiale || "").toUpperCase();
+                const fino = String(r.fino || "").padStart(4, "0");
+
+                // 1. Check Overrides (Material/Fino)
+                const allMaterialOverrides = [...MATERIAL_PHASE_OVERRIDES, ...dynamicOverrides];
+                const override = allMaterialOverrides.find(o => 
+                    matCode.includes(o.mat.toUpperCase()) && 
+                    (o.fino === fino || !o.fino)
+                );
+                if (override) return override.phase;
+
+                const wcUp = wc.toUpperCase();
                 if (!wcUp) return null;
 
-                // Simple prefix/exact matching similar to ProcessFlowView
+                // 2. Check Overrides (Machine)
+                if (MACHINE_PHASE_OVERRIDES[wcUp]) return MACHINE_PHASE_OVERRIDES[wcUp];
+
+                // 3. Fetch WC-Phases mapping (table-based)
                 for (const m of wcFasiMapping) {
                     if (m.match_type === "exact" && wcUp === m.work_center.toUpperCase()) return m.fase;
                 }
                 const matches = wcFasiMapping.filter(m => m.match_type !== "exact" && wcUp.startsWith(m.work_center.toUpperCase()));
                 if (matches.length === 1) return matches[0].fase;
                 if (matches.length > 1) {
-                    const isSoft = matCode && matCode.endsWith("/S");
+                    const isSoft = matCode.endsWith("/S");
                     const found = matches.find(m => isSoft ? m.fase === "start_soft" : m.fase === "start_hard");
                     return found ? found.fase : matches[0].fase;
                 }
 
-                // Hardcoded fallback
-                const isSoft = matCode && matCode.endsWith("/S");
+                // 3. Hardcoded fallback
+                const isSoft = matCode.endsWith("/S");
                 if (wcUp.startsWith("DRA")) return isSoft ? "start_soft" : "start_hard";
                 if (wcUp.startsWith("ZSA")) return "dmc";
                 if (wcUp.startsWith("SCA")) return isSoft ? "laser_welding" : "laser_welding_2";
@@ -106,24 +216,25 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
             };
 
             // 3. Fetch production data
-            let q = supabase.from("conferme_sap")
-                    .select("data, materiale, work_center_sap, macchina_id, qta_ottenuta, turno_id");
+            const selectFields = "data, materiale, work_center_sap, macchina_id, qta_ottenuta, turno_id, fino";
             
-            if (viewMode === "weekly") {
-                const monday = new Date(wWeek + "T00:00:00");
-                const sunday = new Date(monday);
-                sunday.setDate(monday.getDate() + 6);
-                q = q.gte("data", monday.toISOString().split("T")[0])
-                     .lte("data", sunday.toISOString().split("T")[0]);
-            } else {
-                q = q.eq("data", wDate);
-            }
-            
-            if (localTurno && localTurno !== "ALL") {
-                q = q.eq("turno_id", localTurno);
-            }
+            const queryFactory = () => {
+                let q = supabase.from("conferme_sap").select(selectFields);
+                if (viewMode === "weekly") {
+                    const [y, mo, d] = wWeek.split("-").map(Number);
+                    const mon = new Date(y, mo - 1, d);
+                    const sun = new Date(y, mo - 1, d + 6);
+                    q = q.gte("data", toLocalDateStr(mon)).lte("data", toLocalDateStr(sun));
+                } else {
+                    q = q.eq("data", wDate);
+                }
+                if (localTurno && localTurno !== "ALL") {
+                    q = q.eq("turno_id", localTurno);
+                }
+                return q;
+            };
 
-            const { data: prodRes } = await fetchAllRows(() => q);
+            const { data: prodRes } = await fetchAllRows(queryFactory);
 
             const newMatrix = {};
             const projectComponents = new Set();
@@ -144,13 +255,12 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                     if (proj !== activeProject) return;
 
                     let comp = (info.componente || "ALTRO").toUpperCase();
-                    // Normalizzazione minima per match più robusto (es. DG-REV = DG-RE)
                     if (comp === "SG2-REV") comp = "DG-REV"; 
 
                     projectComponents.add(comp);
 
                     const wc = (r.macchina_id || r.work_center_sap || "").toUpperCase();
-                    const phase = getPhaseFromWC(wc, matCode);
+                    const phase = getPhaseForRecord(r);
                     if (!phase) return;
 
                     if (!newMatrix[comp]) newMatrix[comp] = {};
@@ -289,8 +399,47 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                             }}>→</button>
                         </div>
                     )}
+
+                    <button 
+                        onClick={() => setShowParser(!showParser)}
+                        style={{
+                            padding: "6px 12px", background: "var(--bg-tertiary)", color: "var(--text-primary)",
+                            border: "1px solid var(--border)", borderRadius: "8px", fontWeight: "700", cursor: "pointer",
+                            fontSize: "12px"
+                        }}
+                    >
+                        {showParser ? "Chiudi Parser" : "Bulk Parser ⚙️"}
+                    </button>
                 </div>
             </div>
+
+            {showParser && (
+                <div className="card fade-in" style={{ marginBottom: "20px", padding: "20px", background: "var(--bg-tertiary)", border: "2px dashed var(--accent)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
+                        <div>
+                            <h3 style={{ fontSize: "16px", fontWeight: "800", color: "var(--accent)", margin: 0 }}>Importazione Massiva Regole</h3>
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                            <button className="btn btn-secondary btn-sm" onClick={() => setDynamicOverrides([])}>Svuota</button>
+                        </div>
+                    </div>
+                    
+                    <textarea 
+                        value={bulkText}
+                        onChange={(e) => setBulkText(e.target.value)}
+                        placeholder="Incolla qui (es: SG1 LAVAGGIO 2511108150 0250)..."
+                        style={{
+                            width: "100%", height: "80px", borderRadius: "10px", border: "1px solid var(--border)",
+                            padding: "12px", fontSize: "13px", fontFamily: "monospace", marginBottom: "12px",
+                            background: "var(--bg-card)", color: "var(--text-primary)"
+                        }}
+                    />
+
+                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                        <button className="btn btn-primary btn-sm" onClick={handleBulkParse}>Analizza e Applica</button>
+                    </div>
+                </div>
+            )}
 
             {/* Project Tabs */}
             <div style={{ display: "flex", gap: "12px", marginBottom: "30px", borderBottom: "1px solid var(--border)" }}>
@@ -352,6 +501,10 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                             {visibleSteps.map((step, idx) => {
                                                 const data = matrixData[comp]?.[step.id];
                                                 const qty = data?.value || 0;
+                                                const isExcluded = COMPONENT_EXCLUSIONS[comp]?.includes(step.id);
+                                                
+                                                if (isExcluded) return <div key={idx} style={{ width: "100px", flexShrink: 0 }} />;
+
                                                 return (
                                                     <div key={idx} style={{ width: "100px", display: "flex", justifyContent: "center", flexShrink: 0 }}>
                                                         <div 
@@ -366,21 +519,21 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                                             style={{
                                                             width: "80px",
                                                             height: "50px",
-                                                            background: qty > 0 ? "linear-gradient(135deg, #3c6ef0, #1e40af)" : "var(--bg-tertiary)",
+                                                            background: isExcluded ? "var(--bg-primary)" : (qty > 0 ? "linear-gradient(135deg, #3c6ef0, #1e40af)" : "var(--bg-tertiary)"),
                                                             borderRadius: "10px",
                                                             display: "flex",
                                                             flexDirection: "column",
                                                             alignItems: "center",
                                                             justifyContent: "center",
-                                                            color: qty > 0 ? "white" : "var(--text-muted)",
-                                                            border: qty > 0 ? "none" : "1px dashed var(--border)",
-                                                            boxShadow: qty > 0 ? "0 4px 10px rgba(60, 110, 240, 0.2)" : "none",
-                                                            opacity: qty > 0 ? 1 : 0.4,
+                                                            color: isExcluded ? "var(--text-muted)" : (qty > 0 ? "white" : "var(--text-muted)"),
+                                                            border: isExcluded ? "1px solid var(--border)" : (qty > 0 ? "none" : "1px dashed var(--border)"),
+                                                            boxShadow: (qty > 0 && !isExcluded) ? "0 4px 10px rgba(60, 110, 240, 0.2)" : "none",
+                                                            opacity: isExcluded ? 0.3 : (qty > 0 ? 1 : 0.4),
                                                             transition: "all 0.2s",
-                                                            cursor: qty > 0 ? "pointer" : "default"
+                                                            cursor: (qty > 0 && !isExcluded) ? "pointer" : "default"
                                                         }}>
-                                                            <div style={{ fontSize: "14px", fontWeight: "900" }}>{qty || "—"}</div>
-                                                            {qty > 0 && <div style={{ fontSize: "8px", fontWeight: "700", opacity: 0.8 }}>PEZZI</div>}
+                                                            <div style={{ fontSize: "14px", fontWeight: "900" }}>{isExcluded ? "N/A" : qty}</div>
+                                                            {qty > 0 && !isExcluded && <div style={{ fontSize: "8px", fontWeight: "700", opacity: 0.8 }}>PEZZI</div>}
                                                         </div>
                                                     </div>
                                                 );
@@ -422,6 +575,7 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                 <thead>
                                     <tr style={{ background: "var(--bg-tertiary)" }}>
                                         <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)", borderRadius: "6px 0 0 6px" }}>Data</th>
+                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Materiale</th>
                                         <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Turno</th>
                                         <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Macchina</th>
                                         <th style={{ padding: "10px", textAlign: "right", fontSize: "12px", color: "var(--text-muted)", borderRadius: "0 6px 6px 0" }}>Q.tà</th>
@@ -431,6 +585,7 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                     {selectedDetail.records.map((r, i) => (
                                         <tr key={i} style={{ borderBottom: "1px solid var(--border-light)" }}>
                                             <td style={{ padding: "10px", fontSize: "13px" }}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
+                                            <td style={{ padding: "10px", fontSize: "13px", color: "var(--accent)", fontWeight: "600" }}>{r.materiale}</td>
                                             <td style={{ padding: "10px", fontSize: "13px" }}>{r.turno_id}</td>
                                             <td style={{ padding: "10px", fontSize: "13px", fontWeight: "bold" }}>{r.macchina}</td>
                                             <td style={{ padding: "10px", fontSize: "14px", fontWeight: "bold", textAlign: "right", color: "#3c6ef0" }}>{r.qta_ottenuta}</td>
