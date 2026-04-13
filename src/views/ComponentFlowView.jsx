@@ -98,7 +98,7 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
     const [dynamicOverrides, setDynamicOverrides] = useState([]); // [{ mat, fino, phase, comp }]
     const [dynamicMachineOverrides, setDynamicMachineOverrides] = useState({}); // { machineId: phaseId }
     const [showParser, setShowParser] = useState(false);
-    const [mappingModal, setMappingModal] = useState(null); // { mat, machine, fino, currentPhase, currentComp, type: 'mat'|'machine' }
+    const [mappingModal, setMappingModal] = useState(null); // { mat, fino, currentPhase, currentComp }
 
     const PHASE_KEYWORDS = {
         "SALDATURA SOFT": "laser_welding",
@@ -177,11 +177,11 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
             const wcFasiMapping = wcFasiRes || [];
 
             const getPhaseForRecord = (r) => {
-                const wc = (r.macchina_id || r.work_center_sap || "").toUpperCase();
                 const matCode = (r.materiale || "").toUpperCase();
                 const fino = String(r.fino || "").padStart(4, "0");
+                const wc = (r.macchina_id || r.work_center_sap || "").toUpperCase();
 
-                // 1. Check Overrides (Material/Fino)
+                // 1. PRIMARY: Check Overrides (Material/Fino) - Both static and dynamic
                 const allMaterialOverrides = [...MATERIAL_PHASE_OVERRIDES, ...dynamicOverrides];
                 const override = allMaterialOverrides.find(o => 
                     matCode === o.mat.toUpperCase() && 
@@ -189,17 +189,15 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                 );
                 if (override) return override.phase;
 
-                const wcUp = wc.toUpperCase();
-                if (!wcUp) return null;
+                // 2. SECONDARY: Check Overrides (Machine)
+                if (dynamicMachineOverrides[wc]) return dynamicMachineOverrides[wc];
+                if (MACHINE_PHASE_OVERRIDES[wc]) return MACHINE_PHASE_OVERRIDES[wc];
 
-                // 2. Check Overrides (Machine)
-                if (MACHINE_PHASE_OVERRIDES[wcUp]) return MACHINE_PHASE_OVERRIDES[wcUp];
-
-                // 3. Fetch WC-Phases mapping (table-based)
+                // 3. TABLE-BASED: Fetch WC-Phases mapping (table-based fallback)
                 for (const m of wcFasiMapping) {
-                    if (m.match_type === "exact" && wcUp === m.work_center.toUpperCase()) return m.fase;
+                    if (m.match_type === "exact" && wc === m.work_center.toUpperCase()) return m.fase;
                 }
-                const matches = wcFasiMapping.filter(m => m.match_type !== "exact" && wcUp.startsWith(m.work_center.toUpperCase()));
+                const matches = wcFasiMapping.filter(m => m.match_type !== "exact" && wc.startsWith(m.work_center.toUpperCase()));
                 if (matches.length === 1) return matches[0].fase;
                 if (matches.length > 1) {
                     const isSoft = matCode.endsWith("/S");
@@ -207,20 +205,20 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                     return found ? found.fase : matches[0].fase;
                 }
 
-                // 3. Hardcoded fallback
+                // 4. HARDCODED FALLBACK
                 const isSoft = matCode.endsWith("/S");
-                if (wcUp.startsWith("DRA")) return isSoft ? "start_soft" : "start_hard";
-                if (wcUp.startsWith("ZSA")) return "dmc";
-                if (wcUp.startsWith("SCA")) return isSoft ? "laser_welding" : "laser_welding_2";
-                if (wcUp.startsWith("MZA")) return "ut";
-                if (wcUp.startsWith("STW")) return "shaping";
-                if (wcUp.startsWith("FRA")) return "milling"; // Fresatura
-                if (wcUp.startsWith("FRW")) return "hobbing"; // Dentatura
-                if (wcUp.startsWith("RAA")) return "broaching";
-                if (wcUp.startsWith("EGW")) return "deburring";
-                if (wcUp.startsWith("SLA")) return "grinding_cone";
-                if (wcUp.startsWith("SLW")) return "teeth_grinding";
-                if (wcUp.startsWith("WSH")) return "washing";
+                if (wc.startsWith("DRA")) return isSoft ? "start_soft" : "start_hard";
+                if (wc.startsWith("ZSA")) return "dmc";
+                if (wc.startsWith("SCA")) return isSoft ? "laser_welding" : "laser_welding_2";
+                if (wc.startsWith("MZA")) return "ut";
+                if (wc.startsWith("STW")) return "shaping";
+                if (wc.startsWith("FRA")) return "milling"; 
+                if (wc.startsWith("FRW")) return "hobbing"; 
+                if (wc.startsWith("RAA")) return "broaching";
+                if (wc.startsWith("EGW")) return "deburring";
+                if (wc.startsWith("SLA")) return "grinding_cone";
+                if (wc.startsWith("SLW")) return "teeth_grinding";
+                if (wc.startsWith("WSH")) return "washing";
                 return null;
             };
 
@@ -610,11 +608,9 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                                         onClick={() => {
                                                             setMappingModal({
                                                                 mat: r.materiale,
-                                                                machine: r.macchina,
                                                                 fino: r.fino,
                                                                 currentPhase: selectedDetail.phaseId,
-                                                                currentComp: selectedDetail.compName,
-                                                                type: 'mat'
+                                                                currentComp: selectedDetail.compName
                                                             });
                                                         }}
                                                         style={{ border: "none", background: "none", cursor: "pointer", color: "var(--text-muted)" }}
@@ -632,11 +628,9 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                                     <button className="btn btn-primary btn-sm" onClick={() => {
                                                         setMappingModal({
                                                             mat: "",
-                                                            machine: "",
                                                             fino: "0010",
                                                             currentPhase: selectedDetail.phaseId,
-                                                            currentComp: selectedDetail.compName,
-                                                            type: 'mat'
+                                                            currentComp: selectedDetail.compName
                                                         });
                                                     }}>Aggiungi Associazione ➕</button>
                                                 </div>
@@ -656,54 +650,26 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                     <div className="modal-content" style={{ width: "400px", padding: "24px" }}>
                         <h2 style={{ fontSize: "18px", marginBottom: "20px" }}>Associa a {mappingModal.currentComp}</h2>
                         
-                        <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
-                            <button 
-                                className={`btn ${mappingModal.type === 'mat' ? 'btn-primary' : 'btn-secondary'} btn-sm`} 
-                                style={{ flex: 1 }}
-                                onClick={() => setMappingModal({...mappingModal, type: 'mat'})}
-                            >Materiale</button>
-                            <button 
-                                className={`btn ${mappingModal.type === 'machine' ? 'btn-primary' : 'btn-secondary'} btn-sm`} 
-                                style={{ flex: 1 }}
-                                onClick={() => setMappingModal({...mappingModal, type: 'machine'})}
-                            >Macchina</button>
+                        <div style={{ marginBottom: "16px" }}>
+                            <label style={{ display: "block", fontSize: "12px", marginBottom: "6px", fontWeight: "bold" }}>Codice Materiale</label>
+                            <input 
+                                type="text"
+                                placeholder="es: 2511108150"
+                                value={mappingModal.mat}
+                                onChange={(e) => setMappingModal({...mappingModal, mat: e.target.value.toUpperCase()})}
+                                style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", fontSize: "14px" }}
+                            />
                         </div>
-
-                        {mappingModal.type === 'mat' ? (
-                            <>
-                                <div style={{ marginBottom: "16px" }}>
-                                    <label style={{ display: "block", fontSize: "12px", marginBottom: "6px" }}>Codice Materiale</label>
-                                    <input 
-                                        type="text"
-                                        placeholder="es: 2511108150"
-                                        value={mappingModal.mat}
-                                        onChange={(e) => setMappingModal({...mappingModal, mat: e.target.value.toUpperCase()})}
-                                        style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border)" }}
-                                    />
-                                </div>
-                                <div style={{ marginBottom: "16px" }}>
-                                    <label style={{ display: "block", fontSize: "12px", marginBottom: "6px" }}>Operazione (Fino a)</label>
-                                    <input 
-                                        type="text"
-                                        placeholder="es: 0010"
-                                        value={mappingModal.fino}
-                                        onChange={(e) => setMappingModal({...mappingModal, fino: e.target.value})}
-                                        style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border)" }}
-                                    />
-                                </div>
-                            </>
-                        ) : (
-                            <div style={{ marginBottom: "16px" }}>
-                                <label style={{ display: "block", fontSize: "12px", marginBottom: "6px" }}>Codice Macchina</label>
-                                <input 
-                                    type="text"
-                                    placeholder="es: DRA101"
-                                    value={mappingModal.machine} 
-                                    onChange={(e) => setMappingModal({...mappingModal, machine: e.target.value.toUpperCase()})}
-                                    style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border)" }}
-                                />
-                            </div>
-                        )}
+                        <div style={{ marginBottom: "16px" }}>
+                            <label style={{ display: "block", fontSize: "12px", marginBottom: "6px", fontWeight: "bold" }}>Operazione (Fino a)</label>
+                            <input 
+                                type="text"
+                                placeholder="es: 0010"
+                                value={mappingModal.fino}
+                                onChange={(e) => setMappingModal({...mappingModal, fino: e.target.value})}
+                                style={{ width: "100%", padding: "10px", borderRadius: "8px", border: "1px solid var(--border)", fontSize: "14px" }}
+                            />
+                        </div>
 
                         <div style={{ marginBottom: "16px" }}>
                             <label style={{ display: "block", fontSize: "12px", marginBottom: "6px" }}>Componente Destinatario</label>
@@ -731,77 +697,45 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                             <button className="btn btn-secondary" onClick={() => setMappingModal(null)}>Annulla</button>
                             <button className="btn btn-primary" onClick={async () => {
                                 try {
-                                    if (mappingModal.type === 'mat') {
-                                        // 1. Check if exists
-                                        const { data: existing } = await supabase
+                                    // Primary Target: anagrafica_materiali
+                                    const { data: existing } = await supabase
+                                        .from('anagrafica_materiali')
+                                        .select('id')
+                                        .eq('codice', mappingModal.mat)
+                                        .maybeSingle();
+
+                                    if (existing) {
+                                        const { error } = await supabase
                                             .from('anagrafica_materiali')
-                                            .select('id')
-                                            .eq('codice', mappingModal.mat)
-                                            .maybeSingle();
-
-                                        if (existing) {
-                                            const { error } = await supabase
-                                                .from('anagrafica_materiali')
-                                                .update({
-                                                    componente: mappingModal.currentComp,
-                                                    progetto: activeProject
-                                                })
-                                                .eq('id', existing.id);
-                                            if (error) throw error;
-                                        } else {
-                                            const { error } = await supabase
-                                                .from('anagrafica_materiali')
-                                                .insert({
-                                                    codice: mappingModal.mat,
-                                                    componente: mappingModal.currentComp,
-                                                    progetto: activeProject
-                                                });
-                                            if (error) throw error;
-                                        }
-
-                                        setDynamicOverrides(prev => {
-                                            const filtered = prev.filter(o => o.mat !== mappingModal.mat || o.fino !== mappingModal.fino);
-                                            return [...filtered, { 
-                                                mat: mappingModal.mat, 
-                                                fino: mappingModal.fino, 
-                                                phase: mappingModal.currentPhase,
-                                                comp: mappingModal.currentComp
-                                            }];
-                                        });
+                                            .update({
+                                                componente: mappingModal.currentComp,
+                                                progetto: activeProject
+                                            })
+                                            .eq('id', existing.id);
+                                        if (error) throw error;
                                     } else {
-                                        // 2. Machine Mapping Persistence
-                                        const { data: existing } = await supabase
-                                            .from('wc_fasi_mapping')
-                                            .select('id')
-                                            .eq('work_center', mappingModal.machine)
-                                            .maybeSingle();
-
-                                        if (existing) {
-                                            const { error } = await supabase
-                                                .from('wc_fasi_mapping')
-                                                .update({
-                                                    fase: mappingModal.currentPhase
-                                                })
-                                                .eq('id', existing.id);
-                                            if (error) throw error;
-                                        } else {
-                                            const { error } = await supabase
-                                                .from('wc_fasi_mapping')
-                                                .insert({
-                                                    work_center: mappingModal.machine,
-                                                    fase: mappingModal.currentPhase,
-                                                    match_type: 'exact'
-                                                });
-                                            if (error) throw error;
-                                        }
-
-                                        setDynamicMachineOverrides(prev => ({
-                                            ...prev,
-                                            [mappingModal.machine]: mappingModal.currentPhase
-                                        }));
+                                        const { error } = await supabase
+                                            .from('anagrafica_materiali')
+                                            .insert({
+                                                codice: mappingModal.mat,
+                                                componente: mappingModal.currentComp,
+                                                progetto: activeProject
+                                            });
+                                        if (error) throw error;
                                     }
+
+                                    // Update local phase/component overrides
+                                    setDynamicOverrides(prev => {
+                                        const filtered = prev.filter(o => o.mat !== mappingModal.mat || o.fino !== mappingModal.fino);
+                                        return [...filtered, { 
+                                            mat: mappingModal.mat, 
+                                            fino: mappingModal.fino, 
+                                            phase: mappingModal.currentPhase,
+                                            comp: mappingModal.currentComp
+                                        }];
+                                    });
                                     
-                                    showToast("Salvataggio permanente completato!");
+                                    showToast("Associazione salvata su DB!");
                                     setMappingModal(null);
                                     setSelectedDetail(null);
                                     fetchData(); 
