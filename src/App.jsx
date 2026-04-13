@@ -209,13 +209,11 @@ export default function App() {
     { id: "dashboard", label: "Gestione Dipendenti", icon: Icons.dashboard },
     { id: "planning", label: "Pianificazione", icon: Icons.calendar },
     { id: "assegnazioni", label: "Assegnazioni", icon: Icons.machine, badge: alertCount || null },
-    { id: "report", label: "Report Fine Turno", icon: Icons.report, status: "mod" },
     { id: "sapHub", label: "Hub SAP", icon: Icons.settings, status: "new" },
     { id: "op10", label: "Asservimento OP10", icon: Icons.check },
     { id: "skills", label: "Competenze", icon: Icons.brain },
     { id: "formazione", label: "Formazione", icon: Icons.academic },
     { id: "lpaPlan", label: "Piano LPA", icon: Icons.calendar },
-    { id: "processFlow", label: "Flusso di Processo", icon: Icons.users },
     { id: "componentFlow", label: "Avanzamento Componenti", icon: Icons.report, status: "new" },
     { id: "weisserPriorities", label: "Priorità Macchine", icon: Icons.filter },
     { id: "prioritiesSummary", label: "Riepilogo Priorità", icon: Icons.dashboard, status: "new" },
@@ -233,9 +231,7 @@ export default function App() {
     dashboard: "Gestione dipendenti",
     assegnazioni: "Assegnazione Macchine",
     op10: "Asservimento OP10",
-    report: "Report Fine Turno",
     sapHub: "Hub Gestione SAP",
-    processFlow: "Flusso di Processo",
     componentFlow: "Avanzamento Componenti",
     weisserPriorities: "Priorità Macchine",
     prioritiesSummary: "Riepilogo Priorità Macchine",
@@ -359,10 +355,8 @@ export default function App() {
                 {renderItem(ni("formazione"))}
 
                 <div className="nav-section-label">Report & Dati</div>
-                {renderItem(ni("report"))}
                 {renderItem(ni("op10"))}
                 {renderItem(ni("sapHub"))}
-                {renderItem(ni("processFlow"))}
                 {renderItem(ni("componentFlow"))}
                 {renderItem(ni("weisserPriorities"))}
                 {renderItem(ni("prioritiesSummary"))}
@@ -486,23 +480,6 @@ export default function App() {
             />
           )}
 
-          {currentView === "report" && (
-            <ReportView
-              dipendenti={dipendenti}
-              presenze={presenze}
-              assegnazioni={assegnazioni}
-              macchine={macchine}
-              repartoCorrente={repartoCorrente}
-              turnoCorrente={turnoCorrente}
-              zones={zone}
-              motivi={motivi}
-              motiviFermo={motiviFermo}
-              tecnologie={tecnologie}
-              globalDate={globalDate}
-              setGlobalDate={setGlobalDate}
-            />
-          )}
-
           {currentView === "lpaPlan" && (
             <LpaPlanView macchine={macchine} dipendenti={dipendenti} showToast={showToast} turnoCorrente={turnoCorrente} />
           )}
@@ -516,9 +493,6 @@ export default function App() {
             />
           )}
 
-          {currentView === "processFlow" && (
-            <ProcessFlowView macchine={macchine} showToast={showToast} setCurrentView={setCurrentView} globalDate={globalDate} turnoCorrente={turnoCorrente} setTurnoCorrente={setTurnoCorrente} />
-          )}
           {currentView === "componentFlow" && (
             <ComponentFlowView macchine={macchine} showToast={showToast} globalDate={globalDate} />
           )}
