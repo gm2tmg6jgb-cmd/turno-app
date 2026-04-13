@@ -93,7 +93,7 @@ const MACHINE_PHASE_OVERRIDES = {
 };
 
 export default function ComponentFlowView({ macchine, showToast, globalDate, turnoCorrente }) {
-    const [viewMode, setViewMode] = useState("weekly"); // "weekly" | "daily"
+    const [viewMode, setViewMode] = useState("daily"); // "weekly" | "daily"
     const [targetOverrides, setTargetOverrides] = useState(() => {
         const saved = localStorage.getItem("bap_target_overrides");
         return saved ? JSON.parse(saved) : PROJECT_TARGETS;
