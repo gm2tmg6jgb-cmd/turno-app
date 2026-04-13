@@ -83,7 +83,8 @@ const MATERIAL_PHASE_OVERRIDES = [
     { mat: "2511108150", fino: "0250", phase: "washing" },
     { mat: "M0153389/S", fino: "0020", phase: "start_soft" },
     { mat: "M0153389/S", fino: "0025", phase: "dmc" },
-    { mat: "M0153389/S", fino: "0050", phase: "dmc" }
+    { mat: "M0153389/S", fino: "0050", phase: "dmc" },
+    { mat: "M0153401/S", fino: "0020", phase: "start_soft" }
 ];
 
 const MACHINE_PHASE_OVERRIDES = {
@@ -193,6 +194,11 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                         if (!compToMats[comp].includes(c)) compToMats[comp].push(c);
                     }
                 });
+
+                // Manual fallback for requested items
+                if (!anagrafica["M0153401/S"]) {
+                    anagrafica["M0153401/S"] = { codice: "M0153401/S", componente: "SG3", progetto: "DCT300" };
+                }
             }
             setCompMappings(compToMats); // Store this in state if needed or just use locally
 
