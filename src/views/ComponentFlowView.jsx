@@ -4,6 +4,23 @@ import { getCurrentWeekRange } from "../lib/dateUtils";
 import { Icons } from "../components/ui/Icons";
 import { TURNI } from "../data/constants";
 
+// --- LOCAL ANAGRAFICA (Single Source of Truth) ---
+const LOCAL_ANAGRAFICA = {
+    "M0153401/S": { comp: "SG3", proj: "8Fe" },
+    "M0153401": { comp: "SG3", proj: "8Fe" },
+    "M0153389/S": { comp: "SG3", proj: "DCT300" },
+    "M0153384/S": { comp: "DG", proj: "DCT300" },
+    "M0153384": { comp: "DG", proj: "DCT300" },
+    "M0192963/S": { comp: "SG3", proj: "DCT ECO" },
+    "M0192963": { comp: "SG3", proj: "DCT ECO" },
+    "M0140997/S": { comp: "SG2", proj: "DCT ECO" },
+    "M0140997": { comp: "SG2", proj: "DCT ECO" },
+    "2516272835": { comp: "SG1", proj: "DCT300" },
+    "2516107836": { comp: "SG1", proj: "DCT300" },
+    "M0162583": { comp: "SG4", proj: "8Fe" },
+    "M0162623": { comp: "SG5", proj: "8Fe" }
+};
+
 const PROCESS_STEPS = [
     { id: "start_soft", label: "Soft Turning", code: "DRA" },
     { id: "dmc", label: "DMC", code: "ZSA" },
@@ -185,27 +202,35 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
             // 1. Fetch anagrafica
             const { data: anagraficaRes } = await fetchAllRows(() => supabase.from("anagrafica_materiali").select("*"));
             const anagrafica = {};
+            
+            // First, load from LOCAL_ANAGRAFICA (Priority)
+            Object.entries(LOCAL_ANAGRAFICA).forEach(([mat, info]) => {
+                anagrafica[mat.toUpperCase()] = { 
+                    codice: mat.toUpperCase(), 
+                    componente: info.comp.toUpperCase(), 
+                    progetto: info.proj 
+                };
+            });
+
             const compToMats = {}; // { COMP: [mat1, mat2, ...] }
             if (anagraficaRes) {
                 anagraficaRes.forEach(row => {
                     const c = (row.codice || "").toUpperCase();
                     const comp = (row.componente || "").toUpperCase();
-                    if (c) anagrafica[c] = row;
-                    if (comp && c) {
-                        if (!compToMats[comp]) compToMats[comp] = [];
-                        if (!compToMats[comp].includes(c)) compToMats[comp].push(c);
-                    }
+                    // Don't overwrite LOCAL_ANAGRAFICA items
+                    if (c && !anagrafica[c]) anagrafica[c] = row;
                 });
-
-                // Manual fallback for requested items
-                if (!anagrafica["M0153401/S"]) {
-                    anagrafica["M0153401/S"] = { codice: "M0153401/S", componente: "SG3", progetto: "8Fe" };
-                }
-                if (!anagrafica["M0153401"]) {
-                    anagrafica["M0153401"] = { codice: "M0153401", componente: "SG3", progetto: "8Fe" };
-                }
             }
-            setCompMappings(compToMats); // Store this in state if needed or just use locally
+
+            // Build component mapping for UI dropdowns
+            Object.values(anagrafica).forEach(row => {
+                const c = row.codice.toUpperCase();
+                const comp = row.componente.toUpperCase();
+                if (!compToMats[comp]) compToMats[comp] = [];
+                if (!compToMats[comp].includes(c)) compToMats[comp].push(c);
+            });
+            
+            setCompMappings(compToMats);
 
             // 2. Fetch WC-Phases mapping
             const { data: wcFasiRes } = await fetchAllRows(() => supabase.from("wc_fasi_mapping").select("*"));
