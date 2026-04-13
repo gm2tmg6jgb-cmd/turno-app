@@ -309,11 +309,10 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                     }
 
                     let proj = info.progetto || "Other";
-                    if (proj === "DCT 300") proj = "DCT300";
-                    if (proj === "8Fe") proj = "8 FE";
-                    if (proj === "8Fedct") proj = "8 FE";
-                    if (proj === "DCT Eco") proj = "DCT ECO";
-                    if (proj === "DCTeco") proj = "DCT ECO";
+                    if (proj === "DCT 300" || proj === "DCT300") proj = "DCT300";
+                    if (proj === "8Fe" || proj === "8 FE" || proj === "8Fedct") proj = "8Fe";
+                    if (proj === "DCT Eco" || proj === "DCTeco" || proj === "DCT ECO") proj = "DCT ECO";
+                    if (proj === "RG" || proj === "DH" || proj === "RG + DH") proj = "RG + DH";
 
                     if (!PROJECTS.includes(proj)) return; // skip unknown projects
 
@@ -491,7 +490,7 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                     {PROJECTS.map((proj, idx) => {
                         const projectComps = componentsByProject[proj] || [];
                         const projectExclusions = EXCLUDED_PHASES[proj] || [];
-                        const visibleSteps = PROCESS_STEPS.filter(s => !projectExclusions.includes(s.id));
+                        const projectVisibleSteps = PROCESS_STEPS.filter(s => !projectExclusions.includes(s.id));
 
                         if (projectComps.length === 0) return null;
 
@@ -575,7 +574,7 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                     <div style={{ minWidth: "max-content" }}>
                                         {/* Phases Row */}
                                         <div style={{ display: "flex", marginBottom: "16px", paddingLeft: "170px" }}>
-                                            {visibleSteps.map((s, sIdx) => (
+                                            {projectVisibleSteps.map((s, sIdx) => (
                                                 <div key={sIdx} style={{
                                                     width: "85px",
                                                     textAlign: "center",
@@ -613,7 +612,7 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                                 </div>
 
                                                 <div style={{ display: "flex" }}>
-                                                    {visibleSteps.map((step, idx) => {
+                                                    {projectVisibleSteps.map((step, idx) => {
                                                         const data = matrixData[proj]?.[comp]?.[step.id];
                                                         const qty = data?.value || 0;
                                                         let isExcluded = COMPONENT_EXCLUSIONS[comp]?.includes(step.id);
