@@ -756,20 +756,6 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                         <tr>
                                             <td colSpan="6" style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>
                                                 Nessun record trovato in questa fase.
-                                                <div style={{ marginTop: "12px" }}>
-                                                    <button className="btn btn-primary btn-sm" onClick={() => {
-                                                        const existingMats = compMappings[selectedDetail.compName] || [];
-                                                        setMappingModal({
-                                                            mat: existingMats[0] || "",
-                                                            mat2: existingMats[1] || "",
-                                                            machine: "",
-                                                            fino: "0010",
-                                                            currentPhase: selectedDetail.phaseId,
-                                                            currentComp: selectedDetail.compName,
-                                                            project: selectedDetail.project
-                                                        });
-                                                    }}>Aggiungi Associazione ➕</button>
-                                                </div>
                                             </td>
                                         </tr>
                                     )}
