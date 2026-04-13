@@ -135,64 +135,11 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
     const [dynamicOverrides, setDynamicOverrides] = useState([]);
     const [refreshTick, setRefreshTick] = useState(0);
 
-    const PHASE_KEYWORDS = {
-        "SALDATURA SOFT": "laser_welding",
-        "SALDATURA HARD": "laser_welding_2",
-        "DENTATURA": "hobbing",
-        "TORNITURA HARD": "start_hard",
-        "TORNITURA SOFT": "start_soft",
-        "PALLINATURA": "shot_peening",
-        "RETTIFICA DENTI": "teeth_grinding",
-        "LAVAGGIO": "washing",
-        "TRATTAMENTO": "ht",
-        "TT": "ht",
-        "HOK": "ht"
-    };
-
     const toLocalDateStr = (d) => {
         const y = d.getFullYear();
         const m = String(d.getMonth() + 1).padStart(2, "0");
         const day = String(d.getDate()).padStart(2, "0");
         return `${y}-${m}-${day}`;
-    };
-
-    const handleBulkParse = () => {
-        if (!bulkText.trim()) return;
-        const lines = bulkText.split("\n");
-        const newRules = [];
-
-        lines.forEach(line => {
-            if (!line.trim()) return;
-            const parts = line.toUpperCase().replace(/,/g, " ").replace(/-/g, " ").split(/\s+/);
-
-            // Cerca codice materiale (es. 2511108150 o M017... )
-            const mat = parts.find(p => /^\d{5,}/.test(p) || p.startsWith("M01"));
-            // Cerca fino (es. 0060, 0120) - di solito 4 cifre
-            const fino = parts.find(p => /^\d{4}$/.test(p));
-            // Cerca fase (keyword match)
-            let phase = null;
-            for (const [key, val] of Object.entries(PHASE_KEYWORDS)) {
-                if (line.toUpperCase().includes(key)) {
-                    phase = val;
-                    break;
-                }
-            }
-
-            if (mat && phase) {
-                newRules.push({ mat, fino, phase });
-            }
-        });
-
-        if (newRules.length > 0) {
-            setDynamicOverrides(prev => {
-                // Evita duplicati
-                const existing = new Set(prev.map(r => `${r.mat}-${r.fino}-${r.phase}`));
-                const filtered = newRules.filter(r => !existing.has(`${r.mat}-${r.fino}-${r.phase}`));
-                return [...prev, ...filtered];
-            });
-            setBulkText("");
-            showToast(`Caricate ${newRules.length} nuove regole!`, "success");
-        }
     };
 
     const fetchData = async () => {
@@ -1092,7 +1039,6 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                     </div>
                 </div>
             )}
-        </div>
             {/* Master Anagrafica Modal */}
             {masterAnagraficaModal && <MasterAnagraficaModal 
                 onClose={() => { setMasterAnagraficaModal(false); fetchData(); }} 
