@@ -73,8 +73,8 @@ const COMPONENT_EXCLUSIONS = {
         "washing", "ht", "assembly", "welding", "quality", "shot_peening", "laser_welding_soft_2"
     ],
     "DG": ["shaping", "laser_welding_2", "ut", "start_hard", "deburring", "laser_welding_soft_2", "milling", "broaching", "shot_peening"],
-    "SG3": ["shaping", "laser_welding", "laser_welding_2", "ut", "milling", "broaching", "shot_peening"],
-    "SG4": ["laser_welding_2", "ut", "deburring", "laser_welding_soft_2", "broaching", "shot_peening"],
+    "SG3": ["shaping", "laser_welding_2", "ut", "milling", "broaching", "shot_peening"],
+    "SG4": ["laser_welding", "laser_welding_2", "ut", "deburring", "laser_welding_soft_2", "broaching", "shot_peening"],
     "SG7": ["laser_welding", "laser_welding_2", "ut", "deburring", "laser_welding_soft_2", "milling", "broaching", "shaping", "shot_peening", "start_hard"],
     "SGR": ["shaping", "laser_welding_2", "ut", "deburring", "laser_welding_soft_2", "milling", "broaching", "shot_peening"],
     "RG": ["shaping", "laser_welding", "laser_welding_2", "ut", "laser_welding_soft_2", "milling", "broaching"], // shot_peening VISIBILE
