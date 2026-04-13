@@ -732,18 +732,33 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                             <button className="btn btn-primary" onClick={async () => {
                                 try {
                                     if (mappingModal.type === 'mat') {
-                                        // Update anagrafica_materiali in Supabase
-                                        const { error } = await supabase
+                                        // 1. Check if exists
+                                        const { data: existing } = await supabase
                                             .from('anagrafica_materiali')
-                                            .upsert({
-                                                codice: mappingModal.mat,
-                                                componente: mappingModal.currentComp,
-                                                progetto: activeProject
-                                            }, { onConflict: 'codice' });
-                                        
-                                        if (error) throw error;
+                                            .select('id')
+                                            .eq('codice', mappingModal.mat)
+                                            .maybeSingle();
 
-                                        // Update local state for immediate feedback on phase overrides
+                                        if (existing) {
+                                            const { error } = await supabase
+                                                .from('anagrafica_materiali')
+                                                .update({
+                                                    componente: mappingModal.currentComp,
+                                                    progetto: activeProject
+                                                })
+                                                .eq('id', existing.id);
+                                            if (error) throw error;
+                                        } else {
+                                            const { error } = await supabase
+                                                .from('anagrafica_materiali')
+                                                .insert({
+                                                    codice: mappingModal.mat,
+                                                    componente: mappingModal.currentComp,
+                                                    progetto: activeProject
+                                                });
+                                            if (error) throw error;
+                                        }
+
                                         setDynamicOverrides(prev => {
                                             const filtered = prev.filter(o => o.mat !== mappingModal.mat || o.fino !== mappingModal.fino);
                                             return [...filtered, { 
@@ -754,16 +769,31 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                             }];
                                         });
                                     } else {
-                                        // Update wc_fasi_mapping in Supabase
-                                        const { error } = await supabase
+                                        // 2. Machine Mapping Persistence
+                                        const { data: existing } = await supabase
                                             .from('wc_fasi_mapping')
-                                            .upsert({
-                                                work_center: mappingModal.machine,
-                                                fase: mappingModal.currentPhase,
-                                                match_type: 'exact'
-                                            }, { onConflict: 'work_center' });
+                                            .select('id')
+                                            .eq('work_center', mappingModal.machine)
+                                            .maybeSingle();
 
-                                        if (error) throw error;
+                                        if (existing) {
+                                            const { error } = await supabase
+                                                .from('wc_fasi_mapping')
+                                                .update({
+                                                    fase: mappingModal.currentPhase
+                                                })
+                                                .eq('id', existing.id);
+                                            if (error) throw error;
+                                        } else {
+                                            const { error } = await supabase
+                                                .from('wc_fasi_mapping')
+                                                .insert({
+                                                    work_center: mappingModal.machine,
+                                                    fase: mappingModal.currentPhase,
+                                                    match_type: 'exact'
+                                                });
+                                            if (error) throw error;
+                                        }
 
                                         setDynamicMachineOverrides(prev => ({
                                             ...prev,
@@ -774,7 +804,7 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                     showToast("Salvataggio permanente completato!");
                                     setMappingModal(null);
                                     setSelectedDetail(null);
-                                    fetchData(); // Refresh to be sure
+                                    fetchData(); 
                                 } catch (err) {
                                     console.error("Save error:", err);
                                     showToast("Errore nel salvataggio su Supabase", "error");
