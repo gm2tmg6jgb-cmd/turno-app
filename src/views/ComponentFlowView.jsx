@@ -29,7 +29,7 @@ const PROJECTS = ["DCT300", "DCT ECO", "8Fe", "RG + DH"];
 const PROJECT_COMPONENTS = {
     "DCT300": ["SG1", "DG-REV", "DG", "SG3", "SG4", "SG5", "SG6", "SG7", "SGR", "RG"],
     "8Fe": ["SG2", "SG3", "SG4", "SG5", "SG6", "SG7", "SG8", "SGR", "PG", "FG5/7"],
-    "DCT ECO": ["SG1", "SG2", "SG3", "SG4", "SG5", "SGR", "RG FD1", "RG FD2"],
+    "DCT ECO": ["SG2", "SG3", "SG4", "SG5", "SGR", "RG FD1", "RG FD2"],
     "RG + DH": ["RG FD1", "RG FD2", "DH TORNITURA", "DH ASSEMBLAGGIO", "DH SALDATURA"]
 };
 
