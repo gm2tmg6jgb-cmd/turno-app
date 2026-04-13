@@ -31,7 +31,7 @@ import MotiviView from "./views/MotiviView";
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 export default function App() {
-  const [currentView, setCurrentView] = useState("dashboard");
+  const [currentView, setCurrentView] = useState("componentFlow");
   const repartoCorrente = ""; // Intenzionalmente vuota: mostra tutti i reparti. Estendibile in futuro con un selettore.
   const [turnoCorrente, setTurnoCorrente] = useState(() => localStorage.getItem("turnoCorrente") || getActiveGroup());
   const [globalDate, setGlobalDate] = useState(() => getLocalDate(new Date()));
