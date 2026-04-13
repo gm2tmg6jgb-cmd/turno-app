@@ -625,6 +625,15 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
 
                                                         if (isExcluded) return <div key={idx} style={{ width: "85px", flexShrink: 0 }} />;
 
+                                                        const currentTarget = (() => {
+                                                            const base = targetOverrides[proj] || 0;
+                                                            if (viewMode === "weekly") return base * 6;
+                                                            if (localTurno !== "ALL") return Math.round(base / 3);
+                                                            return base;
+                                                        })();
+                                                        const isSuccess = qty >= currentTarget && qty > 0;
+                                                        const hasProduction = qty > 0;
+
                                                         return (
                                                             <div key={idx} style={{
                                                                 width: "85px",
@@ -648,16 +657,16 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                                                     style={{
                                                                         width: "75px",
                                                                         height: "45px",
-                                                                        background: qty > 0 ? `linear-gradient(135deg, ${theme.main}, ${theme.main}dd)` : "var(--bg-tertiary)",
+                                                                        background: !hasProduction ? "var(--bg-tertiary)" : (isSuccess ? "linear-gradient(135deg, #22c55e, #16a34a)" : "linear-gradient(135deg, #ef4444, #dc2626)"),
                                                                         borderRadius: "10px",
                                                                         display: "flex",
                                                                         alignItems: "center",
                                                                         justifyContent: "center",
-                                                                        color: "white",
+                                                                        color: hasProduction ? "white" : "var(--text-muted)",
                                                                         fontSize: "22px",
                                                                         fontWeight: "900",
                                                                         cursor: "pointer",
-                                                                        boxShadow: qty > 0 ? `0 6px 15px ${theme.main}44` : "none",
+                                                                        boxShadow: hasProduction ? `0 6px 15px ${isSuccess ? "#22c55e44" : "#ef444444"}` : "none",
                                                                         transition: "all 0.1s"
                                                                     }}>
                                                                     {qty > 0 ? qty : ""}
