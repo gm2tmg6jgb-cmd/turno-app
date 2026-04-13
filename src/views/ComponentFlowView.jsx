@@ -531,7 +531,7 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                         </div>
 
                                         {/* Target Indicator (Single Line Style) */}
-                                        <div style={{ 
+                                        <div style={{
                                             background: "rgba(0,0,0,0.05)",
                                             padding: "8px 16px",
                                             borderRadius: "12px",
@@ -540,9 +540,9 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                             gap: "10px",
                                             border: "1px solid var(--border-light)"
                                         }}>
-                                            <div style={{ 
-                                                fontSize: "16px", 
-                                                fontWeight: "900", 
+                                            <div style={{
+                                                fontSize: "16px",
+                                                fontWeight: "900",
                                                 color: theme.main,
                                                 textTransform: "uppercase",
                                                 display: "flex",
@@ -559,7 +559,7 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                                     })()}
                                                 </span>
                                             </div>
-                                            <button 
+                                            <button
                                                 onClick={() => setTargetModal({ proj, value: targetOverrides[proj] || 0 })}
                                                 style={{ border: "none", background: "none", cursor: "pointer", fontSize: "16px", padding: 0, opacity: 0.5 }}
                                             >
@@ -579,8 +579,10 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                                     width: "85px",
                                                     textAlign: "center",
                                                     flexShrink: 0,
-                                                    background: "transparent",
-                                                    borderRadius: "4px 4px 0 0"
+                                                    background: s.id === "ht" ? "rgba(0, 212, 255, 0.4)" : "transparent",
+                                                    borderRadius: "4px 4px 0 0",
+                                                    borderLeft: s.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none",
+                                                    borderRight: s.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none"
                                                 }}>
                                                     <div style={{ fontSize: "15px", fontWeight: "800", color: "var(--text-muted)", opacity: 0.8 }}>{s.code}</div>
                                                 </div>
@@ -629,7 +631,9 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                                                 display: "flex",
                                                                 justifyContent: "center",
                                                                 flexShrink: 0,
-                                                                background: "transparent"
+                                                                background: step.id === "ht" ? "rgba(0, 212, 255, 0.15)" : "transparent",
+                                                                borderLeft: step.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none",
+                                                                borderRight: step.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none"
                                                             }}>
                                                                 <div
                                                                     onClick={() => {
@@ -723,7 +727,7 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                                             setMappingModal({
                                                                 mat: existingMats[0] || r.materiale,
                                                                 mat2: existingMats[1] || "",
-                                                                machine: r.macchina || "", 
+                                                                machine: r.macchina || "",
                                                                 fino: r.fino,
                                                                 currentPhase: selectedDetail.phaseId,
                                                                 currentComp: selectedDetail.compName,
@@ -1009,26 +1013,26 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                         <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "20px" }}>
                             Inserisci il valore target per l'intera giornata (24h).
                         </p>
-                        
-                        <input 
+
+                        <input
                             type="number"
                             value={targetModal.value}
                             onChange={(e) => setTargetModal({ ...targetModal, value: parseInt(e.target.value) || 0 })}
-                            style={{ 
-                                width: "100%", padding: "12px", fontSize: "20px", fontWeight: "900", 
+                            style={{
+                                width: "100%", padding: "12px", fontSize: "20px", fontWeight: "900",
                                 textAlign: "center", borderRadius: "10px", border: "2px solid var(--accent)",
                                 marginBottom: "20px"
                             }}
                         />
 
                         <div style={{ display: "flex", gap: "10px" }}>
-                            <button 
-                                className="btn btn-secondary" 
+                            <button
+                                className="btn btn-secondary"
                                 style={{ flex: 1 }}
                                 onClick={() => setTargetModal(null)}
                             >Annulla</button>
-                            <button 
-                                className="btn btn-primary" 
+                            <button
+                                className="btn btn-primary"
                                 style={{ flex: 1 }}
                                 onClick={() => {
                                     const newOverrides = { ...targetOverrides, [targetModal.proj]: targetModal.value };
