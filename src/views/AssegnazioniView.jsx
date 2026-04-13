@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { LIVELLI_COMPETENZA, ATTIVITA } from "../data/constants";
 import { Icons } from "../components/ui/Icons";
@@ -36,7 +36,7 @@ export default function AssegnazioniView({
             if (!turnoCorrente || !dipendenti.length) return; // Wait for basic data
 
             // 1. DEDUPLICATE (Cleanup existing mess)
-            const { data: todaysAss, error: fetchErr } = await supabase
+            const { data: todaysAss } = await supabase
                 .from('assegnazioni')
                 .select('*')
                 .eq('data', today)
@@ -338,12 +338,6 @@ export default function AssegnazioniView({
                                                         const effectiveOps = ops.filter(a => getIsPresent(a.dipendente_id));
 
                                                         const isUnder = effectiveOps.length < (m.personale_minimo || 1);
-                                                        const isEmpty = ops.length === 0;
-
-                                                        // Check zone coverage (Assigned AND Present)
-                                                        const isZoneCovered = zoneAss.some(a => getIsPresent(a.dipendente_id));
-
-                                                        const isOk = !isUnder || isZoneCovered;
 
                                                         return (
                                                             <tr key={m.id} style={{ borderBottom: "1px solid var(--border-light)" }}>

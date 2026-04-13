@@ -38,7 +38,6 @@ export default function AnagraficaMacchineView({ macchine, setMacchine, tecnolog
     }, [macchine, search, filterReparto, filterTec]);
 
     /* ── helpers lookup ── */
-    const getTecLabel = (tecId) => tecnologie.find(t => t.id === tecId)?.label || "—";
     const getZonaLabel = (zonaId) => zone.find(z => z.id === zonaId)?.label || zonaId || "—";
 
     /* ── apri form ── */

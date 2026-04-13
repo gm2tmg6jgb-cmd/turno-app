@@ -1,5 +1,4 @@
 import { useState, useMemo } from "react";
-import { createPortal } from "react-dom";
 import { REPARTI } from "../data/constants";
 import { supabase } from "../lib/supabase";
 import { getLocalDate } from "../lib/dateUtils";
@@ -15,13 +14,11 @@ export default function DashboardView({
     dipendenti, setDipendenti,
     presenze, setPresenze,
     assegnazioni, macchine,
-    repartoCorrente, turnoCorrente,
+    turnoCorrente,
     showToast, motivi, setMotivi,
     zones, globalDate,
     pianificazione, setPianificazione
 }) {
-    if (!dipendenti) return <div className="p-4 text-center">Caricamento dipendenti...</div>;
-
     const [activeTab, setActiveTab] = useState("presenze"); // presenze, anagrafica, motivi, analisi
 
     const today = globalDate || getLocalDate(new Date());
@@ -80,8 +77,6 @@ export default function DashboardView({
         const dt = new Date(d.getFullYear(), d.getMonth(), d.getDate());
         const pt = new Date(pasquetta.getFullYear(), pasquetta.getMonth(), pasquetta.getDate());
         return dt.getTime() === pt.getTime();
-
-        return false;
     };
 
     const visibleDays = useMemo(() => {
@@ -223,7 +218,7 @@ export default function DashboardView({
         return d.turno_default === turnoCorrente;
     });
 
-    const presenzeOdierni = presenze ? presenze.filter((p) => p.data === today) : [];
+    // presenzeOdierni removed - unused
 
     // Ricalcolo statistiche basato sui dipendenti FILTRATI e sulla logica di visualizzazione (default incluri)
     const isTodaySunday = new Date(today).getDay() === 0;
@@ -289,6 +284,8 @@ export default function DashboardView({
         });
         return alerts;
     }, [presenze, sortedDip]);
+
+    if (!dipendenti) return <div className="p-4 text-center">Caricamento dipendenti...</div>;
 
     let lastReparto = "";
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { Icons } from "../components/ui/Icons";
 import { formatItalianDate } from "../lib/dateUtils";
@@ -17,21 +17,8 @@ export default function SapDataView({ macchine = [] }) {
     const [filteredCount, setFilteredCount] = useState(0); // righe con filtri applicati
 
     const [anagrafica, setAnagrafica] = useState({});
-    const [loadingAnagrafica, setLoadingAnagrafica] = useState(false);
-
-    // Carica la pagina corrente ogni volta che cambiano filtri o pagina
-    useEffect(() => {
-        fetchSapData();
-    }, [page, search, startDate, endDate]);
-
-    // Fetch una-tantum: anagrafica e conteggio totale
-    useEffect(() => {
-        fetchAnagrafica();
-        fetchTotalCount();
-    }, []);
 
     const fetchAnagrafica = async () => {
-        setLoadingAnagrafica(true);
         const { data, error } = await supabase
             .from("anagrafica_materiali")
             .select("codice, componente, progetto");
@@ -46,36 +33,6 @@ export default function SapDataView({ macchine = [] }) {
             });
             setAnagrafica(map);
         }
-        setLoadingAnagrafica(false);
-    };
-
-    const getProjectFromCode = (code) => {
-        if (!code) return null;
-        const c = code.toUpperCase();
-        if (c.startsWith("251")) return "DCT 300";
-        if (c.startsWith("M015") || c.startsWith("M017")) return "8Fe";
-        if (c.startsWith("M016")) return "DCT Eco";
-        return null;
-    };
-
-    const handleDeleteFutureData = async () => {
-        const today = new Date().toISOString().split('T')[0];
-        if (!window.confirm(`Sei sicuro di voler eliminare TUTTI i dati con data successiva a oggi (${today})? Questa operazione non è reversibile.`)) return;
-
-        setLoading(true);
-        const { error } = await supabase
-            .from("conferme_sap")
-            .delete()
-            .gt("data", today);
-
-        if (error) {
-            console.error("Errore cancellazione dati futuri:", error);
-            alert("Errore durante la cancellazione dei dati: " + error.message);
-        } else {
-            alert("Dati futuri eliminati con successo.");
-            fetchSapData();
-        }
-        setLoading(false);
     };
 
     const fetchTotalCount = async () => {
@@ -116,20 +73,50 @@ export default function SapDataView({ macchine = [] }) {
         setLoading(false);
     };
 
+    // Carica la pagina corrente ogni volta che cambiano filtri o pagina
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchSapData();
+    }, [page, search, startDate, endDate]);
+
+    // Fetch una-tantum: anagrafica e conteggio totale
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchAnagrafica();
+        fetchTotalCount();
+    }, []);
+
+    const getProjectFromCode = (code) => {
+        if (!code) return null;
+        const c = code.toUpperCase();
+        if (c.startsWith("251")) return "DCT 300";
+        if (c.startsWith("M015") || c.startsWith("M017")) return "8Fe";
+        if (c.startsWith("M016")) return "DCT Eco";
+        return null;
+    };
+
+    const handleDeleteFutureData = async () => {
+        const today = new Date().toISOString().split('T')[0];
+        if (!window.confirm(`Sei sicuro di voler eliminare TUTTI i dati con data successiva a oggi (${today})? Questa operazione non è reversibile.`)) return;
+
+        setLoading(true);
+        const { error } = await supabase
+            .from("conferme_sap")
+            .delete()
+            .gt("data", today);
+
+        if (error) {
+            console.error("Errore cancellazione dati futuri:", error);
+            alert("Errore durante la cancellazione dei dati: " + error.message);
+        } else {
+            alert("Dati futuri eliminati con successo.");
+            fetchSapData();
+        }
+        setLoading(false);
+    };
+
     // Filtro e paginazione gestiti server-side; data contiene solo la pagina corrente
     const filtered = data;
-
-    const getMacchinaNome = (macchinaId, workCenterSap) => {
-        // 1. Cerca per ID (se presente)
-        let m = macchine.find(m => m.id === macchinaId);
-
-        // 2. Se non trovato per ID, cerca per Codice SAP
-        if (!m && workCenterSap) {
-            m = macchine.find(m => (m.codice_sap || "").toUpperCase() === workCenterSap.toUpperCase());
-        }
-
-        return m ? m.nome : (workCenterSap || "—");
-    };
 
     return (
         <div className="fade-in" style={{ height: "100%", overflowY: "auto", paddingBottom: 20 }}>

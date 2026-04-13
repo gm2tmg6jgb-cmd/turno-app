@@ -4,7 +4,7 @@ import { supabase } from "../lib/supabase";
 import { Icons } from "../components/ui/Icons";
 import { Modal } from "../components/ui/Modal";
 
-export default function AnagraficaView({ dipendenti, setDipendenti, macchine, showToast, turnoCorrente }) {
+export default function AnagraficaView({ dipendenti, setDipendenti, showToast, turnoCorrente }) {
     const [searchTerm, setSearchTerm] = useState("");
     const [filterReparto, setFilterReparto] = useState("all");
     const [filterTipo, setFilterTipo] = useState("all");
@@ -139,21 +139,6 @@ export default function AnagraficaView({ dipendenti, setDipendenti, macchine, sh
         setCurrentDipId(dip.id);
         setIsEditing(true);
         setShowModal(true);
-    };
-
-    const handleDelete = async (id) => {
-        if (window.confirm("Sei sicuro di voler eliminare questo dipendente?")) {
-            try {
-                const { error } = await supabase.from('dipendenti').delete().eq('id', id);
-                if (error) throw error;
-
-                setDipendenti(dipendenti.filter(d => d.id !== id));
-                showToast("Dipendente eliminato", "warning");
-            } catch (error) {
-                console.error("Error deleting dipendente:", error);
-                showToast("Errore eliminazione: " + error.message, "error");
-            }
-        }
     };
 
     return (

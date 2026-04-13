@@ -16,36 +16,6 @@ export default function SapFermiView({ macchine = [] }) {
     const [totalCount, setTotalCount] = useState(0);      
     const [filteredCount, setFilteredCount] = useState(0); 
 
-    // Carica la pagina corrente ogni volta che cambiano filtri o pagina
-    useEffect(() => {
-        fetchSapFermi();
-    }, [page, search, startDate, endDate]);
-
-    // Fetch conteggio totale all'inizio
-    useEffect(() => {
-        fetchTotalCount();
-    }, []);
-
-    const handleDeleteFutureData = async () => {
-        const today = new Date().toISOString().split('T')[0];
-        if (!window.confirm(`Sei sicuro di voler eliminare TUTTI i fermi con data successiva a oggi (${today})? Questa operazione non è reversibile.`)) return;
-
-        setLoading(true);
-        const { error } = await supabase
-            .from("fermi_sap")
-            .delete()
-            .gt("data_inizio", today);
-
-        if (error) {
-            console.error("Errore cancellazione dati futuri:", error);
-            alert("Errore durante la cancellazione dei dati: " + error.message);
-        } else {
-            alert("Dati futuri eliminati con successo.");
-            fetchSapFermi();
-        }
-        setLoading(false);
-    };
-
     const fetchTotalCount = async () => {
         const { count } = await supabase
             .from("fermi_sap")
@@ -78,6 +48,38 @@ export default function SapFermiView({ macchine = [] }) {
             console.error("Errore recupero fermi SAP:", error);
         } else {
             setData(res || []);
+        }
+        setLoading(false);
+    };
+
+    // Carica la pagina corrente ogni volta che cambiano filtri o pagina
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchSapFermi();
+    }, [page, search, startDate, endDate]);
+
+    // Fetch conteggio totale all'inizio
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchTotalCount();
+    }, []);
+
+    const handleDeleteFutureData = async () => {
+        const today = new Date().toISOString().split('T')[0];
+        if (!window.confirm(`Sei sicuro di voler eliminare TUTTI i fermi con data successiva a oggi (${today})? Questa operazione non è reversibile.`)) return;
+
+        setLoading(true);
+        const { error } = await supabase
+            .from("fermi_sap")
+            .delete()
+            .gt("data_inizio", today);
+
+        if (error) {
+            console.error("Errore cancellazione dati futuri:", error);
+            alert("Errore durante la cancellazione dei dati: " + error.message);
+        } else {
+            alert("Dati futuri eliminati con successo.");
+            fetchSapFermi();
         }
         setLoading(false);
     };

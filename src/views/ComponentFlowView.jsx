@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase, fetchAllRows } from "../lib/supabase";
 import { getCurrentWeekRange } from "../lib/dateUtils";
 import { Icons } from "../components/ui/Icons";
@@ -110,7 +110,7 @@ const MACHINE_PHASE_OVERRIDES = {
     "HOK11001": "ht"
 };
 
-export default function ComponentFlowView({ macchine, showToast, globalDate, turnoCorrente }) {
+export default function ComponentFlowView({ showToast, globalDate, turnoCorrente }) {
     const [viewMode, setViewMode] = useState("daily"); // "weekly" | "daily"
     const [targetOverrides, setTargetOverrides] = useState(() => {
         const saved = localStorage.getItem("bap_target_overrides");
@@ -123,17 +123,17 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
         return range.monday;
     });
     const [wDate, setWDate] = useState(() => new Date().toISOString().split("T")[0]);
-    const [activeProject, setActiveProject] = useState("DCT300"); // used only for modal context
+    const activeProject = "DCT300";
     const [localTurno, setLocalTurno] = useState(turnoCorrente || "ALL");
     const [loading, setLoading] = useState(false);
     const [matrixData, setMatrixData] = useState({});
     const [componentsByProject, setComponentsByProject] = useState({});
-    const [compMappings, setCompMappings] = useState({});
+    const [, setCompMappings] = useState({});
     const [selectedDetail, setSelectedDetail] = useState(null);
     const [isConfigMode, setIsConfigMode] = useState(false);
     const [quickConfigModal, setQuickConfigModal] = useState(null); // { project, comp, phase }
-    const [dynamicOverrides, setDynamicOverrides] = useState([]);
-    const [refreshTick, setRefreshTick] = useState(0);
+    const [dynamicOverrides] = useState([]);
+    const refreshTick = 0;
 
     const toLocalDateStr = (d) => {
         const y = d.getFullYear();
@@ -162,7 +162,6 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
             if (anagraficaRes) {
                 anagraficaRes.forEach(row => {
                     const c = (row.codice || "").toUpperCase();
-                    const comp = (row.componente || "").toUpperCase();
                     // Don't overwrite LOCAL_ANAGRAFICA items
                     if (c && !anagrafica[c]) anagrafica[c] = row;
                 });
@@ -358,11 +357,6 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
         if (globalDate) setWDate(globalDate);
     }, [globalDate]);
 
-    const visibleSteps = useMemo(() => {
-        const exclusions = EXCLUDED_PHASES[activeProject] || [];
-        return PROCESS_STEPS.filter(step => !exclusions.includes(step.id));
-    }, [activeProject]);
-
     return (
         <div className="fade-in" style={{ padding: "20px", height: "100%", overflowY: "auto" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
@@ -481,7 +475,7 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                     padding: "10px",
                     overflow: "hidden"
                 }}>
-                    {PROJECTS.map((proj, idx) => {
+                    {PROJECTS.map((proj) => {
                         const projectComps = componentsByProject[proj] || [];
                         const projectExclusions = EXCLUDED_PHASES[proj] || [];
                         const projectVisibleSteps = PROCESS_STEPS.filter(s => !projectExclusions.includes(s.id));
