@@ -126,15 +126,14 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
     const [activeProject, setActiveProject] = useState("DCT300"); // used only for modal context
     const [localTurno, setLocalTurno] = useState(turnoCorrente || "ALL");
     const [loading, setLoading] = useState(false);
-    const [matrixData, setMatrixData] = useState({}); // { projId: { compId: { phaseId: { value, records } } } }
-    const [componentsByProject, setComponentsByProject] = useState({}); // { projId: string[] }
+    const [matrixData, setMatrixData] = useState({});
+    const [componentsByProject, setComponentsByProject] = useState({});
+    const [compMappings, setCompMappings] = useState({});
     const [selectedDetail, setSelectedDetail] = useState(null);
-    const [bulkText, setBulkText] = useState("");
-    const [dynamicOverrides, setDynamicOverrides] = useState([]); // [{ mat, fino, phase, comp }] — session-only (bulk parser)
-    const [refreshTick, setRefreshTick] = useState(0); // incremented after DB save to trigger re-fetch
-    const [showParser, setShowParser] = useState(false);
-    const [mappingModal, setMappingModal] = useState(null); // { mat, mat2, machine, fino, currentPhase, currentComp }
-    const [compMappings, setCompMappings] = useState({}); // { COMP: [m1, m2] }
+    const [mappingModal, setMappingModal] = useState(null);
+    const [masterAnagraficaModal, setMasterAnagraficaModal] = useState(false);
+    const [dynamicOverrides, setDynamicOverrides] = useState([]);
+    const [refreshTick, setRefreshTick] = useState(0);
 
     const PHASE_KEYWORDS = {
         "SALDATURA SOFT": "laser_welding",
@@ -465,6 +464,14 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                             <option key={t.id} value={t.id}>Turno {t.id}</option>
                         ))}
                     </select>
+
+                    <button
+                        onClick={() => setMasterAnagraficaModal(true)}
+                        className="btn btn-secondary"
+                        style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: "6px", fontWeight: "700" }}
+                    >
+                        📋 <span style={{ fontSize: "13px" }}>Gestione Anagrafica</span>
+                    </button>
 
                     {viewMode === "weekly" ? (
                         <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
@@ -1085,6 +1092,123 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                     </div>
                 </div>
             )}
+        </div>
+            {/* Master Anagrafica Modal */}
+            {masterAnagraficaModal && <MasterAnagraficaModal 
+                onClose={() => { setMasterAnagraficaModal(false); fetchData(); }} 
+                showToast={showToast} 
+            />}
+        </div>
+    );
+}
+
+// --- MASTER ANAGRAFICA MODAL COMPONENT ---
+function MasterAnagraficaModal({ onClose, showToast }) {
+    const [loading, setLoading] = useState(true);
+    const [list, setList] = useState([]);
+    const [search, setSearch] = useState("");
+    const [newRow, setNewRow] = useState({ codice: "", componente: "", progetto: "DCT300" });
+
+    const fetchAll = async () => {
+        setLoading(true);
+        const { data } = await supabase.from('anagrafica_materiali').select('*').order('codice');
+        setList(data || []);
+        setLoading(false);
+    };
+
+    useEffect(() => { fetchAll(); }, []);
+
+    const handleAdd = async () => {
+        if (!newRow.codice || !newRow.componente) return showToast("Compila tutti i campi", "error");
+        const payload = {
+            codice: newRow.codice.toUpperCase().trim(),
+            componente: newRow.componente.toUpperCase().trim(),
+            progetto: newRow.progetto
+        };
+        const { error } = await supabase.from('anagrafica_materiali').insert(payload);
+        if (error) return showToast("Errore: " + error.message, "error");
+        showToast("Materiale aggiunto!", "success");
+        setNewRow({ codice: "", componente: "", progetto: "DCT300" });
+        fetchAll();
+    };
+
+    const handleDelete = async (id) => {
+        if (!confirm("Sei sicuro di voler eliminare questa mappatura?")) return;
+        const { error } = await supabase.from('anagrafica_materiali').delete().eq('id', id);
+        if (error) return showToast("Errore eliminazione", "error");
+        showToast("Eliminato");
+        fetchAll();
+    };
+
+    const filtered = list.filter(item => 
+        item.codice.toLowerCase().includes(search.toLowerCase()) || 
+        item.componente.toLowerCase().includes(search.toLowerCase())
+    );
+
+    return (
+        <div className="modal-backdrop" style={{ zIndex: 4000 }}>
+            <div className="modal-content" style={{ width: "900px", height: "80vh", display: "flex", flexDirection: "column", padding: "30px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                    <h2 style={{ margin: 0, fontSize: "28px", fontWeight: "900" }}>📦 Gestione Anagrafica Materiali</h2>
+                    <button className="btn btn-secondary" onClick={onClose} style={{ borderRadius: "50%", width: "40px", height: "40px", padding: 0 }}>✕</button>
+                </div>
+
+                {/* Add Form */}
+                <div style={{ padding: "20px", background: "var(--bg-tertiary)", borderRadius: "12px", marginBottom: "24px", display: "flex", gap: "10px", alignItems: "flex-end" }}>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: "11px", fontWeight: "800", marginBottom: "5px", opacity: 0.6 }}>CODICE SAP</div>
+                        <input className="input" placeholder="M00..." value={newRow.codice} onChange={e => setNewRow({...newRow, codice: e.target.value})} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: "11px", fontWeight: "800", marginBottom: "5px", opacity: 0.6 }}>COMPONENTE</div>
+                        <input className="input" placeholder="SG..." value={newRow.componente} onChange={e => setNewRow({...newRow, componente: e.target.value})} />
+                    </div>
+                    <div style={{ width: "150px" }}>
+                         <div style={{ fontSize: "11px", fontWeight: "800", marginBottom: "5px", opacity: 0.6 }}>PROGETTO</div>
+                         <select className="input" value={newRow.progetto} onChange={e => setNewRow({...newRow, progetto: e.target.value})}>
+                            {PROJECTS.map(p => <option key={p} value={p}>{p}</option>)}
+                         </select>
+                    </div>
+                    <button className="btn btn-primary" onClick={handleAdd} style={{ height: "44px", padding: "0 24px" }}>Aggiungi</button>
+                </div>
+
+                {/* Search */}
+                <div style={{ marginBottom: "15px" }}>
+                    <input className="input" placeholder="Cerca codice o componente..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: "100%" }} />
+                </div>
+
+                {/* List */}
+                <div style={{ flex: 1, overflow: "auto", borderRadius: "12px", border: "1px solid var(--border-light)" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <thead style={{ position: "sticky", top: 0, background: "var(--bg-card)", borderBottom: "2px solid var(--border)" }}>
+                            <tr>
+                                <th style={{ textAlign: "left", padding: "12px 20px" }}>Codice SAP</th>
+                                <th style={{ textAlign: "left", padding: "12px 20px" }}>Componente</th>
+                                <th style={{ textAlign: "left", padding: "12px 20px" }}>Progetto</th>
+                                <th style={{ textAlign: "center", padding: "12px 20px" }}>Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {loading ? (
+                                <tr><td colSpan="4" style={{ textAlign: "center", padding: "40px" }}>Caricamento...</td></tr>
+                            ) : filtered.map(item => (
+                                <tr key={item.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                    <td style={{ padding: "12px 20px", fontWeight: "700" }}>{item.codice}</td>
+                                    <td style={{ padding: "12px 20px" }}>{item.componente}</td>
+                                    <td style={{ padding: "12px 20px" }}>
+                                        <span style={{ padding: "4px 10px", borderRadius: "6px", fontSize: "11px", fontWeight: "800", background: "rgba(0,0,0,0.05)" }}>
+                                            {item.progetto}
+                                        </span>
+                                    </td>
+                                    <td style={{ padding: "12px 20px", textAlign: "center" }}>
+                                        <button className="btn btn-secondary" onClick={() => handleDelete(item.id)} style={{ padding: "4px 8px", fontSize: "12px", color: "red" }}>Elimina</button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     );
 }
