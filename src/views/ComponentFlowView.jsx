@@ -95,8 +95,10 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
     const [components, setComponents] = useState([]); // List of components for active project
     const [selectedDetail, setSelectedDetail] = useState(null);
     const [bulkText, setBulkText] = useState("");
-    const [dynamicOverrides, setDynamicOverrides] = useState([]); // [{ mat, fino, phase }]
+    const [dynamicOverrides, setDynamicOverrides] = useState([]); // [{ mat, fino, phase, comp }]
+    const [dynamicMachineOverrides, setDynamicMachineOverrides] = useState({}); // { machineId: phaseId }
     const [showParser, setShowParser] = useState(false);
+    const [mappingModal, setMappingModal] = useState(null); // { mat, machine, fino, currentPhase, currentComp, type: 'mat'|'machine' }
 
     const PHASE_KEYWORDS = {
         "SALDATURA SOFT": "laser_welding",
@@ -182,7 +184,7 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                 // 1. Check Overrides (Material/Fino)
                 const allMaterialOverrides = [...MATERIAL_PHASE_OVERRIDES, ...dynamicOverrides];
                 const override = allMaterialOverrides.find(o => 
-                    matCode.includes(o.mat.toUpperCase()) && 
+                    matCode === o.mat.toUpperCase() && 
                     (o.fino === fino || !o.fino)
                 );
                 if (override) return override.phase;
@@ -260,8 +262,13 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                     if (proj === "DCTeco") proj = "DCT ECO";
 
                     if (proj !== activeProject) return;
+                    
+                    const fino = String(r.fino || "").padStart(4, "0");
 
-                    let comp = (info.componente || "ALTRO").toUpperCase();
+                    // Check if there is a component override
+                    const compOverride = dynamicOverrides.find(o => o.mat.toUpperCase() === matCode && (o.fino === fino || !o.fino));
+                    let comp = compOverride ? compOverride.comp : (info.componente || "ALTRO").toUpperCase();
+                    
                     if (comp === "SG2-REV") comp = "DG-REV"; 
 
                     projectComponents.add(comp);
@@ -301,7 +308,7 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
 
     useEffect(() => {
         fetchData();
-    }, [wWeek, wDate, viewMode, activeProject, localTurno]);
+    }, [wWeek, wDate, viewMode, activeProject, localTurno, dynamicOverrides, dynamicMachineOverrides]);
 
     useEffect(() => {
         if (turnoCorrente) setLocalTurno(turnoCorrente);
@@ -516,12 +523,12 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                                     <div key={idx} style={{ width: "100px", display: "flex", justifyContent: "center", flexShrink: 0 }}>
                                                         <div 
                                                             onClick={() => {
-                                                                if (qty > 0) {
-                                                                    setSelectedDetail({
-                                                                        title: `${comp} - ${step.label}`,
-                                                                        records: data.records
-                                                                    });
-                                                                }
+                                                                setSelectedDetail({
+                                                                    title: `${comp} - ${step.label}`,
+                                                                    phaseId: step.id,
+                                                                    compName: comp,
+                                                                    records: data?.records || []
+                                                                });
                                                             }}
                                                             style={{
                                                             width: "80px",
@@ -535,9 +542,9 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                                             color: isExcluded ? "var(--text-muted)" : (qty > 0 ? "white" : "var(--text-muted)"),
                                                             border: isExcluded ? "1px solid var(--border)" : (qty > 0 ? "none" : "1px dashed var(--border)"),
                                                             boxShadow: (qty > 0 && !isExcluded) ? "0 4px 10px rgba(60, 110, 240, 0.2)" : "none",
-                                                            opacity: isExcluded ? 0.3 : (qty > 0 ? 1 : 0.4),
+                                                            opacity: isExcluded ? 0.3 : (qty > 0 ? 1 : 0.6),
                                                             transition: "all 0.2s",
-                                                            cursor: (qty > 0 && !isExcluded) ? "pointer" : "default"
+                                                            cursor: "pointer"
                                                         }}>
                                                             <div style={{ fontSize: "14px", fontWeight: "900" }}>{isExcluded ? "N/A" : qty}</div>
                                                             {qty > 0 && !isExcluded && <div style={{ fontSize: "8px", fontWeight: "700", opacity: 0.8 }}>PEZZI</div>}
@@ -585,21 +592,194 @@ export default function ComponentFlowView({ macchine, showToast, globalDate, tur
                                         <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Materiale</th>
                                         <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Turno</th>
                                         <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Macchina</th>
-                                        <th style={{ padding: "10px", textAlign: "right", fontSize: "12px", color: "var(--text-muted)", borderRadius: "0 6px 6px 0" }}>Q.tà</th>
+                                        <th style={{ padding: "10px", textAlign: "right", fontSize: "12px", color: "var(--text-muted)" }}>Q.tà</th>
+                                        <th style={{ padding: "10px", width: "40px" }}></th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {selectedDetail.records.map((r, i) => (
-                                        <tr key={i} style={{ borderBottom: "1px solid var(--border-light)" }}>
-                                            <td style={{ padding: "10px", fontSize: "13px" }}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
-                                            <td style={{ padding: "10px", fontSize: "13px", color: "var(--accent)", fontWeight: "600" }}>{r.materiale}</td>
-                                            <td style={{ padding: "10px", fontSize: "13px" }}>{r.turno_id}</td>
-                                            <td style={{ padding: "10px", fontSize: "13px", fontWeight: "bold" }}>{r.macchina}</td>
-                                            <td style={{ padding: "10px", fontSize: "14px", fontWeight: "bold", textAlign: "right", color: "#3c6ef0" }}>{r.qta_ottenuta}</td>
+                                    {selectedDetail.records.length > 0 ? (
+                                        selectedDetail.records.map((r, i) => (
+                                            <tr key={i} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                                <td style={{ padding: "10px", fontSize: "13px" }}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
+                                                <td style={{ padding: "10px", fontSize: "13px", color: "var(--accent)", fontWeight: "600" }}>{r.materiale}</td>
+                                                <td style={{ padding: "10px", fontSize: "13px" }}>{r.turno_id}</td>
+                                                <td style={{ padding: "10px", fontSize: "13px", fontWeight: "bold" }}>{r.macchina}</td>
+                                                <td style={{ padding: "10px", fontSize: "14px", fontWeight: "bold", textAlign: "right", color: "#3c6ef0" }}>{r.qta_ottenuta}</td>
+                                                <td style={{ padding: "10px", textAlign: "center" }}>
+                                                    <button 
+                                                        onClick={() => {
+                                                            setMappingModal({
+                                                                mat: r.materiale,
+                                                                machine: r.macchina,
+                                                                fino: r.fino,
+                                                                currentPhase: selectedDetail.phaseId,
+                                                                currentComp: selectedDetail.compName,
+                                                                type: 'mat'
+                                                            });
+                                                        }}
+                                                        style={{ border: "none", background: "none", cursor: "pointer", color: "var(--text-muted)" }}
+                                                    >
+                                                        {Icons.edit}
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="6" style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>
+                                                Nessun record trovato in questa fase. 
+                                                <div style={{ marginTop: "12px" }}>
+                                                    <button className="btn btn-primary btn-sm" onClick={() => {
+                                                        setMappingModal({
+                                                            mat: "",
+                                                            machine: "",
+                                                            fino: "0010",
+                                                            currentPhase: selectedDetail.phaseId,
+                                                            currentComp: selectedDetail.compName,
+                                                            type: 'mat'
+                                                        });
+                                                    }}>Aggiungi Associazione ➕</button>
+                                                </div>
+                                            </td>
                                         </tr>
-                                    ))}
+                                    )}
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Change Mapping Modal */}
+            {mappingModal && (
+                <div className="modal-backdrop" style={{ zIndex: 2000 }}>
+                    <div className="modal-content" style={{ width: "400px", padding: "24px" }}>
+                        <h2 style={{ fontSize: "18px", marginBottom: "20px" }}>Associa a {mappingModal.currentComp}</h2>
+                        
+                        <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
+                            <button 
+                                className={`btn ${mappingModal.type === 'mat' ? 'btn-primary' : 'btn-secondary'} btn-sm`} 
+                                style={{ flex: 1 }}
+                                onClick={() => setMappingModal({...mappingModal, type: 'mat'})}
+                            >Materiale</button>
+                            <button 
+                                className={`btn ${mappingModal.type === 'machine' ? 'btn-primary' : 'btn-secondary'} btn-sm`} 
+                                style={{ flex: 1 }}
+                                onClick={() => setMappingModal({...mappingModal, type: 'machine'})}
+                            >Macchina</button>
+                        </div>
+
+                        {mappingModal.type === 'mat' ? (
+                            <>
+                                <div style={{ marginBottom: "16px" }}>
+                                    <label style={{ display: "block", fontSize: "12px", marginBottom: "6px" }}>Codice Materiale</label>
+                                    <input 
+                                        type="text"
+                                        placeholder="es: 2511108150"
+                                        value={mappingModal.mat}
+                                        onChange={(e) => setMappingModal({...mappingModal, mat: e.target.value.toUpperCase()})}
+                                        style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border)" }}
+                                    />
+                                </div>
+                                <div style={{ marginBottom: "16px" }}>
+                                    <label style={{ display: "block", fontSize: "12px", marginBottom: "6px" }}>Operazione (Fino a)</label>
+                                    <input 
+                                        type="text"
+                                        placeholder="es: 0010"
+                                        value={mappingModal.fino}
+                                        onChange={(e) => setMappingModal({...mappingModal, fino: e.target.value})}
+                                        style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border)" }}
+                                    />
+                                </div>
+                            </>
+                        ) : (
+                            <div style={{ marginBottom: "16px" }}>
+                                <label style={{ display: "block", fontSize: "12px", marginBottom: "6px" }}>Codice Macchina</label>
+                                <input 
+                                    type="text"
+                                    placeholder="es: DRA101"
+                                    value={mappingModal.machine} 
+                                    onChange={(e) => setMappingModal({...mappingModal, machine: e.target.value.toUpperCase()})}
+                                    style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border)" }}
+                                />
+                            </div>
+                        )}
+
+                        <div style={{ marginBottom: "16px" }}>
+                            <label style={{ display: "block", fontSize: "12px", marginBottom: "6px" }}>Componente Destinatario</label>
+                            <select 
+                                value={mappingModal.currentComp}
+                                onChange={(e) => setMappingModal({...mappingModal, currentComp: e.target.value})}
+                                style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border)" }}
+                            >
+                                {components.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </div>
+
+                        <div style={{ marginBottom: "24px" }}>
+                            <label style={{ display: "block", fontSize: "12px", marginBottom: "6px" }}>Fase Destinataria</label>
+                            <select 
+                                value={mappingModal.currentPhase}
+                                onChange={(e) => setMappingModal({...mappingModal, currentPhase: e.target.value})}
+                                style={{ width: "100%", padding: "8px", borderRadius: "6px", border: "1px solid var(--border)" }}
+                            >
+                                {PROCESS_STEPS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                            </select>
+                        </div>
+
+                        <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px" }}>
+                            <button className="btn btn-secondary" onClick={() => setMappingModal(null)}>Annulla</button>
+                            <button className="btn btn-primary" onClick={async () => {
+                                try {
+                                    if (mappingModal.type === 'mat') {
+                                        // Update anagrafica_materiali in Supabase
+                                        const { error } = await supabase
+                                            .from('anagrafica_materiali')
+                                            .upsert({
+                                                codice: mappingModal.mat,
+                                                componente: mappingModal.currentComp,
+                                                progetto: activeProject
+                                            }, { onConflict: 'codice' });
+                                        
+                                        if (error) throw error;
+
+                                        // Update local state for immediate feedback on phase overrides
+                                        setDynamicOverrides(prev => {
+                                            const filtered = prev.filter(o => o.mat !== mappingModal.mat || o.fino !== mappingModal.fino);
+                                            return [...filtered, { 
+                                                mat: mappingModal.mat, 
+                                                fino: mappingModal.fino, 
+                                                phase: mappingModal.currentPhase,
+                                                comp: mappingModal.currentComp
+                                            }];
+                                        });
+                                    } else {
+                                        // Update wc_fasi_mapping in Supabase
+                                        const { error } = await supabase
+                                            .from('wc_fasi_mapping')
+                                            .upsert({
+                                                work_center: mappingModal.machine,
+                                                fase: mappingModal.currentPhase,
+                                                match_type: 'exact'
+                                            }, { onConflict: 'work_center' });
+
+                                        if (error) throw error;
+
+                                        setDynamicMachineOverrides(prev => ({
+                                            ...prev,
+                                            [mappingModal.machine]: mappingModal.currentPhase
+                                        }));
+                                    }
+                                    
+                                    showToast("Salvataggio permanente completato!");
+                                    setMappingModal(null);
+                                    setSelectedDetail(null);
+                                    fetchData(); // Refresh to be sure
+                                } catch (err) {
+                                    console.error("Save error:", err);
+                                    showToast("Errore nel salvataggio su Supabase", "error");
+                                }
+                            }}>Salva Permanentemente</button>
                         </div>
                     </div>
                 </div>
