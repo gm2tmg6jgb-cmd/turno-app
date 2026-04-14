@@ -1100,7 +1100,11 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
         }
 
         const ovPayload = { materiale: matCode, fino: finoStr, fase: phase, componente: comp, progetto: project };
-        let ovQuery = supabase.from('material_fino_overrides').select('id').eq('materiale', matCode);
+        let ovQuery = supabase.from('material_fino_overrides').select('id')
+            .eq('materiale', matCode)
+            .eq('fase', phase)
+            .eq('componente', comp)
+            .eq('progetto', project);
         ovQuery = finoStr ? ovQuery.eq('fino', finoStr) : ovQuery.is('fino', null);
         const { data: existingOv } = await ovQuery.maybeSingle();
         if (existingOv) {
