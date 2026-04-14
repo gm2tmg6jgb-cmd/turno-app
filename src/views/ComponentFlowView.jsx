@@ -3,6 +3,7 @@ import { supabase, fetchAllRows } from "../lib/supabase";
 import { getCurrentWeekRange } from "../lib/dateUtils";
 import { Icons } from "../components/ui/Icons";
 import { TURNI } from "../data/constants";
+import { getSlotForGroup } from "../lib/shiftRotation";
 
 // --- LOCAL ANAGRAFICA (Single Source of Truth) ---
 const LOCAL_ANAGRAFICA = {
@@ -338,6 +339,9 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                         return;
                     }
 
+                    // BAA viene letto da prelievi_baa (MB51), non da conferme_sap
+                    if (phase === "baa") return;
+
                     projComponentSets[proj].add(comp);
                     if (!newMatrix[proj][comp]) newMatrix[proj][comp] = {};
                     if (!newMatrix[proj][comp][phase]) newMatrix[proj][comp][phase] = { value: 0, records: [] };
@@ -347,6 +351,56 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
             }
 
             console.log(`[ComponentFlow] Scartati: ${skippedNoInfo} senza anagrafica, ${skippedNoPhase} senza fase`);
+
+            // --- Fetch BAA da prelievi_baa (MB51) ---
+            const baaQueryFactory = () => {
+                let q = supabase.from("prelievi_baa").select("data, orario, materiale, quantita");
+                if (viewMode === "weekly") {
+                    const [y, mo, d] = wWeek.split("-").map(Number);
+                    const mon = new Date(y, mo - 1, d);
+                    const sun = new Date(y, mo - 1, d + 6);
+                    q = q.gte("data", toLocalDateStr(mon)).lte("data", toLocalDateStr(sun));
+                } else {
+                    q = q.eq("data", wDate);
+                }
+                if (localTurno && localTurno !== "ALL") {
+                    const refDate = viewMode === "weekly" ? new Date(wWeek) : new Date(wDate + "T12:00:00");
+                    const slot = getSlotForGroup(localTurno, refDate);
+                    if (slot) {
+                        const [startH, endH] = slot.orario.split("–").map(s => s.trim().replace(":", ":"));
+                        const start = startH.length === 5 ? startH + ":00" : startH;
+                        const end = endH === "24:00" ? "23:59:59" : (endH.length === 5 ? endH + ":00" : endH);
+                        if (slot.id === "N") {
+                            // Notte: 00:00 – 06:00
+                            q = q.gte("orario", "00:00:00").lt("orario", end);
+                        } else {
+                            q = q.gte("orario", start).lt("orario", end === "23:59:59" ? "24:00:00" : end);
+                        }
+                    }
+                }
+                return q;
+            };
+            const { data: baaRes } = await fetchAllRows(baaQueryFactory);
+            if (baaRes) {
+                baaRes.forEach(r => {
+                    const matCode = (r.materiale || "").toUpperCase();
+                    const info = anagrafica[matCode];
+                    if (!info) return;
+                    let proj = info.progetto || "Other";
+                    if (proj === "DCT 300" || proj === "DCT300") proj = "DCT300";
+                    if (proj === "8Fe" || proj === "8 FE" || proj === "8Fedct") proj = "8Fe";
+                    if (proj === "DCT Eco" || proj === "DCTeco" || proj === "DCT ECO") proj = "DCT ECO";
+                    if (proj === "RG" || proj === "DH" || proj === "RG + DH") proj = "RG + DH";
+                    if (!PROJECTS.includes(proj)) return;
+                    let comp = (info.componente || "ALTRO").toUpperCase();
+                    if (comp === "SG2-REV") comp = "DG-REV";
+                    projComponentSets[proj].add(comp);
+                    if (!newMatrix[proj][comp]) newMatrix[proj][comp] = {};
+                    if (!newMatrix[proj][comp]["baa"]) newMatrix[proj][comp]["baa"] = { value: 0, records: [] };
+                    newMatrix[proj][comp]["baa"].value += (r.quantita || 0);
+                    newMatrix[proj][comp]["baa"].records.push({ ...r, matCode });
+                });
+            }
             if (skippedNoInfo > 0) {
                 const top = Object.entries(unmappedMaterials).sort((a, b) => b[1] - a[1]).slice(0, 10);
                 console.log(`[ComponentFlow] Top materiali senza anagrafica:`, top.map(([m, n]) => `${m} (${n})`).join(", "));

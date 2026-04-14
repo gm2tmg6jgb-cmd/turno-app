@@ -39,6 +39,7 @@ const COL_DEFS_FERMI = [
 
 const COL_DEFS_MB51 = [
     { key: "data", label: "Data Documento", patterns: ["data documento", "data doc.", "posting date", "data registr.", "data", "acquisito"] },
+    { key: "orario", label: "Orario", patterns: ["ora registrazione", "ora di registrazione", "entry time", "posting time", "uhrzeit", "orario", "ora"] },
     { key: "materiale", label: "Materiale", patterns: ["materiale", "material", "matr.", "articolo", "codice materiale"] },
     { key: "descrizione", label: "Descrizione", patterns: ["descrizione materiale", "descrizione", "testo breve", "denominazione", "text"] },
     { key: "quantita", label: "Quantità", patterns: ["quantità in um base", "quantità", "qtà", "quantita", "qty", "qta", "quantity"] },
@@ -301,6 +302,7 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                 if (!data_val && !materiale) return null;
                 return {
                     data: data_val,
+                    orario: formatTime(get(row, mapping.orario)),
                     materiale,
                     descrizione: String(get(row, mapping.descrizione) || "").trim(),
                     quantita: parseFloat(String(get(row, mapping.quantita) || "").replace(",", ".")) || 0,
