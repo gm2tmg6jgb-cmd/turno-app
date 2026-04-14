@@ -37,6 +37,18 @@ const COL_DEFS_FERMI = [
     { key: "turno", label: "Turno", patterns: ["turno", "shift", "turn"] },
 ];
 
+const COL_DEFS_MB51 = [
+    { key: "data", label: "Data Documento", patterns: ["data documento", "data doc.", "posting date", "data registr.", "data", "acquisito"] },
+    { key: "materiale", label: "Materiale", patterns: ["materiale", "material", "matr.", "articolo", "codice materiale"] },
+    { key: "descrizione", label: "Descrizione", patterns: ["descrizione materiale", "descrizione", "testo breve", "denominazione", "text"] },
+    { key: "quantita", label: "Quantità", patterns: ["quantità in um base", "quantità", "qtà", "quantita", "qty", "qta", "quantity"] },
+    { key: "um", label: "U.M.", patterns: ["um base", "unità di misura", "unità misura", "u.m.", "um", "unit"] },
+    { key: "tipo_movimento", label: "Tipo Movimento", patterns: ["tipo di movimento", "tipo mov.", "tipo movimento", "movement type", "mvt", "t.mv."] },
+    { key: "centro", label: "Centro/Impianto", patterns: ["centro", "impianto", "plant", "ctr costi", "cost center"] },
+    { key: "ordine", label: "Ordine", patterns: ["ordine", "order", "ordine produzione", "ord. prod."] },
+    { key: "deposito", label: "Deposito", patterns: ["deposito", "sloc", "storage location", "mag.", "magazzino"] },
+];
+
 function autoDetect(headers, colDefs) {
     const lower = headers.map(h => (h || "").toLowerCase().trim());
     const result = {};
@@ -204,7 +216,7 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
 
                 // Trova la riga intestazioni: scansiona le prime 50 righe
                 // e cerca quella che contiene più parole chiave note
-                const ALL_PATTERNS = [...COL_DEFS_PROD, ...COL_DEFS_FERMI].flatMap(c => c.patterns);
+                const ALL_PATTERNS = [...COL_DEFS_PROD, ...COL_DEFS_FERMI, ...COL_DEFS_MB51].flatMap(c => c.patterns);
                 let hdrRowIdx = 0;
                 let bestScore = 0;
                 for (let i = 0; i < Math.min(50, json.length); i++) {
@@ -229,7 +241,7 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                 setRawRows(rows);
                 
                 // Auto-detect + Sticky Mapping (localStorage)
-                const colDefs = importType === "produzione" ? COL_DEFS_PROD : COL_DEFS_FERMI;
+                const colDefs = importType === "produzione" ? COL_DEFS_PROD : importType === "fermi" ? COL_DEFS_FERMI : COL_DEFS_MB51;
                 const autoMapping = autoDetect(hdrs, colDefs);
                 
                 // Load sticky mapping from localStorage
@@ -265,6 +277,10 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
             showToast("Le colonne 'Acquisito', 'Materiale' e 'Fino (N. Op.)' sono obbligatorie", "error");
             return;
         }
+        if (importType === "mb51" && (!mapping.data || !mapping.materiale)) {
+            showToast("Le colonne 'Data Documento' e 'Materiale' sono obbligatorie per MB51", "error");
+            return;
+        }
 
         const macchineMap = {};
         for (const m of macchine) {
@@ -279,6 +295,23 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
 
         const prodAgg = {};
         const parsedRaw = rawRows.map(row => {
+            if (importType === "mb51") {
+                const data_val = formatDate(get(row, mapping.data), dateFormat);
+                const materiale = String(get(row, mapping.materiale) || "").trim();
+                if (!data_val && !materiale) return null;
+                return {
+                    data: data_val,
+                    materiale,
+                    descrizione: String(get(row, mapping.descrizione) || "").trim(),
+                    quantita: parseFloat(String(get(row, mapping.quantita) || "").replace(",", ".")) || 0,
+                    um: String(get(row, mapping.um) || "").trim(),
+                    tipo_movimento: String(get(row, mapping.tipo_movimento) || "").trim(),
+                    centro: String(get(row, mapping.centro) || "").trim(),
+                    ordine: String(get(row, mapping.ordine) || "").trim(),
+                    deposito: String(get(row, mapping.deposito) || "").trim(),
+                    matched: true,
+                };
+            }
             if (importType === "produzione") {
                 const data_val = formatDate(get(row, mapping.acquisito), dateFormat);
                 const turno_id = mapTurno(get(row, mapping.turno)) || "Sconosciuto";
@@ -331,16 +364,18 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
             }
         });
 
-        let parsed = importType === "produzione" 
-            ? Object.values(prodAgg) 
-            : parsedRaw.filter(r => r && r.work_center_sap);
+        let parsed = importType === "produzione"
+            ? Object.values(prodAgg)
+            : importType === "mb51"
+                ? parsedRaw.filter(r => r && r.materiale)
+                : parsedRaw.filter(r => r && r.work_center_sap);
 
         const matched = parsed.filter(r => r.matched).length;
         const wcsUnmatched = [...new Set(parsed.filter(r => !r.matched).map(r => r.work_center_sap))];
 
         // Date Check
         const today = new Date().toISOString().slice(0, 10);
-        const dateKey = importType === "produzione" ? "data" : "data_inizio";
+        const dateKey = importType === "fermi" ? "data_inizio" : "data";
         const hasFutureDates = parsed.some(r => r[dateKey] && r[dateKey] > today);
         const distinctDates = [...new Set(parsed.map(r => r[dateKey]).filter(Boolean))].sort();
 
@@ -360,14 +395,14 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
 
     /* ── salva ── */
     const handleImport = async (mode = null) => {
-        const dateKey = importType === "produzione" ? "data" : "data_inizio";
+        const dateKey = importType === "fermi" ? "data_inizio" : "data";
         const distinctDates = [...new Set(result.rows.map(r => r[dateKey]).filter(Boolean))].sort();
         if (distinctDates.length === 0) {
             showToast("Nessuna data valida trovata nelle righe", "error");
             return;
         }
 
-        const tableName = importType === "produzione" ? "conferme_sap" : "fermi_sap";
+        const tableName = importType === "produzione" ? "conferme_sap" : importType === "mb51" ? "prelievi_baa" : "fermi_sap";
         const start = distinctDates[0];
         const end = distinctDates[distinctDates.length - 1];
 
@@ -438,8 +473,8 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
     };
 
     const handleClearHistory = async () => {
-        const tableName = importType === "produzione" ? "conferme_sap" : "fermi_sap";
-        const label = importType === "produzione" ? "storico PRODUZIONE" : "storico FERMI";
+        const tableName = importType === "produzione" ? "conferme_sap" : importType === "mb51" ? "prelievi_baa" : "fermi_sap";
+        const label = importType === "produzione" ? "storico PRODUZIONE" : importType === "mb51" ? "storico PRELIEVI BAA" : "storico FERMI";
         
         if (!window.confirm(`Sei SICURO di voler cancellare TUTTO lo ${label} SAP? Questa operazione non è reversibile.`)) return;
 
@@ -478,6 +513,21 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
     qta_scarto      NUMERIC,
     turno_id        TEXT,
     data_import     TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Tabella per prelievi BAA (MB51)
+CREATE TABLE prelievi_baa (
+    id              BIGSERIAL PRIMARY KEY,
+    data            DATE,
+    materiale       TEXT,
+    descrizione     TEXT,
+    quantita        NUMERIC,
+    um              TEXT,
+    tipo_movimento  TEXT,
+    centro          TEXT,
+    ordine          TEXT,
+    deposito        TEXT,
+    data_import     TIMESTAMPTZ DEFAULT NOW()
 );`}</pre>
             </details>
 
@@ -486,27 +536,36 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                 <div className="card">
                     
                     <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-                        <button 
+                        <button
                             className={`btn ${importType === 'produzione' ? 'btn-primary' : 'btn-secondary'}`}
                             onClick={() => setImportType('produzione')}
                             style={{ flex: 1 }}
                         >
                             📦 Conferme Produzione
                         </button>
-                        <button 
+                        <button
                             className={`btn ${importType === 'fermi' ? 'btn-primary' : 'btn-secondary'}`}
                             onClick={() => setImportType('fermi')}
                             style={{ flex: 1 }}
                         >
                             🚫 Fermi Macchina
                         </button>
+                        <button
+                            className={`btn ${importType === 'mb51' ? 'btn-primary' : 'btn-secondary'}`}
+                            onClick={() => setImportType('mb51')}
+                            style={{ flex: 1 }}
+                        >
+                            📋 MB51 Prelievi BAA
+                        </button>
                     </div>
 
                     <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 20 }}>
                         {importType === 'produzione' ? (
                             <>Importa le conferme di produzione. Colonne: <strong>Acquisito · Centro · Materiale · Quantità · Scarto</strong></>
-                        ) : (
+                        ) : importType === 'fermi' ? (
                             <>Importa i fermi macchina. Colonne: <strong>Inizio · Fine · Durata · Centro · Codice/Descrizione</strong></>
+                        ) : (
+                            <>Importa il report MB51 per il controllo prelievo BAA. Colonne: <strong>Data · Materiale · Quantità · Tipo Movimento · Ordine</strong></>
                         )}
                     </p>
                     <div
@@ -598,8 +657,8 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                     </div>
 
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12, marginBottom: 24 }}>
-                        {(importType === 'produzione' ? COL_DEFS_PROD : COL_DEFS_FERMI).map(({ key, label }) => {
-                            const isRequired = importType === 'produzione' ? (key === "acquisito" || key === "materiale" || key === "fino") : (key === "work_center" || key === "data_inizio");
+                        {(importType === 'produzione' ? COL_DEFS_PROD : importType === 'fermi' ? COL_DEFS_FERMI : COL_DEFS_MB51).map(({ key, label }) => {
+                            const isRequired = importType === 'produzione' ? (key === "acquisito" || key === "materiale" || key === "fino") : importType === 'fermi' ? (key === "work_center" || key === "data_inizio") : (key === "data" || key === "materiale");
                             const found = !!mapping[key];
                             return (
                                 <div key={key} className="form-group" style={{ marginBottom: 0 }}>
@@ -685,6 +744,10 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                                             ["Data", "Ora", "Materiale", "Fino", "Qtà Ott.", "Qtà Scarto", "Turno"].map(h => (
                                                 <th key={h} style={{ padding: "8px 12px", textAlign: h.includes("Qtà") ? "right" : "left", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", whiteSpace: "nowrap" }}>{h}</th>
                                             ))
+                                        ) : importType === "mb51" ? (
+                                            ["Data", "Materiale", "Descrizione", "Qtà", "U.M.", "T.Mov.", "Centro", "Ordine"].map(h => (
+                                                <th key={h} style={{ padding: "8px 12px", textAlign: h === "Qtà" ? "right" : "left", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", whiteSpace: "nowrap" }}>{h}</th>
+                                            ))
                                         ) : (
                                             ["Inizio", "Fine", "Durata", "Autore", "Centro SAP", "Oggetto Tecnico", "Descrizione"].map(h => (
                                                 <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", whiteSpace: "nowrap" }}>{h}</th>
@@ -703,6 +766,17 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                                                     <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", color: "var(--text-muted)" }}>{r.fino || "—"}</td>
                                                     <td style={{ padding: "7px 12px", fontSize: 12, textAlign: "right", fontWeight: r.qta_ottenuta ? 600 : 400 }}>{r.qta_ottenuta != null ? r.qta_ottenuta.toLocaleString("it-IT") : "—"}</td>
                                                     <td style={{ padding: "7px 12px", fontSize: 12, textAlign: "right", color: r.qta_scarto > 0 ? "var(--danger)" : "inherit" }}>{r.qta_scarto != null && r.qta_scarto > 0 ? r.qta_scarto.toLocaleString("it-IT") : "—"}</td>
+                                                </>
+                                            ) : importType === "mb51" ? (
+                                                <>
+                                                    <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", whiteSpace: "nowrap" }}>{r.data ? formatItalianDate(r.data) : "—"}</td>
+                                                    <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", fontWeight: 600 }}>{r.materiale || "—"}</td>
+                                                    <td style={{ padding: "7px 12px", fontSize: 12, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.descrizione || "—"}</td>
+                                                    <td style={{ padding: "7px 12px", fontSize: 12, textAlign: "right", fontWeight: 600 }}>{r.quantita != null ? r.quantita.toLocaleString("it-IT") : "—"}</td>
+                                                    <td style={{ padding: "7px 12px", fontSize: 12, color: "var(--text-muted)" }}>{r.um || "—"}</td>
+                                                    <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace" }}>{r.tipo_movimento || "—"}</td>
+                                                    <td style={{ padding: "7px 12px", fontSize: 12 }}>{r.centro || "—"}</td>
+                                                    <td style={{ padding: "7px 12px", fontSize: 12, fontFamily: "monospace", color: "var(--text-muted)" }}>{r.ordine || "—"}</td>
                                                 </>
                                             ) : (
                                                 <>
@@ -786,7 +860,7 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                     <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
                     <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Import completato</div>
                      <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 8 }}>
-                        <strong>{result?.rows?.length}</strong> righe salvate nella tabella <code>{importType === "produzione" ? "conferme_sap" : "fermi_sap"}</code>
+                        <strong>{result?.rows?.length}</strong> righe salvate nella tabella <code>{importType === "produzione" ? "conferme_sap" : importType === "mb51" ? "prelievi_baa" : "fermi_sap"}</code>
                     </div>
                     {result?.dateRange?.start && (
                         <div style={{ fontSize: 13, marginBottom: 24, padding: "10px 20px", background: "rgba(99,102,241,0.08)", border: "1px solid rgba(99,102,241,0.25)", borderRadius: 8, display: "inline-block" }}>

@@ -18,7 +18,10 @@ const LOCAL_ANAGRAFICA = {
     "2516272835": { comp: "SG1", proj: "DCT300" },
     "2516107836": { comp: "SG1", proj: "DCT300" },
     "M0162583": { comp: "SG4", proj: "8Fe" },
-    "M0162623": { comp: "SG5", proj: "8Fe" }
+    "M0162623": { comp: "SG5", proj: "8Fe" },
+    "M0153397/S": { comp: "SG8", proj: "8Fe" },
+    "M0153397/T": { comp: "SG8", proj: "8Fe" },
+    "M0153397": { comp: "SG8", proj: "8Fe" }
 };
 
 const PROCESS_STEPS = [
@@ -35,7 +38,8 @@ const PROCESS_STEPS = [
     { id: "shot_peening", label: "Pallinatura", code: "OKU" },
     { id: "start_hard", label: "Tornitura Hard", code: "TH" },
     { id: "laser_welding_2", label: "Saldatura Hard", code: "SCA" },
-    { id: "ut", label: "MZA", code: "MZA" },
+    { id: "ut_soft", label: "MZA Soft", code: "MZA" },
+    { id: "ut", label: "MZA Hard", code: "MZA" },
     { id: "grinding_cone", label: "Rettifica Cono", code: "SLA" },
     { id: "teeth_grinding", label: "Rettifica Denti", code: "SLW" },
     { id: "washing", label: "Lavaggio", code: "WSH" },
@@ -252,6 +256,10 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                         // SCA è ambiguo: usato sia per laser_welding che laser_welding_soft_2
                         if (step.code === "SCA") {
                             return "laser_welding";
+                        }
+                        // MZA è ambiguo: soft (/S) prima di STW, hard dopo TT prima di SLA
+                        if (step.code === "MZA") {
+                            return matCode.endsWith("/S") ? "ut_soft" : "ut";
                         }
                         return step.id;
                     }
@@ -519,6 +527,13 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                 const scaIdx = projectVisibleSteps.findIndex(s => s.id === "laser_welding");
                                 projectVisibleSteps.splice(scaIdx !== -1 ? scaIdx : 0, 0, draStep);
                             }
+                            // Inserisci colonna MZA Soft prima di STW (shaping)
+                            const utSoftStep = projectVisibleSteps.find(s => s.id === "ut_soft");
+                            if (utSoftStep) {
+                                projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "ut_soft");
+                                const stwIdx = projectVisibleSteps.findIndex(s => s.id === "shaping");
+                                projectVisibleSteps.splice(stwIdx !== -1 ? stwIdx : 0, 0, utSoftStep);
+                            }
                         }
                         if (proj === "8Fe") {
                             const utStep = projectVisibleSteps.find(s => s.id === "ut");
@@ -668,8 +683,8 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                         if (["RG + DH", "8Fe", "DCT300"].includes(proj) && comp.startsWith("DH") && !["start_hard", "laser_welding_2"].includes(step.id)) isHardExcluded = true;
                                                         if (proj === "DCT ECO" && comp.startsWith("RG") && step.id === "grinding_cone") isHardExcluded = true;
 
-                                                        // Richiesta: in DCT ECO metti box per sg2, sg3, sgr nella colonna MZA (ut)
-                                                        if (proj === "DCT ECO" && ["SG2", "SG3", "SGR"].includes(comp) && step.id === "ut") isHardExcluded = false;
+                                                        // MZA Soft (ut_soft) e MZA Hard (ut): attivi per SG2, SG3, SGR in DCT ECO
+                                                        if (proj === "DCT ECO" && ["SG2", "SG3", "SGR"].includes(comp) && (step.id === "ut" || step.id === "ut_soft")) isHardExcluded = false;
 
                                                         const isDynamicExcluded = !!cellExclusions[`${proj}:${comp}:${step.id}`];
                                                         const isDynamicIncluded = !!cellInclusions[`${proj}:${comp}:${step.id}`];
