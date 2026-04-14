@@ -62,7 +62,7 @@ const PROJECT_TARGETS = {
 const EXCLUDED_PHASES = {
     "DCT300": ["dmc", "broaching", "milling", "laser_welding_soft_2"], // milling tolto dalle globali per attivazione selettiva su SG4? No, ora rimosso su richiesta
     "8Fe": [],
-    "DCT ECO": ["start_soft", "dmc", "broaching", "laser_welding_soft_2"],
+    "DCT ECO": ["dmc", "broaching", "laser_welding_soft_2"],
     "RG + DH": ["shaping", "broaching", "laser_welding_soft_2", "milling", "ut", "grinding_cone", "laser_welding", "start_hard"]
 };
 
@@ -505,11 +505,19 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                         const projectExclusions = EXCLUDED_PHASES[proj] || [];
                         let projectVisibleSteps = PROCESS_STEPS.filter(s => !projectExclusions.includes(s.id));
                         if (proj === "DCT ECO") {
+                            // Move MZA (ut) before SLA (grinding_cone)
                             const utStep = projectVisibleSteps.find(s => s.id === "ut");
                             if (utStep) {
                                 projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "ut");
                                 const slaIdx = projectVisibleSteps.findIndex(s => s.id === "grinding_cone");
                                 projectVisibleSteps.splice(slaIdx !== -1 ? slaIdx : projectVisibleSteps.length, 0, utStep);
+                            }
+                            // Move DRA (start_soft) before SCA (laser_welding)
+                            const draStep = projectVisibleSteps.find(s => s.id === "start_soft");
+                            if (draStep) {
+                                projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "start_soft");
+                                const scaIdx = projectVisibleSteps.findIndex(s => s.id === "laser_welding");
+                                projectVisibleSteps.splice(scaIdx !== -1 ? scaIdx : 0, 0, draStep);
                             }
                         }
                         if (proj === "8Fe") {
