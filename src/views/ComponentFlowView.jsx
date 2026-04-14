@@ -411,7 +411,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     projComponentSets[proj].add(comp);
                     if (!newMatrix[proj][comp]) newMatrix[proj][comp] = {};
                     if (!newMatrix[proj][comp]["baa"]) newMatrix[proj][comp]["baa"] = { value: 0, records: [] };
-                    newMatrix[proj][comp]["baa"].value += (r.quantita || 0);
+                    newMatrix[proj][comp]["baa"].value += Math.abs(r.quantita || 0);
                     newMatrix[proj][comp]["baa"].records.push({ ...r, matCode });
                 });
             }
@@ -433,6 +433,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 const extra = Array.from(projComponentSets[p])
                     .filter(c => !fixed.includes(c))
                     .filter(c => !(p === "DCT300" && c === "SG2"))
+                    .filter(c => !(p === "8Fe" && c === "RG"))
                     .sort();
                 newCompsByProject[p] = [...fixed, ...extra];
             });
@@ -610,6 +611,11 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                 const sca2Idx = projectVisibleSteps.findIndex(s => s.id === "laser_welding_soft_2");
                                 projectVisibleSteps.splice(sca2Idx !== -1 ? sca2Idx + 1 : projectVisibleSteps.length, 0, utStep);
                             }
+                            // Inserisci separatore visivo tra WSH e BAA
+                            const baaIdx = projectVisibleSteps.findIndex(s => s.id === "baa");
+                            if (baaIdx !== -1) {
+                                projectVisibleSteps.splice(baaIdx, 0, { id: "__sep__", label: "", code: "", separator: true });
+                            }
                         }
                         if (proj === "RG + DH") {
                             const draStep = projectVisibleSteps.find(s => s.id === "start_soft");
@@ -702,19 +708,22 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                     <div style={{ minWidth: "max-content" }}>
                                         {/* Phases Row */}
                                         <div style={{ display: "flex", marginBottom: "16px", paddingLeft: "110px" }}>
-                                            {projectVisibleSteps.map((s, sIdx) => (
-                                                <div key={sIdx} style={{
-                                                    width: "85px",
-                                                    textAlign: "center",
-                                                    flexShrink: 0,
-                                                    background: s.id === "ht" ? "rgba(0, 212, 255, 0.4)" : "transparent",
-                                                    borderRadius: "4px 4px 0 0",
-                                                    borderLeft: s.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none",
-                                                    borderRight: s.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none"
-                                                }}>
-                                                    <div style={{ fontSize: "15px", fontWeight: "800", color: "var(--text-muted)", opacity: 0.8 }}>{s.code}</div>
-                                                </div>
-                                            ))}
+                                            {projectVisibleSteps.map((s, sIdx) => {
+                                                if (s.separator) return <div key={sIdx} style={{ width: "20px", flexShrink: 0 }} />;
+                                                return (
+                                                    <div key={sIdx} style={{
+                                                        width: "85px",
+                                                        textAlign: "center",
+                                                        flexShrink: 0,
+                                                        background: s.id === "ht" ? "rgba(0, 212, 255, 0.4)" : "transparent",
+                                                        borderRadius: "4px 4px 0 0",
+                                                        borderLeft: s.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none",
+                                                        borderRight: s.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none"
+                                                    }}>
+                                                        <div style={{ fontSize: "15px", fontWeight: "800", color: "var(--text-muted)", opacity: 0.8 }}>{s.code}</div>
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
 
                                         {/* Component Rows */}
@@ -741,6 +750,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
 
                                                 <div style={{ display: "flex" }}>
                                                     {projectVisibleSteps.map((step, idx) => {
+                                                        if (step.separator) return <div key={idx} style={{ width: "20px", flexShrink: 0, borderLeft: "2px dashed var(--border-light)" }} />;
                                                         const data = matrixData[proj]?.[comp]?.[step.id];
                                                         const qty = data?.value || 0;
                                                         let isHardExcluded = COMPONENT_EXCLUSIONS[comp]?.includes(step.id);
