@@ -26,6 +26,7 @@ import FormazioneView from "./views/FormazioneView";
 import ZoneView from "./views/ZoneView";
 import Op10View from "./views/Op10View";
 import ComponentFlowView from "./views/ComponentFlowView";
+import PrioritaView from "./views/PrioritaView";
 import AnagraficaView from "./views/AnagraficaView";
 import MotiviView from "./views/MotiviView";
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
@@ -215,6 +216,7 @@ export default function App() {
     { id: "formazione", label: "Formazione", icon: Icons.academic },
     { id: "lpaPlan", label: "Piano LPA", icon: Icons.calendar },
     { id: "componentFlow", label: "Avanzamento Componenti", icon: Icons.report, status: "new" },
+    { id: "priorita", label: "Priorità", icon: Icons.filter },
     { id: "weisserPriorities", label: "Priorità Macchine", icon: Icons.filter },
     { id: "prioritiesSummary", label: "Riepilogo Priorità", icon: Icons.dashboard, status: "new" },
     { id: "productionFlowReport", label: "Flusso Report Produzione", icon: Icons.report, status: "new" },
@@ -233,6 +235,7 @@ export default function App() {
     op10: "Asservimento OP10",
     sapHub: "Hub Gestione SAP",
     componentFlow: "Avanzamento Componenti",
+    priorita: "Priorità",
     weisserPriorities: "Priorità Macchine",
     prioritiesSummary: "Riepilogo Priorità Macchine",
     productionFlowReport: "Flusso Report Produzione",
@@ -358,6 +361,7 @@ export default function App() {
                 {renderItem(ni("op10"))}
                 {renderItem(ni("sapHub"))}
                 {renderItem(ni("componentFlow"))}
+                {renderItem(ni("priorita"))}
                 {renderItem(ni("weisserPriorities"))}
                 {renderItem(ni("prioritiesSummary"))}
                 {renderItem(ni("productionFlowReport"))}
@@ -495,6 +499,9 @@ export default function App() {
 
           {currentView === "componentFlow" && (
             <ComponentFlowView macchine={macchine} showToast={showToast} globalDate={globalDate} />
+          )}
+          {currentView === "priorita" && (
+            <PrioritaView showToast={showToast} globalDate={globalDate} turnoCorrente={turnoCorrente} />
           )}
           {currentView === "weisserPriorities" && (
             <WeisserPrioritiesView turnoCorrente={turnoCorrente} />

@@ -111,7 +111,7 @@ const MACHINE_PHASE_OVERRIDES = {
     "HOK11001": "ht"
 };
 
-export default function ComponentFlowView({ showToast, globalDate, turnoCorrente }) {
+export default function PrioritaView({ showToast, globalDate, turnoCorrente }) {
     const [viewMode, setViewMode] = useState("daily"); // "weekly" | "daily"
     const [targetOverrides, setTargetOverrides] = useState(() => {
         const saved = localStorage.getItem("bap_target_overrides");
@@ -136,11 +136,11 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     const [dynamicOverrides] = useState([]);
     const refreshTick = 0;
     const [cellExclusions, setCellExclusions] = useState(() => {
-        const saved = localStorage.getItem("bap_cell_exclusions");
+        const saved = localStorage.getItem("bap_cell_exclusions_priorita");
         return saved ? JSON.parse(saved) : {};
     });
     const [cellInclusions, setCellInclusions] = useState(() => {
-        const saved = localStorage.getItem("bap_cell_inclusions");
+        const saved = localStorage.getItem("bap_cell_inclusions_priorita");
         return saved ? JSON.parse(saved) : {};
     });
 
@@ -149,7 +149,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
         const updated = { ...cellExclusions };
         if (updated[key]) { delete updated[key]; } else { updated[key] = true; }
         setCellExclusions(updated);
-        localStorage.setItem("bap_cell_exclusions", JSON.stringify(updated));
+        localStorage.setItem("bap_cell_exclusions_priorita", JSON.stringify(updated));
     };
 
     const toggleCellInclusion = (proj, comp, phase) => {
@@ -157,7 +157,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
         const updated = { ...cellInclusions };
         if (updated[key]) { delete updated[key]; } else { updated[key] = true; }
         setCellInclusions(updated);
-        localStorage.setItem("bap_cell_inclusions", JSON.stringify(updated));
+        localStorage.setItem("bap_cell_inclusions_priorita", JSON.stringify(updated));
     };
 
     const toLocalDateStr = (d) => {
@@ -669,7 +669,6 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                         // Hard excluded and NOT manually added by user
                                                         if (isHardExcluded && !isDynamicIncluded) {
                                                             if (!isConfigMode) return <div key={idx} style={{ width: "85px", flexShrink: 0 }} />;
-                                                            // Config mode: show gray "+" to allow adding
                                                             return (
                                                                 <div key={idx} style={{ width: "85px", flexShrink: 0, display: "flex", justifyContent: "center", alignItems: "center" }}>
                                                                     <div

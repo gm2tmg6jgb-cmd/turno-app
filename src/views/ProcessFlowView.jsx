@@ -21,7 +21,8 @@ const PROCESS_STEPS = [
     { code: "SCA", label: "Laser Welding Hard", phase: "laser_welding_2" },
     { code: "SLA", label: "Grinding Cone", phase: "grinding_cone" },
     { code: "SLW", label: "Teeth Grinding", phase: "teeth_grinding" },
-    { code: "WSH", label: "Washing", phase: "washing" }
+    { code: "WSH", label: "Washing", phase: "washing" },
+    { code: "BAA", label: "BAA", phase: "baa" }
 ];
 
 const PROJECTS = ["DCT300", "8Fedct", "DCTeco"];
@@ -178,6 +179,7 @@ export default function ProcessFlowView({ macchine, showToast, setCurrentView, g
                 if (wcUp.startsWith("SLA")) return "grinding_cone";
                 if (wcUp.startsWith("SLW")) return "teeth_grinding";
                 if (wcUp.startsWith("WSH")) return "washing";
+                if (wcUp.startsWith("BAA")) return "baa";
                 return null;
             };
 

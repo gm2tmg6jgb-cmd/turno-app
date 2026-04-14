@@ -234,6 +234,14 @@ export default function SapSummaryView({ macchine = [] }) {
             if (m.match_type === "exact" && wcUp === mWc) return m.fase;
             if (m.match_type !== "exact" && wcUp.startsWith(mWc)) return m.fase;
         }
+        
+        // Fallback a prefissi standard (es. MZA -> ut)
+        if (wcUp.startsWith("MZA")) return "ut";
+        if (wcUp.startsWith("BAA")) return "baa";
+        if (wcUp.startsWith("WSH")) return "washing";
+        if (wcUp.startsWith("HOK")) return "ht";
+        if (wcUp.startsWith("DRA")) return "start_soft";
+        
         return null;
     };
 
@@ -317,13 +325,13 @@ export default function SapSummaryView({ macchine = [] }) {
             // Pre-fill with manual mappings from PHASE_MACHINE_MAPPING
             PROGETTI_GIORNALIERO.forEach(proj => {
                 proj.componenti.forEach(comp => {
-                    ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(stage => {
+                    ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "ut", "washing", "baa"].forEach(stage => {
                         const mapped = PHASE_MACHINE_MAPPING[`${proj.id}::${comp}::${stage}`];
                         if (mapped) {
                             const key = `${proj.id}::${comp}`;
                             if (!map[key]) map[key] = {
-                                start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0,
-                                machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), washing: new Set() }
+                                start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, ut: 0, washing: 0, baa: 0,
+                                machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), ut: new Set(), washing: new Set(), baa: new Set() }
                             };
                             mapped.forEach(mId => map[key].machines[stage].add(mId));
                         }
@@ -346,8 +354,8 @@ export default function SapSummaryView({ macchine = [] }) {
                 
                 const key = `${progetto}::${componente}`;
                 if (!map[key]) map[key] = {
-                    start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0,
-                    machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), washing: new Set() }
+                    start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, ut: 0, washing: 0, baa: 0,
+                    machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), ut: new Set(), washing: new Set(), baa: new Set() }
                 };
                 mapped++;
                 const stage = getStageFromWC(r.work_center_sap);
@@ -382,7 +390,9 @@ export default function SapSummaryView({ macchine = [] }) {
             row.ht || 0,
             row.start_hard || 0,
             row.end_hard || 0,
-            row.washing || 0
+            row.ut || 0,
+            row.washing || 0,
+            row.baa || 0
         ];
         const max = Math.max(...vals);
         return max || null;
@@ -422,13 +432,13 @@ export default function SapSummaryView({ macchine = [] }) {
             // Pre-fill with manual mappings from PHASE_MACHINE_MAPPING
             PROGETTI_GIORNALIERO.forEach(proj => {
                 proj.componenti.forEach(comp => {
-                    ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(stage => {
+                    ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "ut", "washing", "baa"].forEach(stage => {
                         const mapped = PHASE_MACHINE_MAPPING[`${proj.id}::${comp}::${stage}`];
                         if (mapped) {
                             const key = `${proj.id}::${comp}`;
                             if (!map[key]) map[key] = {
-                                start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0,
-                                machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), washing: new Set() }
+                                start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, ut: 0, washing: 0, baa: 0,
+                                machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), ut: new Set(), washing: new Set(), baa: new Set() }
                             };
                             mapped.forEach(mId => map[key].machines[stage].add(mId));
                         }
@@ -441,8 +451,8 @@ export default function SapSummaryView({ macchine = [] }) {
                 if (!info?.componente || !info?.progetto) return;
                 const key = `${info.progetto}::${info.componente}`;
                 if (!map[key]) map[key] = {
-                    start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0,
-                    machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), washing: new Set() }
+                    start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, ut: 0, washing: 0, baa: 0,
+                    machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), ut: new Set(), washing: new Set(), baa: new Set() }
                 };
                 const stage = getStageFromWC(r.work_center_sap);
                 if (stage) {
@@ -496,13 +506,13 @@ export default function SapSummaryView({ macchine = [] }) {
             // Pre-fill with manual mappings from PHASE_MACHINE_MAPPING
             PROGETTI_GIORNALIERO.forEach(proj => {
                 proj.componenti.forEach(comp => {
-                    ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(stage => {
+                    ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "ut", "washing", "baa"].forEach(stage => {
                         const mapped = PHASE_MACHINE_MAPPING[`${proj.id}::${comp}::${stage}`];
                         if (mapped) {
                             const key = `${proj.id}::${comp}`;
                             if (!map[key]) map[key] = {
-                                start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0,
-                                machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), washing: new Set() }
+                                start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, ut: 0, washing: 0, baa: 0,
+                                machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), ut: new Set(), washing: new Set(), baa: new Set() }
                             };
                             mapped.forEach(mId => map[key].machines[stage].add(mId));
                         }
@@ -515,8 +525,8 @@ export default function SapSummaryView({ macchine = [] }) {
                 if (!info?.componente || !info?.progetto) return;
                 const key = `${info.progetto}::${info.componente}`;
                 if (!map[key]) map[key] = {
-                    start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0,
-                    machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), washing: new Set() }
+                    start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, ut: 0, washing: 0, baa: 0,
+                    machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), ut: new Set(), washing: new Set(), baa: new Set() }
                 };
                 const stage = getStageFromWC(r.work_center_sap);
                 if (stage) {
@@ -882,7 +892,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                             <thead>
                                                 {/* Riga Daily Target + Days */}
                                                 <tr style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border-light)" }}>
-                                                    <td colSpan={7} style={{ padding: "8px 16px" }}>
+                                                    <td colSpan={9} style={{ padding: "8px 16px" }}>
                                                         <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
                                                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                                                 <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Daily Target</span>
@@ -908,7 +918,7 @@ export default function SapSummaryView({ macchine = [] }) {
 
                                                 {/* Riga data */}
                                                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                                                    <td colSpan={7} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
+                                                    <td colSpan={9} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
                                                         {dateLabel}
                                                     </td>
                                                 </tr>
@@ -921,7 +931,9 @@ export default function SapSummaryView({ macchine = [] }) {
                                                     <th style={{ ...thStyle, textAlign: "center" }}>HT</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>Start Hard</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>End Hard</th>
+                                                    <th style={{ ...thStyle, textAlign: "center" }}>MZA</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>Washing</th>
+                                                    <th style={{ ...thStyle, textAlign: "center" }}>BAA</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -937,8 +949,8 @@ export default function SapSummaryView({ macchine = [] }) {
                                                     // Logica di aggregazione per righe di riepilogo
                                                     if (isSummaryRow) {
                                                         const calculatedRow = {
-                                                            start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0,
-                                                            machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), washing: new Set() }
+                                                            start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, ut: 0, washing: 0, baa: 0,
+                                                            machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), ut: new Set(), washing: new Set(), baa: new Set() }
                                                         };
                                                         let children = [];
 
@@ -958,7 +970,7 @@ export default function SapSummaryView({ macchine = [] }) {
 
                                                         children.forEach(c => {
                                                             const cData = gData[`${proj.id}::${c}`] || {};
-                                                            ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(f => {
+                                                            ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "ut", "washing", "baa"].forEach(f => {
                                                                 calculatedRow[f] += (cData[f] || 0);
                                                                 if (cData.machines?.[f]) {
                                                                     cData.machines[f].forEach(m => calculatedRow.machines[f].add(m));
@@ -967,7 +979,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                                         });
 
                                                         // Convert Sets to Arrays for render
-                                                        ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(f => {
+                                                        ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "ut", "washing", "baa"].forEach(f => {
                                                             calculatedRow.machines[f] = Array.from(calculatedRow.machines[f]);
                                                         });
                                                         row = calculatedRow;
@@ -981,7 +993,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                                             <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: isSummaryRow ? "var(--accent)" : "inherit", borderRight: "1px solid var(--border-light)" }}>
                                                                 {proj.nome} - {componente}
                                                             </td>
-                                                            {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => {
+                                                            {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "ut", "washing", "baa"].map(field => {
                                                                 const value = row[field];
                                                                 const machineList = row.machines?.[field] || [];
 
@@ -1079,7 +1091,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                             <thead>
                                                 {/* Riga Weekly Target */}
                                                 <tr style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border-light)" }}>
-                                                    <td colSpan={7} style={{ padding: "8px 16px" }}>
+                                                    <td colSpan={9} style={{ padding: "8px 16px" }}>
                                                         <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
                                                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                                                 <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Weekly Target</span>
@@ -1111,7 +1123,9 @@ export default function SapSummaryView({ macchine = [] }) {
                                                     <th style={{ ...thStyle, textAlign: "center" }}>HT</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>Start Hard</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>End Hard</th>
+                                                    <th style={{ ...thStyle, textAlign: "center" }}>MZA</th>
                                                     <th style={{ ...thStyle, textAlign: "center" }}>Washing</th>
+                                                    <th style={{ ...thStyle, textAlign: "center" }}>BAA</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -1127,8 +1141,8 @@ export default function SapSummaryView({ macchine = [] }) {
                                                     // Logica di aggregazione per righe di riepilogo
                                                     if (isSummaryRow) {
                                                         const calculatedRow = {
-                                                            start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0,
-                                                            machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), washing: new Set() }
+                                                            start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, ut: 0, washing: 0, baa: 0,
+                                                            machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), ut: new Set(), washing: new Set(), baa: new Set() }
                                                         };
                                                         let children = [];
 
@@ -1148,7 +1162,7 @@ export default function SapSummaryView({ macchine = [] }) {
 
                                                         children.forEach(c => {
                                                             const cData = wData[`${proj.id}::${c}`] || {};
-                                                            ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(f => {
+                                                            ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "ut", "washing", "baa"].forEach(f => {
                                                                 calculatedRow[f] += (cData[f] || 0);
                                                                 if (cData.machines?.[f]) {
                                                                     cData.machines[f].forEach(m => calculatedRow.machines[f].add(m));
@@ -1157,7 +1171,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                                         });
 
                                                         // Convert Sets to Arrays for render
-                                                        ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(f => {
+                                                        ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "ut", "washing", "baa"].forEach(f => {
                                                             calculatedRow.machines[f] = Array.from(calculatedRow.machines[f]);
                                                         });
                                                         row = calculatedRow;
@@ -1171,7 +1185,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                                             <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: isSummaryRow ? "var(--accent)" : "inherit", borderRight: "1px solid var(--border-light)" }}>
                                                                 {proj.nome} - {componente}
                                                             </td>
-                                                            {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => {
+                                                            {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "ut", "washing", "baa"].map(field => {
                                                                 const value = row[field];
                                                                 const machineList = row.machines?.[field] || [];
 
@@ -1282,7 +1296,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                                 <thead>
                                                     {/* Riga Shift Target */}
                                                     <tr style={{ background: "var(--bg-card)", borderBottom: "1px solid var(--border-light)" }}>
-                                                        <td colSpan={7} style={{ padding: "8px 16px" }}>
+                                                        <td colSpan={9} style={{ padding: "8px 16px" }}>
                                                             <div style={{ display: "flex", gap: 24, alignItems: "center", flexWrap: "wrap" }}>
                                                                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                                                                     <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Shift Target</span>
@@ -1306,7 +1320,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                                         </td>
                                                     </tr>
                                                     <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                                                        <td colSpan={7} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
+                                                        <td colSpan={9} style={{ textAlign: "center", padding: "7px 12px", background: "rgba(99,102,241,0.07)", fontWeight: 800, fontSize: 15, color: "var(--accent)", letterSpacing: 2 }}>
                                                             {dateLabel} {tTurnoId ? `· Turno ${tTurnoId}` : "· Nessun dato turno"}
                                                         </td>
                                                     </tr>
@@ -1318,7 +1332,9 @@ export default function SapSummaryView({ macchine = [] }) {
                                                         <th style={{ ...thStyle, textAlign: "center" }}>HT</th>
                                                         <th style={{ ...thStyle, textAlign: "center" }}>Start Hard</th>
                                                         <th style={{ ...thStyle, textAlign: "center" }}>End Hard</th>
+                                                        <th style={{ ...thStyle, textAlign: "center" }}>MZA</th>
                                                         <th style={{ ...thStyle, textAlign: "center" }}>Washing</th>
+                                                        <th style={{ ...thStyle, textAlign: "center" }}>BAA</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -1333,8 +1349,8 @@ export default function SapSummaryView({ macchine = [] }) {
                                                         // Logica di aggregazione per righe di riepilogo
                                                         if (isSummaryRow) {
                                                             const calculatedRow = {
-                                                                start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, washing: 0,
-                                                                machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), washing: new Set() }
+                                                                start_soft: 0, end_soft: 0, ht: 0, start_hard: 0, end_hard: 0, ut: 0, washing: 0, baa: 0,
+                                                                machines: { start_soft: new Set(), end_soft: new Set(), ht: new Set(), start_hard: new Set(), end_hard: new Set(), ut: new Set(), washing: new Set(), baa: new Set() }
                                                             };
                                                             let children = [];
 
@@ -1354,7 +1370,7 @@ export default function SapSummaryView({ macchine = [] }) {
 
                                                             children.forEach(c => {
                                                                 const cData = tData[`${proj.id}::${c}`] || {};
-                                                                ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(f => {
+                                                                ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "ut", "washing", "baa"].forEach(f => {
                                                                     calculatedRow[f] += (cData[f] || 0);
                                                                     if (cData.machines?.[f]) {
                                                                         cData.machines[f].forEach(m => calculatedRow.machines[f].add(m));
@@ -1363,7 +1379,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                                             });
 
                                                             // Convert Sets to Arrays for render
-                                                            ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].forEach(f => {
+                                                            ["start_soft", "end_soft", "ht", "start_hard", "end_hard", "ut", "washing", "baa"].forEach(f => {
                                                                 calculatedRow.machines[f] = Array.from(calculatedRow.machines[f]);
                                                             });
                                                             row = calculatedRow;
@@ -1377,7 +1393,7 @@ export default function SapSummaryView({ macchine = [] }) {
                                                                 <td style={{ padding: "7px 12px", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", color: isSummaryRow ? "var(--accent)" : "inherit", borderRight: "1px solid var(--border-light)" }}>
                                                                     {proj.nome} - {componente}
                                                                 </td>
-                                                                {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "washing"].map(field => {
+                                                                {["start_soft", "end_soft", "ht", "start_hard", "end_hard", "ut", "washing", "baa"].map(field => {
                                                                     const value = row[field];
                                                                     const machineList = row.machines?.[field] || [];
 
