@@ -218,7 +218,8 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 mat: (r.materiale || "").toUpperCase(),
                 fino: r.fino ? String(r.fino).padStart(4, "0") : null,
                 phase: r.fase,
-                comp: (r.componente || "").toUpperCase()
+                comp: (r.componente || "").toUpperCase(),
+                proj: (r.progetto || "").trim()
             }));
 
             const getPhaseForRecord = (r) => {
@@ -380,6 +381,14 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 }
                 return q;
             };
+            // Mappa comp+proj → set di materiali esplicitamente assegnati a BAA
+            const baaOverrideMatsByCell = {};
+            dbMaterialOverrides.filter(o => o.phase === "baa").forEach(o => {
+                const key = `${o.proj}::${o.comp}`;
+                if (!baaOverrideMatsByCell[key]) baaOverrideMatsByCell[key] = new Set();
+                baaOverrideMatsByCell[key].add(o.mat);
+            });
+
             const { data: baaRes } = await fetchAllRows(baaQueryFactory);
             if (baaRes) {
                 baaRes.forEach(r => {
@@ -394,6 +403,11 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     if (!PROJECTS.includes(proj)) return;
                     let comp = (info.componente || "ALTRO").toUpperCase();
                     if (comp === "SG2-REV") comp = "DG-REV";
+                    // Se per questa cella (proj+comp) ci sono materiali BAA esplicitamente assegnati,
+                    // includi solo quelli; altrimenti includi tutti
+                    const cellKey = `${proj}::${comp}`;
+                    const allowedMats = baaOverrideMatsByCell[cellKey];
+                    if (allowedMats && !allowedMats.has(matCode)) return;
                     projComponentSets[proj].add(comp);
                     if (!newMatrix[proj][comp]) newMatrix[proj][comp] = {};
                     if (!newMatrix[proj][comp]["baa"]) newMatrix[proj][comp]["baa"] = { value: 0, records: [] };
