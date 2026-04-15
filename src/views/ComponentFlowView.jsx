@@ -105,6 +105,7 @@ const MATERIAL_PHASE_OVERRIDES = [
     { mat: "2511108150", fino: "0120", phase: "start_hard" },
     { mat: "2511108150", fino: "0230", phase: "teeth_grinding" },
     { mat: "2511108150", fino: "0250", phase: "washing" },
+    { mat: "M0153387", fino: "0250", phase: "washing" },
     { mat: "M0153389/S", fino: "0020", phase: "start_soft" },
     { mat: "M0153389/S", fino: "0025", phase: "dmc" },
     { mat: "M0153389/S", fino: "0050", phase: "dmc" },
