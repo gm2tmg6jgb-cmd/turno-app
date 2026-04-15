@@ -43,6 +43,7 @@ const PROCESS_STEPS = [
     { id: "ut_soft", label: "MZA Soft", code: "MZA" },
     { id: "ut", label: "MZA Hard", code: "MZA" },
     { id: "grinding_cone", label: "Rettifica Cono", code: "SLA" },
+    { id: "grinding_cone_2", label: "Rettifica Cono 2", code: "SLA" },
     { id: "teeth_grinding", label: "Rettifica Denti", code: "SLW" },
     { id: "washing", label: "Lavaggio", code: "WSH" },
     { id: "baa", label: "BAA", code: "BAA" }
@@ -66,10 +67,10 @@ const PROJECT_TARGETS = {
 };
 
 const EXCLUDED_PHASES = {
-    "DCT300": ["dmc", "broaching", "milling", "laser_welding_soft_2"], // milling tolto dalle globali per attivazione selettiva su SG4? No, ora rimosso su richiesta
-    "8Fe": ["laser_welding_2", "ut", "ut_soft"],
+    "DCT300": ["dmc", "broaching", "milling", "laser_welding_soft_2", "grinding_cone_2"], // milling tolto dalle globali per attivazione selettiva su SG4? No, ora rimosso su richiesta
+    "8Fe": ["laser_welding_2", "ut", "ut_soft", "grinding_cone_2"],
     "DCT ECO": ["dmc", "broaching", "laser_welding_soft_2", "start_soft"],
-    "RG + DH": ["shaping", "broaching", "laser_welding_soft_2", "milling", "ut", "grinding_cone", "laser_welding"]
+    "RG + DH": ["shaping", "broaching", "laser_welding_soft_2", "milling", "ut", "grinding_cone", "laser_welding", "grinding_cone_2"]
 };
 
 const COMPONENT_EXCLUSIONS = {
