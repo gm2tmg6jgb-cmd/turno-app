@@ -67,8 +67,8 @@ const PROJECT_TARGETS = {
 const EXCLUDED_PHASES = {
     "DCT300": ["dmc", "broaching", "milling", "laser_welding_soft_2"], // milling tolto dalle globali per attivazione selettiva su SG4? No, ora rimosso su richiesta
     "8Fe": ["laser_welding_2", "ut", "ut_soft"],
-    "DCT ECO": ["dmc", "broaching", "laser_welding_soft_2"],
-    "RG + DH": ["shaping", "broaching", "laser_welding_soft_2", "milling", "ut", "grinding_cone", "laser_welding", "start_hard"]
+    "DCT ECO": ["dmc", "broaching", "laser_welding_soft_2", "start_soft"],
+    "RG + DH": ["shaping", "broaching", "laser_welding_soft_2", "milling", "ut", "grinding_cone", "laser_welding"]
 };
 
 const COMPONENT_EXCLUSIONS = {
@@ -611,11 +611,19 @@ export default function PrioritaView({ showToast, globalDate, turnoCorrente }) {
                             projectVisibleSteps.splice(baaIdx, 0, { id: "__sep__", label: "", code: "", separator: true });
                         }
                         if (proj === "RG + DH") {
-                            const draStep = projectVisibleSteps.find(s => s.id === "start_soft");
-                            if (draStep) {
+                            // DRA Soft (start_soft) prima di ZSA (dmc)
+                            const draSoftStep = projectVisibleSteps.find(s => s.id === "start_soft");
+                            if (draSoftStep) {
                                 projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "start_soft");
                                 const zsaIdx = projectVisibleSteps.findIndex(s => s.id === "dmc");
-                                projectVisibleSteps.splice(zsaIdx !== -1 ? zsaIdx : 0, 0, draStep);
+                                projectVisibleSteps.splice(zsaIdx !== -1 ? zsaIdx : 0, 0, draSoftStep);
+                            }
+                            // DRA Hard (start_hard) dopo OKU (shot_peening)
+                            const draHardStep = projectVisibleSteps.find(s => s.id === "start_hard");
+                            if (draHardStep) {
+                                projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "start_hard");
+                                const okuIdx = projectVisibleSteps.findIndex(s => s.id === "shot_peening");
+                                projectVisibleSteps.splice(okuIdx !== -1 ? okuIdx + 1 : projectVisibleSteps.length, 0, draHardStep);
                             }
                         }
 
