@@ -18,6 +18,8 @@ const LOCAL_ANAGRAFICA = {
     "M0140997": { comp: "SG2", proj: "DCT ECO" },
     "2516272835": { comp: "SG1", proj: "DCT300" },
     "2516107836": { comp: "SG1", proj: "DCT300" },
+    "M0162583/S": { comp: "SG4", proj: "8Fe" },
+    "M0162583/T": { comp: "SG4", proj: "8Fe" },
     "M0162583": { comp: "SG4", proj: "8Fe" },
     "M0162623/S": { comp: "SG5", proj: "8Fe" },
     "M0162623/T": { comp: "SG5", proj: "8Fe" },
@@ -288,27 +290,54 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     if (m.match_type === "prefix" && wc.startsWith(m.work_center.toUpperCase())) return m.fase;
                 }
 
-                // 5. FALLBACK: Code-based matching dai PROCESS_STEPS
-                for (const step of PROCESS_STEPS) {
-                    if (wc.startsWith(step.code)) {
-                        // DRA è ambiguo: usato sia per start_soft che start_hard
-                        if (step.code === "DRA") {
-                            return matCode.endsWith("/S") ? "start_soft" : "start_hard";
+                // 5. FALLBACK: Code-based matching dai PROCESS_STEPS (richiede WC)
+                if (wc) {
+                    for (const step of PROCESS_STEPS) {
+                        if (wc.startsWith(step.code)) {
+                            // DRA è ambiguo: usato sia per start_soft che start_hard
+                            if (step.code === "DRA") {
+                                return matCode.endsWith("/S") ? "start_soft" : "start_hard";
+                            }
+                            // SCA è ambiguo: usato sia per laser_welding che laser_welding_soft_2
+                            if (step.code === "SCA") {
+                                return "laser_welding";
+                            }
+                            // MZA è ambiguo: soft (/S) prima di STW, hard dopo TT prima di SLA
+                            if (step.code === "MZA") {
+                                return matCode.endsWith("/S") ? "ut_soft" : "ut";
+                            }
+                            return step.id;
                         }
-                        // SCA è ambiguo: usato sia per laser_welding che laser_welding_soft_2
-                        if (step.code === "SCA") {
-                            return "laser_welding";
-                        }
-                        // MZA è ambiguo: soft (/S) prima di STW, hard dopo TT prima di SLA
-                        if (step.code === "MZA") {
-                            return matCode.endsWith("/S") ? "ut_soft" : "ut";
-                        }
-                        return step.id;
                     }
                 }
 
+                // 6. FALLBACK FINO: se WC vuoto, tenta una decodifica dal numero operazione
+                const FINO_FALLBACK = {
+                    "0020": matCode.endsWith("/S") ? "start_soft" : "start_hard",
+                    "0025": "dmc",
+                    "0050": "dmc",
+                    "0055": "dmc",
+                    "0060": "laser_welding",
+                    "0090": "hobbing",
+                    "0100": "shot_peening",
+                    "0110": "shot_peening",
+                    "0120": "start_hard",
+                    "0130": "ht",
+                    "0140": "ht",
+                    "0160": "ht",
+                    "0170": "grinding_cone",
+                    "0180": "grinding_cone",
+                    "0190": "grinding_cone_2",
+                    "0200": "teeth_grinding",
+                    "0210": "teeth_grinding",
+                    "0230": "teeth_grinding",
+                    "0250": "washing",
+                };
+                if (fino && FINO_FALLBACK[fino]) return FINO_FALLBACK[fino];
+
                 return null;
             };
+
 
             // 3. Fetch production data
             const selectFields = "data, materiale, work_center_sap, macchina_id, qta_ottenuta, turno_id, fino";
