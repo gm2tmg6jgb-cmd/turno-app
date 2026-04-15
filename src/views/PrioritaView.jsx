@@ -19,6 +19,8 @@ const LOCAL_ANAGRAFICA = {
     "2516272835": { comp: "SG1", proj: "DCT300" },
     "2516107836": { comp: "SG1", proj: "DCT300" },
     "M0162583": { comp: "SG4", proj: "8Fe" },
+    "M0162623/S": { comp: "SG5", proj: "8Fe" },
+    "M0162623/T": { comp: "SG5", proj: "8Fe" },
     "M0162623": { comp: "SG5", proj: "8Fe" },
     "M0153387": { comp: "SG6", proj: "8Fe" },
     "M0153397/S": { comp: "SG8", proj: "8Fe" },
