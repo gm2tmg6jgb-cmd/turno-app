@@ -206,44 +206,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 setCellInclusions(incl);
             }
 
-            // 1. Fetch anagrafica
-            const { data: anagraficaRes } = await fetchAllRows(() => supabase.from("anagrafica_materiali").select("*"));
-            const anagrafica = {};
-            
-            // First, load from LOCAL_ANAGRAFICA (Priority)
-            Object.entries(LOCAL_ANAGRAFICA).forEach(([mat, info]) => {
-                anagrafica[mat.toUpperCase()] = { 
-                    codice: mat.toUpperCase(), 
-                    componente: info.comp.toUpperCase(), 
-                    progetto: info.proj 
-                };
-            });
-
-            const compToMats = {}; // { COMP: [mat1, mat2, ...] }
-            if (anagraficaRes) {
-                anagraficaRes.forEach(row => {
-                    const c = (row.codice || "").toUpperCase();
-                    // Don't overwrite LOCAL_ANAGRAFICA items
-                    if (c && !anagrafica[c]) anagrafica[c] = row;
-                });
-            }
-
-            // Build component mapping for UI dropdowns
-            Object.values(anagrafica).forEach(row => {
-                const c = row.codice.toUpperCase();
-                const comp = row.componente.toUpperCase();
-                if (!compToMats[comp]) compToMats[comp] = [];
-                if (!compToMats[comp].includes(c)) compToMats[comp].push(c);
-            });
-            
-            setCompMappings(compToMats);
-
-            // 2. Fetch WC-Phases mapping
-            const { data: wcFasiRes } = await fetchAllRows(() => supabase.from("wc_fasi_mapping").select("*"));
-            const wcFasiMapping = wcFasiRes || [];
-
-            // 2b. Fetch material-fino overrides from DB (persisted user mappings)
-            // Falls back to empty array if table does not exist yet
+            // === SISTEMA MANUALE: solo material_fino_overrides ===
             const { data: matOverridesRes, error: matOverridesErr } = await fetchAllRows(() => supabase.from("material_fino_overrides").select("*"));
             const dbMaterialOverrides = matOverridesErr ? [] : (matOverridesRes || []).map(r => ({
                 mat: (r.materiale || "").toUpperCase(),
@@ -253,7 +216,6 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 proj: (r.progetto || "").trim()
             }));
 
-            // Celle configurate: "proj::comp::phase"
             const cfgSet = new Set();
             (matOverridesErr ? [] : (matOverridesRes || [])).forEach(r => {
                 if (r.progetto && r.componente && r.fase) {
@@ -262,52 +224,17 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
             });
             setConfiguredCells(cfgSet);
 
-            const getPhaseForRecord = (r) => {
-                const matCode = (r.materiale || "").toUpperCase();
-                const fino = String(r.fino || "").padStart(4, "0");
-                const wc = (r.macchina_id || r.work_center_sap || "").toUpperCase();
-
-                // 1. PRIMARY: Static + DB-persisted + session overrides (Material/Fino)
-                const allMaterialOverrides = [...MATERIAL_PHASE_OVERRIDES, ...dbMaterialOverrides, ...dynamicOverrides];
-                const override = allMaterialOverrides.find(o =>
-                    matCode === o.mat.toUpperCase() &&
-                    (o.fino === fino || !o.fino)
-                );
-                if (override) return override.phase;
-
-                // 2. SECONDARY: Check Overrides (Machine)
-                if (MACHINE_PHASE_OVERRIDES[wc]) return MACHINE_PHASE_OVERRIDES[wc];
-
-                // 3. TABLE-BASED: Exact match dal DB
-                for (const m of wcFasiMapping) {
-                    if (m.match_type === "exact" && wc === m.work_center.toUpperCase()) return m.fase;
+            const compToMats = {};
+            dbMaterialOverrides.forEach(o => {
+                if (o.comp) {
+                    if (!compToMats[o.comp]) compToMats[o.comp] = [];
+                    if (!compToMats[o.comp].includes(o.mat)) compToMats[o.comp].push(o.mat);
                 }
+            });
+            setCompMappings(compToMats);
 
-                // 4. TABLE-BASED: Prefix match dal DB
-                for (const m of wcFasiMapping) {
-                    if (m.match_type === "prefix" && wc.startsWith(m.work_center.toUpperCase())) return m.fase;
-                }
-
-                // 5. FALLBACK: Code-based matching dai PROCESS_STEPS (richiede WC)
-                if (wc) {
-                    for (const step of PROCESS_STEPS) {
-                        if (wc.startsWith(step.code)) {
-                            if (step.code === "DRA") return matCode.endsWith("/S") ? "start_soft" : "start_hard";
-                            if (step.code === "SCA") return "laser_welding";
-                            if (step.code === "MZA") return matCode.endsWith("/S") ? "ut_soft" : "ut";
-                            return step.id;
-                        }
-                    }
-                }
-
-                return null;
-            };
-
-
-
-            // 3. Fetch production data
+            // Fetch dati produzione
             const selectFields = "data, materiale, work_center_sap, macchina_id, qta_ottenuta, turno_id, fino";
-
             const queryFactory = () => {
                 let q = supabase.from("conferme_sap").select(selectFields);
                 if (viewMode === "weekly") {
@@ -318,66 +245,49 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 } else {
                     q = q.eq("data", wDate);
                 }
-                if (localTurno && localTurno !== "ALL") {
-                    q = q.eq("turno_id", localTurno);
-                }
+                if (localTurno && localTurno !== "ALL") q = q.eq("turno_id", localTurno);
                 return q;
             };
 
             const { data: prodRes, error: prodErr } = await fetchAllRows(queryFactory);
-
             if (prodErr) {
                 console.error("Errore fetch conferme_sap:", prodErr);
                 if (showToast) showToast(`Errore lettura dati produzione: ${prodErr.message}`, "error");
                 return;
             }
 
-            console.log(`[ComponentFlow] Fetch ${viewMode} - records grezzi: ${prodRes?.length ?? 0}`);
+            console.log(`[ComponentFlow] Fetch ${viewMode} - records grezzi: ${prodRes?.length ?? 0}, configurazioni: ${dbMaterialOverrides.length}`);
 
-            // newMatrix: { projId: { comp: { phase: { value, records } } } }
             const newMatrix = {};
-            const projComponentSets = {}; // { projId: Set<string> }
+            const projComponentSets = {};
             PROJECTS.forEach(p => { newMatrix[p] = {}; projComponentSets[p] = new Set(); });
-
-            let skippedNoInfo = 0, skippedNoPhase = 0;
-            const unmappedMaterials = {};
-            const unmappedWC = {};
 
             if (prodRes) {
                 prodRes.forEach(r => {
                     const matCode = (r.materiale || "").toUpperCase();
-                    const info = anagrafica[matCode];
-                    if (!info) {
-                        skippedNoInfo++;
-                        unmappedMaterials[matCode] = (unmappedMaterials[matCode] || 0) + 1;
-                        return;
-                    }
-
-                    let proj = info.progetto || "Other";
-                    if (proj === "DCT 300" || proj === "DCT300") proj = "DCT300";
-                    if (proj === "8Fe" || proj === "8 FE" || proj === "8Fedct") proj = "8Fe";
-                    if (proj === "DCT Eco" || proj === "DCTeco" || proj === "DCT ECO") proj = "DCT ECO";
-                    if (proj === "RG" || proj === "DH" || proj === "RG + DH") proj = "RG + DH";
-
-                    if (!PROJECTS.includes(proj)) return; // skip unknown projects
-
                     const fino = String(r.fino || "").padStart(4, "0");
 
-                    const compOverride = [...dbMaterialOverrides, ...dynamicOverrides].find(o => o.mat.toUpperCase() === matCode && (o.fino === fino || !o.fino));
-                    let comp = compOverride ? compOverride.comp : (info.componente || "ALTRO").toUpperCase();
+                    // SOLO configurazione manuale
+                    const override = dbMaterialOverrides.find(o =>
+                        o.mat === matCode &&
+                        (o.fino === fino || !o.fino)
+                    );
+                    if (!override) return;
+
+                    const phase = override.phase;
+                    if (!phase || phase === "baa") return;
+
+                    let proj = override.proj;
+                    if (proj === "DCT 300") proj = "DCT300";
+                    if (proj === "8 FE" || proj === "8Fedct") proj = "8Fe";
+                    if (proj === "DCT Eco" || proj === "DCTeco") proj = "DCT ECO";
+                    if (!PROJECTS.includes(proj)) return;
+
+                    let comp = override.comp;
+                    if (!comp) return;
                     if (comp === "SG2-REV") comp = "DG-REV";
 
                     const wc = (r.macchina_id || r.work_center_sap || "").toUpperCase();
-                    const phase = getPhaseForRecord(r);
-                    if (!phase) {
-                        skippedNoPhase++;
-                        unmappedWC[wc] = (unmappedWC[wc] || 0) + 1;
-                        return;
-                    }
-
-                    // BAA viene letto da prelievi_baa (MB51), non da conferme_sap
-                    if (phase === "baa") return;
-
                     projComponentSets[proj].add(comp);
                     if (!newMatrix[proj][comp]) newMatrix[proj][comp] = {};
                     if (!newMatrix[proj][comp][phase]) newMatrix[proj][comp][phase] = { value: 0, records: [] };
@@ -385,8 +295,6 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     newMatrix[proj][comp][phase].records.push({ ...r, matCode, macchina: wc });
                 });
             }
-
-            console.log(`[ComponentFlow] Scartati: ${skippedNoInfo} senza anagrafica, ${skippedNoPhase} senza fase`);
 
             // --- Fetch BAA da prelievi_baa (MB51) ---
             const baaQueryFactory = () => {

@@ -5,28 +5,9 @@ import { Icons } from "../components/ui/Icons";
 import { TURNI } from "../data/constants";
 import { getSlotForGroup } from "../lib/shiftRotation";
 
-// --- LOCAL ANAGRAFICA (Single Source of Truth) ---
-const LOCAL_ANAGRAFICA = {
-    "M0153401/S": { comp: "SG3", proj: "8Fe" },
-    "M0153401": { comp: "SG3", proj: "8Fe" },
-    "M0153389/S": { comp: "SG3", proj: "DCT300" },
-    "M0153384/S": { comp: "DG", proj: "DCT300" },
-    "M0153384": { comp: "DG", proj: "DCT300" },
-    "M0192963/S": { comp: "SG3", proj: "DCT ECO" },
-    "M0192963": { comp: "SG3", proj: "DCT ECO" },
-    "M0140997/S": { comp: "SG2", proj: "DCT ECO" },
-    "M0140997": { comp: "SG2", proj: "DCT ECO" },
-    "2516272835": { comp: "SG1", proj: "DCT300" },
-    "2516107836": { comp: "SG1", proj: "DCT300" },
-    "M0162583/S": { comp: "SG4", proj: "8Fe" },
-    "M0162583/T": { comp: "SG4", proj: "8Fe" },
-    "M0162583": { comp: "SG4", proj: "8Fe" },
-    "M0162623": { comp: "SG5", proj: "8Fe" },
-    "M0153387": { comp: "SG6", proj: "8Fe" },
-    "M0153397/S": { comp: "SG8", proj: "8Fe" },
-    "M0153397/T": { comp: "SG8", proj: "8Fe" },
-    "M0153397": { comp: "SG8", proj: "8Fe" }
-};
+// NOTA: La risoluzione materiale → componente/fase avviene SOLO tramite
+// la tabella Supabase material_fino_overrides (configurazione manuale).
+// Nessun dato automatico viene mostrato se non esplicitamente configurato.
 
 const PROCESS_STEPS = [
     { id: "start_soft", label: "Soft Turning", code: "DRA" },
@@ -99,27 +80,7 @@ const COMPONENT_EXCLUSIONS = {
     "RG FD2": ["laser_welding", "shaping", "milling", "broaching", "laser_welding_2", "ut", "grinding_cone"]
 };
 
-const MATERIAL_PHASE_OVERRIDES = [
-    { mat: "2511108150/S", fino: "0060", phase: "laser_welding" },
-    { mat: "2511108150/S", fino: "0090", phase: "hobbing" },
-    { mat: "2511108150/T", phase: "ht" },
-    { mat: "2511108150", fino: "0100", phase: "shot_peening" },
-    { mat: "2511108150", fino: "0110", phase: "shot_peening" },
-    { mat: "2511108150", fino: "0120", phase: "start_hard" },
-    { mat: "2511108150", fino: "0230", phase: "teeth_grinding" },
-    { mat: "2511108150", fino: "0250", phase: "washing" },
-    { mat: "M0153387", fino: "0250", phase: "washing" },
-    { mat: "M0153389/S", fino: "0020", phase: "start_soft" },
-    { mat: "M0153389/S", fino: "0025", phase: "dmc" },
-    { mat: "M0153389/S", fino: "0050", phase: "dmc" },
-    { mat: "M0153401/S", fino: "0020", phase: "start_soft" },
-    { mat: "M0153401/S", fino: "0025", phase: "dmc" },
-    { mat: "M0153401", fino: "0025", phase: "dmc" }
-];
 
-const MACHINE_PHASE_OVERRIDES = {
-    "HOK11001": "ht"
-};
 
 export default function PrioritaView({ showToast, globalDate, turnoCorrente }) {
     const [viewMode, setViewMode] = useState("daily"); // "weekly" | "daily"
@@ -206,44 +167,8 @@ export default function PrioritaView({ showToast, globalDate, turnoCorrente }) {
                 setCellInclusions(incl);
             }
 
-            // 1. Fetch anagrafica
-            const { data: anagraficaRes } = await fetchAllRows(() => supabase.from("anagrafica_materiali").select("*"));
-            const anagrafica = {};
-
-            // First, load from LOCAL_ANAGRAFICA (Priority)
-            Object.entries(LOCAL_ANAGRAFICA).forEach(([mat, info]) => {
-                anagrafica[mat.toUpperCase()] = { 
-                    codice: mat.toUpperCase(), 
-                    componente: info.comp.toUpperCase(), 
-                    progetto: info.proj 
-                };
-            });
-
-            const compToMats = {}; // { COMP: [mat1, mat2, ...] }
-            if (anagraficaRes) {
-                anagraficaRes.forEach(row => {
-                    const c = (row.codice || "").toUpperCase();
-                    // Don't overwrite LOCAL_ANAGRAFICA items
-                    if (c && !anagrafica[c]) anagrafica[c] = row;
-                });
-            }
-
-            // Build component mapping for UI dropdowns
-            Object.values(anagrafica).forEach(row => {
-                const c = row.codice.toUpperCase();
-                const comp = row.componente.toUpperCase();
-                if (!compToMats[comp]) compToMats[comp] = [];
-                if (!compToMats[comp].includes(c)) compToMats[comp].push(c);
-            });
-            
-            setCompMappings(compToMats);
-
-            // 2. Fetch WC-Phases mapping
-            const { data: wcFasiRes } = await fetchAllRows(() => supabase.from("wc_fasi_mapping").select("*"));
-            const wcFasiMapping = wcFasiRes || [];
-
-            // 2b. Fetch material-fino overrides from DB (persisted user mappings)
-            // Falls back to empty array if table does not exist yet
+            // === SISTEMA MANUALE: solo material_fino_overrides ===
+            // Carica le configurazioni manuali dell'utente
             const { data: matOverridesRes, error: matOverridesErr } = await fetchAllRows(() => supabase.from("material_fino_overrides").select("*"));
             const dbMaterialOverrides = matOverridesErr ? [] : (matOverridesRes || []).map(r => ({
                 mat: (r.materiale || "").toUpperCase(),
@@ -253,6 +178,7 @@ export default function PrioritaView({ showToast, globalDate, turnoCorrente }) {
                 proj: (r.progetto || "").trim()
             }));
 
+            // Aggiorna set celle configurate (per indicatore ⚠)
             const cfgSet = new Set();
             (matOverridesErr ? [] : (matOverridesRes || [])).forEach(r => {
                 if (r.progetto && r.componente && r.fase) {
@@ -261,50 +187,18 @@ export default function PrioritaView({ showToast, globalDate, turnoCorrente }) {
             });
             setConfiguredCells(cfgSet);
 
-            const getPhaseForRecord = (r) => {
-                const matCode = (r.materiale || "").toUpperCase();
-                const fino = String(r.fino || "").padStart(4, "0");
-                const wc = (r.macchina_id || r.work_center_sap || "").toUpperCase();
-
-                // 1. PRIMARY: Static + DB-persisted + session overrides (Material/Fino)
-                const allMaterialOverrides = [...MATERIAL_PHASE_OVERRIDES, ...dbMaterialOverrides, ...dynamicOverrides];
-                const override = allMaterialOverrides.find(o =>
-                    matCode === o.mat.toUpperCase() &&
-                    (o.fino === fino || !o.fino)
-                );
-                if (override) return override.phase;
-
-                // 2. SECONDARY: Check Overrides (Machine)
-                if (MACHINE_PHASE_OVERRIDES[wc]) return MACHINE_PHASE_OVERRIDES[wc];
-
-                // 3. TABLE-BASED: Exact match dal DB
-                for (const m of wcFasiMapping) {
-                    if (m.match_type === "exact" && wc === m.work_center.toUpperCase()) return m.fase;
+            // Costruisci compToMats dai dati configurati (per dropdown UI)
+            const compToMats = {};
+            dbMaterialOverrides.forEach(o => {
+                if (o.comp) {
+                    if (!compToMats[o.comp]) compToMats[o.comp] = [];
+                    if (!compToMats[o.comp].includes(o.mat)) compToMats[o.comp].push(o.mat);
                 }
+            });
+            setCompMappings(compToMats);
 
-                // 4. TABLE-BASED: Prefix match dal DB
-                for (const m of wcFasiMapping) {
-                    if (m.match_type === "prefix" && wc.startsWith(m.work_center.toUpperCase())) return m.fase;
-                }
-
-                // 5. FALLBACK: Code-based matching dai PROCESS_STEPS (richiede WC)
-                if (wc) {
-                    for (const step of PROCESS_STEPS) {
-                        if (wc.startsWith(step.code)) {
-                            if (step.code === "DRA") return matCode.endsWith("/S") ? "start_soft" : "start_hard";
-                            if (step.code === "SCA") return "laser_welding";
-                            if (step.code === "MZA") return matCode.endsWith("/S") ? "ut_soft" : "ut";
-                            return step.id;
-                        }
-                    }
-                }
-
-                return null;
-            };
-
-            // 3. Fetch production data
+            // Fetch dati produzione
             const selectFields = "data, materiale, work_center_sap, macchina_id, qta_ottenuta, turno_id, fino";
-
             const queryFactory = () => {
                 let q = supabase.from("conferme_sap").select(selectFields);
                 if (viewMode === "weekly") {
@@ -315,103 +209,56 @@ export default function PrioritaView({ showToast, globalDate, turnoCorrente }) {
                 } else {
                     q = q.eq("data", wDate);
                 }
-                if (localTurno && localTurno !== "ALL") {
-                    q = q.eq("turno_id", localTurno);
-                }
+                if (localTurno && localTurno !== "ALL") q = q.eq("turno_id", localTurno);
                 return q;
             };
 
             const { data: prodRes, error: prodErr } = await fetchAllRows(queryFactory);
-
             if (prodErr) {
                 console.error("Errore fetch conferme_sap:", prodErr);
                 if (showToast) showToast(`Errore lettura dati produzione: ${prodErr.message}`, "error");
                 return;
             }
 
-            console.log(`[ComponentFlow] Fetch ${viewMode} - records grezzi: ${prodRes?.length ?? 0}`);
+            console.log(`[PrioritaView] Fetch ${viewMode} - records grezzi: ${prodRes?.length ?? 0}, configurazioni manuali: ${dbMaterialOverrides.length}`);
 
             // newMatrix: { projId: { comp: { phase: { value, records } } } }
             const newMatrix = {};
-            const projComponentSets = {}; // { projId: Set<string> }
+            const projComponentSets = {};
             PROJECTS.forEach(p => { newMatrix[p] = {}; projComponentSets[p] = new Set(); });
-
-            let skippedNoInfo = 0, skippedNoPhase = 0;
-            const unmappedMaterials = {};
-            const unmappedWC = {};
 
             if (prodRes) {
                 prodRes.forEach(r => {
                     const matCode = (r.materiale || "").toUpperCase();
-                    const info = anagrafica[matCode];
-                    if (!info) {
-                        skippedNoInfo++;
-                        unmappedMaterials[matCode] = (unmappedMaterials[matCode] || 0) + 1;
-                        return;
-                    }
-
-                    let proj = info.progetto || "Other";
-                    if (proj === "DCT 300" || proj === "DCT300") proj = "DCT300";
-                    if (proj === "8Fe" || proj === "8 FE" || proj === "8Fedct") proj = "8Fe";
-                    if (proj === "DCT Eco" || proj === "DCTeco" || proj === "DCT ECO") proj = "DCT ECO";
-                    if (proj === "RG" || proj === "DH" || proj === "RG + DH") proj = "RG + DH";
-
-                    if (!PROJECTS.includes(proj)) return; // skip unknown projects
-
                     const fino = String(r.fino || "").padStart(4, "0");
 
-                    const compOverride = [...dbMaterialOverrides, ...dynamicOverrides].find(o => o.mat.toUpperCase() === matCode && (o.fino === fino || !o.fino));
-                    let comp = compOverride ? compOverride.comp : (info.componente || "ALTRO").toUpperCase();
+                    // SOLO configurazione manuale: cerca in material_fino_overrides
+                    const override = dbMaterialOverrides.find(o =>
+                        o.mat === matCode &&
+                        (o.fino === fino || !o.fino)
+                    );
+                    if (!override) return; // non configurato → ignorato
+
+                    const phase = override.phase;
+                    if (!phase || phase === "baa") return;
+
+                    let proj = override.proj;
+                    if (proj === "DCT 300") proj = "DCT300";
+                    if (proj === "8 FE" || proj === "8Fedct") proj = "8Fe";
+                    if (proj === "DCT Eco" || proj === "DCTeco") proj = "DCT ECO";
+                    if (!PROJECTS.includes(proj)) return;
+
+                    let comp = override.comp;
+                    if (!comp) return;
                     if (comp === "SG2-REV") comp = "DG-REV";
 
                     const wc = (r.macchina_id || r.work_center_sap || "").toUpperCase();
-                    const phase = getPhaseForRecord(r);
-                    if (!phase) {
-                        skippedNoPhase++;
-                        unmappedWC[wc] = (unmappedWC[wc] || 0) + 1;
-                        return;
-                    }
-
-                    // BAA viene letto da prelievi_baa (MB51), non da conferme_sap
-                    if (phase === "baa") return;
-
                     projComponentSets[proj].add(comp);
                     if (!newMatrix[proj][comp]) newMatrix[proj][comp] = {};
                     if (!newMatrix[proj][comp][phase]) newMatrix[proj][comp][phase] = { value: 0, records: [] };
                     newMatrix[proj][comp][phase].value += (r.qta_ottenuta || 0);
                     newMatrix[proj][comp][phase].records.push({ ...r, matCode, macchina: wc });
                 });
-            }
-
-            console.log(`[ComponentFlow] Scartati: ${skippedNoInfo} senza anagrafica, ${skippedNoPhase} senza fase`);
-            if (skippedNoInfo > 0) {
-                const top = Object.entries(unmappedMaterials).sort((a, b) => b[1] - a[1]).slice(0, 10);
-                console.log(`[ComponentFlow] Top materiali senza anagrafica:`, top.map(([m, n]) => `${m} (${n})`).join(", "));
-            }
-
-            // DEBUG: M0162623 trace
-            const debugMat = ["M0162623", "M0162623/S", "M0162623/T"];
-            if (prodRes) {
-                const debugRecords = prodRes.filter(r => debugMat.includes((r.materiale || "").toUpperCase()));
-                if (debugRecords.length > 0) {
-                    console.log(`[DEBUG M0162623] Trovati ${debugRecords.length} record in conferme_sap:`,
-                        debugRecords.map(r => ({
-                            mat: r.materiale,
-                            fino: r.fino,
-                            wc: r.work_center_sap || r.macchina_id,
-                            qty: r.qta_ottenuta,
-                            anagrafica: anagrafica[(r.materiale || "").toUpperCase()] || "NESSUNA",
-                            fase: getPhaseForRecord(r)
-                        }))
-                    );
-                } else {
-                    console.log(`[DEBUG M0162623] Nessun record trovato in conferme_sap per ${debugMat.join(", ")}`);
-                }
-            }
-
-            if (skippedNoPhase > 0) {
-                const top = Object.entries(unmappedWC).sort((a, b) => b[1] - a[1]).slice(0, 15);
-                console.log(`[ComponentFlow] Top work center senza fase:`, top.map(([wc, n]) => `${wc} (${n})`).join(", "));
             }
 
             // --- Fetch BAA da prelievi_baa (MB51) ---
