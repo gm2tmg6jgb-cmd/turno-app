@@ -293,47 +293,13 @@ export default function PrioritaView({ showToast, globalDate, turnoCorrente }) {
                 if (wc) {
                     for (const step of PROCESS_STEPS) {
                         if (wc.startsWith(step.code)) {
-                            // DRA è ambiguo: usato sia per start_soft che start_hard
-                            if (step.code === "DRA") {
-                                return matCode.endsWith("/S") ? "start_soft" : "start_hard";
-                            }
-                            // SCA è ambiguo: usato sia per laser_welding che laser_welding_soft_2
-                            if (step.code === "SCA") {
-                                return "laser_welding";
-                            }
-                            // MZA è ambiguo: soft (/S) prima di STW, hard dopo TT prima di SLA
-                            if (step.code === "MZA") {
-                                return matCode.endsWith("/S") ? "ut_soft" : "ut";
-                            }
+                            if (step.code === "DRA") return matCode.endsWith("/S") ? "start_soft" : "start_hard";
+                            if (step.code === "SCA") return "laser_welding";
+                            if (step.code === "MZA") return matCode.endsWith("/S") ? "ut_soft" : "ut";
                             return step.id;
                         }
                     }
                 }
-
-                // 6. FALLBACK FINO: se WC vuoto, tenta una decodifica dal numero operazione
-                // Mappatura standard operazioni SAP → fase produttiva
-                const FINO_FALLBACK = {
-                    "0020": matCode.endsWith("/S") ? "start_soft" : "start_hard",
-                    "0025": "dmc",
-                    "0050": "dmc",
-                    "0055": "dmc",
-                    "0060": "laser_welding",
-                    "0090": "hobbing",
-                    "0100": "shot_peening",
-                    "0110": "shot_peening",
-                    "0120": "start_hard",
-                    "0130": "ht",
-                    "0140": "ht",
-                    "0160": "ht",
-                    "0170": "grinding_cone",
-                    "0180": "grinding_cone",
-                    "0190": "grinding_cone_2",
-                    "0200": "teeth_grinding",
-                    "0210": "teeth_grinding",
-                    "0230": "teeth_grinding",
-                    "0250": "washing",
-                };
-                if (fino && FINO_FALLBACK[fino]) return FINO_FALLBACK[fino];
 
                 return null;
             };
