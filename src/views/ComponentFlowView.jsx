@@ -589,13 +589,6 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                 const slaIdx = projectVisibleSteps.findIndex(s => s.id === "grinding_cone");
                                 projectVisibleSteps.splice(slaIdx !== -1 ? slaIdx : projectVisibleSteps.length, 0, utStep);
                             }
-                            // Move DRA (start_soft) before SCA (laser_welding)
-                            const draStep = projectVisibleSteps.find(s => s.id === "start_soft");
-                            if (draStep) {
-                                projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "start_soft");
-                                const scaIdx = projectVisibleSteps.findIndex(s => s.id === "laser_welding");
-                                projectVisibleSteps.splice(scaIdx !== -1 ? scaIdx : 0, 0, draStep);
-                            }
                             // Inserisci colonna MZA Soft prima di STW (shaping)
                             const utSoftStep = projectVisibleSteps.find(s => s.id === "ut_soft");
                             if (utSoftStep) {
@@ -611,18 +604,19 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                 const sca2Idx = projectVisibleSteps.findIndex(s => s.id === "laser_welding_soft_2");
                                 projectVisibleSteps.splice(sca2Idx !== -1 ? sca2Idx + 1 : projectVisibleSteps.length, 0, utStep);
                             }
-                            // Inserisci separatore visivo tra WSH e BAA
-                            const baaIdx = projectVisibleSteps.findIndex(s => s.id === "baa");
-                            if (baaIdx !== -1) {
-                                projectVisibleSteps.splice(baaIdx, 0, { id: "__sep__", label: "", code: "", separator: true });
-                            }
+                        }
+                        
+                        // Separatore visivo universale tra WSH e BAA
+                        const baaIdx = projectVisibleSteps.findIndex(s => s.id === "baa");
+                        if (baaIdx !== -1) {
+                            projectVisibleSteps.splice(baaIdx, 0, { id: "__sep__", label: "", code: "", separator: true });
                         }
                         if (proj === "RG + DH") {
                             const draStep = projectVisibleSteps.find(s => s.id === "start_soft");
                             if (draStep) {
                                 projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "start_soft");
-                                const okuIdx = projectVisibleSteps.findIndex(s => s.id === "shot_peening");
-                                projectVisibleSteps.splice(okuIdx !== -1 ? okuIdx + 1 : projectVisibleSteps.length, 0, draStep);
+                                const zsaIdx = projectVisibleSteps.findIndex(s => s.id === "dmc");
+                                projectVisibleSteps.splice(zsaIdx !== -1 ? zsaIdx : 0, 0, draStep);
                             }
                         }
 
@@ -709,7 +703,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                         {/* Phases Row */}
                                         <div style={{ display: "flex", marginBottom: "16px", paddingLeft: "110px" }}>
                                             {projectVisibleSteps.map((s, sIdx) => {
-                                                if (s.separator) return <div key={sIdx} style={{ width: "20px", flexShrink: 0 }} />;
+                                                if (s.separator) return <div key={sIdx} style={{ width: "40px", flexShrink: 0 }} />;
                                                 return (
                                                     <div key={sIdx} style={{
                                                         width: "85px",
@@ -750,7 +744,16 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
 
                                                 <div style={{ display: "flex" }}>
                                                     {projectVisibleSteps.map((step, idx) => {
-                                                        if (step.separator) return <div key={idx} style={{ width: "20px", flexShrink: 0, borderLeft: "2px dashed var(--border-light)" }} />;
+                                                        if (step.separator) return (
+                                                            <div key={idx} style={{ 
+                                                                width: "40px", 
+                                                                flexShrink: 0, 
+                                                                display: "flex", 
+                                                                justifyContent: "center" 
+                                                            }}>
+                                                                <div style={{ height: "100%", borderLeft: "2px dashed var(--border-light)", opacity: 0.5 }} />
+                                                            </div>
+                                                        );
                                                         const data = matrixData[proj]?.[comp]?.[step.id];
                                                         const qty = data?.value || 0;
                                                         let isHardExcluded = COMPONENT_EXCLUSIONS[comp]?.includes(step.id);
@@ -944,10 +947,12 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                     <tr style={{ background: "var(--bg-tertiary)" }}>
                                         <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)", borderRadius: "6px 0 0 6px" }}>Data</th>
                                         <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Materiale</th>
-                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Turno</th>
-                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Macchina</th>
+                                        {selectedDetail.phaseId === "baa"
+                                            ? <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Orario</th>
+                                            : <><th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Turno</th>
+                                               <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Macchina</th></>
+                                        }
                                         <th style={{ padding: "10px", textAlign: "right", fontSize: "12px", color: "var(--text-muted)" }}>Q.tà</th>
-                                        <th style={{ padding: "10px", width: "40px" }}></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -956,10 +961,14 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                             <tr key={i} style={{ borderBottom: "1px solid var(--border-light)" }}>
                                                 <td style={{ padding: "10px", fontSize: "13px" }}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
                                                 <td style={{ padding: "10px", fontSize: "13px", color: "var(--accent)", fontWeight: "600" }}>{r.materiale}</td>
-                                                <td style={{ padding: "10px", fontSize: "13px" }}>{r.turno_id}</td>
-                                                <td style={{ padding: "10px", fontSize: "13px", fontWeight: "bold" }}>{r.macchina}</td>
-                                                <td style={{ padding: "10px", fontSize: "14px", fontWeight: "bold", textAlign: "right", color: "#3c6ef0" }}>{r.qta_ottenuta}</td>
-                                                <td style={{ padding: "10px", fontSize: "14px", fontWeight: "bold", textAlign: "right", color: "#3c6ef0" }}>{r.qta_ottenuta}</td>
+                                                {selectedDetail.phaseId === "baa"
+                                                    ? <td style={{ padding: "10px", fontSize: "13px" }}>{r.orario || "—"}</td>
+                                                    : <><td style={{ padding: "10px", fontSize: "13px" }}>{r.turno_id}</td>
+                                                       <td style={{ padding: "10px", fontSize: "13px", fontWeight: "bold" }}>{r.macchina}</td></>
+                                                }
+                                                <td style={{ padding: "10px", fontSize: "14px", fontWeight: "bold", textAlign: "right", color: "#3c6ef0" }}>
+                                                    {selectedDetail.phaseId === "baa" ? Math.abs(r.quantita || 0) : r.qta_ottenuta}
+                                                </td>
                                             </tr>
                                         ))
                                     ) : (
