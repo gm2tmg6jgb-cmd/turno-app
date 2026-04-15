@@ -5,28 +5,8 @@ import { Icons } from "../components/ui/Icons";
 import { TURNI } from "../data/constants";
 import { getSlotForGroup } from "../lib/shiftRotation";
 
-// --- LOCAL ANAGRAFICA (Single Source of Truth) ---
-const LOCAL_ANAGRAFICA = {
-    "M0153401/S": { comp: "SG3", proj: "8Fe" },
-    "M0153401": { comp: "SG3", proj: "8Fe" },
-    "M0153389/S": { comp: "SG3", proj: "DCT300" },
-    "M0153384/S": { comp: "DG", proj: "DCT300" },
-    "M0153384": { comp: "DG", proj: "DCT300" },
-    "M0192963/S": { comp: "SG3", proj: "DCT ECO" },
-    "M0192963": { comp: "SG3", proj: "DCT ECO" },
-    "M0140997/S": { comp: "SG2", proj: "DCT ECO" },
-    "M0140997": { comp: "SG2", proj: "DCT ECO" },
-    "2516272835": { comp: "SG1", proj: "DCT300" },
-    "2516107836": { comp: "SG1", proj: "DCT300" },
-    "M0162583/S": { comp: "SG4", proj: "8Fe" },
-    "M0162583/T": { comp: "SG4", proj: "8Fe" },
-    "M0162583": { comp: "SG4", proj: "8Fe" },
-    "M0162623": { comp: "SG5", proj: "8Fe" },
-    "M0153387": { comp: "SG6", proj: "8Fe" },
-    "M0153397/S": { comp: "SG8", proj: "8Fe" },
-    "M0153397/T": { comp: "SG8", proj: "8Fe" },
-    "M0153397": { comp: "SG8", proj: "8Fe" }
-};
+// Parsing 100% manuale: solo material_fino_overrides (configurazione utente su Supabase)
+
 
 const PROCESS_STEPS = [
     { id: "start_soft", label: "Soft Turning", code: "DRA" },
@@ -99,27 +79,8 @@ const COMPONENT_EXCLUSIONS = {
     "RG FD2": ["laser_welding", "shaping", "milling", "broaching", "laser_welding_2", "ut", "grinding_cone"]
 };
 
-const MATERIAL_PHASE_OVERRIDES = [
-    { mat: "2511108150/S", fino: "0060", phase: "laser_welding" },
-    { mat: "2511108150/S", fino: "0090", phase: "hobbing" },
-    { mat: "2511108150/T", phase: "ht" },
-    { mat: "2511108150", fino: "0100", phase: "shot_peening" },
-    { mat: "2511108150", fino: "0110", phase: "shot_peening" },
-    { mat: "2511108150", fino: "0120", phase: "start_hard" },
-    { mat: "2511108150", fino: "0230", phase: "teeth_grinding" },
-    { mat: "2511108150", fino: "0250", phase: "washing" },
-    { mat: "M0153387", fino: "0250", phase: "washing" },
-    { mat: "M0153389/S", fino: "0020", phase: "start_soft" },
-    { mat: "M0153389/S", fino: "0025", phase: "dmc" },
-    { mat: "M0153389/S", fino: "0050", phase: "dmc" },
-    { mat: "M0153401/S", fino: "0020", phase: "start_soft" },
-    { mat: "M0153401/S", fino: "0025", phase: "dmc" },
-    { mat: "M0153401", fino: "0025", phase: "dmc" }
-];
 
-const MACHINE_PHASE_OVERRIDES = {
-    "HOK11001": "ht"
-};
+
 
 export default function ComponentFlowView({ showToast, globalDate, turnoCorrente }) {
     const [viewMode, setViewMode] = useState("daily"); // "weekly" | "daily"
@@ -336,15 +297,16 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
             if (baaRes) {
                 baaRes.forEach(r => {
                     const matCode = (r.materiale || "").toUpperCase();
-                    const info = anagrafica[matCode];
-                    if (!info) return;
-                    let proj = info.progetto || "Other";
-                    if (proj === "DCT 300" || proj === "DCT300") proj = "DCT300";
-                    if (proj === "8Fe" || proj === "8 FE" || proj === "8Fedct") proj = "8Fe";
-                    if (proj === "DCT Eco" || proj === "DCTeco" || proj === "DCT ECO") proj = "DCT ECO";
-                    if (proj === "RG" || proj === "DH" || proj === "RG + DH") proj = "RG + DH";
+                    // Usa material_fino_overrides per risolvere comp/proj del materiale BAA
+                    const override = dbMaterialOverrides.find(o => o.mat === matCode);
+                    if (!override) return;
+                    let proj = override.proj;
+                    if (proj === "DCT 300") proj = "DCT300";
+                    if (proj === "8 FE" || proj === "8Fedct") proj = "8Fe";
+                    if (proj === "DCT Eco" || proj === "DCTeco") proj = "DCT ECO";
                     if (!PROJECTS.includes(proj)) return;
-                    let comp = (info.componente || "ALTRO").toUpperCase();
+                    let comp = override.comp;
+                    if (!comp) return;
                     if (comp === "SG2-REV") comp = "DG-REV";
                     // Se per questa cella (proj+comp) ci sono materiali BAA esplicitamente assegnati,
                     // includi solo quelli; altrimenti includi tutti
@@ -358,14 +320,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     newMatrix[proj][comp]["baa"].records.push({ ...r, matCode });
                 });
             }
-            if (skippedNoInfo > 0) {
-                const top = Object.entries(unmappedMaterials).sort((a, b) => b[1] - a[1]).slice(0, 10);
-                console.log(`[ComponentFlow] Top materiali senza anagrafica:`, top.map(([m, n]) => `${m} (${n})`).join(", "));
-            }
-            if (skippedNoPhase > 0) {
-                const top = Object.entries(unmappedWC).sort((a, b) => b[1] - a[1]).slice(0, 15);
-                console.log(`[ComponentFlow] Top work center senza fase:`, top.map(([wc, n]) => `${wc} (${n})`).join(", "));
-            }
+
 
             setMatrixData(newMatrix);
 

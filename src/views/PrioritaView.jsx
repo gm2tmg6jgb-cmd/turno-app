@@ -300,15 +300,16 @@ export default function PrioritaView({ showToast, globalDate, turnoCorrente }) {
             if (baaRes) {
                 baaRes.forEach(r => {
                     const matCode = (r.materiale || "").toUpperCase();
-                    const info = anagrafica[matCode];
-                    if (!info) return;
-                    let proj = info.progetto || "Other";
-                    if (proj === "DCT 300" || proj === "DCT300") proj = "DCT300";
-                    if (proj === "8Fe" || proj === "8 FE" || proj === "8Fedct") proj = "8Fe";
-                    if (proj === "DCT Eco" || proj === "DCTeco" || proj === "DCT ECO") proj = "DCT ECO";
-                    if (proj === "RG" || proj === "DH" || proj === "RG + DH") proj = "RG + DH";
+                    // SISTEMA MANUALE: risolvi comp/proj da dbMaterialOverrides
+                    const override = dbMaterialOverrides.find(o => o.mat === matCode);
+                    if (!override) return;
+                    let proj = override.proj;
+                    if (proj === "DCT 300") proj = "DCT300";
+                    if (proj === "8 FE" || proj === "8Fedct") proj = "8Fe";
+                    if (proj === "DCT Eco" || proj === "DCTeco") proj = "DCT ECO";
                     if (!PROJECTS.includes(proj)) return;
-                    let comp = (info.componente || "ALTRO").toUpperCase();
+                    let comp = override.comp;
+                    if (!comp) return;
                     if (comp === "SG2-REV") comp = "DG-REV";
                     // Se per questa cella (proj+comp) ci sono materiali BAA esplicitamente assegnati,
                     // includi solo quelli; altrimenti includi tutti
@@ -322,6 +323,7 @@ export default function PrioritaView({ showToast, globalDate, turnoCorrente }) {
                     newMatrix[proj][comp]["baa"].records.push({ ...r, matCode });
                 });
             }
+
 
             setMatrixData(newMatrix);
 
