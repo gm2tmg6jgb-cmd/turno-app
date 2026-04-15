@@ -141,30 +141,43 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     const [isConfigMode, setIsConfigMode] = useState(false);
     const [quickConfigModal, setQuickConfigModal] = useState(null); // { project, comp, phase }
     const [dynamicOverrides] = useState([]);
+    const [configuredCells, setConfiguredCells] = useState(new Set());
     const refreshTick = 0;
-    const [cellExclusions, setCellExclusions] = useState(() => {
-        const saved = localStorage.getItem("bap_cell_exclusions");
-        return saved ? JSON.parse(saved) : {};
-    });
-    const [cellInclusions, setCellInclusions] = useState(() => {
-        const saved = localStorage.getItem("bap_cell_inclusions");
-        return saved ? JSON.parse(saved) : {};
-    });
+    const [cellExclusions, setCellExclusions] = useState({});
+    const [cellInclusions, setCellInclusions] = useState({});
 
-    const toggleCellExclusion = (proj, comp, phase) => {
+    const toggleCellExclusion = async (proj, comp, phase) => {
         const key = `${proj}:${comp}:${phase}`;
-        const updated = { ...cellExclusions };
-        if (updated[key]) { delete updated[key]; } else { updated[key] = true; }
-        setCellExclusions(updated);
-        localStorage.setItem("bap_cell_exclusions", JSON.stringify(updated));
+        const isCurrentlyExcluded = !!cellExclusions[key];
+        if (isCurrentlyExcluded) {
+            await supabase.from("cell_visibility_overrides")
+                .delete()
+                .eq("view", "flow").eq("tipo", "exclude")
+                .eq("progetto", proj).eq("componente", comp).eq("fase", phase);
+            setCellExclusions(prev => { const u = { ...prev }; delete u[key]; return u; });
+        } else {
+            await supabase.from("cell_visibility_overrides")
+                .upsert({ view: "flow", tipo: "exclude", progetto: proj, componente: comp, fase: phase },
+                    { onConflict: "view,tipo,progetto,componente,fase" });
+            setCellExclusions(prev => ({ ...prev, [key]: true }));
+        }
     };
 
-    const toggleCellInclusion = (proj, comp, phase) => {
+    const toggleCellInclusion = async (proj, comp, phase) => {
         const key = `${proj}:${comp}:${phase}`;
-        const updated = { ...cellInclusions };
-        if (updated[key]) { delete updated[key]; } else { updated[key] = true; }
-        setCellInclusions(updated);
-        localStorage.setItem("bap_cell_inclusions", JSON.stringify(updated));
+        const isCurrentlyIncluded = !!cellInclusions[key];
+        if (isCurrentlyIncluded) {
+            await supabase.from("cell_visibility_overrides")
+                .delete()
+                .eq("view", "flow").eq("tipo", "include")
+                .eq("progetto", proj).eq("componente", comp).eq("fase", phase);
+            setCellInclusions(prev => { const u = { ...prev }; delete u[key]; return u; });
+        } else {
+            await supabase.from("cell_visibility_overrides")
+                .upsert({ view: "flow", tipo: "include", progetto: proj, componente: comp, fase: phase },
+                    { onConflict: "view,tipo,progetto,componente,fase" });
+            setCellInclusions(prev => ({ ...prev, [key]: true }));
+        }
     };
 
     const toLocalDateStr = (d) => {
@@ -177,6 +190,19 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     const fetchData = async () => {
         setLoading(true);
         try {
+            // 0. Carica visibilità celle da DB
+            const { data: visRes } = await supabase.from("cell_visibility_overrides").select("*").eq("view", "flow");
+            if (visRes) {
+                const excl = {}, incl = {};
+                visRes.forEach(r => {
+                    const key = `${r.progetto}:${r.componente}:${r.fase}`;
+                    if (r.tipo === "exclude") excl[key] = true;
+                    else if (r.tipo === "include") incl[key] = true;
+                });
+                setCellExclusions(excl);
+                setCellInclusions(incl);
+            }
+
             // 1. Fetch anagrafica
             const { data: anagraficaRes } = await fetchAllRows(() => supabase.from("anagrafica_materiali").select("*"));
             const anagrafica = {};
@@ -223,6 +249,15 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 comp: (r.componente || "").toUpperCase(),
                 proj: (r.progetto || "").trim()
             }));
+
+            // Celle configurate: "proj::comp::phase"
+            const cfgSet = new Set();
+            (matOverridesErr ? [] : (matOverridesRes || [])).forEach(r => {
+                if (r.progetto && r.componente && r.fase) {
+                    cfgSet.add(`${r.progetto.trim()}::${r.componente.toUpperCase()}::${r.fase}`);
+                }
+            });
+            setConfiguredCells(cfgSet);
 
             const getPhaseForRecord = (r) => {
                 const matCode = (r.materiale || "").toUpperCase();
@@ -883,6 +918,16 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                                         }}
                                                                     >
                                                                         {qty}
+
+                                                                        {step.id !== "baa" && !configuredCells.has(`${proj}::${comp}::${step.id}`) && (
+                                                                            <div style={{
+                                                                                position: "absolute", top: 2, right: 2,
+                                                                                fontSize: 10, lineHeight: 1,
+                                                                                color: "#F59E0B",
+                                                                                textShadow: "0 0 4px rgba(245,158,11,0.6)",
+                                                                                pointerEvents: "none"
+                                                                            }} title="Nessun codice materiale assegnato">⚠</div>
+                                                                        )}
 
                                                                         {isConfigMode && (
                                                                             <>
