@@ -228,11 +228,9 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     const matCode = (r.materiale || "").toUpperCase();
                     const fino = String(r.fino || "").padStart(4, "0");
 
-                    // SOLO configurazione manuale
-                    const override = dbMaterialOverrides.find(o =>
-                        o.mat === matCode &&
-                        (o.fino === fino || !o.fino)
-                    );
+                    // SOLO configurazione manuale — match specifico (fino esatto) ha priorità su match generico (fino null)
+                    const override = dbMaterialOverrides.find(o => o.mat === matCode && o.fino === fino)
+                        || dbMaterialOverrides.find(o => o.mat === matCode && !o.fino);
                     if (!override) return;
 
                     const phase = override.phase;

@@ -1,901 +1,689 @@
 import React, { useState, useEffect } from "react";
 import { supabase, fetchAllRows } from "../lib/supabase";
-import { getCurrentWeekRange } from "../lib/dateUtils";
 import { Icons } from "../components/ui/Icons";
-import { TURNI } from "../data/constants";
-import { getSlotForGroup } from "../lib/shiftRotation";
 
-// NOTA: La risoluzione materiale → componente/fase avviene SOLO tramite
-// la tabella Supabase material_fino_overrides (configurazione manuale).
-// Nessun dato automatico viene mostrato se non esplicitamente configurato.
+// --- LABORATORIO INVENTARIO: Tracciamento WIP con Inventario Fisico ---
 
-const PROCESS_STEPS = [
-    { id: "start_soft", label: "Soft Turning", code: "DRA" },
-    { id: "dmc", label: "DMC", code: "ZSA" },
-    { id: "laser_welding", label: "Saldatura Soft", code: "SCA" },
-    { id: "laser_welding_soft_2", label: "Saldatura Soft 2", code: "SCA" },
-    { id: "shaping", label: "Stozzatura", code: "STW" },
-    { id: "milling", label: "Fresatura", code: "FRA" },
-    { id: "broaching", label: "Brocciatura", code: "RAA" },
-    { id: "hobbing", label: "Dentatura", code: "FRW" },
-    { id: "deburring", label: "Sbavatura", code: "EGW" },
-    { id: "ht", label: "Trattamento Termico", code: "HOK" },
-    { id: "shot_peening", label: "Pallinatura", code: "OKU" },
-    { id: "start_hard", label: "Tornitura Hard", code: "TH" },
-    { id: "laser_welding_2", label: "Saldatura Hard", code: "SCA" },
-    { id: "ut_soft", label: "MZA Soft", code: "MZA" },
-    { id: "ut", label: "MZA Hard", code: "MZA" },
-    { id: "grinding_cone", label: "Rettifica Cono", code: "SLA" },
-    { id: "grinding_cone_2", label: "Rettifica Cono 2", code: "SLA" },
-    { id: "teeth_grinding", label: "Rettifica Denti", code: "SLW" },
-    { id: "washing", label: "Lavaggio", code: "WSH" },
-    { id: "baa", label: "BAA", code: "BAA" }
-];
-
-const PROJECTS = ["DCT300", "DCT ECO", "8Fe", "RG + DH"];
-
-const PROJECT_COMPONENTS = {
-    "DCT300": ["SG1", "DG-REV", "DG", "SG3", "SG4", "SG5", "SG6", "SG7", "SGR", "RG"],
-    "8Fe": ["SG2", "SG3", "SG4", "SG5", "SG6", "SG7", "SG8", "SGR", "PG", "FG5/7"],
-    "DCT ECO": ["SG2", "SG3", "SG4", "SG5", "SGR", "RG FD1", "RG FD2"],
-    "RG + DH": ["RG FD1", "RG FD2", "DH TORNITURA", "DH ASSEMBLAGGIO", "DH SALDATURA"]
+const LOCAL_ANAGRAFICA = {
+    "M0153401/S": { comp: "SG3", proj: "8Fe" },
+    "M0153401": { comp: "SG3", proj: "8Fe" },
+    "M0153389/S": { comp: "SG3", proj: "DCT300" },
+    "M0153384/S": { comp: "DG", proj: "DCT300" },
+    "M0153384": { comp: "DG", proj: "DCT300" },
+    "M0192963/S": { comp: "SG3", proj: "DCT ECO" },
+    "M0192963": { comp: "SG3", proj: "DCT ECO" },
+    "M0140997/S": { comp: "SG2", proj: "DCT ECO" },
+    "M0140997": { comp: "SG2", proj: "DCT ECO" },
+    "2516272835": { comp: "SG1", proj: "DCT300" },
+    "2516107836": { comp: "SG1", proj: "DCT300" },
+    "M0162583/S": { comp: "SG4", proj: "8Fe" },
+    "M0162583/T": { comp: "SG4", proj: "8Fe" },
+    "M0162583": { comp: "SG4", proj: "8Fe" },
+    "M0162623": { comp: "SG5", proj: "8Fe" },
+    "M0153387": { comp: "SG6", proj: "8Fe" },
+    "M0153397/S": { comp: "SG8", proj: "8Fe" },
+    "M0153397/T": { comp: "SG8", proj: "8Fe" },
+    "M0153397": { comp: "SG8", proj: "8Fe" }
 };
 
-// Daily targets (standard)
-const PROJECT_TARGETS = {
-    "DCT300": 450,
-    "8Fe": 800,
-    "DCT ECO": 600,
-    "RG + DH": 200
+// Label fasi da ID
+const PHASE_CODE = {
+    "start_soft": "DRA", "dmc": "ZSA", "laser_welding": "SCA",
+    "laser_welding_soft_2": "SCA", "shaping": "STW", "milling": "FRA",
+    "broaching": "RAA", "hobbing": "FRW", "deburring": "EGW",
+    "to_be_treated": "WIP", "ht": "TH.T", "shot_peening": "OKU",
+    "start_hard": "TH", "laser_welding_2": "SCA", "ut_soft": "MZA",
+    "ut": "MZA", "grinding_cone": "SLA", "grinding_cone_2": "SLA",
+    "teeth_grinding": "SLW", "to_be_washed": "WIP", "washing": "WSH",
+    "baa": "BAA"
 };
 
-const EXCLUDED_PHASES = {
-    "DCT300": ["dmc", "broaching", "milling", "laser_welding_soft_2", "grinding_cone_2"], // milling tolto dalle globali per attivazione selettiva su SG4? No, ora rimosso su richiesta
-    "8Fe": ["laser_welding_2", "ut", "ut_soft", "grinding_cone_2"],
-    "DCT ECO": ["dmc", "broaching", "laser_welding_soft_2", "start_soft"],
-    "RG + DH": ["shaping", "broaching", "laser_welding_soft_2", "milling", "ut", "grinding_cone", "laser_welding", "grinding_cone_2"]
+const PHASE_LABEL = {
+    "start_soft": "Torn. Soft", "dmc": "DMC", "laser_welding": "Sald. Soft",
+    "laser_welding_soft_2": "Sald. Soft 2", "shaping": "Stozzatura", "milling": "Fresatura",
+    "broaching": "Brocciatura", "hobbing": "Dentatura", "deburring": "Sbavatura",
+    "to_be_treated": "Da Trattare", "ht": "Tratt. Term.", "shot_peening": "Pallinatura",
+    "start_hard": "Torn. Hard", "laser_welding_2": "Sald. Hard", "ut_soft": "MZA Soft",
+    "ut": "MZA Hard", "grinding_cone": "Rett. Cono", "grinding_cone_2": "Rett. Cono 2",
+    "teeth_grinding": "Rett. Denti", "to_be_washed": "Da Lavare", "washing": "Lavaggio",
+    "baa": "BAA"
 };
 
-const COMPONENT_EXCLUSIONS = {
-    "SG1": ["start_soft", "ut", "shaping", "grinding_cone", "laser_welding_2", "deburring", "laser_welding_soft_2", "milling", "broaching", "shot_peening"],
-    "DG-REV": [
-        "start_hard", "dmc", "laser_welding", "laser_welding_2", "ut", "shaping",
-        "milling", "broaching", "deburring", "grinding_cone", "teeth_grinding",
-        "washing", "ht", "assembly", "welding", "quality", "shot_peening", "laser_welding_soft_2"
-    ],
-    "DG": ["shaping", "laser_welding_2", "ut", "start_hard", "deburring", "laser_welding_soft_2", "milling", "broaching", "shot_peening"],
-    "SG3": ["shaping", "laser_welding_2", "ut", "milling", "broaching", "shot_peening"],
-    "SG4": ["laser_welding", "laser_welding_2", "ut", "deburring", "laser_welding_soft_2", "broaching", "shot_peening"],
-    "SG7": ["laser_welding", "laser_welding_2", "ut", "deburring", "laser_welding_soft_2", "milling", "broaching", "shaping", "shot_peening", "start_hard"],
-    "SGR": ["shaping", "laser_welding_2", "ut", "deburring", "laser_welding_soft_2", "milling", "broaching", "shot_peening"],
-    "RG": ["shaping", "laser_welding", "laser_welding_2", "ut", "laser_welding_soft_2", "milling", "broaching"], // shot_peening VISIBILE
-    "SG5": ["laser_welding", "laser_welding_2", "shaping", "shot_peening", "laser_welding_soft_2", "milling", "broaching"],
-    "SG6": ["laser_welding", "laser_welding_2", "shaping", "shot_peening", "deburring", "laser_welding_soft_2", "milling", "broaching", "start_hard"],
-    "SG2": ["shaping", "milling", "broaching", "laser_welding_2", "ut", "grinding_cone", "laser_welding_soft_2"],
-    "PG": ["shaping", "laser_welding", "laser_welding_2", "ut", "deburring", "milling", "laser_welding_soft_2", "start_hard", "grinding_cone", "shot_peening"],
-    "FG5/7": ["shaping", "laser_welding", "laser_welding_2", "ut", "milling", "laser_welding_soft_2", "start_hard", "grinding_cone", "broaching"], // shot_peening VISIBILE
-    "SG8": ["milling", "broaching", "shaping", "deburring", "shot_peening", "start_hard", "laser_welding_2", "ut"],
-    "DH SALDATURA": ["start_hard"],
-    "RG FD1": ["laser_welding", "shaping", "milling", "broaching", "laser_welding_2", "ut", "grinding_cone"],
-    "RG FD2": ["laser_welding", "shaping", "milling", "broaching", "laser_welding_2", "ut", "grinding_cone"]
+// Componenti del laboratorio
+const PROJECTS = ["DCT ECO"];
+const PROJECT_COMPONENTS_LAB = {
+    "DCT ECO": ["SG4 ECO"]
 };
 
+// Colore tema per progetto
+const PROJECT_COLORS = {
+    "DCT ECO": { main: "#f59e0b", bg: "rgba(245, 158, 11, 0.05)" },
+    "DCT300": { main: "#3c6ef0", bg: "rgba(60, 110, 240, 0.05)" },
+    "8Fe": { main: "#10b981", bg: "rgba(16, 185, 129, 0.05)" },
+};
 
-
-export default function PrioritaView({ showToast, globalDate, turnoCorrente }) {
-    const [viewMode, setViewMode] = useState("daily"); // "weekly" | "daily"
-    const [targetOverrides, setTargetOverrides] = useState(() => {
-        const saved = localStorage.getItem("bap_target_overrides");
-        return saved ? JSON.parse(saved) : PROJECT_TARGETS;
-    });
-    const [targetModal, setTargetModal] = useState(null); // { project: string, value: number }
-
-    const [wWeek, setWWeek] = useState(() => {
-        const range = getCurrentWeekRange();
-        return range.monday;
-    });
-    const [wDate, setWDate] = useState(() => new Date().toISOString().split("T")[0]);
-    const activeProject = "DCT300";
-    const [localTurno, setLocalTurno] = useState(turnoCorrente || "ALL");
-    const [loading, setLoading] = useState(false);
-    const [matrixData, setMatrixData] = useState({});
+export default function PrioritaView({ showToast, globalDate }) {
+    const [inventarioDate, setInventarioDate] = useState(() =>
+        localStorage.getItem("lab_inv_date") || new Date().toISOString().split("T")[0]
+    );
+    const [finoSequences, setFinoSequences] = useState({}); // {comp: [{fino, fase}]}
+    const [matrixData, setMatrixData] = useState({}); // {comp: {fino: {inv, sap, sapPrev, remaining, records}}}
     const [componentsByProject, setComponentsByProject] = useState({});
-    const [, setCompMappings] = useState({});
+    const [loading, setLoading] = useState(false);
+    const [editingCell, setEditingCell] = useState(null); // {comp, fino, value}
     const [selectedDetail, setSelectedDetail] = useState(null);
+    const [savingCell, setSavingCell] = useState(null); // {comp, fino}
     const [isConfigMode, setIsConfigMode] = useState(false);
-    const [quickConfigModal, setQuickConfigModal] = useState(null); // { project, comp, phase }
-    const [dynamicOverrides] = useState([]);
-    const [configuredCells, setConfiguredCells] = useState(new Set());
-    const refreshTick = 0;
-    const [cellExclusions, setCellExclusions] = useState({});
-    const [cellInclusions, setCellInclusions] = useState({});
+    const [quickConfigModal, setQuickConfigModal] = useState(null);
 
-    const toggleCellExclusion = async (proj, comp, phase) => {
-        const key = `${proj}:${comp}:${phase}`;
-        const isCurrentlyExcluded = !!cellExclusions[key];
-        if (isCurrentlyExcluded) {
-            await supabase.from("cell_visibility_overrides")
-                .delete()
-                .eq("view", "priorita").eq("tipo", "exclude")
-                .eq("progetto", proj).eq("componente", comp).eq("fase", phase);
-            setCellExclusions(prev => { const u = { ...prev }; delete u[key]; return u; });
-        } else {
-            await supabase.from("cell_visibility_overrides")
-                .upsert({ view: "priorita", tipo: "exclude", progetto: proj, componente: comp, fase: phase },
-                    { onConflict: "view,tipo,progetto,componente,fase" });
-            setCellExclusions(prev => ({ ...prev, [key]: true }));
-        }
-    };
+    useEffect(() => {
+        localStorage.setItem("lab_inv_date", inventarioDate);
+    }, [inventarioDate]);
 
-    const toggleCellInclusion = async (proj, comp, phase) => {
-        const key = `${proj}:${comp}:${phase}`;
-        const isCurrentlyIncluded = !!cellInclusions[key];
-        if (isCurrentlyIncluded) {
-            await supabase.from("cell_visibility_overrides")
-                .delete()
-                .eq("view", "priorita").eq("tipo", "include")
-                .eq("progetto", proj).eq("componente", comp).eq("fase", phase);
-            setCellInclusions(prev => { const u = { ...prev }; delete u[key]; return u; });
-        } else {
-            await supabase.from("cell_visibility_overrides")
-                .upsert({ view: "priorita", tipo: "include", progetto: proj, componente: comp, fase: phase },
-                    { onConflict: "view,tipo,progetto,componente,fase" });
-            setCellInclusions(prev => ({ ...prev, [key]: true }));
-        }
-    };
-
-    const toLocalDateStr = (d) => {
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, "0");
-        const day = String(d.getDate()).padStart(2, "0");
-        return `${y}-${m}-${day}`;
-    };
+    useEffect(() => {
+        if (globalDate) setInventarioDate(globalDate);
+    }, [globalDate]);
 
     const fetchData = async () => {
         setLoading(true);
         try {
-            // 0. Carica visibilità celle da DB
-            const { data: visRes } = await supabase.from("cell_visibility_overrides").select("*").eq("view", "priorita");
-            if (visRes) {
-                const excl = {}, incl = {};
-                visRes.forEach(r => {
-                    const key = `${r.progetto}:${r.componente}:${r.fase}`;
-                    if (r.tipo === "exclude") excl[key] = true;
-                    else if (r.tipo === "include") incl[key] = true;
+            // 1. Anagrafica materiali
+            const anagrafica = {};
+            Object.entries(LOCAL_ANAGRAFICA).forEach(([mat, info]) => {
+                anagrafica[mat.toUpperCase()] = { comp: info.comp, proj: info.proj };
+            });
+            const { data: anagraficaRes } = await fetchAllRows(() =>
+                supabase.from("anagrafica_materiali").select("codice,componente,progetto")
+            );
+            if (anagraficaRes) {
+                anagraficaRes.forEach(row => {
+                    const c = (row.codice || "").toUpperCase();
+                    if (c && !anagrafica[c]) {
+                        anagrafica[c] = { comp: row.componente, proj: row.progetto };
+                    }
                 });
-                setCellExclusions(excl);
-                setCellInclusions(incl);
             }
 
-            // === SISTEMA MANUALE: solo material_fino_overrides ===
-            // Carica le configurazioni manuali dell'utente
-            const { data: matOverridesRes, error: matOverridesErr } = await fetchAllRows(() => supabase.from("material_fino_overrides").select("*"));
-            const dbMaterialOverrides = matOverridesErr ? [] : (matOverridesRes || []).map(r => ({
+            // Normalizza comp per il laboratorio
+            const normalizeComp = (comp) => {
+                const c = (comp || "").toUpperCase();
+                if (c.includes("SG4")) return "SG4 ECO";
+                return c;
+            };
+
+            // 2. Material_fino_overrides → sequenza finos per componente
+            const { data: matOverridesRes } = await fetchAllRows(() =>
+                supabase.from("material_fino_overrides").select("materiale,fino,fase,componente,progetto")
+            );
+            const dbOverrides = (matOverridesRes || []).map(r => ({
                 mat: (r.materiale || "").toUpperCase(),
                 fino: r.fino ? String(r.fino).padStart(4, "0") : null,
-                phase: r.fase,
+                fase: r.fase,
                 comp: (r.componente || "").toUpperCase(),
                 proj: (r.progetto || "").trim()
             }));
 
-            // Aggiorna set celle configurate (per indicatore ⚠)
-            const cfgSet = new Set();
-            (matOverridesErr ? [] : (matOverridesRes || [])).forEach(r => {
-                if (r.progetto && r.componente && r.fase) {
-                    cfgSet.add(`${r.progetto.trim()}::${r.componente.toUpperCase()}::${r.fase}`);
-                }
+            // Costruisce sequenze finos per componente
+            // Usa i materiali dell'anagrafica per capire quali finos appartengono a quale comp
+            const finoSeqMap = {}; // {comp: {fino: fase}}
+            PROJECTS.forEach(proj => {
+                const comps = PROJECT_COMPONENTS_LAB[proj] || [];
+                comps.forEach(comp => {
+                    const normComp = normalizeComp(comp);
+                    if (!finoSeqMap[normComp]) finoSeqMap[normComp] = {};
+
+                    // Trova tutti i materiali di questo componente
+                    const mats = Object.entries(anagrafica)
+                        .filter(([, info]) => normalizeComp(info.comp) === normComp)
+                        .map(([mat]) => mat);
+
+                    // Aggiungi finos configurati per questi materiali (escludi baa e fino null)
+                    dbOverrides
+                        .filter(o => mats.includes(o.mat) && o.fino && o.fase !== "baa")
+                        .forEach(o => {
+                            if (!finoSeqMap[normComp][o.fino]) {
+                                finoSeqMap[normComp][o.fino] = o.fase;
+                            }
+                        });
+                });
             });
-            setConfiguredCells(cfgSet);
 
-            // Costruisci compToMats dai dati configurati (per dropdown UI)
-            const compToMats = {};
-            dbMaterialOverrides.forEach(o => {
-                if (o.comp) {
-                    if (!compToMats[o.comp]) compToMats[o.comp] = [];
-                    if (!compToMats[o.comp].includes(o.mat)) compToMats[o.comp].push(o.mat);
-                }
+            // Converti in array ordinato per fino
+            const finoSeqSorted = {};
+            Object.entries(finoSeqMap).forEach(([comp, finoFaseMap]) => {
+                finoSeqSorted[comp] = Object.entries(finoFaseMap)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([fino, fase]) => ({ fino, fase }));
             });
-            setCompMappings(compToMats);
+            setFinoSequences(finoSeqSorted);
 
-            // Fetch dati produzione
-            const selectFields = "data, materiale, work_center_sap, macchina_id, qta_ottenuta, turno_id, fino";
-            const queryFactory = () => {
-                let q = supabase.from("conferme_sap").select(selectFields);
-                if (viewMode === "weekly") {
-                    const [y, mo, d] = wWeek.split("-").map(Number);
-                    const mon = new Date(y, mo - 1, d);
-                    const sun = new Date(y, mo - 1, d + 6);
-                    q = q.gte("data", toLocalDateStr(mon)).lte("data", toLocalDateStr(sun));
-                } else {
-                    q = q.eq("data", wDate);
-                }
-                if (localTurno && localTurno !== "ALL") q = q.eq("turno_id", localTurno);
-                return q;
-            };
-
-            const { data: prodRes, error: prodErr } = await fetchAllRows(queryFactory);
-            if (prodErr) {
-                console.error("Errore fetch conferme_sap:", prodErr);
-                if (showToast) showToast(`Errore lettura dati produzione: ${prodErr.message}`, "error");
-                return;
+            // 3. Inventario fisico da Supabase
+            const { data: invRes } = await supabase
+                .from("inventario_fisico")
+                .select("componente,fino,quantita,data_inventario");
+            const invMap = {}; // {comp: {fino: qty}}
+            if (invRes) {
+                invRes.forEach(r => {
+                    const comp = (r.componente || "").toUpperCase();
+                    const fino = String(r.fino || "").padStart(4, "0");
+                    if (!invMap[comp]) invMap[comp] = {};
+                    invMap[comp][fino] = r.quantita || 0;
+                });
             }
+            // 4. SAP conferme dal inventarioDate in poi
+            const { data: sapRes } = await fetchAllRows(() =>
+                supabase.from("conferme_sap")
+                    .select("data,materiale,fino,qta_ottenuta,work_center_sap,macchina_id,turno_id")
+                    .gte("data", inventarioDate)
+            );
 
-            console.log(`[PrioritaView] Fetch ${viewMode} - records grezzi: ${prodRes?.length ?? 0}, configurazioni manuali: ${dbMaterialOverrides.length}`);
-
-            // newMatrix: { projId: { comp: { phase: { value, records } } } }
-            const newMatrix = {};
-            const projComponentSets = {};
-            PROJECTS.forEach(p => { newMatrix[p] = {}; projComponentSets[p] = new Set(); });
-
-            if (prodRes) {
-                prodRes.forEach(r => {
+            // Aggrega SAP per comp+fino
+            const sapMap = {}; // {comp: {fino: {qty, records}}}
+            if (sapRes) {
+                sapRes.forEach(r => {
                     const matCode = (r.materiale || "").toUpperCase();
                     const fino = String(r.fino || "").padStart(4, "0");
+                    if (!fino || fino === "0000") return;
+                    const info = anagrafica[matCode];
+                    if (!info) return;
+                    const comp = normalizeComp(info.comp);
 
-                    // SOLO configurazione manuale: cerca in material_fino_overrides
-                    const override = dbMaterialOverrides.find(o =>
-                        o.mat === matCode &&
-                        (o.fino === fino || !o.fino)
-                    );
-                    if (!override) return; // non configurato → ignorato
-
-                    const phase = override.phase;
-                    if (!phase || phase === "baa") return;
-
-                    let proj = override.proj;
-                    if (proj === "DCT 300") proj = "DCT300";
-                    if (proj === "8 FE" || proj === "8Fedct") proj = "8Fe";
-                    if (proj === "DCT Eco" || proj === "DCTeco") proj = "DCT ECO";
-                    if (!PROJECTS.includes(proj)) return;
-
-                    let comp = override.comp;
-                    if (!comp) return;
-                    if (comp === "SG2-REV") comp = "DG-REV";
-
-                    const wc = (r.macchina_id || r.work_center_sap || "").toUpperCase();
-                    projComponentSets[proj].add(comp);
-                    if (!newMatrix[proj][comp]) newMatrix[proj][comp] = {};
-                    if (!newMatrix[proj][comp][phase]) newMatrix[proj][comp][phase] = { value: 0, records: [] };
-                    newMatrix[proj][comp][phase].value += (r.qta_ottenuta || 0);
-                    newMatrix[proj][comp][phase].records.push({ ...r, matCode, macchina: wc });
+                    if (!sapMap[comp]) sapMap[comp] = {};
+                    if (!sapMap[comp][fino]) sapMap[comp][fino] = { qty: 0, records: [] };
+                    sapMap[comp][fino].qty += (r.qta_ottenuta || 0);
+                    sapMap[comp][fino].records.push({
+                        ...r,
+                        matCode,
+                        macchina: (r.macchina_id || r.work_center_sap || "").toUpperCase()
+                    });
                 });
             }
 
-            // --- Fetch BAA da prelievi_baa (MB51) ---
-            const baaQueryFactory = () => {
-                let q = supabase.from("prelievi_baa").select("data, orario, materiale, quantita");
-                if (viewMode === "weekly") {
-                    const [y, mo, d] = wWeek.split("-").map(Number);
-                    const mon = new Date(y, mo - 1, d);
-                    const sun = new Date(y, mo - 1, d + 6);
-                    q = q.gte("data", toLocalDateStr(mon)).lte("data", toLocalDateStr(sun));
-                } else {
-                    q = q.eq("data", wDate);
-                }
-                if (localTurno && localTurno !== "ALL") {
-                    const refDate = viewMode === "weekly" ? new Date(wWeek) : new Date(wDate + "T12:00:00");
-                    const slot = getSlotForGroup(localTurno, refDate);
-                    if (slot) {
-                        const [startH, endH] = slot.orario.split("–").map(s => s.trim());
-                        const start = startH.length === 5 ? startH + ":00" : startH;
-                        const end = endH === "24:00" ? "23:59:59" : (endH.length === 5 ? endH + ":00" : endH);
-                        if (slot.id === "N") {
-                            q = q.gte("orario", "00:00:00").lt("orario", end);
-                        } else {
-                            q = q.gte("orario", start).lt("orario", end === "23:59:59" ? "24:00:00" : end);
-                        }
-                    }
-                }
-                return q;
-            };
-            // Mappa comp+proj → set di materiali esplicitamente assegnati a BAA
-            const baaOverrideMatsByCell = {};
-            dbMaterialOverrides.filter(o => o.phase === "baa").forEach(o => {
-                const key = `${o.proj}::${o.comp}`;
-                if (!baaOverrideMatsByCell[key]) baaOverrideMatsByCell[key] = new Set();
-                baaOverrideMatsByCell[key].add(o.mat);
+            // 5. Calcolo WIP flow per componente
+            // rimanenza[fino N] = inv[N] - sap[N] + sap[N-1]
+            const newMatrix = {};
+            PROJECTS.forEach(proj => {
+                const comps = PROJECT_COMPONENTS_LAB[proj] || [];
+                comps.forEach(comp => {
+                    const normComp = normalizeComp(comp);
+                    const seq = finoSeqSorted[normComp] || [];
+                    newMatrix[normComp] = {};
+
+                    seq.forEach(({ fino, fase }, idx) => {
+                        const inv = invMap[normComp]?.[fino] || 0;
+                        const sap = sapMap[normComp]?.[fino]?.qty || 0;
+                        const sapRecords = sapMap[normComp]?.[fino]?.records || [];
+                        const prevFino = idx > 0 ? seq[idx - 1].fino : null;
+                        const sapPrev = prevFino ? (sapMap[normComp]?.[prevFino]?.qty || 0) : 0;
+                        const remaining = inv - sap + sapPrev;
+
+                        newMatrix[normComp][fino] = {
+                            fino, fase, inv, sap, sapPrev, remaining, records: sapRecords
+                        };
+                    });
+                });
             });
-
-            const { data: baaRes } = await fetchAllRows(baaQueryFactory);
-            if (baaRes) {
-                baaRes.forEach(r => {
-                    const matCode = (r.materiale || "").toUpperCase();
-                    // SISTEMA MANUALE: risolvi comp/proj da dbMaterialOverrides
-                    const override = dbMaterialOverrides.find(o => o.mat === matCode);
-                    if (!override) return;
-                    let proj = override.proj;
-                    if (proj === "DCT 300") proj = "DCT300";
-                    if (proj === "8 FE" || proj === "8Fedct") proj = "8Fe";
-                    if (proj === "DCT Eco" || proj === "DCTeco") proj = "DCT ECO";
-                    if (!PROJECTS.includes(proj)) return;
-                    let comp = override.comp;
-                    if (!comp) return;
-                    if (comp === "SG2-REV") comp = "DG-REV";
-                    // Se per questa cella (proj+comp) ci sono materiali BAA esplicitamente assegnati,
-                    // includi solo quelli; altrimenti includi tutti
-                    const cellKey = `${proj}::${comp}`;
-                    const allowedMats = baaOverrideMatsByCell[cellKey];
-                    if (allowedMats && !allowedMats.has(matCode)) return;
-                    projComponentSets[proj].add(comp);
-                    if (!newMatrix[proj][comp]) newMatrix[proj][comp] = {};
-                    if (!newMatrix[proj][comp]["baa"]) newMatrix[proj][comp]["baa"] = { value: 0, records: [] };
-                    newMatrix[proj][comp]["baa"].value += Math.abs(r.quantita || 0);
-                    newMatrix[proj][comp]["baa"].records.push({ ...r, matCode });
-                });
-            }
-
 
             setMatrixData(newMatrix);
-
-            const newCompsByProject = {};
-            PROJECTS.forEach(p => {
-                const fixed = PROJECT_COMPONENTS[p] || [];
-                // Se è DCT300, escludiamo SG2 dagli extra per evitare dati sporchi in quella vista
-                const extra = Array.from(projComponentSets[p])
-                    .filter(c => !fixed.includes(c))
-                    .filter(c => !(p === "DCT300" && c === "SG2"))
-                    .filter(c => !(p === "8Fe" && c === "RG"))
-                    .sort();
-                newCompsByProject[p] = [...fixed, ...extra];
-            });
-            setComponentsByProject(newCompsByProject);
+            setComponentsByProject(PROJECT_COMPONENTS_LAB);
 
         } catch (err) {
-            console.error(err);
-            if (showToast) showToast("Errore caricamento dati flusso", "error");
+            console.error("[PrioritaView] Errore fetchData:", err);
+            showToast?.("Errore caricamento dati inventario", "error");
         } finally {
             setLoading(false);
         }
     };
 
-    useEffect(() => {
-        fetchData();
-    }, [wWeek, wDate, viewMode, activeProject, localTurno, dynamicOverrides, refreshTick]);
+    useEffect(() => { fetchData(); }, [inventarioDate]);
 
-    useEffect(() => {
-        if (turnoCorrente) setLocalTurno(turnoCorrente);
-    }, [turnoCorrente]);
+    const saveInventory = async (comp, fino, qty) => {
+        const normComp = comp.toUpperCase();
+        setSavingCell({ comp: normComp, fino });
+        try {
+            const { error } = await supabase.from("inventario_fisico")
+                .upsert({
+                    componente: normComp,
+                    fino,
+                    quantita: qty,
+                    data_inventario: inventarioDate,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: "componente,fino" });
 
-    useEffect(() => {
-        if (globalDate) setWDate(globalDate);
-    }, [globalDate]);
+            if (error) throw error;
+
+            // Ricalcola rimanenza per questo fino e il successivo
+            setMatrixData(prev => {
+                const updated = { ...prev };
+                if (!updated[normComp]) return prev;
+                const seq = finoSequences[normComp] || [];
+                const idx = seq.findIndex(s => s.fino === fino);
+                if (idx === -1) return prev;
+
+                // Ricalcola fino corrente
+                const prevFino = idx > 0 ? seq[idx - 1].fino : null;
+                const sapPrev = prevFino ? (updated[normComp][prevFino]?.sap || 0) : 0;
+                const cell = updated[normComp][fino];
+                updated[normComp][fino] = { ...cell, inv: qty, remaining: qty - (cell?.sap || 0) + sapPrev };
+
+                // Ricalcola fino successivo (perché il suo sapPrev cambia)
+                const nextEntry = seq[idx + 1];
+                if (nextEntry) {
+                    const nextCell = updated[normComp][nextEntry.fino];
+                    const newSap = updated[normComp][fino]?.sap || 0;
+                    updated[normComp][nextEntry.fino] = {
+                        ...nextCell,
+                        sapPrev: newSap,
+                        remaining: (nextCell?.inv || 0) - (nextCell?.sap || 0) + newSap
+                    };
+                }
+                return updated;
+            });
+
+        } catch (err) {
+            console.error("[PrioritaView] Errore salvataggio inventario:", err);
+            showToast?.("Errore salvataggio inventario", "error");
+        } finally {
+            setSavingCell(null);
+        }
+    };
+
+    const startEditing = (comp, fino, currentInv) => {
+        if (isConfigMode) {
+            const cell = matrixData[comp]?.[fino];
+            if (cell) {
+                setQuickConfigModal({
+                    project: "DCT ECO",
+                    comp,
+                    phase: cell.fase,
+                    phaseLabel: PHASE_LABEL[cell.fase] || cell.fase
+                });
+            }
+            return;
+        }
+        setEditingCell({ comp, fino, value: currentInv });
+    };
+
+    const commitEdit = async () => {
+        if (!editingCell) return;
+        const qty = parseInt(editingCell.value) || 0;
+        await saveInventory(editingCell.comp, editingCell.fino, qty);
+        setEditingCell(null);
+    };
+
+    const cancelEdit = () => setEditingCell(null);
+
+    // Colore rimanenza
+    const remainingColor = (remaining) => {
+        if (remaining < 0) return "#ef4444";
+        if (remaining === 0) return "var(--text-muted)";
+        return "var(--text-primary)";
+    };
+
+    const remainingBg = (remaining) => {
+        if (remaining < 0) return "rgba(239, 68, 68, 0.12)";
+        if (remaining === 0) return "var(--bg-tertiary)";
+        return "rgba(255,255,255,0.04)";
+    };
 
     return (
         <div className="fade-in" style={{ padding: "20px", height: "100%", overflowY: "auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
-                <div />
 
-                <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-                    {/* View Mode Toggle */}
-                    <div style={{ display: "flex", background: "var(--bg-tertiary)", padding: "4px", borderRadius: "10px", border: "1px solid var(--border)" }}>
-                        <button
-                            onClick={() => setViewMode("weekly")}
+            {/* Header toolbar */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ fontSize: 20 }}>📦</div>
+                    <div>
+                        <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.02em" }}>Laboratorio Inventario</div>
+                        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>WIP tracking con scarichi SAP</div>
+                    </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                    {/* Data inventario */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--bg-tertiary)", padding: "6px 14px", borderRadius: 10, border: "1px solid var(--border)" }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", whiteSpace: "nowrap" }}>Inventario dal</span>
+                        <input
+                            type="date"
+                            value={inventarioDate}
+                            onChange={e => setInventarioDate(e.target.value)}
                             style={{
-                                padding: "6px 16px", background: viewMode === "weekly" ? "var(--bg-card)" : "transparent",
-                                color: viewMode === "weekly" ? "var(--text-primary)" : "var(--text-muted)",
-                                border: "none", borderRadius: "6px", fontWeight: "600", fontSize: "13px",
-                                boxShadow: viewMode === "weekly" ? "0 2px 4px rgba(0,0,0,0.1)" : "none", cursor: "pointer", transition: "all 0.2s ease"
+                                border: "none", background: "transparent", fontSize: 13,
+                                fontWeight: 800, color: "var(--accent)", cursor: "pointer",
+                                outline: "none"
                             }}
-                        >
-                            Settimana
-                        </button>
-                        <button
-                            onClick={() => setViewMode("daily")}
-                            style={{
-                                padding: "6px 16px", background: viewMode === "daily" ? "var(--bg-card)" : "transparent",
-                                color: viewMode === "daily" ? "var(--text-primary)" : "var(--text-muted)",
-                                border: "none", borderRadius: "6px", fontWeight: "600", fontSize: "13px",
-                                boxShadow: viewMode === "daily" ? "0 2px 4px rgba(0,0,0,0.1)" : "none", cursor: "pointer", transition: "all 0.2s ease"
-                            }}
-                        >
-                            Giorno
-                        </button>
+                        />
                     </div>
 
-                    <select
-                        value={localTurno}
-                        onChange={(e) => setLocalTurno(e.target.value)}
-                        style={{
-                            padding: "6px 12px",
-                            borderRadius: "8px",
-                            border: "1px solid var(--border)",
-                            background: localTurno !== "ALL" ? "var(--accent-muted)" : "var(--bg-tertiary)",
-                            color: localTurno !== "ALL" ? "var(--accent)" : "var(--text-primary)",
-                            fontWeight: "700",
-                            fontSize: "14px",
-                            cursor: "pointer",
-                            outline: "none"
-                        }}
+                    <button
+                        onClick={() => fetchData()}
+                        className="btn btn-secondary btn-sm"
+                        style={{ display: "flex", alignItems: "center", gap: 6 }}
                     >
-                        <option value="ALL">Tutti i turni</option>
-                        {TURNI.map(t => (
-                            <option key={t.id} value={t.id}>Turno {t.id}</option>
-                        ))}
-                    </select>
+                        {Icons.refresh} Aggiorna
+                    </button>
 
                     <button
                         onClick={() => setIsConfigMode(!isConfigMode)}
                         className="btn"
-                        style={{ 
-                            padding: "8px 12px", display: "flex", alignItems: "center", gap: "6px", fontWeight: "700",
+                        style={{
+                            padding: "8px 12px", display: "flex", alignItems: "center", gap: 6,
+                            fontWeight: 700,
                             background: isConfigMode ? "var(--accent)" : "var(--bg-tertiary)",
                             color: isConfigMode ? "white" : "var(--text-secondary)",
                             border: "1px solid var(--border)",
                             boxShadow: isConfigMode ? "0 0 10px var(--accent)" : "none"
                         }}
                     >
-                        {isConfigMode ? "✓ Fine Config" : "⚙ Configura Celle"}
+                        {isConfigMode ? "✓ Fine Config" : "⚙ Configura Fasi"}
                     </button>
-
-                    {viewMode === "weekly" ? (
-                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                            <button className="btn btn-secondary btn-sm" onClick={() => {
-                                const d = new Date(wWeek + "T12:00:00");
-                                d.setDate(d.getDate() - 7);
-                                setWWeek(d.toISOString().split("T")[0]);
-                            }}>←</button>
-                            <span style={{ fontWeight: "700", background: "var(--bg-tertiary)", padding: "6px 12px", borderRadius: "8px", fontSize: "13px" }}>
-                                {new Date(wWeek + "T12:00:00").toLocaleDateString("it-IT", { day: "2-digit", month: "short" })}
-                            </span>
-                            <button className="btn btn-secondary btn-sm" onClick={() => {
-                                const d = new Date(wWeek + "T12:00:00");
-                                d.setDate(d.getDate() + 7);
-                                setWWeek(d.toISOString().split("T")[0]);
-                            }}>→</button>
-                        </div>
-                    ) : (
-                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                            <button className="btn btn-secondary btn-sm" onClick={() => {
-                                const d = new Date(wDate + "T12:00:00");
-                                d.setDate(d.getDate() - 1);
-                                setWDate(d.toISOString().split("T")[0]);
-                            }}>←</button>
-                            <span style={{ fontWeight: "700", background: "var(--bg-tertiary)", padding: "6px 12px", borderRadius: "8px", fontSize: "13px" }}>
-                                {new Date(wDate + "T12:00:00").toLocaleDateString("it-IT", { day: "2-digit", month: "short" })}
-                            </span>
-                            <button className="btn btn-secondary btn-sm" onClick={() => {
-                                const d = new Date(wDate + "T12:00:00");
-                                d.setDate(d.getDate() + 1);
-                                setWDate(d.toISOString().split("T")[0]);
-                            }}>→</button>
-                        </div>
-                    )}
-
-
                 </div>
             </div>
 
+            {/* Legenda */}
+            <div style={{ display: "flex", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
+                {[
+                    { color: "var(--accent)", label: "Inv", desc: "Inventario fisico (editabile)" },
+                    { color: "#60a5fa", label: "SAP ↓", desc: "Scarichi SAP dal " + new Date(inventarioDate + "T12:00:00").toLocaleDateString("it-IT") },
+                    { color: "#a78bfa", label: "SAP ↑", desc: "Entrate dalla fase precedente" },
+                    { color: "var(--text-primary)", label: "=", desc: "Rimanenza = Inv - SAP↓ + SAP↑" },
+                ].map(item => (
+                    <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text-muted)" }}>
+                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: item.color }} />
+                        <span style={{ fontWeight: 700, color: item.color }}>{item.label}</span>
+                        <span>{item.desc}</span>
+                    </div>
+                ))}
+            </div>
 
+            {loading && (
+                <div style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>
+                    Caricamento dati...
+                </div>
+            )}
 
-            {/* Sleek Mosaic Board (High Efficiency Layout) */}
-            {!loading && (
-                <div style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gridTemplateRows: "1fr 1fr",
-                    gap: "20px",
-                    height: "calc(100vh - 140px)",
-                    padding: "10px",
-                    overflow: "hidden"
-                }}>
-                    {PROJECTS.map((proj) => {
-                        const projectComps = componentsByProject[proj] || [];
-                        const projectExclusions = EXCLUDED_PHASES[proj] || [];
-                        let projectVisibleSteps = PROCESS_STEPS.filter(s => !projectExclusions.includes(s.id));
-                        if (proj === "DCT ECO") {
-                            // Move MZA (ut) before SLA (grinding_cone)
-                            const utStep = projectVisibleSteps.find(s => s.id === "ut");
-                            if (utStep) {
-                                projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "ut");
-                                const slaIdx = projectVisibleSteps.findIndex(s => s.id === "grinding_cone");
-                                projectVisibleSteps.splice(slaIdx !== -1 ? slaIdx : projectVisibleSteps.length, 0, utStep);
-                            }
-                            // Inserisci colonna MZA Soft prima di STW (shaping)
-                            const utSoftStep = projectVisibleSteps.find(s => s.id === "ut_soft");
-                            if (utSoftStep) {
-                                projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "ut_soft");
-                                const stwIdx = projectVisibleSteps.findIndex(s => s.id === "shaping");
-                                projectVisibleSteps.splice(stwIdx !== -1 ? stwIdx : 0, 0, utSoftStep);
-                            }
-                        }
-                        if (proj === "8Fe") {
-                            const utStep = projectVisibleSteps.find(s => s.id === "ut");
-                            if (utStep) {
-                                projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "ut");
-                                const sca2Idx = projectVisibleSteps.findIndex(s => s.id === "laser_welding_soft_2");
-                                projectVisibleSteps.splice(sca2Idx !== -1 ? sca2Idx + 1 : projectVisibleSteps.length, 0, utStep);
-                            }
-                        }
-                        
-                        // Separatore visivo universale tra WSH e BAA
-                        const baaIdx = projectVisibleSteps.findIndex(s => s.id === "baa");
-                        if (baaIdx !== -1) {
-                            projectVisibleSteps.splice(baaIdx, 0, { id: "__sep__", label: "", code: "", separator: true });
-                        }
-                        if (proj === "RG + DH") {
-                            // DRA Soft (start_soft) prima di ZSA (dmc)
-                            const draSoftStep = projectVisibleSteps.find(s => s.id === "start_soft");
-                            if (draSoftStep) {
-                                projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "start_soft");
-                                const zsaIdx = projectVisibleSteps.findIndex(s => s.id === "dmc");
-                                projectVisibleSteps.splice(zsaIdx !== -1 ? zsaIdx : 0, 0, draSoftStep);
-                            }
-                            // DRA Hard (start_hard) dopo OKU (shot_peening)
-                            const draHardStep = projectVisibleSteps.find(s => s.id === "start_hard");
-                            if (draHardStep) {
-                                projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "start_hard");
-                                const okuIdx = projectVisibleSteps.findIndex(s => s.id === "shot_peening");
-                                projectVisibleSteps.splice(okuIdx !== -1 ? okuIdx + 1 : projectVisibleSteps.length, 0, draHardStep);
-                            }
-                        }
+            {!loading && PROJECTS.map(proj => {
+                const comps = componentsByProject[proj] || [];
+                if (comps.length === 0) return null;
+                const theme = PROJECT_COLORS[proj] || PROJECT_COLORS["DCT300"];
 
-                        if (projectComps.length === 0) return null;
+                return (
+                    <div key={proj} style={{
+                        background: "var(--bg-card)",
+                        borderRadius: 16,
+                        border: `1px solid ${theme.main}33`,
+                        boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
+                        overflow: "hidden",
+                        marginBottom: 24
+                    }}>
+                        {/* Header progetto */}
+                        <div style={{
+                            padding: "10px 20px",
+                            background: `linear-gradient(90deg, ${theme.bg}, transparent)`,
+                            borderBottom: `1px solid ${theme.main}22`,
+                            display: "flex", alignItems: "center", gap: 12
+                        }}>
+                            <div style={{ width: 12, height: 12, borderRadius: "50%", background: theme.main }} />
+                            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: theme.main }}>
+                                {proj} — {comps.join(", ")}
+                            </h2>
+                        </div>
 
-                        // Color Palette per Progetto
-                        const colors = {
-                            "DCT300": { main: "#3c6ef0", bg: "rgba(60, 110, 240, 0.05)" },
-                            "8Fe": { main: "#10b981", bg: "rgba(16, 185, 129, 0.05)" },
-                            "DCT ECO": { main: "#f59e0b", bg: "rgba(245, 158, 11, 0.05)" },
-                            "RG + DH": { main: "#8b5cf6", bg: "rgba(139, 92, 246, 0.05)" } // Tono Indigo per Specials
-                        };
-                        const theme = colors[proj] || colors["DCT300"];
+                        {/* Tabella */}
+                        <div style={{ overflow: "auto", padding: 12 }}>
+                            <div style={{ minWidth: "max-content" }}>
+                                {comps.map(comp => {
+                                    const normComp = comp.toUpperCase().includes("SG4") ? "SG4 ECO" : comp.toUpperCase();
+                                    const seq = finoSequences[normComp] || [];
+                                    const compMatrix = matrixData[normComp] || {};
 
-                        return (
-                            <div key={proj} style={{
-                                display: "flex",
-                                flexDirection: "column",
-                                background: "var(--bg-card)",
-                                borderRadius: "16px",
-                                border: `1px solid ${theme.main}33`,
-                                boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-                                overflow: "hidden",
-                                // Layout a Quadrante 2x2
-                                gridColumn: "span 1"
-                            }}>
-                                {/* Header con Gradiente Soft */}
-                                <div style={{
-                                    padding: "10px 20px",
-                                    background: `linear-gradient(90deg, ${theme.bg}, transparent)`,
-                                    borderBottom: `1px solid ${theme.main}22`,
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "center"
-                                }}>
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-                                        <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-                                            <div style={{ width: "15px", height: "15px", borderRadius: "50%", background: theme.main }} />
-                                            <h3 style={{ fontSize: "32px", fontWeight: "900", color: "var(--text-primary)", margin: 0 }}>{proj}</h3>
-                                        </div>
-
-                                        {/* Target Indicator (Single Line Style) */}
-                                        <div style={{
-                                            background: "rgba(0,0,0,0.05)",
-                                            padding: "8px 16px",
-                                            borderRadius: "12px",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: "10px",
-                                            border: "1px solid var(--border-light)"
-                                        }}>
-                                            <div style={{
-                                                fontSize: "16px",
-                                                fontWeight: "900",
-                                                color: theme.main,
-                                                textTransform: "uppercase",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: "8px"
-                                            }}>
-                                                <span>Target {viewMode === "weekly" ? "Settimanale" : (localTurno !== "ALL" ? `Turno ${localTurno}` : "Giorno")}</span>
-                                                <span style={{ fontSize: "24px", color: "var(--text-primary)" }}>
-                                                    {(() => {
-                                                        const base = targetOverrides[proj] || 0;
-                                                        if (viewMode === "weekly") return base * 6;
-                                                        if (localTurno !== "ALL") return Math.round(base / 3);
-                                                        return base;
-                                                    })()}
-                                                </span>
+                                    if (seq.length === 0) {
+                                        return (
+                                            <div key={comp} style={{ padding: 20, color: "var(--text-muted)", fontSize: 13 }}>
+                                                Nessuna fase configurata per {comp}. Configura i materiali tramite ⚙ Configura Fasi.
                                             </div>
-                                            <button
-                                                onClick={() => setTargetModal({ proj, value: targetOverrides[proj] || 0 })}
-                                                style={{ border: "none", background: "none", cursor: "pointer", fontSize: "16px", padding: 0, opacity: 0.5 }}
-                                            >
-                                                ⚙️
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
+                                        );
+                                    }
 
-                                {/* Content con Scroll Interno */}
-                                <div style={{ flex: 1, overflow: "auto", padding: "12px" }}>
-                                    <div style={{ minWidth: "max-content" }}>
-                                        {/* Phases Row */}
-                                        <div style={{ display: "flex", marginBottom: "16px", paddingLeft: "110px" }}>
-                                            {projectVisibleSteps.map((s, sIdx) => {
-                                                if (s.separator) return <div key={sIdx} style={{ width: "40px", flexShrink: 0 }} />;
-                                                return (
-                                                    <div key={sIdx} style={{
-                                                        width: "85px",
-                                                        textAlign: "center",
-                                                        flexShrink: 0,
-                                                        background: s.id === "ht" ? "rgba(0, 212, 255, 0.4)" : "transparent",
-                                                        borderRadius: "4px 4px 0 0",
-                                                        borderLeft: s.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none",
-                                                        borderRight: s.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none"
+                                    return (
+                                        <div key={comp}>
+                                            {/* Intestazione colonne */}
+                                            <div style={{ display: "flex", marginBottom: 6, paddingLeft: 120 }}>
+                                                {seq.map(({ fino, fase }) => (
+                                                    <div key={fino} style={{
+                                                        width: 90, flexShrink: 0, textAlign: "center", paddingBottom: 4,
+                                                        borderBottom: `2px solid ${theme.main}44`
                                                     }}>
-                                                        <div style={{ fontSize: "15px", fontWeight: "800", color: "var(--text-muted)", opacity: 0.8 }}>{s.code}</div>
+                                                        <div style={{ fontSize: 14, fontWeight: 800, color: theme.main }}>
+                                                            {PHASE_CODE[fase] || fase}
+                                                        </div>
+                                                        <div style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 600 }}>
+                                                            op.{fino}
+                                                        </div>
                                                     </div>
-                                                );
-                                            })}
-                                        </div>
+                                                ))}
+                                            </div>
 
-                                        {/* Component Rows */}
-                                        {projectComps.map((comp, cIdx) => (
-                                            <div key={comp} style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                padding: "12px 0",
-                                                borderBottom: "1px solid var(--border-light)",
-                                                background: cIdx % 2 === 0 ? "rgba(0,0,0,0.01)" : "transparent"
-                                            }}>
+                                            {/* Riga componente */}
+                                            <div style={{ display: "flex", alignItems: "stretch", padding: "8px 0" }}>
+                                                {/* Label componente */}
                                                 <div style={{
-                                                    width: "110px",
-                                                    flexShrink: 0,
-                                                    fontSize: "18px",
-                                                    fontWeight: "800",
-                                                    color: "var(--text-primary)",
-                                                    whiteSpace: "nowrap",
-                                                    overflow: "hidden",
-                                                    textOverflow: "ellipsis"
+                                                    width: 120, flexShrink: 0, display: "flex", alignItems: "center",
+                                                    fontSize: 16, fontWeight: 800, color: "var(--text-primary)",
+                                                    paddingRight: 8
                                                 }}>
                                                     {comp}
                                                 </div>
 
-                                                <div style={{ display: "flex" }}>
-                                                    {projectVisibleSteps.map((step, idx) => {
-                                                        if (step.separator) return (
-                                                            <div key={idx} style={{ 
-                                                                width: "40px", 
-                                                                flexShrink: 0, 
-                                                                display: "flex", 
-                                                                justifyContent: "center" 
-                                                            }}>
-                                                                <div style={{ height: "100%", borderLeft: "2px dashed var(--border-light)", opacity: 0.5 }} />
+                                                {/* Celle */}
+                                                {seq.map(({ fino, fase }, idx) => {
+                                                    const cell = compMatrix[fino] || { inv: 0, sap: 0, sapPrev: 0, remaining: 0, records: [] };
+                                                    const isEditing = editingCell?.comp === normComp && editingCell?.fino === fino;
+                                                    const isSaving = savingCell?.comp === normComp && savingCell?.fino === fino;
+                                                    const isFirstFino = idx === 0;
+
+                                                    return (
+                                                        <div key={fino} style={{
+                                                            width: 90, flexShrink: 0, padding: "0 4px",
+                                                            borderLeft: idx > 0 ? "1px solid var(--border-light)" : "none"
+                                                        }}>
+                                                            {/* Cella principale — rimanenza */}
+                                                            <div
+                                                                onClick={() => !isEditing && startEditing(normComp, fino, cell.inv)}
+                                                                title={isConfigMode ? "Configura fase" : "Clicca per modificare inventario fisico"}
+                                                                style={{
+                                                                    width: "100%",
+                                                                    height: 50,
+                                                                    background: remainingBg(cell.remaining),
+                                                                    borderRadius: 10,
+                                                                    display: "flex",
+                                                                    flexDirection: "column",
+                                                                    alignItems: "center",
+                                                                    justifyContent: "center",
+                                                                    cursor: "pointer",
+                                                                    border: `1px solid ${cell.remaining !== 0 ? theme.main + "33" : "transparent"}`,
+                                                                    position: "relative",
+                                                                    transition: "all 0.15s"
+                                                                }}
+                                                            >
+                                                                {isSaving ? (
+                                                                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>...</div>
+                                                                ) : isConfigMode ? (
+                                                                    <div style={{ fontSize: 18, color: "var(--accent)" }}>⚙</div>
+                                                                ) : (
+                                                                    <div style={{
+                                                                        fontSize: Math.abs(cell.remaining) >= 1000 ? 14 : 18,
+                                                                        fontWeight: 900,
+                                                                        color: remainingColor(cell.remaining),
+                                                                        opacity: cell.remaining === 0 ? 0.35 : 1
+                                                                    }}>
+                                                                        {cell.remaining !== 0 ? cell.remaining : "—"}
+                                                                    </div>
+                                                                )}
                                                             </div>
-                                                        );
-                                                        const data = matrixData[proj]?.[comp]?.[step.id];
-                                                        const qty = data?.value || 0;
-                                                        let isHardExcluded = COMPONENT_EXCLUSIONS[comp]?.includes(step.id);
 
-                                                        if (proj === "DCT300" && ["SG7", "SGR", "RG"].includes(comp) && step.id === "grinding_cone") isHardExcluded = true;
-                                                        if (proj === "DCT300" && ["SG3", "SGR"].includes(comp) && step.id === "start_soft") isHardExcluded = true;
-                                                        if (proj === "8Fe" && comp !== "SG3" && step.id === "laser_welding_soft_2") isHardExcluded = true;
-                                                        if (["RG + DH", "8Fe", "DCT300"].includes(proj) && comp.startsWith("DH") && !["start_hard", "laser_welding_2"].includes(step.id)) isHardExcluded = true;
-                                                        if (proj === "DCT ECO" && comp.startsWith("RG") && step.id === "grinding_cone") isHardExcluded = true;
-
-                                                        // MZA Soft (ut_soft) e MZA Hard (ut): attivi per SG2, SG3, SGR in DCT ECO
-                                                        if (proj === "DCT ECO" && ["SG2", "SG3", "SGR"].includes(comp) && (step.id === "ut" || step.id === "ut_soft")) isHardExcluded = false;
-
-                                                        const isDynamicExcluded = !!cellExclusions[`${proj}:${comp}:${step.id}`];
-                                                        const isDynamicIncluded = !!cellInclusions[`${proj}:${comp}:${step.id}`];
-
-                                                        // Hard excluded and NOT manually added by user
-                                                        if (isHardExcluded && !isDynamicIncluded) {
-                                                            if (!isConfigMode) return <div key={idx} style={{ width: "85px", flexShrink: 0 }} />;
-                                                            return (
-                                                                <div key={idx} style={{ width: "85px", flexShrink: 0, display: "flex", justifyContent: "center", alignItems: "center" }}>
-                                                                    <div
-                                                                        onClick={() => toggleCellInclusion(proj, comp, step.id)}
-                                                                        title="Aggiungi cella"
-                                                                        style={{
-                                                                            width: "75px", height: "45px",
-                                                                            border: "2px dashed var(--border)",
-                                                                            borderRadius: "10px",
-                                                                            display: "flex", alignItems: "center", justifyContent: "center",
-                                                                            cursor: "pointer", color: "var(--text-muted)", fontSize: "20px",
-                                                                            opacity: 0.35, transition: "all 0.2s"
+                                                            {/* Riga dettaglio inv/sap */}
+                                                            <div style={{
+                                                                display: "flex", justifyContent: "space-between",
+                                                                padding: "3px 2px", gap: 2
+                                                            }}>
+                                                                {/* Inventario fisico (editabile) */}
+                                                                {isEditing ? (
+                                                                    <input
+                                                                        autoFocus
+                                                                        type="number"
+                                                                        value={editingCell.value}
+                                                                        onChange={e => setEditingCell(prev => ({ ...prev, value: e.target.value }))}
+                                                                        onBlur={commitEdit}
+                                                                        onKeyDown={e => {
+                                                                            if (e.key === "Enter") commitEdit();
+                                                                            if (e.key === "Escape") cancelEdit();
                                                                         }}
-                                                                    >+</div>
-                                                                </div>
-                                                            );
-                                                        }
-
-                                                        // Dynamically excluded (user hid it)
-                                                        if (isDynamicExcluded && !isConfigMode) return <div key={idx} style={{ width: "85px", flexShrink: 0 }} />;
-
-                                                        if (isDynamicExcluded) return (
-                                                            <div key={idx} style={{ width: "85px", flexShrink: 0, display: "flex", justifyContent: "center", alignItems: "center" }}>
-                                                                <div
-                                                                    onClick={() => toggleCellExclusion(proj, comp, step.id)}
-                                                                    title="Ripristina cella"
-                                                                    style={{
-                                                                        width: "75px", height: "45px",
-                                                                        border: "2px dashed var(--accent)",
-                                                                        borderRadius: "10px",
-                                                                        display: "flex", alignItems: "center", justifyContent: "center",
-                                                                        cursor: "pointer", color: "var(--accent)", fontSize: "20px",
-                                                                        opacity: 0.5, transition: "all 0.2s"
-                                                                    }}
-                                                                >+</div>
-                                                            </div>
-                                                        );
-
-                                                        const currentTarget = (() => {
-                                                            const base = targetOverrides[proj] || 0;
-                                                            if (viewMode === "weekly") return base * 6;
-                                                            if (localTurno !== "ALL") return Math.round(base / 3);
-                                                            return base;
-                                                        })();
-                                                        const isSuccess = qty >= currentTarget && qty > 0;
-                                                        const hasProduction = qty > 0;
-
-                                                        return (
-                                                            <div key={idx} style={{
-                                                                width: "85px",
-                                                                display: "flex",
-                                                                justifyContent: "center",
-                                                                flexShrink: 0,
-                                                                background: step.id === "ht" ? "rgba(0, 212, 255, 0.15)" : "transparent",
-                                                                borderLeft: step.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none",
-                                                                borderRight: step.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none"
-                                                            }}>
-                                                                <div
-                                                                    className="production-cell-container"
-                                                                    style={{ position: "relative" }}
-                                                                    onClick={(e) => {
-                                                                        if (isConfigMode) {
-                                                                            e.stopPropagation();
-                                                                            setQuickConfigModal({
-                                                                                project: proj,
-                                                                                comp: comp,
-                                                                                phase: step.id,
-                                                                                phaseLabel: step.label
-                                                                            });
-                                                                        } else {
-                                                                            setSelectedDetail({
-                                                                                title: `${comp} - ${step.label}`,
-                                                                                phaseId: step.id,
-                                                                                compName: comp,
-                                                                                records: data?.records || [],
-                                                                                project: proj
-                                                                            });
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <div
                                                                         style={{
-                                                                            width: "75px",
-                                                                            height: "45px",
-                                                                            background: !hasProduction ? "var(--bg-tertiary)" : (isSuccess ? "#22c55e" : "#ef4444"),
-                                                                            borderRadius: "10px",
-                                                                            display: "flex",
-                                                                            alignItems: "center",
-                                                                            justifyContent: "center",
-                                                                            color: hasProduction ? "white" : "var(--text-muted)",
-                                                                            fontSize: "16px",
-                                                                            fontWeight: "900",
-                                                                            boxShadow: hasProduction ? "0 4px 12px rgba(0,0,0,0.15)" : "none",
-                                                                            cursor: "pointer",
-                                                                            border: isConfigMode ? "2px dashed var(--accent)" : "1px solid rgba(255,255,255,0.1)",
-                                                                            transition: "all 0.2s"
+                                                                            width: "100%", padding: "2px 4px", fontSize: 11,
+                                                                            fontWeight: 700, textAlign: "center",
+                                                                            borderRadius: 6, border: `2px solid var(--accent)`,
+                                                                            background: "var(--bg-card)", color: "var(--accent)"
+                                                                        }}
+                                                                    />
+                                                                ) : (
+                                                                    <div
+                                                                        onClick={() => startEditing(normComp, fino, cell.inv)}
+                                                                        title="Modifica inventario fisico"
+                                                                        style={{
+                                                                            flex: 1, fontSize: 10, fontWeight: 700,
+                                                                            color: cell.inv > 0 ? "var(--accent)" : "var(--text-muted)",
+                                                                            textAlign: "center", cursor: "pointer",
+                                                                            padding: "1px 2px", borderRadius: 4,
+                                                                            border: "1px dashed " + (cell.inv > 0 ? "var(--accent)" : "var(--border-light)"),
+                                                                            opacity: isConfigMode ? 0 : 1
                                                                         }}
                                                                     >
-                                                                        {qty}
-
-                                                                        {step.id !== "baa" && !configuredCells.has(`${proj}::${comp}::${step.id}`) && (
-                                                                            <div style={{
-                                                                                position: "absolute", top: 2, right: 2,
-                                                                                fontSize: 10, lineHeight: 1,
-                                                                                color: "#F59E0B",
-                                                                                textShadow: "0 0 4px rgba(245,158,11,0.6)",
-                                                                                pointerEvents: "none"
-                                                                            }} title="Nessun codice materiale assegnato">⚠</div>
-                                                                        )}
-
-                                                                        {isConfigMode && (
-                                                                            <>
-                                                                                <div style={{
-                                                                                    position: "absolute", top: -6, right: -6,
-                                                                                    background: "var(--bg-card)", borderRadius: "50%",
-                                                                                    width: "20px", height: "20px", display: "flex",
-                                                                                    alignItems: "center", justifyContent: "center",
-                                                                                    fontSize: "12px", boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
-                                                                                    border: "1px solid var(--accent)", color: "var(--accent)"
-                                                                                }}>
-                                                                                    ⚙️
-                                                                                </div>
-                                                                                <div
-                                                                                    onClick={(e) => { e.stopPropagation(); isDynamicIncluded ? toggleCellInclusion(proj, comp, step.id) : toggleCellExclusion(proj, comp, step.id); }}
-                                                                                    title={isDynamicIncluded ? "Rimuovi cella aggiunta" : "Nascondi cella"}
-                                                                                    style={{
-                                                                                        position: "absolute", top: -6, left: -6,
-                                                                                        background: isDynamicIncluded ? "#f59e0b" : "#ef4444",
-                                                                                        borderRadius: "50%",
-                                                                                        width: "20px", height: "20px", display: "flex",
-                                                                                        alignItems: "center", justifyContent: "center",
-                                                                                        fontSize: "10px", fontWeight: "900",
-                                                                                        boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
-                                                                                        color: "white", cursor: "pointer", zIndex: 10
-                                                                                    }}
-                                                                                >✕</div>
-                                                                            </>
-                                                                        )}
+                                                                        {cell.inv > 0 ? `I:${cell.inv}` : "+inv"}
                                                                     </div>
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
+                                                                )}
 
-            {/* Detail Modal */}
+                                                                {/* SAP scarichi */}
+                                                                {cell.sap > 0 && (
+                                                                    <div
+                                                                        onClick={() => !isConfigMode && cell.records.length > 0 && setSelectedDetail({
+                                                                            title: `${comp} — op.${fino} (${PHASE_CODE[fase] || fase})`,
+                                                                            records: cell.records,
+                                                                            fino, fase
+                                                                        })}
+                                                                        title="Scarichi SAP — clicca per dettaglio"
+                                                                        style={{
+                                                                            fontSize: 10, fontWeight: 700,
+                                                                            color: "#60a5fa",
+                                                                            textAlign: "center", cursor: cell.records.length > 0 ? "pointer" : "default",
+                                                                            padding: "1px 3px", borderRadius: 4,
+                                                                            border: "1px solid rgba(96,165,250,0.3)",
+                                                                            whiteSpace: "nowrap"
+                                                                        }}
+                                                                    >
+                                                                        -{cell.sap}
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Entrate dalla fase precedente */}
+                                                                {!isFirstFino && cell.sapPrev > 0 && (
+                                                                    <div
+                                                                        title="Pezzi entrati dalla fase precedente"
+                                                                        style={{
+                                                                            fontSize: 10, fontWeight: 700,
+                                                                            color: "#a78bfa",
+                                                                            textAlign: "center",
+                                                                            padding: "1px 3px", borderRadius: 4,
+                                                                            border: "1px solid rgba(167,139,250,0.3)",
+                                                                            whiteSpace: "nowrap"
+                                                                        }}
+                                                                    >
+                                                                        +{cell.sapPrev}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+
+                                            {/* Riga formula esplicativa */}
+                                            <div style={{
+                                                paddingLeft: 120, display: "flex",
+                                                borderTop: "1px solid var(--border-light)",
+                                                paddingTop: 4, marginTop: 4
+                                            }}>
+                                                {seq.map(({ fino }, idx) => {
+                                                    const cell = compMatrix[fino] || {};
+                                                    const parts = [];
+                                                    if (cell.inv) parts.push(`I:${cell.inv}`);
+                                                    if (cell.sap) parts.push(`-${cell.sap}`);
+                                                    if (idx > 0 && cell.sapPrev) parts.push(`+${cell.sapPrev}`);
+                                                    return (
+                                                        <div key={fino} style={{
+                                                            width: 90, flexShrink: 0, textAlign: "center",
+                                                            fontSize: 9, color: "var(--text-muted)", fontWeight: 600
+                                                        }}>
+                                                            {parts.length > 0 ? parts.join(" ") : ""}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                );
+            })}
+
+            {/* Modale dettaglio scarichi SAP */}
             {selectedDetail && (
                 <div style={{
-                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1000,
-                    display: "flex", justifyContent: "center", alignItems: "center",
-                    backdropFilter: "blur(4px)"
+                    position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1000,
+                    display: "flex", justifyContent: "center", alignItems: "center", backdropFilter: "blur(4px)"
                 }} onClick={() => setSelectedDetail(null)}>
                     <div style={{
-                        background: "var(--bg-card)",
-                        borderRadius: "16px",
-                        width: "90%",
-                        maxWidth: "600px",
-                        maxHeight: "80vh",
-                        display: "flex",
-                        flexDirection: "column",
-                        boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
-                        border: "1px solid var(--border)"
+                        background: "var(--bg-card)", borderRadius: 16,
+                        width: "90%", maxWidth: 600, maxHeight: "80vh",
+                        display: "flex", flexDirection: "column",
+                        boxShadow: "0 20px 40px rgba(0,0,0,0.5)", border: "1px solid var(--border)",
+                        overflow: "hidden"
                     }} onClick={e => e.stopPropagation()}>
-                        <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <h3 style={{ margin: 0, fontSize: "18px", color: "var(--text-primary)" }}>{selectedDetail.title}</h3>
-                            <button onClick={() => setSelectedDetail(null)} style={{ background: "transparent", border: "none", fontSize: "20px", cursor: "pointer", color: "var(--text-muted)" }}>✕</button>
+                        <div style={{
+                            padding: "16px 20px", borderBottom: "1px solid var(--border)",
+                            display: "flex", justifyContent: "space-between", alignItems: "center",
+                            background: "var(--bg-tertiary)"
+                        }}>
+                            <div>
+                                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{selectedDetail.title}</h3>
+                                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                                    Scarichi SAP dal {new Date(inventarioDate + "T12:00:00").toLocaleDateString("it-IT")} — {selectedDetail.records.length} record
+                                </div>
+                            </div>
+                            <button onClick={() => setSelectedDetail(null)}
+                                style={{ background: "rgba(255,255,255,0.05)", border: "none", width: 32, height: 32, borderRadius: "50%", cursor: "pointer", color: "var(--text-muted)", fontSize: 16 }}>✕</button>
                         </div>
-                        <div style={{ padding: "20px 24px", overflowY: "auto" }}>
+                        <div style={{ overflowY: "auto", flex: 1, padding: 20 }}>
                             <table style={{ width: "100%", borderCollapse: "collapse" }}>
                                 <thead>
-                                    <tr style={{ background: "var(--bg-tertiary)" }}>
-                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)", borderRadius: "6px 0 0 6px" }}>Data</th>
-                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Materiale</th>
-                                        {selectedDetail.phaseId === "baa"
-                                            ? <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Orario</th>
-                                            : <><th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Turno</th>
-                                               <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Macchina</th></>
-                                        }
-                                        <th style={{ padding: "10px", textAlign: "right", fontSize: "12px", color: "var(--text-muted)" }}>Q.tà</th>
+                                    <tr style={{ background: "rgba(255,255,255,0.02)" }}>
+                                        {["Data", "Materiale", "Macchina", "Turno", "Q.tà"].map(h => (
+                                            <th key={h} style={{ padding: "8px 10px", textAlign: h === "Q.tà" ? "right" : "left", fontSize: 11, color: "var(--text-muted)", fontWeight: 700 }}>{h}</th>
+                                        ))}
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {selectedDetail.records.length > 0 ? (
-                                        selectedDetail.records.map((r, i) => (
-                                            <tr key={i} style={{ borderBottom: "1px solid var(--border-light)" }}>
-                                                <td style={{ padding: "10px", fontSize: "13px" }}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
-                                                <td style={{ padding: "10px", fontSize: "13px", color: "var(--accent)", fontWeight: "600" }}>{r.materiale}</td>
-                                                {selectedDetail.phaseId === "baa"
-                                                    ? <td style={{ padding: "10px", fontSize: "13px" }}>{r.orario || "—"}</td>
-                                                    : <><td style={{ padding: "10px", fontSize: "13px" }}>{r.turno_id}</td>
-                                                       <td style={{ padding: "10px", fontSize: "13px", fontWeight: "bold" }}>{r.macchina}</td></>
-                                                }
-                                                <td style={{ padding: "10px", fontSize: "14px", fontWeight: "bold", textAlign: "right", color: "#3c6ef0" }}>
-                                                    {selectedDetail.phaseId === "baa" ? Math.abs(r.quantita || 0) : r.qta_ottenuta}
-                                                </td>
-                                            </tr>
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td colSpan="5" style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>
-                                                Nessun record trovato in questa fase.
-                                            </td>
+                                    {selectedDetail.records.map((r, i) => (
+                                        <tr key={i} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                            <td style={{ padding: "8px 10px", fontSize: 12 }}>{new Date(r.data + "T12:00:00").toLocaleDateString("it-IT")}</td>
+                                            <td style={{ padding: "8px 10px", fontSize: 12, color: "var(--accent)", fontWeight: 600 }}>{r.materiale}</td>
+                                            <td style={{ padding: "8px 10px", fontSize: 11 }}>{r.macchina_id || r.work_center_sap || "—"}</td>
+                                            <td style={{ padding: "8px 10px", fontSize: 11 }}>{r.turno_id || "—"}</td>
+                                            <td style={{ padding: "8px 10px", fontSize: 14, fontWeight: 900, textAlign: "right", color: "#60a5fa" }}>{r.qta_ottenuta}</td>
                                         </tr>
-                                    )}
+                                    ))}
                                 </tbody>
                             </table>
                         </div>
@@ -903,52 +691,9 @@ export default function PrioritaView({ showToast, globalDate, turnoCorrente }) {
                 </div>
             )}
 
-            {/* Target Settings Modal */}
-            {targetModal && (
-                <div className="modal-backdrop" style={{ zIndex: 3000 }}>
-                    <div className="modal-content" style={{ width: "300px", padding: "24px", textAlign: "center" }}>
-                        <h3 style={{ fontSize: "18px", marginBottom: "16px", fontWeight: "800" }}>Target Giornaliero {targetModal.proj}</h3>
-                        <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "20px" }}>
-                            Inserisci il valore target per l'intera giornata (24h).
-                        </p>
-
-                        <input
-                            type="number"
-                            value={targetModal.value}
-                            onChange={(e) => setTargetModal({ ...targetModal, value: parseInt(e.target.value) || 0 })}
-                            style={{
-                                width: "100%", padding: "12px", fontSize: "20px", fontWeight: "900",
-                                textAlign: "center", borderRadius: "10px", border: "2px solid var(--accent)",
-                                marginBottom: "20px"
-                            }}
-                        />
-
-                        <div style={{ display: "flex", gap: "10px" }}>
-                            <button
-                                className="btn btn-secondary"
-                                style={{ flex: 1 }}
-                                onClick={() => setTargetModal(null)}
-                            >Annulla</button>
-                            <button
-                                className="btn btn-primary"
-                                style={{ flex: 1 }}
-                                onClick={() => {
-                                    const newOverrides = { ...targetOverrides, [targetModal.proj]: targetModal.value };
-                                    setTargetOverrides(newOverrides);
-                                    localStorage.setItem("bap_target_overrides", JSON.stringify(newOverrides));
-                                    setTargetModal(null);
-                                    showToast?.("Target aggiornato con successo!", "success");
-                                }}
-                            >Salva</button>
-                        </div>
-                    </div>
-                </div>
-            )}
-            {/* Target Settings Modal */}
-
-            {/* Quick Config Modal (Configura Singolo) */}
+            {/* Quick Config Modal */}
             {quickConfigModal && (
-                <QuickConfigModal 
+                <QuickConfigModal
                     data={quickConfigModal}
                     onClose={() => setQuickConfigModal(null)}
                     onSave={() => { setQuickConfigModal(null); fetchData(); }}
@@ -959,9 +704,8 @@ export default function PrioritaView({ showToast, globalDate, turnoCorrente }) {
     );
 }
 
-// --- QUICK CONFIG MODAL (CONFIGURA SINGOLO) ---
-function QuickConfigModal({ data, onClose, onSave, showToast }) {
-    const isDCT300 = data.project === "DCT300";
+// --- QUICK CONFIG MODAL ---
+const QuickConfigModal = ({ data, onClose, onSave, showToast }) => {
     const [form, setForm] = useState({
         fino: "",
         componente: data.comp || "",
@@ -975,191 +719,111 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
         const fetchExisting = async () => {
             try {
                 const { data: existing } = await supabase
-                    .from('material_fino_overrides')
-                    .select('*')
-                    .eq('fase', data.phase)
-                    .eq('componente', data.comp.toUpperCase())
-                    .eq('progetto', data.project)
-                    .limit(isDCT300 ? 2 : 1);
+                    .from("material_fino_overrides")
+                    .select("*")
+                    .eq("fase", data.phase)
+                    .eq("componente", data.comp.toUpperCase())
+                    .eq("progetto", data.project)
+                    .limit(2);
 
                 if (existing && existing.length > 0) {
                     setForm({
                         fino: existing[0].fino || "",
                         componente: existing[0].componente || data.comp || "",
                         codice: existing[0].materiale || "",
-                        codice2: isDCT300 && existing[1] ? existing[1].materiale : ""
+                        codice2: existing[1] ? existing[1].materiale : ""
                     });
                 }
-            } catch (_) {
-                // table not ready yet, keep form empty
-            } finally {
-                setIsLoading(false);
-            }
+            } catch (_) { /* table not ready yet */ }
+            finally { setIsLoading(false); }
         };
         fetchExisting();
     }, []);
 
-    const deleteMaterial = async (matCode) => {
-        if (!matCode.trim()) return;
-        try {
-            const code = matCode.toUpperCase().trim();
-            await supabase.from('material_fino_overrides')
-                .delete()
-                .eq('materiale', code)
-                .eq('fase', data.phase)
-                .eq('componente', data.comp.toUpperCase())
-                .eq('progetto', data.project);
-            showToast("Materiale eliminato con successo!");
-            onSave();
-        } catch (err) {
-            console.error(err);
-            showToast("Errore durante l'eliminazione", "error");
-        }
-    };
-
-    const saveSingleMaterial = async (matCode, finoStr, comp, project, phase) => {
-        const matPayload = { codice: matCode, componente: comp, progetto: project };
-        const { data: existingMat } = await supabase.from('anagrafica_materiali').select('id').eq('codice', matCode).maybeSingle();
-        if (existingMat) {
-            await supabase.from('anagrafica_materiali').update(matPayload).eq('id', existingMat.id);
-        } else {
-            await supabase.from('anagrafica_materiali').insert(matPayload);
-        }
-
-        const ovPayload = { materiale: matCode, fino: finoStr, fase: phase, componente: comp, progetto: project };
-        let ovQuery = supabase.from('material_fino_overrides').select('id')
-            .eq('materiale', matCode)
-            .eq('fase', phase)
-            .eq('componente', comp)
-            .eq('progetto', project);
-        ovQuery = finoStr ? ovQuery.eq('fino', finoStr) : ovQuery.is('fino', null);
-        const { data: existingOv } = await ovQuery.maybeSingle();
-        if (existingOv) {
-            await supabase.from('material_fino_overrides').update(ovPayload).eq('id', existingOv.id);
-        } else {
-            await supabase.from('material_fino_overrides').insert(ovPayload);
-        }
-    };
-
     const handleSave = async () => {
-        if (!form.componente || !form.codice) {
-            return showToast("Componente e Codice Materiale sono obbligatori", "error");
+        if (!form.codice.trim()) {
+            showToast?.("Inserisci almeno un codice materiale", "error");
+            return;
         }
         setIsSaving(true);
         try {
-            const comp = form.componente.toUpperCase();
-            const finoStr = form.fino.trim() ? String(form.fino.trim()).padStart(4, "0") : null;
-            const ensureHok = (code) => {
-                const c = code.toUpperCase().trim();
-                return data.phase === "ht" && !c.endsWith("/T") ? c + "/T" : c;
-            };
-
-            await saveSingleMaterial(ensureHok(form.codice), finoStr, comp, data.project, data.phase);
-
-            if (isDCT300 && form.codice2.trim()) {
-                await saveSingleMaterial(ensureHok(form.codice2), finoStr, comp, data.project, data.phase);
+            const rows = [
+                {
+                    materiale: form.codice.toUpperCase().trim(),
+                    fino: form.fino ? String(form.fino).padStart(4, "0") : null,
+                    fase: data.phase,
+                    componente: form.componente.toUpperCase().trim(),
+                    progetto: data.project
+                }
+            ];
+            if (form.codice2.trim()) {
+                rows.push({
+                    materiale: form.codice2.toUpperCase().trim(),
+                    fino: form.fino ? String(form.fino).padStart(4, "0") : null,
+                    fase: data.phase,
+                    componente: form.componente.toUpperCase().trim(),
+                    progetto: data.project
+                });
             }
-
-            showToast("Mappatura salvata con successo!");
+            for (const row of rows) {
+                const { error } = await supabase.from("material_fino_overrides")
+                    .upsert(row, { onConflict: "materiale,fino,fase" });
+                if (error) throw error;
+            }
+            showToast?.("Configurazione salvata!", "success");
             onSave();
         } catch (err) {
             console.error(err);
-            showToast("Errore durante il salvataggio", "error");
+            showToast?.("Errore salvataggio configurazione", "error");
         } finally {
             setIsSaving(false);
         }
     };
 
+    if (isLoading) return null;
+
     return (
-        <div className="modal-backdrop" style={{ zIndex: 5000 }}>
-            <div className="modal-content" style={{ width: "450px", padding: "24px", borderRadius: "20px" }}>
-                <div style={{ marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <h3 style={{ margin: 0, fontWeight: "900", fontSize: "18px" }}>⚙️ Configura Singolo Cell</h3>
-                    <button className="btn btn-secondary btn-sm" onClick={onClose}>✕</button>
+        <div className="modal-backdrop" style={{ zIndex: 3000 }}>
+            <div className="modal-content" style={{ width: 380, padding: 24 }} onClick={e => e.stopPropagation()}>
+                <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 4, marginTop: 0 }}>
+                    Configura fase: {PHASE_LABEL[data.phase] || data.phase}
+                </h3>
+                <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 20 }}>
+                    {data.comp} — {data.project}
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                    <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: 0 }}>
-                        Stai configurando la fase <strong style={{ color: "var(--accent)" }}>{data.phaseLabel}</strong> del progetto <strong>{data.project}</strong>.
-                        {isLoading && <span style={{ marginLeft: "8px", opacity: 0.6 }}>Caricamento dati esistenti...</span>}
-                    </p>
-
-                    <div className="form-group">
-                        <label className="form-label" style={{ fontWeight: "700", fontSize: "11px", textTransform: "uppercase" }}>
-                            OP Macchina (Fino) <span style={{ color: "var(--text-muted)", fontWeight: "400", textTransform: "none" }}>— opzionale</span>
+                {[
+                    { key: "fino", label: "Fino (Operazione SAP)", placeholder: "es. 0100" },
+                    { key: "codice", label: "Codice Materiale 1", placeholder: "es. M0162644" },
+                    { key: "codice2", label: "Codice Materiale 2 (opzionale)", placeholder: "es. M0162644/S" },
+                    { key: "componente", label: "Componente", placeholder: "es. SG4 ECO" },
+                ].map(field => (
+                    <div key={field.key} style={{ marginBottom: 14 }}>
+                        <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>
+                            {field.label}
                         </label>
                         <input
-                            className="input"
-                            placeholder="Es. 0140, 0010... (lascia vuoto per abbinare qualsiasi op)"
-                            value={form.fino}
-                            onChange={e => setForm({...form, fino: e.target.value})}
+                            type="text"
+                            value={form[field.key]}
+                            onChange={e => setForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                            placeholder={field.placeholder}
+                            style={{
+                                width: "100%", padding: "8px 12px", fontSize: 13,
+                                borderRadius: 8, border: "1px solid var(--border)",
+                                background: "var(--bg-tertiary)", color: "var(--text-primary)",
+                                boxSizing: "border-box"
+                            }}
                         />
                     </div>
+                ))}
 
-                    <div className="form-group">
-                        <label className="form-label" style={{ fontWeight: "700", fontSize: "11px", textTransform: "uppercase" }}>Componente *</label>
-                        <input
-                            className="input"
-                            placeholder="Es. SG3..."
-                            value={form.componente}
-                            onChange={e => setForm({...form, componente: e.target.value.toUpperCase()})}
-                        />
-                    </div>
-
-                    <div className="form-group">
-                        <label className="form-label" style={{ fontWeight: "700", fontSize: "11px", textTransform: "uppercase" }}>
-                            Codice Materiale {isDCT300 ? "1" : ""} *
-                        </label>
-                        <div style={{ display: "flex", gap: "8px" }}>
-                            <input
-                                className="input"
-                                placeholder="Es. M0153389/S"
-                                value={form.codice}
-                                onChange={e => setForm({...form, codice: e.target.value.toUpperCase()})}
-                                style={{ flex: 1 }}
-                            />
-                            {form.codice && (
-                                <button
-                                    onClick={() => deleteMaterial(form.codice)}
-                                    title="Elimina questo materiale"
-                                    style={{ padding: "0 12px", background: "#ef4444", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "700", fontSize: "14px", flexShrink: 0 }}
-                                >✕</button>
-                            )}
-                        </div>
-                    </div>
-
-                    {isDCT300 && (
-                        <div className="form-group">
-                            <label className="form-label" style={{ fontWeight: "700", fontSize: "11px", textTransform: "uppercase" }}>
-                                Codice Materiale 2 <span style={{ color: "var(--text-muted)", fontWeight: "400", textTransform: "none" }}>— opzionale</span>
-                            </label>
-                            <div style={{ display: "flex", gap: "8px" }}>
-                                <input
-                                    className="input"
-                                    placeholder="Es. M0153389"
-                                    value={form.codice2}
-                                    onChange={e => setForm({...form, codice2: e.target.value.toUpperCase()})}
-                                    style={{ flex: 1 }}
-                                />
-                                {form.codice2 && (
-                                    <button
-                                        onClick={() => deleteMaterial(form.codice2)}
-                                        title="Elimina questo materiale"
-                                        style={{ padding: "0 12px", background: "#ef4444", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "700", fontSize: "14px", flexShrink: 0 }}
-                                    >✕</button>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                <div style={{ marginTop: "24px", display: "flex", gap: "10px" }}>
+                <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+                    <button className="btn btn-secondary" style={{ flex: 1 }} onClick={onClose}>Annulla</button>
                     <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleSave} disabled={isSaving}>
-                        {isSaving ? "Salvataggio..." : "Salva Configurazione"}
+                        {isSaving ? "Salvataggio..." : "Salva"}
                     </button>
-                    <button className="btn btn-secondary" onClick={onClose}>Annulla</button>
                 </div>
             </div>
         </div>
     );
-}
+};
