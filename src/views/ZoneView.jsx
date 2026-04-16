@@ -4,7 +4,7 @@ import { REPARTI } from "../data/constants";
 import { Icons } from "../components/ui/Icons";
 import { Modal } from "../components/ui/Modal";
 
-export default function ZoneView({ zones, setZones, macchine, setMacchine }) {
+export default function ZoneView({ zones, setZones, macchine, setMacchine, showToast }) {
     const [searchTerm, setSearchTerm] = useState("");
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
@@ -59,7 +59,7 @@ export default function ZoneView({ zones, setZones, macchine, setMacchine }) {
             resetForm();
         } catch (error) {
             console.error("Error saving zone:", error);
-            alert("Errore salvataggio zona: " + error.message);
+            showToast("Errore salvataggio zona: " + error.message, "error");
         }
     };
 
@@ -71,7 +71,7 @@ export default function ZoneView({ zones, setZones, macchine, setMacchine }) {
                 setZones(zones.filter(z => z.id !== id));
             } catch (error) {
                 console.error("Error deleting zone:", error);
-                alert("Errore eliminazione zona: " + error.message);
+                showToast("Errore eliminazione zona: " + error.message, "error");
             }
         }
     };
@@ -117,7 +117,7 @@ export default function ZoneView({ zones, setZones, macchine, setMacchine }) {
         const maxLimit = parseInt(newZone.max_machines) || 0;
 
         if (maxLimit > 0 && currentMachinesCount >= maxLimit) {
-            alert(`Impossibile aggiungere macchina: Limite di ${maxLimit} macchine raggiunto per questa zona.`);
+            showToast(`Limite di ${maxLimit} macchine raggiunto per questa zona.`, "error");
             return;
         }
 
@@ -162,7 +162,7 @@ export default function ZoneView({ zones, setZones, macchine, setMacchine }) {
             setNewMac({ id: "", nome: "", personaleMinimo: 1 });
         } catch (error) {
             console.error("Error saving machine:", error);
-            alert("Errore salvataggio macchina: " + error.message);
+            showToast("Errore salvataggio macchina: " + error.message, "error");
         }
     };
 

@@ -1,34 +1,33 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, lazy, Suspense } from "react";
 import { REPARTI, TURNI } from "./data/constants"; // Keep static for UI structure or fetch if needed
 import { supabase } from "./lib/supabase";
 import { getSlotForGroup, getActiveGroup } from "./lib/shiftRotation";
 import { Icons } from "./components/ui/Icons";
 import { Toast } from "./components/ui/Toast";
-
-// Views
+import ErrorBoundary from "./components/ErrorBoundary";
 import { getLocalDate } from "./lib/dateUtils";
-import DashboardView from "./views/DashboardView";
-import AssegnazioniView from "./views/AssegnazioniView";
-import ReportView from "./views/ReportView";
-import AnagraficaMacchineView from "./views/AnagraficaMacchineView";
-import PlanningView from "./views/PlanningView";
-import SapHubView from "./views/SapHubView";
-import LpaPlanView from "./views/LpaPlanView";
-import InventoryView from "./views/InventoryView";
-import ProcessFlowView from "./views/ProcessFlowView";
-import WeisserPrioritiesView from "./views/WeisserPrioritiesView";
-import PrioritiesSummaryView from "./views/PrioritiesSummaryView";
-import ProductionReportView from "./views/ProductionReportView";
-import ProductionFlowReportView from "./views/ProductionFlowReportView";
-import AnagraficaFermiView from "./views/AnagraficaFermiView";
-import SkillsView from "./views/SkillsView";
-import FormazioneView from "./views/FormazioneView";
-import ZoneView from "./views/ZoneView";
-import Op10View from "./views/Op10View";
-import ComponentFlowView from "./views/ComponentFlowView";
-import PrioritaView from "./views/PrioritaView";
-import AnagraficaView from "./views/AnagraficaView";
-import MotiviView from "./views/MotiviView";
+
+// Views — lazy loaded per ridurre bundle iniziale
+const DashboardView = lazy(() => import("./views/DashboardView"));
+const AssegnazioniView = lazy(() => import("./views/AssegnazioniView"));
+const AnagraficaMacchineView = lazy(() => import("./views/AnagraficaMacchineView"));
+const PlanningView = lazy(() => import("./views/PlanningView"));
+const SapHubView = lazy(() => import("./views/SapHubView"));
+const LpaPlanView = lazy(() => import("./views/LpaPlanView"));
+const InventoryView = lazy(() => import("./views/InventoryView"));
+const WeisserPrioritiesView = lazy(() => import("./views/WeisserPrioritiesView"));
+const PrioritiesSummaryView = lazy(() => import("./views/PrioritiesSummaryView"));
+const ProductionReportView = lazy(() => import("./views/ProductionReportView"));
+const ProductionFlowReportView = lazy(() => import("./views/ProductionFlowReportView"));
+const AnagraficaFermiView = lazy(() => import("./views/AnagraficaFermiView"));
+const SkillsView = lazy(() => import("./views/SkillsView"));
+const FormazioneView = lazy(() => import("./views/FormazioneView"));
+const ZoneView = lazy(() => import("./views/ZoneView"));
+const Op10View = lazy(() => import("./views/Op10View"));
+const ComponentFlowView = lazy(() => import("./views/ComponentFlowView"));
+const PrioritaView = lazy(() => import("./views/PrioritaView"));
+const AnagraficaView = lazy(() => import("./views/AnagraficaView"));
+const MotiviView = lazy(() => import("./views/MotiviView"));
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 export default function App() {
@@ -434,6 +433,8 @@ export default function App() {
           </div>
         )}
 
+        <ErrorBoundary>
+        <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>Caricamento...</div>}>
         <div className="main-content">
           {currentView === "dashboard" && (
             <DashboardView
@@ -546,7 +547,7 @@ export default function App() {
 
           {currentView === "zones" && (
             <AdminSecurityWrapper title="Anagrafica Zone">
-              <ZoneView zones={zone} setZones={setZone} macchine={macchine} setMacchine={setMacchine} />
+              <ZoneView zones={zone} setZones={setZone} macchine={macchine} setMacchine={setMacchine} showToast={showToast} />
             </AdminSecurityWrapper>
           )}
 
@@ -585,6 +586,8 @@ export default function App() {
 
           {currentView === "inventory" && <InventoryView showToast={showToast} macchine={macchine} />}
         </div>
+        </Suspense>
+        </ErrorBoundary>
       </div>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}

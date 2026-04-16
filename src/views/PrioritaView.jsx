@@ -683,7 +683,7 @@ export default function PrioritaView({ showToast, globalDate }) {
             {selectedDetail && (
                 <div style={{
                     position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1000,
-                    display: "flex", flexDirection: "column", alignItems: "center", alignItems: "center", backdropFilter: "blur(4px)"
+                    display: "flex", flexDirection: "column", alignItems: "center", backdropFilter: "blur(4px)"
                 }} onClick={() => setSelectedDetail(null)}>
                     <div style={{
                         background: "var(--bg-card)", borderRadius: 16,

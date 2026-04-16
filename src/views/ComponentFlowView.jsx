@@ -89,6 +89,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
         return saved ? JSON.parse(saved) : PROJECT_TARGETS;
     });
     const [targetModal, setTargetModal] = useState(null); // { project: string, value: number }
+    const [expandedProject, setExpandedProject] = useState(null); // string | null (project name)
 
     const [wWeek, setWWeek] = useState(() => {
         const range = getCurrentWeekRange();
@@ -355,10 +356,391 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
         if (globalDate) setWDate(globalDate);
     }, [globalDate]);
 
+    const renderProjectBox = (proj, isExpanded = false) => {
+        const projectComps = componentsByProject[proj] || [];
+        const projectExclusions = EXCLUDED_PHASES[proj] || [];
+        let projectVisibleSteps = PROCESS_STEPS.filter(s => !projectExclusions.includes(s.id));
+        if (proj === "DCT ECO") {
+            // Move MZA (ut) before SLA (grinding_cone)
+            const utStep = projectVisibleSteps.find(s => s.id === "ut");
+            if (utStep) {
+                projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "ut");
+                const slaIdx = projectVisibleSteps.findIndex(s => s.id === "grinding_cone");
+                projectVisibleSteps.splice(slaIdx !== -1 ? slaIdx : projectVisibleSteps.length, 0, utStep);
+            }
+            // Inserisci colonna MZA Soft prima di STW (shaping)
+            const utSoftStep = projectVisibleSteps.find(s => s.id === "ut_soft");
+            if (utSoftStep) {
+                projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "ut_soft");
+                const stwIdx = projectVisibleSteps.findIndex(s => s.id === "shaping");
+                projectVisibleSteps.splice(stwIdx !== -1 ? stwIdx : 0, 0, utSoftStep);
+            }
+        }
+        if (proj === "8Fe") {
+            const utStep = projectVisibleSteps.find(s => s.id === "ut");
+            if (utStep) {
+                projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "ut");
+                const sca2Idx = projectVisibleSteps.findIndex(s => s.id === "laser_welding_soft_2");
+                projectVisibleSteps.splice(sca2Idx !== -1 ? sca2Idx + 1 : projectVisibleSteps.length, 0, utStep);
+            }
+        }
+
+        // Separatore visivo universale tra WSH e BAA
+        const baaIdx = projectVisibleSteps.findIndex(s => s.id === "baa");
+        if (baaIdx !== -1) {
+            projectVisibleSteps.splice(baaIdx, 0, { id: "__sep__", label: "", code: "", separator: true });
+        }
+        if (proj === "RG + DH") {
+            // DRA Soft (start_soft) prima di ZSA (dmc)
+            const draSoftStep = projectVisibleSteps.find(s => s.id === "start_soft");
+            if (draSoftStep) {
+                projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "start_soft");
+                const zsaIdx = projectVisibleSteps.findIndex(s => s.id === "dmc");
+                projectVisibleSteps.splice(zsaIdx !== -1 ? zsaIdx : 0, 0, draSoftStep);
+            }
+            // DRA Hard (start_hard) dopo OKU (shot_peening)
+            const draHardStep = projectVisibleSteps.find(s => s.id === "start_hard");
+            if (draHardStep) {
+                projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "start_hard");
+                const okuIdx = projectVisibleSteps.findIndex(s => s.id === "shot_peening");
+                projectVisibleSteps.splice(okuIdx !== -1 ? okuIdx + 1 : projectVisibleSteps.length, 0, draHardStep);
+            }
+        }
+
+        if (projectComps.length === 0) return null;
+
+        // Color Palette per Progetto
+        const colors = {
+            "DCT300": { main: "#3c6ef0", bg: "rgba(60, 110, 240, 0.05)" },
+            "8Fe": { main: "#10b981", bg: "rgba(16, 185, 129, 0.05)" },
+            "DCT ECO": { main: "#f59e0b", bg: "rgba(245, 158, 11, 0.05)" },
+            "RG + DH": { main: "#8b5cf6", bg: "rgba(139, 92, 246, 0.05)" } // Tono Indigo per Specials
+        };
+        const theme = colors[proj] || colors["DCT300"];
+
+        return (
+            <div key={proj} style={{
+                display: "flex",
+                flexDirection: "column",
+                background: "var(--bg-card)",
+                borderRadius: isExpanded ? "24px" : "16px",
+                border: `1px solid ${theme.main}33`,
+                boxShadow: isExpanded ? "0 20px 60px rgba(0,0,0,0.4)" : "0 10px 30px rgba(0,0,0,0.08)",
+                overflow: "hidden",
+                gridColumn: isExpanded ? "auto" : "span 1",
+                height: isExpanded ? "100%" : "auto"
+            }}>
+                {/* Header con Gradiente Soft */}
+                <div style={{
+                    padding: isExpanded ? "20px 30px" : "10px 20px",
+                    background: `linear-gradient(90deg, ${theme.bg}, transparent)`,
+                    borderBottom: `1px solid ${theme.main}22`,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+                            <div style={{ width: isExpanded ? "20px" : "15px", height: isExpanded ? "20px" : "15px", borderRadius: "50%", background: theme.main }} />
+                            <h3 style={{ fontSize: isExpanded ? "42px" : "32px", fontWeight: "900", color: "var(--text-primary)", margin: 0 }}>{proj}</h3>
+                        </div>
+
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                        {/* Expand Button */}
+                        <button
+                            onClick={(e) => { e.stopPropagation(); setExpandedProject(isExpanded ? null : proj); }}
+                            title={isExpanded ? "Chiudi" : "Espandi al centro"}
+                            style={{
+                                border: `1px solid ${theme.main}55`,
+                                background: isExpanded ? theme.main : `${theme.main}18`,
+                                borderRadius: "10px",
+                                padding: isExpanded ? "8px 18px" : "6px 14px",
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                color: isExpanded ? "#fff" : theme.main,
+                                fontSize: isExpanded ? "14px" : "13px",
+                                fontWeight: "700",
+                                transition: "all 0.15s",
+                                whiteSpace: "nowrap"
+                            }}
+                        >
+                            {isExpanded ? "✕ Chiudi" : "⤢ Espandi"}
+                        </button>
+
+                        {/* Target Indicator (Single Line Style) */}
+                        <div style={{
+                            background: "rgba(0,0,0,0.05)",
+                            padding: isExpanded ? "12px 24px" : "8px 16px",
+                            borderRadius: "12px",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "10px",
+                            border: "1px solid var(--border-light)"
+                        }}>
+                            <div style={{
+                                fontSize: isExpanded ? "20px" : "16px",
+                                fontWeight: "900",
+                                color: theme.main,
+                                textTransform: "uppercase",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px"
+                            }}>
+                                <span>Target {viewMode === "weekly" ? "Settimanale" : (localTurno !== "ALL" ? `Turno ${localTurno}` : "Giorno")}</span>
+                                <span style={{ fontSize: isExpanded ? "32px" : "24px", color: "var(--text-primary)" }}>
+                                    {(() => {
+                                        const base = targetOverrides[proj] || 0;
+                                        if (viewMode === "weekly") return base * 6;
+                                        if (localTurno !== "ALL") return Math.round(base / 3);
+                                        return base;
+                                    })()}
+                                </span>
+                            </div>
+                            <button
+                                onClick={() => setTargetModal({ proj, value: targetOverrides[proj] || 0 })}
+                                style={{ border: "none", background: "none", cursor: "pointer", fontSize: isExpanded ? "24px" : "16px", padding: 0, opacity: 0.5 }}
+                            >
+                                ⚙️
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+                {/* Content con Scroll Interno */}
+                <div style={{ flex: 1, overflow: "auto", padding: isExpanded ? "24px" : "12px" }}>
+                    <div style={{ minWidth: "max-content" }}>
+                        {/* Phases Row */}
+                        <div style={{ display: "flex", marginBottom: "16px", paddingLeft: "110px" }}>
+                            {projectVisibleSteps.map((s, sIdx) => {
+                                if (s.separator) return <div key={sIdx} style={{ width: "40px", flexShrink: 0 }} />;
+                                return (
+                                    <div key={sIdx} style={{
+                                        width: "85px",
+                                        textAlign: "center",
+                                        flexShrink: 0,
+                                        background: s.id === "ht" ? "rgba(0, 212, 255, 0.4)" : "transparent",
+                                        borderRadius: "4px 4px 0 0",
+                                        borderLeft: s.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none",
+                                        borderRight: s.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none"
+                                    }}>
+                                        <div style={{ fontSize: "15px", fontWeight: "800", color: "var(--text-muted)", opacity: 0.8 }}>{s.code}</div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Component Rows */}
+                        {projectComps.map((comp, cIdx) => (
+                            <div key={comp} style={{
+                                display: "flex",
+                                alignItems: "center",
+                                padding: "12px 0",
+                                borderBottom: "1px solid var(--border-light)",
+                                background: cIdx % 2 === 0 ? "rgba(0,0,0,0.01)" : "transparent"
+                            }}>
+                                <div style={{
+                                    width: "110px",
+                                    flexShrink: 0,
+                                    fontSize: isExpanded ? "22px" : "18px",
+                                    fontWeight: "800",
+                                    color: "var(--text-primary)",
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis"
+                                }}>
+                                    {comp}
+                                </div>
+
+                                <div style={{ display: "flex" }}>
+                                    {projectVisibleSteps.map((step, idx) => {
+                                        if (step.separator) return (
+                                            <div key={idx} style={{ 
+                                                width: "40px", 
+                                                flexShrink: 0, 
+                                                display: "flex", 
+                                                justifyContent: "center" 
+                                            }}>
+                                                <div style={{ height: "100%", borderLeft: "2px dashed var(--border-light)", opacity: 0.5 }} />
+                                            </div>
+                                        );
+                                        const data = matrixData[proj]?.[comp]?.[step.id];
+                                        const qty = data?.value || 0;
+                                        let isHardExcluded = COMPONENT_EXCLUSIONS[comp]?.includes(step.id);
+
+                                        if (proj === "DCT300" && ["SG7", "SGR", "RG"].includes(comp) && step.id === "grinding_cone") isHardExcluded = true;
+                                        if (proj === "DCT300" && ["SG3", "SGR"].includes(comp) && step.id === "start_soft") isHardExcluded = true;
+                                        if (proj === "8Fe" && comp !== "SG3" && step.id === "laser_welding_soft_2") isHardExcluded = true;
+                                        if (["RG + DH", "8Fe", "DCT300"].includes(proj) && comp.startsWith("DH") && !["start_hard", "laser_welding_2"].includes(step.id)) isHardExcluded = true;
+                                        if (proj === "DCT ECO" && comp.startsWith("RG") && step.id === "grinding_cone") isHardExcluded = true;
+
+                                        // MZA Soft (ut_soft) e MZA Hard (ut): attivi per SG2, SG3, SGR in DCT ECO
+                                        if (proj === "DCT ECO" && ["SG2", "SG3", "SGR"].includes(comp) && (step.id === "ut" || step.id === "ut_soft")) isHardExcluded = false;
+
+                                        const isDynamicExcluded = !!cellExclusions[`${proj}:${comp}:${step.id}`];
+                                        const isDynamicIncluded = !!cellInclusions[`${proj}:${comp}:${step.id}`];
+
+                                        // Hard excluded and NOT manually added by user
+                                        if (isHardExcluded && !isDynamicIncluded) {
+                                            if (!isConfigMode) return <div key={idx} style={{ width: "85px", flexShrink: 0 }} />;
+                                            // Config mode: show gray "+" to allow adding
+                                            return (
+                                                <div key={idx} style={{ width: "85px", flexShrink: 0, display: "flex", justifyContent: "center", alignItems: "center" }}>
+                                                    <div
+                                                        onClick={() => toggleCellInclusion(proj, comp, step.id)}
+                                                        title="Aggiungi cella"
+                                                        style={{
+                                                            width: "75px", height: "45px",
+                                                            border: "2px dashed var(--border)",
+                                                            borderRadius: "10px",
+                                                            display: "flex", alignItems: "center", justifyContent: "center",
+                                                            cursor: "pointer", color: "var(--text-muted)", fontSize: "20px",
+                                                            opacity: 0.35, transition: "all 0.2s"
+                                                        }}
+                                                    >+</div>
+                                                </div>
+                                            );
+                                        }
+
+                                        // Dynamically excluded (user hid it)
+                                        if (isDynamicExcluded && !isConfigMode) return <div key={idx} style={{ width: "85px", flexShrink: 0 }} />;
+
+                                        if (isDynamicExcluded) return (
+                                            <div key={idx} style={{ width: "85px", flexShrink: 0, display: "flex", justifyContent: "center", alignItems: "center" }}>
+                                                <div
+                                                    onClick={() => toggleCellExclusion(proj, comp, step.id)}
+                                                    title="Ripristina cella"
+                                                    style={{
+                                                        width: "75px", height: "45px",
+                                                        border: "2px dashed var(--accent)",
+                                                        borderRadius: "10px",
+                                                        display: "flex", alignItems: "center", justifyContent: "center",
+                                                        cursor: "pointer", color: "var(--accent)", fontSize: "20px",
+                                                        opacity: 0.5, transition: "all 0.2s"
+                                                    }}
+                                                >+</div>
+                                            </div>
+                                        );
+
+                                        const currentTarget = (() => {
+                                            const base = targetOverrides[proj] || 0;
+                                            if (viewMode === "weekly") return base * 6;
+                                            if (localTurno !== "ALL") return Math.round(base / 3);
+                                            return base;
+                                        })();
+                                        const isSuccess = qty >= currentTarget && qty > 0;
+                                        const hasProduction = qty > 0;
+
+                                        return (
+                                            <div key={idx} style={{
+                                                width: "85px",
+                                                display: "flex",
+                                                justifyContent: "center",
+                                                flexShrink: 0,
+                                                background: step.id === "ht" ? "rgba(0, 212, 255, 0.15)" : "transparent",
+                                                borderLeft: step.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none",
+                                                borderRight: step.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none"
+                                            }}>
+                                                <div
+                                                    className="production-cell-container"
+                                                    style={{ position: "relative" }}
+                                                    onClick={(e) => {
+                                                        if (isConfigMode) {
+                                                            e.stopPropagation();
+                                                            setQuickConfigModal({
+                                                                project: proj,
+                                                                comp: comp,
+                                                                phase: step.id,
+                                                                phaseLabel: step.label
+                                                            });
+                                                        } else {
+                                                            setSelectedDetail({
+                                                                title: `${comp} - ${step.label}`,
+                                                                phaseId: step.id,
+                                                                compName: comp,
+                                                                records: data?.records || [],
+                                                                project: proj
+                                                            });
+                                                        }
+                                                    }}
+                                                >
+                                                    <div
+                                                        style={{
+                                                            width: "75px",
+                                                            height: "45px",
+                                                            background: !hasProduction ? "var(--bg-tertiary)" : (isSuccess ? "#22c55e" : "#ef4444"),
+                                                            borderRadius: "10px",
+                                                            display: "flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                            color: hasProduction ? "white" : "var(--text-muted)",
+                                                            fontSize: isExpanded ? "20px" : "16px",
+                                                            fontWeight: "900",
+                                                            boxShadow: hasProduction ? "0 4px 12px rgba(0,0,0,0.15)" : "none",
+                                                            cursor: "pointer",
+                                                            border: isConfigMode ? "2px dashed var(--accent)" : "1px solid rgba(255,255,255,0.1)",
+                                                            transition: "all 0.2s"
+                                                        }}
+                                                    >
+                                                        {qty}
+
+                                                        {step.id !== "baa" && !configuredCells.has(`${proj}::${comp}::${step.id}`) && (
+                                                            <div style={{
+                                                                position: "absolute", top: 2, right: 2,
+                                                                fontSize: 10, lineHeight: 1,
+                                                                color: "#F59E0B",
+                                                                textShadow: "0 0 4px rgba(245,158,11,0.6)",
+                                                                pointerEvents: "none"
+                                                            }} title="Nessun codice materiale assegnato">⚠</div>
+                                                        )}
+
+                                                        {isConfigMode && (
+                                                            <>
+                                                                <div style={{
+                                                                    position: "absolute", top: -6, right: -6,
+                                                                    background: "var(--bg-card)", borderRadius: "50%",
+                                                                    width: "20px", height: "20px", display: "flex",
+                                                                    alignItems: "center", justifyContent: "center",
+                                                                    fontSize: "12px", boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+                                                                    border: "1px solid var(--accent)", color: "var(--accent)"
+                                                                }}>
+                                                                    ⚙️
+                                                                </div>
+                                                                <div
+                                                                    onClick={(e) => { e.stopPropagation(); isDynamicIncluded ? toggleCellInclusion(proj, comp, step.id) : toggleCellExclusion(proj, comp, step.id); }}
+                                                                    title={isDynamicIncluded ? "Rimuovi cella aggiunta" : "Nascondi cella"}
+                                                                    style={{
+                                                                        position: "absolute", top: -6, left: -6,
+                                                                        background: isDynamicIncluded ? "#f59e0b" : "#ef4444",
+                                                                        borderRadius: "50%",
+                                                                        width: "20px", height: "20px", display: "flex",
+                                                                        alignItems: "center", justifyContent: "center",
+                                                                        fontSize: "10px", fontWeight: "900",
+                                                                        boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+                                                                        color: "white", cursor: "pointer", zIndex: 10
+                                                                    }}
+                                                                >✕</div>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
-        <div className="fade-in" style={{ padding: "20px", height: "100%", overflowY: "auto" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px" }}>
-                <div />
+        <div className="fade-in" style={{ padding: "10px 16px", height: "100%", overflowY: "auto" }}>
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", marginBottom: "10px" }}>
 
                 <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
                     {/* View Mode Toggle */}
@@ -468,367 +850,33 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     display: "grid",
                     gridTemplateColumns: "1fr 1fr",
                     gridTemplateRows: "1fr 1fr",
-                    gap: "20px",
-                    height: "calc(100vh - 140px)",
-                    padding: "10px",
+                    gap: "12px",
+                    height: "calc(100vh - 90px)",
+                    padding: "0",
                     overflow: "hidden"
                 }}>
-                    {PROJECTS.map((proj) => {
-                        const projectComps = componentsByProject[proj] || [];
-                        const projectExclusions = EXCLUDED_PHASES[proj] || [];
-                        let projectVisibleSteps = PROCESS_STEPS.filter(s => !projectExclusions.includes(s.id));
-                        if (proj === "DCT ECO") {
-                            // Move MZA (ut) before SLA (grinding_cone)
-                            const utStep = projectVisibleSteps.find(s => s.id === "ut");
-                            if (utStep) {
-                                projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "ut");
-                                const slaIdx = projectVisibleSteps.findIndex(s => s.id === "grinding_cone");
-                                projectVisibleSteps.splice(slaIdx !== -1 ? slaIdx : projectVisibleSteps.length, 0, utStep);
-                            }
-                            // Inserisci colonna MZA Soft prima di STW (shaping)
-                            const utSoftStep = projectVisibleSteps.find(s => s.id === "ut_soft");
-                            if (utSoftStep) {
-                                projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "ut_soft");
-                                const stwIdx = projectVisibleSteps.findIndex(s => s.id === "shaping");
-                                projectVisibleSteps.splice(stwIdx !== -1 ? stwIdx : 0, 0, utSoftStep);
-                            }
-                        }
-                        if (proj === "8Fe") {
-                            const utStep = projectVisibleSteps.find(s => s.id === "ut");
-                            if (utStep) {
-                                projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "ut");
-                                const sca2Idx = projectVisibleSteps.findIndex(s => s.id === "laser_welding_soft_2");
-                                projectVisibleSteps.splice(sca2Idx !== -1 ? sca2Idx + 1 : projectVisibleSteps.length, 0, utStep);
-                            }
-                        }
-                        
-                        // Separatore visivo universale tra WSH e BAA
-                        const baaIdx = projectVisibleSteps.findIndex(s => s.id === "baa");
-                        if (baaIdx !== -1) {
-                            projectVisibleSteps.splice(baaIdx, 0, { id: "__sep__", label: "", code: "", separator: true });
-                        }
-                        if (proj === "RG + DH") {
-                            // DRA Soft (start_soft) prima di ZSA (dmc)
-                            const draSoftStep = projectVisibleSteps.find(s => s.id === "start_soft");
-                            if (draSoftStep) {
-                                projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "start_soft");
-                                const zsaIdx = projectVisibleSteps.findIndex(s => s.id === "dmc");
-                                projectVisibleSteps.splice(zsaIdx !== -1 ? zsaIdx : 0, 0, draSoftStep);
-                            }
-                            // DRA Hard (start_hard) dopo OKU (shot_peening)
-                            const draHardStep = projectVisibleSteps.find(s => s.id === "start_hard");
-                            if (draHardStep) {
-                                projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "start_hard");
-                                const okuIdx = projectVisibleSteps.findIndex(s => s.id === "shot_peening");
-                                projectVisibleSteps.splice(okuIdx !== -1 ? okuIdx + 1 : projectVisibleSteps.length, 0, draHardStep);
-                            }
-                        }
+                    {PROJECTS.map((proj) => renderProjectBox(proj))}
+                </div>
+            )}
 
-                        if (projectComps.length === 0) return null;
-
-                        // Color Palette per Progetto
-                        const colors = {
-                            "DCT300": { main: "#3c6ef0", bg: "rgba(60, 110, 240, 0.05)" },
-                            "8Fe": { main: "#10b981", bg: "rgba(16, 185, 129, 0.05)" },
-                            "DCT ECO": { main: "#f59e0b", bg: "rgba(245, 158, 11, 0.05)" },
-                            "RG + DH": { main: "#8b5cf6", bg: "rgba(139, 92, 246, 0.05)" } // Tono Indigo per Specials
-                        };
-                        const theme = colors[proj] || colors["DCT300"];
-
-                        return (
-                            <div key={proj} style={{
-                                display: "flex",
-                                flexDirection: "column",
-                                background: "var(--bg-card)",
-                                borderRadius: "16px",
-                                border: `1px solid ${theme.main}33`,
-                                boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-                                overflow: "hidden",
-                                // Layout a Quadrante 2x2
-                                gridColumn: "span 1"
-                            }}>
-                                {/* Header con Gradiente Soft */}
-                                <div style={{
-                                    padding: "10px 20px",
-                                    background: `linear-gradient(90deg, ${theme.bg}, transparent)`,
-                                    borderBottom: `1px solid ${theme.main}22`,
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "center"
-                                }}>
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
-                                        <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-                                            <div style={{ width: "15px", height: "15px", borderRadius: "50%", background: theme.main }} />
-                                            <h3 style={{ fontSize: "32px", fontWeight: "900", color: "var(--text-primary)", margin: 0 }}>{proj}</h3>
-                                        </div>
-
-                                        {/* Target Indicator (Single Line Style) */}
-                                        <div style={{
-                                            background: "rgba(0,0,0,0.05)",
-                                            padding: "8px 16px",
-                                            borderRadius: "12px",
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: "10px",
-                                            border: "1px solid var(--border-light)"
-                                        }}>
-                                            <div style={{
-                                                fontSize: "16px",
-                                                fontWeight: "900",
-                                                color: theme.main,
-                                                textTransform: "uppercase",
-                                                display: "flex",
-                                                alignItems: "center",
-                                                gap: "8px"
-                                            }}>
-                                                <span>Target {viewMode === "weekly" ? "Settimanale" : (localTurno !== "ALL" ? `Turno ${localTurno}` : "Giorno")}</span>
-                                                <span style={{ fontSize: "24px", color: "var(--text-primary)" }}>
-                                                    {(() => {
-                                                        const base = targetOverrides[proj] || 0;
-                                                        if (viewMode === "weekly") return base * 6;
-                                                        if (localTurno !== "ALL") return Math.round(base / 3);
-                                                        return base;
-                                                    })()}
-                                                </span>
-                                            </div>
-                                            <button
-                                                onClick={() => setTargetModal({ proj, value: targetOverrides[proj] || 0 })}
-                                                style={{ border: "none", background: "none", cursor: "pointer", fontSize: "16px", padding: 0, opacity: 0.5 }}
-                                            >
-                                                ⚙️
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Content con Scroll Interno */}
-                                <div style={{ flex: 1, overflow: "auto", padding: "12px" }}>
-                                    <div style={{ minWidth: "max-content" }}>
-                                        {/* Phases Row */}
-                                        <div style={{ display: "flex", marginBottom: "16px", paddingLeft: "110px" }}>
-                                            {projectVisibleSteps.map((s, sIdx) => {
-                                                if (s.separator) return <div key={sIdx} style={{ width: "40px", flexShrink: 0 }} />;
-                                                return (
-                                                    <div key={sIdx} style={{
-                                                        width: "85px",
-                                                        textAlign: "center",
-                                                        flexShrink: 0,
-                                                        background: s.id === "ht" ? "rgba(0, 212, 255, 0.4)" : "transparent",
-                                                        borderRadius: "4px 4px 0 0",
-                                                        borderLeft: s.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none",
-                                                        borderRight: s.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none"
-                                                    }}>
-                                                        <div style={{ fontSize: "15px", fontWeight: "800", color: "var(--text-muted)", opacity: 0.8 }}>{s.code}</div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-
-                                        {/* Component Rows */}
-                                        {projectComps.map((comp, cIdx) => (
-                                            <div key={comp} style={{
-                                                display: "flex",
-                                                alignItems: "center",
-                                                padding: "12px 0",
-                                                borderBottom: "1px solid var(--border-light)",
-                                                background: cIdx % 2 === 0 ? "rgba(0,0,0,0.01)" : "transparent"
-                                            }}>
-                                                <div style={{
-                                                    width: "110px",
-                                                    flexShrink: 0,
-                                                    fontSize: "18px",
-                                                    fontWeight: "800",
-                                                    color: "var(--text-primary)",
-                                                    whiteSpace: "nowrap",
-                                                    overflow: "hidden",
-                                                    textOverflow: "ellipsis"
-                                                }}>
-                                                    {comp}
-                                                </div>
-
-                                                <div style={{ display: "flex" }}>
-                                                    {projectVisibleSteps.map((step, idx) => {
-                                                        if (step.separator) return (
-                                                            <div key={idx} style={{ 
-                                                                width: "40px", 
-                                                                flexShrink: 0, 
-                                                                display: "flex", 
-                                                                justifyContent: "center" 
-                                                            }}>
-                                                                <div style={{ height: "100%", borderLeft: "2px dashed var(--border-light)", opacity: 0.5 }} />
-                                                            </div>
-                                                        );
-                                                        const data = matrixData[proj]?.[comp]?.[step.id];
-                                                        const qty = data?.value || 0;
-                                                        let isHardExcluded = COMPONENT_EXCLUSIONS[comp]?.includes(step.id);
-
-                                                        if (proj === "DCT300" && ["SG7", "SGR", "RG"].includes(comp) && step.id === "grinding_cone") isHardExcluded = true;
-                                                        if (proj === "DCT300" && ["SG3", "SGR"].includes(comp) && step.id === "start_soft") isHardExcluded = true;
-                                                        if (proj === "8Fe" && comp !== "SG3" && step.id === "laser_welding_soft_2") isHardExcluded = true;
-                                                        if (["RG + DH", "8Fe", "DCT300"].includes(proj) && comp.startsWith("DH") && !["start_hard", "laser_welding_2"].includes(step.id)) isHardExcluded = true;
-                                                        if (proj === "DCT ECO" && comp.startsWith("RG") && step.id === "grinding_cone") isHardExcluded = true;
-
-                                                        // MZA Soft (ut_soft) e MZA Hard (ut): attivi per SG2, SG3, SGR in DCT ECO
-                                                        if (proj === "DCT ECO" && ["SG2", "SG3", "SGR"].includes(comp) && (step.id === "ut" || step.id === "ut_soft")) isHardExcluded = false;
-
-                                                        const isDynamicExcluded = !!cellExclusions[`${proj}:${comp}:${step.id}`];
-                                                        const isDynamicIncluded = !!cellInclusions[`${proj}:${comp}:${step.id}`];
-
-                                                        // Hard excluded and NOT manually added by user
-                                                        if (isHardExcluded && !isDynamicIncluded) {
-                                                            if (!isConfigMode) return <div key={idx} style={{ width: "85px", flexShrink: 0 }} />;
-                                                            // Config mode: show gray "+" to allow adding
-                                                            return (
-                                                                <div key={idx} style={{ width: "85px", flexShrink: 0, display: "flex", justifyContent: "center", alignItems: "center" }}>
-                                                                    <div
-                                                                        onClick={() => toggleCellInclusion(proj, comp, step.id)}
-                                                                        title="Aggiungi cella"
-                                                                        style={{
-                                                                            width: "75px", height: "45px",
-                                                                            border: "2px dashed var(--border)",
-                                                                            borderRadius: "10px",
-                                                                            display: "flex", alignItems: "center", justifyContent: "center",
-                                                                            cursor: "pointer", color: "var(--text-muted)", fontSize: "20px",
-                                                                            opacity: 0.35, transition: "all 0.2s"
-                                                                        }}
-                                                                    >+</div>
-                                                                </div>
-                                                            );
-                                                        }
-
-                                                        // Dynamically excluded (user hid it)
-                                                        if (isDynamicExcluded && !isConfigMode) return <div key={idx} style={{ width: "85px", flexShrink: 0 }} />;
-
-                                                        if (isDynamicExcluded) return (
-                                                            <div key={idx} style={{ width: "85px", flexShrink: 0, display: "flex", justifyContent: "center", alignItems: "center" }}>
-                                                                <div
-                                                                    onClick={() => toggleCellExclusion(proj, comp, step.id)}
-                                                                    title="Ripristina cella"
-                                                                    style={{
-                                                                        width: "75px", height: "45px",
-                                                                        border: "2px dashed var(--accent)",
-                                                                        borderRadius: "10px",
-                                                                        display: "flex", alignItems: "center", justifyContent: "center",
-                                                                        cursor: "pointer", color: "var(--accent)", fontSize: "20px",
-                                                                        opacity: 0.5, transition: "all 0.2s"
-                                                                    }}
-                                                                >+</div>
-                                                            </div>
-                                                        );
-
-                                                        const currentTarget = (() => {
-                                                            const base = targetOverrides[proj] || 0;
-                                                            if (viewMode === "weekly") return base * 6;
-                                                            if (localTurno !== "ALL") return Math.round(base / 3);
-                                                            return base;
-                                                        })();
-                                                        const isSuccess = qty >= currentTarget && qty > 0;
-                                                        const hasProduction = qty > 0;
-
-                                                        return (
-                                                            <div key={idx} style={{
-                                                                width: "85px",
-                                                                display: "flex",
-                                                                justifyContent: "center",
-                                                                flexShrink: 0,
-                                                                background: step.id === "ht" ? "rgba(0, 212, 255, 0.15)" : "transparent",
-                                                                borderLeft: step.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none",
-                                                                borderRight: step.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none"
-                                                            }}>
-                                                                <div
-                                                                    className="production-cell-container"
-                                                                    style={{ position: "relative" }}
-                                                                    onClick={(e) => {
-                                                                        if (isConfigMode) {
-                                                                            e.stopPropagation();
-                                                                            setQuickConfigModal({
-                                                                                project: proj,
-                                                                                comp: comp,
-                                                                                phase: step.id,
-                                                                                phaseLabel: step.label
-                                                                            });
-                                                                        } else {
-                                                                            setSelectedDetail({
-                                                                                title: `${comp} - ${step.label}`,
-                                                                                phaseId: step.id,
-                                                                                compName: comp,
-                                                                                records: data?.records || [],
-                                                                                project: proj
-                                                                            });
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <div
-                                                                        style={{
-                                                                            width: "75px",
-                                                                            height: "45px",
-                                                                            background: !hasProduction ? "var(--bg-tertiary)" : (isSuccess ? "#22c55e" : "#ef4444"),
-                                                                            borderRadius: "10px",
-                                                                            display: "flex",
-                                                                            alignItems: "center",
-                                                                            justifyContent: "center",
-                                                                            color: hasProduction ? "white" : "var(--text-muted)",
-                                                                            fontSize: "16px",
-                                                                            fontWeight: "900",
-                                                                            boxShadow: hasProduction ? "0 4px 12px rgba(0,0,0,0.15)" : "none",
-                                                                            cursor: "pointer",
-                                                                            border: isConfigMode ? "2px dashed var(--accent)" : "1px solid rgba(255,255,255,0.1)",
-                                                                            transition: "all 0.2s"
-                                                                        }}
-                                                                    >
-                                                                        {qty}
-
-                                                                        {step.id !== "baa" && !configuredCells.has(`${proj}::${comp}::${step.id}`) && (
-                                                                            <div style={{
-                                                                                position: "absolute", top: 2, right: 2,
-                                                                                fontSize: 10, lineHeight: 1,
-                                                                                color: "#F59E0B",
-                                                                                textShadow: "0 0 4px rgba(245,158,11,0.6)",
-                                                                                pointerEvents: "none"
-                                                                            }} title="Nessun codice materiale assegnato">⚠</div>
-                                                                        )}
-
-                                                                        {isConfigMode && (
-                                                                            <>
-                                                                                <div style={{
-                                                                                    position: "absolute", top: -6, right: -6,
-                                                                                    background: "var(--bg-card)", borderRadius: "50%",
-                                                                                    width: "20px", height: "20px", display: "flex",
-                                                                                    alignItems: "center", justifyContent: "center",
-                                                                                    fontSize: "12px", boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
-                                                                                    border: "1px solid var(--accent)", color: "var(--accent)"
-                                                                                }}>
-                                                                                    ⚙️
-                                                                                </div>
-                                                                                <div
-                                                                                    onClick={(e) => { e.stopPropagation(); isDynamicIncluded ? toggleCellInclusion(proj, comp, step.id) : toggleCellExclusion(proj, comp, step.id); }}
-                                                                                    title={isDynamicIncluded ? "Rimuovi cella aggiunta" : "Nascondi cella"}
-                                                                                    style={{
-                                                                                        position: "absolute", top: -6, left: -6,
-                                                                                        background: isDynamicIncluded ? "#f59e0b" : "#ef4444",
-                                                                                        borderRadius: "50%",
-                                                                                        width: "20px", height: "20px", display: "flex",
-                                                                                        alignItems: "center", justifyContent: "center",
-                                                                                        fontSize: "10px", fontWeight: "900",
-                                                                                        boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
-                                                                                        color: "white", cursor: "pointer", zIndex: 10
-                                                                                    }}
-                                                                                >✕</div>
-                                                                            </>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })}
+            {/* Expanded Project Modal */}
+            {expandedProject && (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: "rgba(0,0,0,0.8)", zIndex: 2000,
+                    display: "flex", justifyContent: "center", alignItems: "center",
+                    backdropFilter: "blur(10px)",
+                    padding: "40px"
+                }} onClick={() => setExpandedProject(null)}>
+                    <div style={{
+                        width: "100%",
+                        height: "100%",
+                        maxWidth: "1800px",
+                        display: "flex",
+                        flexDirection: "column"
+                    }} onClick={e => e.stopPropagation()}>
+                        {renderProjectBox(expandedProject, true)}
+                    </div>
                 </div>
             )}
 
