@@ -82,6 +82,7 @@ export default function PrioritaView({ showToast, globalDate }) {
     const [savingCell, setSavingCell] = useState(null); // {comp, fino}
     const [isConfigMode, setIsConfigMode] = useState(false);
     const [quickConfigModal, setQuickConfigModal] = useState(null);
+    const [showDetails, setShowDetails] = useState(true);
 
     useEffect(() => {
         localStorage.setItem("lab_inv_date", inventarioDate);
@@ -373,6 +374,20 @@ export default function PrioritaView({ showToast, globalDate }) {
                         {Icons.refresh} Aggiorna
                     </button>
 
+                <button
+                    onClick={() => setShowDetails(!showDetails)}
+                    className="btn"
+                    style={{
+                        padding: "8px 12px", display: "flex", alignItems: "center", gap: 6,
+                        fontWeight: 700,
+                        background: showDetails ? "rgba(96,165,250,0.1)" : "var(--bg-tertiary)",
+                        color: showDetails ? "#60a5fa" : "var(--text-secondary)",
+                        border: "1px solid " + (showDetails ? "#60a5fa33" : "var(--border)")
+                    }}
+                >
+                    {showDetails ? "Nascondi Dettagli" : "Mostra Dettagli"}
+                </button>
+
                     <button
                         onClick={() => setIsConfigMode(!isConfigMode)}
                         className="btn"
@@ -435,7 +450,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                         }}>
                             <div style={{ width: 12, height: 12, borderRadius: "50%", background: theme.main }} />
                             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: theme.main }}>
-                                {proj} — {comps.join(", ")}
+                                {proj}
                             </h2>
                         </div>
 
@@ -461,8 +476,8 @@ export default function PrioritaView({ showToast, globalDate }) {
                                             <div style={{ display: "flex", marginBottom: 6, paddingLeft: 120 }}>
                                                 {seq.map(({ fino, fase }) => (
                                                     <div key={fase + "_" + fino} style={{
-                                                        width: 90, flexShrink: 0, textAlign: "center", paddingBottom: 4,
-                                                        borderBottom: `2px solid ${theme.main}44`
+                                                        width: 90, flexShrink: 0, textAlign: "center", paddingTop: 4,
+                                                        borderTop: `2px solid ${theme.main}44`
                                                     }}>
                                                         <div style={{ fontSize: 14, fontWeight: 800, color: theme.main }}>
                                                             {PHASE_CODE[fase] || fase}
@@ -478,7 +493,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                             <div style={{ display: "flex", alignItems: "stretch", padding: "8px 0" }}>
                                                 {/* Label componente */}
                                                 <div style={{
-                                                    width: 120, flexShrink: 0, display: "flex", alignItems: "center",
+                                                    alignSelf: "flex-start", height: 50, width: 120, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center",
                                                     fontSize: 16, fontWeight: 800, color: "var(--text-primary)",
                                                     paddingRight: 8
                                                 }}>
@@ -520,6 +535,21 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                     <div style={{ fontSize: 11, color: "var(--text-muted)" }}>...</div>
                                                                 ) : isConfigMode ? (
                                                                     <div style={{ fontSize: 18, color: "var(--accent)" }}>⚙</div>
+                                                                ) : isEditing ? (
+                                                                    <input
+                                                                        autoFocus
+                                                                        type="number"
+                                                                        value={editingCell.value}
+                                                                        onChange={e => setEditingCell(prev => ({ ...prev, value: e.target.value }))}
+                                                                        onBlur={commitEdit}
+                                                                        onKeyDown={e => e.key === "Enter" && commitEdit()}
+                                                                        style={{
+                                                                            width: "90%", fontSize: 16, textAlign: "center",
+                                                                            fontWeight: 900, border: "2px solid var(--accent)",
+                                                                            borderRadius: 6, padding: "2px 0", outline: "none",
+                                                                            background: "white", color: "black"
+                                                                        }}
+                                                                    />
                                                                 ) : (
                                                                     <div style={{
                                                                         fontSize: Math.abs(cell.remaining) >= 1000 ? 14 : 18,
@@ -533,42 +563,27 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                             </div>
 
                                                             {/* Riga dettaglio inv/sap (Verticale) */}
-                                                            <div style={{
-                                                                display: "flex", flexDirection: "column", gap: 3,
-                                                                padding: "4px 2px", width: "100%"
-                                                            }}>
+                                                            {showDetails && (
+                                                                <div style={{
+                                                                    display: "flex", flexDirection: "column", gap: 3,
+                                                                    padding: "4px 2px", width: "100%", borderTop: "1px solid var(--border-light)", marginTop: 4
+                                                                }}>
                                                                 {/* Inventario fisico (editabile) */}
-                                                                {isEditing ? (
-                                                                    <input
-                                                                        autoFocus
-                                                                        type="number"
-                                                                        value={editingCell.value}
-                                                                        onChange={e => setEditingCell(prev => ({ ...prev, value: e.target.value }))}
-                                                                        onBlur={commitEdit}
-                                                                        onKeyDown={e => e.key === "Enter" && commitEdit()}
-                                                                        style={{
-                                                                            width: "100%", fontSize: 13, textAlign: "center",
-                                                                            fontWeight: 900, border: "2px solid var(--accent)",
-                                                                            borderRadius: 6, padding: "4px 0", outline: "none"
-                                                                        }}
-                                                                    />
-                                                                ) : (
-                                                                    <div
-                                                                        onClick={() => startEditing(normComp, fino, cell.inv)}
-                                                                        title="Modifica inventario fisico"
-                                                                        style={{
-                                                                            width: "100%", fontSize: 12, fontWeight: 800,
-                                                                            color: cell.inv > 0 ? "white" : "var(--text-muted)",
-                                                                            textAlign: "center", cursor: "pointer",
-                                                                            padding: "4px 2px", borderRadius: 6,
-                                                                            border: cell.inv > 0 ? "none" : "1px dashed var(--border-light)",
-                                                                            background: cell.inv > 0 ? "var(--accent)" : "transparent",
-                                                                            opacity: isConfigMode ? 0 : 1
-                                                                        }}
-                                                                    >
-                                                                        {`Inv: ${cell.inv || 0}`}
-                                                                    </div>
-                                                                )}
+                                                                <div
+                                                                    onClick={() => startEditing(normComp, fino, cell.inv)}
+                                                                    title="Modifica inventario fisico"
+                                                                    style={{
+                                                                        width: "100%", fontSize: 12, fontWeight: 800,
+                                                                        color: cell.inv > 0 ? "white" : "var(--text-muted)",
+                                                                        textAlign: "center", cursor: "pointer",
+                                                                        padding: "4px 2px", borderRadius: 6,
+                                                                        border: cell.inv > 0 ? "none" : "1px dashed var(--border-light)",
+                                                                        background: cell.inv > 0 ? "var(--accent)" : "transparent",
+                                                                        opacity: isConfigMode ? 0 : 1
+                                                                    }}
+                                                                >
+                                                                    {`Inv: ${cell.inv || 0}`}
+                                                                </div>
 
                                                                 {/* SAP scarichi */}
                                                                 {true && (
@@ -610,35 +625,12 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                         {`SAP ↑: ${cell.sapPrev || 0}`}
                                                                     </div>
                                                                 )}
-                                                            </div>
+                                                            </div>)}
                                                             </div>
                                                     );
                                                 })}
                                             </div>
 
-                                            {/* Riga formula esplicativa */}
-                                            <div style={{
-                                                paddingLeft: 120, display: "flex",
-                                                borderTop: "1px solid var(--border-light)",
-                                                paddingTop: 4, marginTop: 4
-                                            }}>
-                                                {seq.map(({ fino, fase }, idx) => {
-                                                    const cell = compMatrix[fino] || {};
-                                                    const parts = [
-                                                        `I:${cell.inv || 0}`,
-                                                        `-${cell.sap || 0}`
-                                                    ];
-                                                    if (idx > 0) parts.push(`+${cell.sapPrev || 0}`);
-                                                    return (
-                                                        <div key={fase + "_" + fino} style={{
-                                                            width: 90, flexShrink: 0, textAlign: "center",
-                                                            fontSize: 9, color: "var(--text-muted)", fontWeight: 600
-                                                        }}>
-                                                            {parts.join(" ")}
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
                                         </div>
                                     );
                                 })}
