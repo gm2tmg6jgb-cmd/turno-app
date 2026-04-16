@@ -124,14 +124,6 @@ export default function PrioritaView({ showToast, globalDate }) {
             }
             setCellExclusions(excl);
 
-            // Normalizza comp per il laboratorio
-            const normalizeComp = (comp) => {
-                const c = (comp || "").toUpperCase();
-                const eco = ["SG2", "SG3", "SG4", "SG5", "SGR", "RG FD1", "RG FD2"];
-                if (eco.includes(c)) return c + " ECO";
-                return c;
-            };
-
             // 2. Material_fino_overrides → sequenza finos per componente
             const { data: matOverridesRes } = await fetchAllRows(() =>
                 supabase.from("material_fino_overrides").select("materiale,fino,fase,componente,progetto")

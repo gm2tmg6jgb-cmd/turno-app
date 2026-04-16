@@ -146,15 +146,15 @@ export default function App() {
 
             const { data: insertedPres, error: errInsert } = await supabase
               .from('presenze')
-              .insert(newPresenze)
+              .upsert(newPresenze, { onConflict: "dipendente_id,data", ignoreDuplicates: true })
               .select();
 
             if (errInsert) {
               console.error("❌ Error generating daily presence:", errInsert);
               showToast("Errore generazione presenze: " + errInsert.message, "error");
             } else {
-              finalPresenze = [...finalPresenze, ...insertedPres];
-              showToast("Presenze giornaliere generate", "success");
+              finalPresenze = [...finalPresenze, ...(insertedPres || [])];
+              if (insertedPres?.length > 0) showToast("Presenze giornaliere generate", "success");
             }
           }
         }
