@@ -52,7 +52,7 @@ const PHASE_LABEL = {
 // Componenti del laboratorio
 const PROJECTS = ["DCT ECO"];
 const PROJECT_COMPONENTS_LAB = {
-    "DCT ECO": ["SG4 ECO"]
+    "DCT ECO": ["SG2", "SG3", "SG4", "SG5", "SGR", "RG FD1", "RG FD2"]
 };
 
 // Colore tema per progetto
@@ -64,7 +64,7 @@ const PROJECT_COLORS = {
 const normalizeComp = (c) => {
     if (!c) return "";
     const s = String(c).toUpperCase();
-    if (s.includes("SG4")) return "SG4 ECO";
+    if (s.includes("SG4")) return "SG2", "SG3", "SG4", "SG5", "SGR", "RG FD1", "RG FD2";
     return s;
 };
 
@@ -114,7 +114,7 @@ export default function PrioritaView({ showToast, globalDate }) {
             // Normalizza comp per il laboratorio
             const normalizeComp = (comp) => {
                 const c = (comp || "").toUpperCase();
-                if (c.includes("SG4")) return "SG4 ECO";
+                if (c.includes("SG4")) return "SG2", "SG3", "SG4", "SG5", "SGR", "RG FD1", "RG FD2";
                 return c;
             };
 
@@ -443,7 +443,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                         <div style={{ overflow: "auto", padding: 12 }}>
                             <div style={{ minWidth: "max-content" }}>
                                 {comps.map(comp => {
-                                    const normComp = comp.toUpperCase().includes("SG4") ? "SG4 ECO" : comp.toUpperCase();
+                                    const normComp = normalizeComp(comp);
                                     const seq = finoSequences[normComp] || [];
                                     const compMatrix = matrixData[normComp] || {};
 
