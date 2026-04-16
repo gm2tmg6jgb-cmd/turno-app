@@ -64,8 +64,7 @@ const PROJECT_COLORS = {
 const normalizeComp = (c) => {
     if (!c) return "";
     const s = String(c).toUpperCase();
-    const eco = ["SG2", "SG3", "SG4", "SG5", "SGR", "RG FD1", "RG FD2"];
-    if (eco.includes(s)) return s + " ECO";
+    const eco = ["SG2", "SG3", "SG4", "SG5", "SGR", "RG FD1", "RG FD2"]; if (eco.includes(s)) return s + " ECO";
     return s;
 };
 
@@ -82,6 +81,7 @@ export default function PrioritaView({ showToast, globalDate }) {
     const [selectedDetail, setSelectedDetail] = useState(null);
     const [savingCell, setSavingCell] = useState(null); // {comp, fino}
     const [cellExclusions, setCellExclusions] = useState({});
+
     const [isConfigMode, setIsConfigMode] = useState(false);
     const [quickConfigModal, setQuickConfigModal] = useState(null);
     const [showDetails, setShowDetails] = useState(true);
@@ -146,9 +146,9 @@ export default function PrioritaView({ showToast, globalDate }) {
 
             // Costruisce sequenze finos per componente
             const LAB_SEQUENCE = [
-                "laser_welding", "ut_soft", "shaping", 
-                "milling", "hobbing", "deburring", "to_be_treated", "ht", 
-                "shot_peening", "start_hard", "laser_welding_2", "ut", 
+                "start_soft", "dmc", "laser_welding", "laser_welding_soft_2", "shaping", 
+                "milling", "broaching", "hobbing", "deburring", "to_be_treated", "ht", 
+                "shot_peening", "start_hard", "laser_welding_2", "ut_soft", "ut", 
                 "grinding_cone", "grinding_cone_2", "teeth_grinding", "to_be_washed", "washing", "baa"
             ];
 
@@ -258,30 +258,6 @@ export default function PrioritaView({ showToast, globalDate }) {
     };
 
     useEffect(() => { fetchData(); }, [inventarioDate]);
-
-    const toggleCellVisibility = async (comp, fase) => {
-        const normC = normalizeComp(comp);
-        const key = `${normC}:${fase}`;
-        const isExcluded = !!cellExclusions[key];
-
-        try {
-            if (isExcluded) {
-                await supabase.from("cell_visibility_overrides")
-                    .delete()
-                    .eq("view", "lab").eq("tipo", "exclude")
-                    .eq("componente", normC).eq("fase", fase);
-                setCellExclusions(prev => { const u = { ...prev }; delete u[key]; return u; });
-            } else {
-                await supabase.from("cell_visibility_overrides")
-                    .upsert({ view: "lab", tipo: "exclude", progetto: "ALL", componente: normC, fase: fase },
-                        { onConflict: "view,tipo,progetto,componente,fase" });
-                setCellExclusions(prev => ({ ...prev, [key]: true }));
-            }
-        } catch (err) {
-            console.error("Errore toggle visibilità:", err);
-            showToast?.("Errore salvataggio visibilità", "error");
-        }
-    };
 
     const saveInventory = async (comp, fino, qty) => {
         if (!fino || fino === "0000") {
@@ -439,7 +415,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                             boxShadow: isConfigMode ? "0 0 10px var(--accent)" : "none"
                         }}
                     >
-                        {isConfigMode ? "✓ Fine Config" : "⚙ Configura Fasi"}
+                        {isConfigMode ? "✓ Esci Config" : "⚙ Configura Celle"}
                     </button>
                 </div>
             </div>
@@ -504,7 +480,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                     if (seq.length === 0) {
                                         return (
                                             <div key={comp} style={{ padding: 20, color: "var(--text-muted)", fontSize: 13 }}>
-                                                Nessuna fase configurata per {comp}. Configura i materiali tramite ⚙ Configura Fasi.
+                                                Nessuna fase configurata per {comp}. Configura i materiali tramite ⚙ Configura Celle.
                                             </div>
                                         );
                                     }
@@ -540,7 +516,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                 </div>
 
                                                 {/* Celle */}
-                                                {seq.map(({ fino, fase }, idx) => {
+                                                {seq.filter(s => !cellExclusions[`${normComp}:${s.fase}`]).map(({ fino, fase }, idx) => {
                                                     const cell = compMatrix[fino] || { inv: 0, sap: 0, sapPrev: 0, remaining: 0, records: [] };
                                                     const isEditing = editingCell?.comp === normComp && editingCell?.fino === fino;
                                                     const isSaving = savingCell?.comp === normComp && savingCell?.fino === fino;
@@ -553,7 +529,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                         }}>
                                                             {/* Cella principale — rimanenza */}
                                                             <div
-                                                                onClick={() => !isEditing && startEditing(normComp, fino, cell.inv)}
+                                                                onClick={() => !isEditing && startEditing(normComp, fino, cell.inv, fase, proj)}
                                                                 title={isConfigMode ? "Configura fase" : "Clicca per modificare inventario fisico"}
                                                                 style={{
                                                                     width: "100%",
@@ -573,7 +549,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                 {isSaving ? (
                                                                     <div style={{ fontSize: 11, color: "var(--text-muted)" }}>...</div>
                                                                 ) : isConfigMode ? (
-                                                                    <div style={{ fontSize: 18, color: "var(--accent)" }}>⚙</div>
+                                                                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}><div style={{ fontSize: 20, color: "var(--accent)" }}>⚙</div><div onClick={(e) => { e.stopPropagation(); toggleCellVisibility(normComp, fase); }} style={{ fontSize: 24, color: "#ef4444", fontWeight: "bold", cursor: "pointer", padding: "0 4px" }}>×</div></div>
                                                                 ) : isEditing ? (
                                                                     <input
                                                                         autoFocus
@@ -609,7 +585,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                 }}>
                                                                 {/* Inventario fisico (editabile) */}
                                                                 <div
-                                                                    onClick={() => startEditing(normComp, fino, cell.inv)}
+                                                                    onClick={() => startEditing(normComp, fino, cell.inv, fase, proj)}
                                                                     title="Modifica inventario fisico"
                                                                     style={{
                                                                         width: "100%", fontSize: 12, fontWeight: 800,
@@ -876,4 +852,42 @@ const QuickConfigModal = ({ data, onClose, onSave, showToast }) => {
             </div>
         </div>
     );
+    const toggleCellVisibility = async (comp, fase) => {
+        const normC = normalizeComp(comp);
+        const key = `${normC}:${fase}`;
+        const isExcluded = !!cellExclusions[key];
+
+        if (isExcluded) {
+            await supabase.from("cell_visibility_overrides")
+                .delete()
+                .eq("view", "lab").eq("tipo", "exclude")
+                .eq("componente", normC).eq("fase", fase);
+            setCellExclusions(prev => { const u = { ...prev }; delete u[key]; return u; });
+        } else {
+            await supabase.from("cell_visibility_overrides")
+                .upsert({ view: "lab", tipo: "exclude", progetto: "ALL", componente: normC, fase: fase },
+                    { onConflict: "view,tipo,progetto,componente,fase" });
+            setCellExclusions(prev => ({ ...prev, [key]: true }));
+        }
+    };
+
+    const toggleCellVisibility = async (comp, fase) => {
+        const normC = normalizeComp(comp);
+        const key = `${normC}:${fase}`;
+        const isExcluded = !!cellExclusions[key];
+
+        if (isExcluded) {
+            await supabase.from("cell_visibility_overrides")
+                .delete()
+                .eq("view", "lab").eq("tipo", "exclude")
+                .eq("componente", normC).eq("fase", fase);
+            setCellExclusions(prev => { const u = { ...prev }; delete u[key]; return u; });
+        } else {
+            await supabase.from("cell_visibility_overrides")
+                .upsert({ view: "lab", tipo: "exclude", progetto: "ALL", componente: normC, fase: fase },
+                    { onConflict: "view,tipo,progetto,componente,fase" });
+            setCellExclusions(prev => ({ ...prev, [key]: true }));
+        }
+    };
+
 };

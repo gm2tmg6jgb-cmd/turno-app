@@ -52,7 +52,7 @@ const PHASE_LABEL = {
 // Componenti del laboratorio
 const PROJECTS = ["DCT ECO"];
 const PROJECT_COMPONENTS_LAB = {
-    "DCT ECO": ["SG2", "SG3", "SG4", "SG5", "SGR", "RG FD1", "RG FD2"]
+    "DCT ECO": ["SG4 ECO"]
 };
 
 // Colore tema per progetto
@@ -61,14 +61,6 @@ const PROJECT_COLORS = {
     "DCT300": { main: "#3c6ef0", bg: "rgba(60, 110, 240, 0.05)" },
     "8Fe": { main: "#10b981", bg: "rgba(16, 185, 129, 0.05)" },
 };
-const normalizeComp = (c) => {
-    if (!c) return "";
-    const s = String(c).toUpperCase();
-    const eco = ["SG2", "SG3", "SG4", "SG5", "SGR", "RG FD1", "RG FD2"];
-    if (eco.includes(s)) return s + " ECO";
-    return s;
-};
-
 
 export default function PrioritaView({ showToast, globalDate }) {
     const [inventarioDate, setInventarioDate] = useState(() =>
@@ -81,10 +73,8 @@ export default function PrioritaView({ showToast, globalDate }) {
     const [editingCell, setEditingCell] = useState(null); // {comp, fino, value}
     const [selectedDetail, setSelectedDetail] = useState(null);
     const [savingCell, setSavingCell] = useState(null); // {comp, fino}
-    const [cellExclusions, setCellExclusions] = useState({});
     const [isConfigMode, setIsConfigMode] = useState(false);
     const [quickConfigModal, setQuickConfigModal] = useState(null);
-    const [showDetails, setShowDetails] = useState(true);
 
     useEffect(() => {
         localStorage.setItem("lab_inv_date", inventarioDate);
@@ -114,21 +104,10 @@ export default function PrioritaView({ showToast, globalDate }) {
                 });
             }
 
-            const { data: visRes } = await supabase.from("cell_visibility_overrides").select("*").eq("view", "lab");
-            const excl = {};
-            if (visRes) {
-                visRes.forEach(r => {
-                    const key = `${r.componente}:${r.fase}`;
-                    if (r.tipo === "exclude") excl[key] = true;
-                });
-            }
-            setCellExclusions(excl);
-
             // Normalizza comp per il laboratorio
             const normalizeComp = (comp) => {
                 const c = (comp || "").toUpperCase();
-                const eco = ["SG2", "SG3", "SG4", "SG5", "SGR", "RG FD1", "RG FD2"];
-                if (eco.includes(c)) return c + " ECO";
+                if (c.includes("SG4")) return "SG4 ECO";
                 return c;
             };
 
@@ -145,13 +124,12 @@ export default function PrioritaView({ showToast, globalDate }) {
             }));
 
             // Costruisce sequenze finos per componente
+            // Usa i materiali dell'anagrafica per capire quali finos appartengono a quale comp
+            const finoSeqMap = {}; // {comp: {fino: fase}}
             const LAB_SEQUENCE = [
-                "laser_welding", "ut_soft", "shaping", 
-                "milling", "hobbing", "deburring", "to_be_treated", "ht", 
-                "shot_peening", "start_hard", "laser_welding_2", "ut", 
-                "grinding_cone", "grinding_cone_2", "teeth_grinding", "to_be_washed", "washing", "baa"
+                "shaping", "milling", "hobbing", "to_be_treated", "ht", 
+                "start_hard", "teeth_grinding", "laser_welding_2", "ut", "grinding_cone", "to_be_washed", "washing", "baa"
             ];
-
             const finoSeqSorted = {};
             PROJECTS.forEach(proj => {
                 const comps = PROJECT_COMPONENTS_LAB[proj] || [];
@@ -168,6 +146,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                     });
                 });
             });
+            setFinoSequences(finoSeqSorted);
             setFinoSequences(finoSeqSorted);
 
             // 3. Inventario fisico da Supabase
@@ -190,23 +169,25 @@ export default function PrioritaView({ showToast, globalDate }) {
                     .gte("data", inventarioDate)
             );
 
-            // Aggrega SAP per comp+fino
-            const sapMap = {}; // {comp: {fino: {qty, records}}}
-
-            // Filtro materiali e progetto stretti
+            // Costruiamo una mappa dei materiali configurati per un filtraggio preciso
+            // Consideriamo solo le configurazioni appartenenti ai progetti del laboratorio (es. DCT ECO)
             const validConfigMap = {};
             dbOverrides.forEach(o => {
-                if (!PROJECTS.includes(o.proj)) return;
+                const isLabProject = PROJECTS.includes(o.proj);
+                if (!isLabProject) return;
                 const key = `${o.mat}_${o.fino}`;
                 validConfigMap[key] = { comp: normalizeComp(o.comp), fase: o.fase };
             });
 
+            // Aggrega SAP per comp+fino
+            const sapMap = {}; // {comp: {fino: {qty, records}}}
             if (sapRes) {
                 sapRes.forEach(r => {
                     const matCode = (r.materiale || "").toUpperCase();
                     const fino = String(r.fino || "").padStart(4, "0");
                     if (!fino || fino === "0000") return;
 
+                    // Mostriamo solo i codici esplicitamente configurati per questo fino
                     const config = validConfigMap[`${matCode}_${fino}`];
                     if (!config) return;
 
@@ -223,6 +204,7 @@ export default function PrioritaView({ showToast, globalDate }) {
             }
 
             // 5. Calcolo WIP flow per componente
+            // rimanenza[fino N] = inv[N] - sap[N] + sap[N-1]
             const newMatrix = {};
             PROJECTS.forEach(proj => {
                 const comps = PROJECT_COMPONENTS_LAB[proj] || [];
@@ -258,30 +240,6 @@ export default function PrioritaView({ showToast, globalDate }) {
     };
 
     useEffect(() => { fetchData(); }, [inventarioDate]);
-
-    const toggleCellVisibility = async (comp, fase) => {
-        const normC = normalizeComp(comp);
-        const key = `${normC}:${fase}`;
-        const isExcluded = !!cellExclusions[key];
-
-        try {
-            if (isExcluded) {
-                await supabase.from("cell_visibility_overrides")
-                    .delete()
-                    .eq("view", "lab").eq("tipo", "exclude")
-                    .eq("componente", normC).eq("fase", fase);
-                setCellExclusions(prev => { const u = { ...prev }; delete u[key]; return u; });
-            } else {
-                await supabase.from("cell_visibility_overrides")
-                    .upsert({ view: "lab", tipo: "exclude", progetto: "ALL", componente: normC, fase: fase },
-                        { onConflict: "view,tipo,progetto,componente,fase" });
-                setCellExclusions(prev => ({ ...prev, [key]: true }));
-            }
-        } catch (err) {
-            console.error("Errore toggle visibilità:", err);
-            showToast?.("Errore salvataggio visibilità", "error");
-        }
-    };
 
     const saveInventory = async (comp, fino, qty) => {
         if (!fino || fino === "0000") {
@@ -413,20 +371,6 @@ export default function PrioritaView({ showToast, globalDate }) {
                         {Icons.refresh} Aggiorna
                     </button>
 
-                <button
-                    onClick={() => setShowDetails(!showDetails)}
-                    className="btn"
-                    style={{
-                        padding: "8px 12px", display: "flex", alignItems: "center", gap: 6,
-                        fontWeight: 700,
-                        background: showDetails ? "rgba(96,165,250,0.1)" : "var(--bg-tertiary)",
-                        color: showDetails ? "#60a5fa" : "var(--text-secondary)",
-                        border: "1px solid " + (showDetails ? "#60a5fa33" : "var(--border)")
-                    }}
-                >
-                    {showDetails ? "Nascondi Dettagli" : "Mostra Dettagli"}
-                </button>
-
                     <button
                         onClick={() => setIsConfigMode(!isConfigMode)}
                         className="btn"
@@ -457,7 +401,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                         <span style={{ fontWeight: 700, color: item.color }}>{item.label}</span>
                         <span>{item.desc}</span>
                     </div>
-                ))}
+                )})}
             </div>
 
             {loading && (
@@ -489,7 +433,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                         }}>
                             <div style={{ width: 12, height: 12, borderRadius: "50%", background: theme.main }} />
                             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800, color: theme.main }}>
-                                {proj}
+                                {proj} — {comps.join(", ")}
                             </h2>
                         </div>
 
@@ -497,7 +441,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                         <div style={{ overflow: "auto", padding: 12 }}>
                             <div style={{ minWidth: "max-content" }}>
                                 {comps.map(comp => {
-                                    const normComp = normalizeComp(comp);
+                                    const normComp = comp.toUpperCase().includes("SG4") ? "SG4 ECO" : comp.toUpperCase();
                                     const seq = finoSequences[normComp] || [];
                                     const compMatrix = matrixData[normComp] || {};
 
@@ -514,9 +458,9 @@ export default function PrioritaView({ showToast, globalDate }) {
                                             {/* Intestazione colonne */}
                                             <div style={{ display: "flex", marginBottom: 6, paddingLeft: 120 }}>
                                                 {seq.map(({ fino, fase }) => (
-                                                    <div key={fase + "_" + fino} style={{
-                                                        width: 90, flexShrink: 0, textAlign: "center", paddingTop: 4,
-                                                        borderTop: `2px solid ${theme.main}44`
+                                                    <div key={fase} style={{
+                                                        width: 90, flexShrink: 0, textAlign: "center", paddingBottom: 4,
+                                                        borderBottom: `2px solid ${theme.main}44`
                                                     }}>
                                                         <div style={{ fontSize: 14, fontWeight: 800, color: theme.main }}>
                                                             {PHASE_CODE[fase] || fase}
@@ -525,14 +469,14 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                             op.{fino}
                                                         </div>
                                                     </div>
-                                                ))}
+                                                )})}
                                             </div>
 
                                             {/* Riga componente */}
                                             <div style={{ display: "flex", alignItems: "stretch", padding: "8px 0" }}>
                                                 {/* Label componente */}
                                                 <div style={{
-                                                    alignSelf: "flex-start", height: 50, width: 120, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center",
+                                                    width: 120, flexShrink: 0, display: "flex", alignItems: "center",
                                                     fontSize: 16, fontWeight: 800, color: "var(--text-primary)",
                                                     paddingRight: 8
                                                 }}>
@@ -547,7 +491,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                     const isFirstFino = idx === 0;
 
                                                     return (
-                                                        <div key={fase + "_" + fino} style={{
+                                                        <div key={fase} style={{
                                                             width: 90, flexShrink: 0, padding: "0 4px",
                                                             borderLeft: idx > 0 ? "1px solid var(--border-light)" : "none"
                                                         }}>
@@ -574,55 +518,59 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                     <div style={{ fontSize: 11, color: "var(--text-muted)" }}>...</div>
                                                                 ) : isConfigMode ? (
                                                                     <div style={{ fontSize: 18, color: "var(--accent)" }}>⚙</div>
-                                                                ) : isEditing ? (
-                                                                    <input
-                                                                        autoFocus
-                                                                        type="number"
-                                                                        value={editingCell.value}
-                                                                        onChange={e => setEditingCell(prev => ({ ...prev, value: e.target.value }))}
-                                                                        onBlur={commitEdit}
-                                                                        onKeyDown={e => e.key === "Enter" && commitEdit()}
-                                                                        style={{
-                                                                            width: "90%", fontSize: 16, textAlign: "center",
-                                                                            fontWeight: 900, border: "2px solid var(--accent)",
-                                                                            borderRadius: 6, padding: "2px 0", outline: "none",
-                                                                            background: "white", color: "black"
-                                                                        }}
-                                                                    />
                                                                 ) : (
-                                                                    <div style={{
-                                                                        fontSize: Math.abs(cell.remaining) >= 1000 ? 14 : 18,
-                                                                        fontWeight: 900,
-                                                                        color: remainingColor(cell.remaining),
-                                                                        opacity: cell.remaining === 0 ? 0.35 : 1
-                                                                    }}>
+                                                                <div style={{
+                                                                    fontSize: Math.abs(cell.remaining) >= 1000 ? 14 : 22,
+                                                                    fontWeight: 900,
+                                                                    color: remainingColor(cell.remaining),
+                                                                    opacity: cell.remaining === 0 ? 0.35 : 1
+                                                                }}>
                                                                         {cell.remaining !== 0 ? cell.remaining : "—"}
                                                                     </div>
                                                                 )}
                                                             </div>
 
-                                                            {/* Riga dettaglio inv/sap (Verticale) */}
-                                                            {showDetails && (
-                                                                <div style={{
-                                                                    display: "flex", flexDirection: "column", gap: 3,
-                                                                    padding: "4px 2px", width: "100%", borderTop: "1px solid var(--border-light)", marginTop: 4
-                                                                }}>
+                                                            {/* Riga dettaglio inv/sap */}
+                                                            <div style={{
+                                                                display: "flex", flexDirection: "column",
+                                                                padding: "4px 2px", gap: 4
+                                                            }}>
                                                                 {/* Inventario fisico (editabile) */}
-                                                                <div
-                                                                    onClick={() => startEditing(normComp, fino, cell.inv)}
-                                                                    title="Modifica inventario fisico"
-                                                                    style={{
-                                                                        width: "100%", fontSize: 12, fontWeight: 800,
-                                                                        color: cell.inv > 0 ? "white" : "var(--text-muted)",
-                                                                        textAlign: "center", cursor: "pointer",
-                                                                        padding: "4px 2px", borderRadius: 6,
-                                                                        border: cell.inv > 0 ? "none" : "1px dashed var(--border-light)",
-                                                                        background: cell.inv > 0 ? "var(--accent)" : "transparent",
-                                                                        opacity: isConfigMode ? 0 : 1
-                                                                    }}
-                                                                >
-                                                                    {`Inv: ${cell.inv || 0}`}
-                                                                </div>
+                                                                {isEditing ? (
+                                                                    <input
+                                                                        autoFocus
+                                                                        type="number"
+                                                                        value={editingCell.value}
+                                                                        onChange={e => setEditingCell(prev => ({ ...prev, value: e.target.value })})}
+                                                                        onBlur={commitEdit}
+                                                                        onKeyDown={e => {
+                                                                            if (e.key === "Enter") commitEdit();
+                                                                            if (e.key === "Escape") cancelEdit();
+                                                                        }}
+                                                                        style={{
+                                                                            width: "100%", padding: "4px", fontSize: 13,
+                                                                            fontWeight: 800, textAlign: "center",
+                                                                            borderRadius: 6, border: `2px solid var(--accent)`,
+                                                                            background: "var(--bg-card)", color: "var(--accent)"
+                                                                        }}
+                                                                    />
+                                                                ) : (
+                                                                    <div
+                                                                        onClick={() => startEditing(normComp, fino, cell.inv)}
+                                                                        title="Modifica inventario fisico"
+                                                                        style={{
+                                                                            width: "100%", fontSize: 12, fontWeight: 800,
+                                                                            color: cell.inv > 0 ? "var(--accent)" : "var(--text-muted)",
+                                                                            textAlign: "center", cursor: "pointer",
+                                                                            padding: "4px 2px", borderRadius: 6,
+                                                                            border: "1px dashed " + (cell.inv > 0 ? "var(--accent)" : "var(--border-light)"),
+                                                                            background: cell.inv > 0 ? "rgba(245, 158, 11, 0.1)" : "transparent",
+                                                                            opacity: isConfigMode ? 0 : 1
+                                                                        }}
+                                                                    >
+                                                                        {`Inv: ${cell.inv || 0}`}
+                                                                    </div>
+                                                                )}
 
                                                                 {/* SAP scarichi */}
                                                                 {true && (
@@ -643,7 +591,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                             whiteSpace: "nowrap"
                                                                         }}
                                                                     >
-                                                                        {`SAP ↓: ${cell.sap || 0}`}
+                                                                        SAP ↓: {cell.sap}
                                                                     </div>
                                                                 )}
 
@@ -661,15 +609,38 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                             whiteSpace: "nowrap"
                                                                         }}
                                                                     >
-                                                                        {`SAP ↑: ${cell.sapPrev || 0}`}
+                                                                        SAP ↑: {cell.sapPrev}
                                                                     </div>
                                                                 )}
-                                                            </div>)}
                                                             </div>
+                                                        </div>
                                                     );
                                                 })}
                                             </div>
 
+                                            {/* Riga formula esplicativa */}
+                                            <div style={{
+                                                paddingLeft: 120, display: "flex",
+                                                borderTop: "1px solid var(--border-light)",
+                                                paddingTop: 4, marginTop: 4
+                                            }}>
+                                                {seq.map(({ fino, fase }, idx) => {
+                                                    const cell = compMatrix[fino] || {};
+                                                    const parts = [
+                                                        `I:${cell.inv || 0}`,
+                                                        `-${cell.sap || 0}`
+                                                    ];
+                                                    if (idx > 0) parts.push(`+${cell.sapPrev || 0}`);
+                                                    return (
+                                                        <div key={fase} style={{
+                                                            width: 90, flexShrink: 0, textAlign: "center",
+                                                            fontSize: 9, color: "var(--text-muted)", fontWeight: 600
+                                                        }}>
+                                                            {parts.join(" ")}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
                                     );
                                 })}
@@ -683,7 +654,7 @@ export default function PrioritaView({ showToast, globalDate }) {
             {selectedDetail && (
                 <div style={{
                     position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1000,
-                    display: "flex", flexDirection: "column", alignItems: "center", alignItems: "center", backdropFilter: "blur(4px)"
+                    display: "flex", justifyContent: "center", alignItems: "center", backdropFilter: "blur(4px)"
                 }} onClick={() => setSelectedDetail(null)}>
                     <div style={{
                         background: "var(--bg-card)", borderRadius: 16,
@@ -712,7 +683,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                     <tr style={{ background: "rgba(255,255,255,0.02)" }}>
                                         {["Data", "Materiale", "Macchina", "Turno", "Q.tà"].map(h => (
                                             <th key={h} style={{ padding: "8px 10px", textAlign: h === "Q.tà" ? "right" : "left", fontSize: 11, color: "var(--text-muted)", fontWeight: 700 }}>{h}</th>
-                                        ))}
+                                        )})}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -724,7 +695,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                             <td style={{ padding: "8px 10px", fontSize: 11 }}>{r.turno_id || "—"}</td>
                                             <td style={{ padding: "8px 10px", fontSize: 14, fontWeight: 900, textAlign: "right", color: "#60a5fa" }}>{r.qta_ottenuta}</td>
                                         </tr>
-                                    ))}
+                                    )})}
                                 </tbody>
                             </table>
                         </div>
@@ -813,7 +784,6 @@ const QuickConfigModal = ({ data, onClose, onSave, showToast }) => {
                     .eq("fase", row.fase)
                     .eq("componente", row.componente)
                     .maybeSingle();
-
                 if (existing) {
                     await supabase.from("material_fino_overrides").update(row).eq("id", existing.id);
                 } else {
@@ -855,7 +825,7 @@ const QuickConfigModal = ({ data, onClose, onSave, showToast }) => {
                         <input
                             type="text"
                             value={form[field.key]}
-                            onChange={e => setForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                            onChange={e => setForm(prev => ({ ...prev, [field.key]: e.target.value })})}
                             placeholder={field.placeholder}
                             style={{
                                 width: "100%", padding: "8px 12px", fontSize: 13,
@@ -865,7 +835,7 @@ const QuickConfigModal = ({ data, onClose, onSave, showToast }) => {
                             }}
                         />
                     </div>
-                ))}
+                )})}
 
                 <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
                     <button className="btn btn-secondary" style={{ flex: 1 }} onClick={onClose}>Annulla</button>
