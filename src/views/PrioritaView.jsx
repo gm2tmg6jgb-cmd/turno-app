@@ -115,7 +115,8 @@ export default function PrioritaView({ showToast, globalDate }) {
             // Normalizza comp per il laboratorio
             const normalizeComp = (comp) => {
                 const c = (comp || "").toUpperCase();
-                if (c.includes("SG4")) return "SG2", "SG3", "SG4", "SG5", "SGR", "RG FD1", "RG FD2";
+                const eco = ["SG2", "SG3", "SG4", "SG5", "SGR", "RG FD1", "RG FD2"];
+                if (eco.includes(c)) return c + " ECO";
                 return c;
             };
 
@@ -133,8 +134,10 @@ export default function PrioritaView({ showToast, globalDate }) {
 
             // Costruisce sequenze finos per componente
             const LAB_SEQUENCE = [
-                "shaping", "milling", "hobbing", "to_be_treated", "ht", 
-                "start_hard", "teeth_grinding", "laser_welding_2", "ut", "grinding_cone", "to_be_washed", "washing", "baa"
+                "start_soft", "dmc", "laser_welding", "laser_welding_soft_2", "shaping", 
+                "milling", "broaching", "hobbing", "deburring", "to_be_treated", "ht", 
+                "shot_peening", "start_hard", "laser_welding_2", "ut_soft", "ut", 
+                "grinding_cone", "grinding_cone_2", "teeth_grinding", "to_be_washed", "washing", "baa"
             ];
 
             const finoSeqSorted = {};
