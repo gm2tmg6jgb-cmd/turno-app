@@ -31,9 +31,9 @@ const PHASE_CODE = {
     "start_soft": "DRA", "dmc": "ZSA", "laser_welding": "SCA",
     "laser_welding_soft_2": "SCA", "shaping": "STW", "milling": "FRA",
     "broaching": "RAA", "hobbing": "FRW", "deburring": "EGW",
-    "to_be_treated": "WIP", "ht": "TH.T", "shot_peening": "OKU",
-    "start_hard": "TH", "laser_welding_2": "SCA", "ut_soft": "MZA",
-    "ut": "MZA", "grinding_cone": "SLA", "grinding_cone_2": "SLA",
+    "to_be_treated": "WIP", "ht": "HT", "shot_peening": "OKU",
+    "start_hard": "DRA", "laser_welding_2": "SCA", "ut_soft": "MZA",
+    "ut": "UT", "grinding_cone": "SLA", "grinding_cone_2": "SLA",
     "teeth_grinding": "SLW", "to_be_washed": "WIP", "washing": "WSH",
     "baa": "BAA"
 };
@@ -61,6 +61,13 @@ const PROJECT_COLORS = {
     "DCT300": { main: "#3c6ef0", bg: "rgba(60, 110, 240, 0.05)" },
     "8Fe": { main: "#10b981", bg: "rgba(16, 185, 129, 0.05)" },
 };
+const normalizeComp = (c) => {
+    if (!c) return "";
+    const s = String(c).toUpperCase();
+    if (s.includes("SG4")) return "SG4 ECO";
+    return s;
+};
+
 
 export default function PrioritaView({ showToast, globalDate }) {
     const [inventarioDate, setInventarioDate] = useState(() =>
@@ -124,36 +131,26 @@ export default function PrioritaView({ showToast, globalDate }) {
             }));
 
             // Costruisce sequenze finos per componente
-            // Usa i materiali dell'anagrafica per capire quali finos appartengono a quale comp
-            const finoSeqMap = {}; // {comp: {fino: fase}}
+            const LAB_SEQUENCE = [
+                "shaping", "milling", "hobbing", "to_be_treated", "ht", 
+                "start_hard", "teeth_grinding", "laser_welding_2", "ut", "grinding_cone", "to_be_washed", "washing", "baa"
+            ];
+
+            const finoSeqSorted = {};
             PROJECTS.forEach(proj => {
                 const comps = PROJECT_COMPONENTS_LAB[proj] || [];
                 comps.forEach(comp => {
                     const normComp = normalizeComp(comp);
-                    if (!finoSeqMap[normComp]) finoSeqMap[normComp] = {};
-
-                    // Trova tutti i materiali di questo componente
-                    const mats = Object.entries(anagrafica)
-                        .filter(([, info]) => normalizeComp(info.comp) === normComp)
-                        .map(([mat]) => mat);
-
-                    // Aggiungi finos configurati per questi materiali (escludi baa e fino null)
-                    dbOverrides
-                        .filter(o => mats.includes(o.mat) && o.fino && o.fase !== "baa")
-                        .forEach(o => {
-                            if (!finoSeqMap[normComp][o.fino]) {
-                                finoSeqMap[normComp][o.fino] = o.fase;
-                            }
-                        });
+                    finoSeqSorted[normComp] = LAB_SEQUENCE.map(fase => {
+                        const override = dbOverrides.find(o => 
+                            normalizeComp(o.comp) === normComp && o.proj === proj && o.fase === fase
+                        );
+                        return { 
+                            fino: override ? override.fino : "0000", 
+                            fase: fase 
+                        };
+                    });
                 });
-            });
-
-            // Converti in array ordinato per fino
-            const finoSeqSorted = {};
-            Object.entries(finoSeqMap).forEach(([comp, finoFaseMap]) => {
-                finoSeqSorted[comp] = Object.entries(finoFaseMap)
-                    .sort(([a], [b]) => a.localeCompare(b))
-                    .map(([fino, fase]) => ({ fino, fase }));
             });
             setFinoSequences(finoSeqSorted);
 
@@ -179,15 +176,25 @@ export default function PrioritaView({ showToast, globalDate }) {
 
             // Aggrega SAP per comp+fino
             const sapMap = {}; // {comp: {fino: {qty, records}}}
+
+            // Filtro materiali e progetto stretti
+            const validConfigMap = {};
+            dbOverrides.forEach(o => {
+                if (!PROJECTS.includes(o.proj)) return;
+                const key = `${o.mat}_${o.fino}`;
+                validConfigMap[key] = { comp: normalizeComp(o.comp), fase: o.fase };
+            });
+
             if (sapRes) {
                 sapRes.forEach(r => {
                     const matCode = (r.materiale || "").toUpperCase();
                     const fino = String(r.fino || "").padStart(4, "0");
                     if (!fino || fino === "0000") return;
-                    const info = anagrafica[matCode];
-                    if (!info) return;
-                    const comp = normalizeComp(info.comp);
 
+                    const config = validConfigMap[`${matCode}_${fino}`];
+                    if (!config) return;
+
+                    const comp = config.comp;
                     if (!sapMap[comp]) sapMap[comp] = {};
                     if (!sapMap[comp][fino]) sapMap[comp][fino] = { qty: 0, records: [] };
                     sapMap[comp][fino].qty += (r.qta_ottenuta || 0);
@@ -200,7 +207,6 @@ export default function PrioritaView({ showToast, globalDate }) {
             }
 
             // 5. Calcolo WIP flow per componente
-            // rimanenza[fino N] = inv[N] - sap[N] + sap[N-1]
             const newMatrix = {};
             PROJECTS.forEach(proj => {
                 const comps = PROJECT_COMPONENTS_LAB[proj] || [];
@@ -238,6 +244,10 @@ export default function PrioritaView({ showToast, globalDate }) {
     useEffect(() => { fetchData(); }, [inventarioDate]);
 
     const saveInventory = async (comp, fino, qty) => {
+        if (!fino || fino === "0000") {
+            showToast?.("Configura prima l'operazione (fino) tramite l'ingranaggio", "error");
+            return;
+        }
         const normComp = comp.toUpperCase();
         setSavingCell({ comp: normComp, fino });
         try {
@@ -450,7 +460,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                             {/* Intestazione colonne */}
                                             <div style={{ display: "flex", marginBottom: 6, paddingLeft: 120 }}>
                                                 {seq.map(({ fino, fase }) => (
-                                                    <div key={fino} style={{
+                                                    <div key={fase + "_" + fino} style={{
                                                         width: 90, flexShrink: 0, textAlign: "center", paddingBottom: 4,
                                                         borderBottom: `2px solid ${theme.main}44`
                                                     }}>
@@ -483,7 +493,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                     const isFirstFino = idx === 0;
 
                                                     return (
-                                                        <div key={fino} style={{
+                                                        <div key={fase + "_" + fino} style={{
                                                             width: 90, flexShrink: 0, padding: "0 4px",
                                                             borderLeft: idx > 0 ? "1px solid var(--border-light)" : "none"
                                                         }}>
@@ -522,10 +532,10 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                 )}
                                                             </div>
 
-                                                            {/* Riga dettaglio inv/sap */}
+                                                            {/* Riga dettaglio inv/sap (Verticale) */}
                                                             <div style={{
-                                                                display: "flex", justifyContent: "space-between",
-                                                                padding: "3px 2px", gap: 2
+                                                                display: "flex", flexDirection: "column", gap: 3,
+                                                                padding: "4px 2px", width: "100%"
                                                             }}>
                                                                 {/* Inventario fisico (editabile) */}
                                                                 {isEditing ? (
@@ -535,15 +545,11 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                         value={editingCell.value}
                                                                         onChange={e => setEditingCell(prev => ({ ...prev, value: e.target.value }))}
                                                                         onBlur={commitEdit}
-                                                                        onKeyDown={e => {
-                                                                            if (e.key === "Enter") commitEdit();
-                                                                            if (e.key === "Escape") cancelEdit();
-                                                                        }}
+                                                                        onKeyDown={e => e.key === "Enter" && commitEdit()}
                                                                         style={{
-                                                                            width: "100%", padding: "2px 4px", fontSize: 11,
-                                                                            fontWeight: 700, textAlign: "center",
-                                                                            borderRadius: 6, border: `2px solid var(--accent)`,
-                                                                            background: "var(--bg-card)", color: "var(--accent)"
+                                                                            width: "100%", fontSize: 13, textAlign: "center",
+                                                                            fontWeight: 900, border: "2px solid var(--accent)",
+                                                                            borderRadius: 6, padding: "4px 0", outline: "none"
                                                                         }}
                                                                     />
                                                                 ) : (
@@ -551,20 +557,21 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                         onClick={() => startEditing(normComp, fino, cell.inv)}
                                                                         title="Modifica inventario fisico"
                                                                         style={{
-                                                                            flex: 1, fontSize: 10, fontWeight: 700,
-                                                                            color: cell.inv > 0 ? "var(--accent)" : "var(--text-muted)",
+                                                                            width: "100%", fontSize: 12, fontWeight: 800,
+                                                                            color: cell.inv > 0 ? "white" : "var(--text-muted)",
                                                                             textAlign: "center", cursor: "pointer",
-                                                                            padding: "1px 2px", borderRadius: 4,
-                                                                            border: "1px dashed " + (cell.inv > 0 ? "var(--accent)" : "var(--border-light)"),
+                                                                            padding: "4px 2px", borderRadius: 6,
+                                                                            border: cell.inv > 0 ? "none" : "1px dashed var(--border-light)",
+                                                                            background: cell.inv > 0 ? "var(--accent)" : "transparent",
                                                                             opacity: isConfigMode ? 0 : 1
                                                                         }}
                                                                     >
-                                                                        {cell.inv > 0 ? `I:${cell.inv}` : "+inv"}
+                                                                        {`Inv: ${cell.inv || 0}`}
                                                                     </div>
                                                                 )}
 
                                                                 {/* SAP scarichi */}
-                                                                {cell.sap > 0 && (
+                                                                {true && (
                                                                     <div
                                                                         onClick={() => !isConfigMode && cell.records.length > 0 && setSelectedDetail({
                                                                             title: `${comp} — op.${fino} (${PHASE_CODE[fase] || fase})`,
@@ -573,36 +580,38 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                         })}
                                                                         title="Scarichi SAP — clicca per dettaglio"
                                                                         style={{
-                                                                            fontSize: 10, fontWeight: 700,
+                                                                            width: "100%", fontSize: 12, fontWeight: 800,
                                                                             color: "#60a5fa",
                                                                             textAlign: "center", cursor: cell.records.length > 0 ? "pointer" : "default",
-                                                                            padding: "1px 3px", borderRadius: 4,
+                                                                            padding: "4px 2px", borderRadius: 6,
                                                                             border: "1px solid rgba(96,165,250,0.3)",
+                                                                            background: "rgba(96,165,250,0.1)",
                                                                             whiteSpace: "nowrap"
                                                                         }}
                                                                     >
-                                                                        -{cell.sap}
+                                                                        {`SAP ↓: ${cell.sap || 0}`}
                                                                     </div>
                                                                 )}
 
                                                                 {/* Entrate dalla fase precedente */}
-                                                                {!isFirstFino && cell.sapPrev > 0 && (
+                                                                {!isFirstFino && true && (
                                                                     <div
                                                                         title="Pezzi entrati dalla fase precedente"
                                                                         style={{
-                                                                            fontSize: 10, fontWeight: 700,
+                                                                            width: "100%", fontSize: 12, fontWeight: 800,
                                                                             color: "#a78bfa",
                                                                             textAlign: "center",
-                                                                            padding: "1px 3px", borderRadius: 4,
+                                                                            padding: "4px 2px", borderRadius: 6,
                                                                             border: "1px solid rgba(167,139,250,0.3)",
+                                                                            background: "rgba(167,139,250,0.1)",
                                                                             whiteSpace: "nowrap"
                                                                         }}
                                                                     >
-                                                                        +{cell.sapPrev}
+                                                                        {`SAP ↑: ${cell.sapPrev || 0}`}
                                                                     </div>
                                                                 )}
                                                             </div>
-                                                        </div>
+                                                            </div>
                                                     );
                                                 })}
                                             </div>
@@ -613,18 +622,19 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                 borderTop: "1px solid var(--border-light)",
                                                 paddingTop: 4, marginTop: 4
                                             }}>
-                                                {seq.map(({ fino }, idx) => {
+                                                {seq.map(({ fino, fase }, idx) => {
                                                     const cell = compMatrix[fino] || {};
-                                                    const parts = [];
-                                                    if (cell.inv) parts.push(`I:${cell.inv}`);
-                                                    if (cell.sap) parts.push(`-${cell.sap}`);
-                                                    if (idx > 0 && cell.sapPrev) parts.push(`+${cell.sapPrev}`);
+                                                    const parts = [
+                                                        `I:${cell.inv || 0}`,
+                                                        `-${cell.sap || 0}`
+                                                    ];
+                                                    if (idx > 0) parts.push(`+${cell.sapPrev || 0}`);
                                                     return (
-                                                        <div key={fino} style={{
+                                                        <div key={fase + "_" + fino} style={{
                                                             width: 90, flexShrink: 0, textAlign: "center",
                                                             fontSize: 9, color: "var(--text-muted)", fontWeight: 600
                                                         }}>
-                                                            {parts.length > 0 ? parts.join(" ") : ""}
+                                                            {parts.join(" ")}
                                                         </div>
                                                     );
                                                 })}
@@ -642,7 +652,7 @@ export default function PrioritaView({ showToast, globalDate }) {
             {selectedDetail && (
                 <div style={{
                     position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1000,
-                    display: "flex", justifyContent: "center", alignItems: "center", backdropFilter: "blur(4px)"
+                    display: "flex", flexDirection: "column", alignItems: "center", alignItems: "center", backdropFilter: "blur(4px)"
                 }} onClick={() => setSelectedDetail(null)}>
                     <div style={{
                         background: "var(--bg-card)", borderRadius: 16,
@@ -766,9 +776,18 @@ const QuickConfigModal = ({ data, onClose, onSave, showToast }) => {
                 });
             }
             for (const row of rows) {
-                const { error } = await supabase.from("material_fino_overrides")
-                    .upsert(row, { onConflict: "materiale,fino,fase" });
-                if (error) throw error;
+                const { data: existing } = await supabase.from("material_fino_overrides")
+                    .select("id")
+                    .eq("materiale", row.materiale)
+                    .eq("fase", row.fase)
+                    .eq("componente", row.componente)
+                    .maybeSingle();
+
+                if (existing) {
+                    await supabase.from("material_fino_overrides").update(row).eq("id", existing.id);
+                } else {
+                    await supabase.from("material_fino_overrides").insert(row);
+                }
             }
             showToast?.("Configurazione salvata!", "success");
             onSave();
