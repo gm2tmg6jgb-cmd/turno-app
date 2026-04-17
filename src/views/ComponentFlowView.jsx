@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { supabase, fetchAllRows } from "../lib/supabase";
 import { getCurrentWeekRange } from "../lib/dateUtils";
-import { Icons } from "../components/ui/Icons";
 import { TURNI } from "../data/constants";
 import { getSlotForGroup } from "../lib/shiftRotation";
 
@@ -30,6 +29,8 @@ const PROCESS_STEPS = [
     { id: "washing", label: "Lavaggio", code: "WSH" },
     { id: "baa", label: "BAA", code: "BAA" }
 ];
+
+const PHASE_CODE = Object.fromEntries(PROCESS_STEPS.map(step => [step.id, step.code]));
 
 const PROJECTS = ["DCT300", "DCT ECO", "8Fe", "RG + DH"];
 
@@ -110,6 +111,124 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     const refreshTick = 0;
     const [cellExclusions, setCellExclusions] = useState({});
     const [cellInclusions, setCellInclusions] = useState({});
+
+    const handlePrint = () => {
+        // Mark for printing and trigger print dialog
+        const printArea = document.querySelector('[data-print-area="boxes"]');
+        if (!printArea) {
+            alert('Elemento di stampa non trovato');
+            return;
+        }
+        window.print();
+    };
+
+    useEffect(() => {
+        // Inject print styles
+        const style = document.createElement('style');
+        style.textContent = `
+            @media print {
+                /* Hide sidebar and everything else */
+                body > * {
+                    display: none !important;
+                }
+
+                /* Show only the app content */
+                #root, main, [role="main"] {
+                    display: block !important;
+                    width: 100% !important;
+                }
+
+                /* Reset and hide everything */
+                * {
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    border: none !important;
+                }
+
+                html, body {
+                    background: white !important;
+                    color: #000 !important;
+                    width: 100% !important;
+                    height: auto !important;
+                    overflow: visible !important;
+                    margin: 0 !important;
+                    padding: 10px !important;
+                }
+
+                /* Hide sidebar navigation */
+                nav, aside, [class*="sidebar"], [class*="menu"] {
+                    display: none !important;
+                }
+
+                /* Main content area */
+                .fade-in {
+                    display: flex !important;
+                    flex-direction: column !important;
+                    align-items: center !important;
+                    justify-content: flex-start !important;
+                    width: 100% !important;
+                    height: auto !important;
+                    padding: 0 !important;
+                    overflow: visible !important;
+                    margin: 0 !important;
+                }
+
+                /* Hide header/controls */
+                .fade-in > div:first-of-type {
+                    display: none !important;
+                }
+
+                /* Print area - show only this */
+                [data-print-area="boxes"] {
+                    display: grid !important;
+                    grid-template-columns: 1fr 1fr !important;
+                    grid-template-rows: 1fr 1fr !important;
+                    gap: 15px !important;
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    height: auto !important;
+                    padding: 0 !important;
+                    overflow: visible !important;
+                    page-break-inside: avoid !important;
+                }
+
+                /* Individual project boxes */
+                [data-print-area="boxes"] > * {
+                    display: block !important;
+                    page-break-inside: avoid !important;
+                    break-inside: avoid !important;
+                    overflow: visible !important;
+                    height: auto !important;
+                }
+
+                /* Hide everything except print area */
+                .fade-in > *:not([data-print-area="boxes"]) {
+                    display: none !important;
+                }
+
+                /* Hide all modals, overlays, fixed elements */
+                [style*="position: fixed"],
+                [style*="position:fixed"],
+                [role="dialog"],
+                [class*="modal"] {
+                    display: none !important;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+        return () => {
+            try {
+                document.head.removeChild(style);
+            } catch (e) {
+                // Style might already be removed
+            }
+        };
+    }, []);
+    const [fermiByProject, setFermiByProject] = useState({});
+    const [motiviFermoList, setMotiviFermoList] = useState([]);
+    const [fermoModal, setFermoModal] = useState(null); // { project }
+    const [fermoForm, setFermoForm] = useState({ macchinaId: "", motivo: "", durata: "", note: "" });
+    const [savingFermo, setSavingFermo] = useState(false);
 
     const toggleCellExclusion = async (proj, comp, phase) => {
         const key = `${proj}:${comp}:${phase}`;
@@ -323,6 +442,21 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
 
             setMatrixData(newMatrix);
 
+            // Fetch motivi fermo e fermi del giorno
+            const [{ data: motiviRes }, { data: fermiRes }] = await Promise.all([
+                supabase.from("motivi_fermo").select("*").order("label"),
+                supabase.from("fermi_flusso").select("*").eq("data", wDate)
+            ]);
+            setMotiviFermoList(motiviRes || []);
+            // Raggruppa fermi per "proj:comp:fase"
+            const fermiGrouped = {};
+            (fermiRes || []).forEach(f => {
+                const key = `${f.progetto}:${f.componente}:${f.fase}`;
+                if (!fermiGrouped[key]) fermiGrouped[key] = [];
+                fermiGrouped[key].push(f);
+            });
+            setFermiByProject(fermiGrouped);
+
             const newCompsByProject = {};
             PROJECTS.forEach(p => {
                 const fixed = PROJECT_COMPONENTS[p] || [];
@@ -347,6 +481,35 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     useEffect(() => {
         fetchData();
     }, [wWeek, wDate, viewMode, activeProject, localTurno, dynamicOverrides, refreshTick]);
+
+    const saveFermo = async () => {
+        if (!fermoForm.motivo) { showToast?.("Seleziona un motivo", "error"); return; }
+        if (!fermoForm.durata) { showToast?.("Inserisci la durata in minuti", "error"); return; }
+        setSavingFermo(true);
+        try {
+            const { error } = await supabase.from("fermi_flusso").insert({
+                progetto: fermoModal.project,
+                componente: fermoModal.comp || null,
+                fase: fermoModal.fase || null,
+                data: wDate,
+                turno_id: localTurno !== "ALL" ? localTurno : null,
+                macchina_id: fermoForm.macchinaId.trim() || null,
+                motivo: fermoForm.motivo,
+                durata_minuti: parseInt(fermoForm.durata) || 0,
+                note: fermoForm.note || null
+            });
+            if (error) throw error;
+            showToast?.("Fermo registrato", "success");
+            setFermoModal(null);
+            setFermoForm({ macchinaId: "", motivo: "", durata: "", note: "" });
+            fetchData();
+        } catch (err) {
+            console.error(err);
+            showToast?.("Errore salvataggio fermo: " + err.message, "error");
+        } finally {
+            setSavingFermo(false);
+        }
+    };
 
     useEffect(() => {
         if (turnoCorrente) setLocalTurno(turnoCorrente);
@@ -656,13 +819,8 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                                 phaseLabel: step.label
                                                             });
                                                         } else {
-                                                            setSelectedDetail({
-                                                                title: `${comp} - ${step.label}`,
-                                                                phaseId: step.id,
-                                                                compName: comp,
-                                                                records: data?.records || [],
-                                                                project: proj
-                                                            });
+                                                            setFermoModal({ project: proj, comp, fase: step.id, phaseLabel: step.label });
+                                                            setFermoForm({ macchinaId: "", motivo: "", durata: "", note: "" });
                                                         }
                                                     }}
                                                 >
@@ -695,6 +853,26 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                                 pointerEvents: "none"
                                                             }} title="Nessun codice materiale assegnato">⚠</div>
                                                         )}
+
+                                                        {/* Badge fermo — pallino rosso se ci sono fermi per questa cella */}
+                                                        {!isConfigMode && (() => {
+                                                            const cellFermi = fermiByProject[`${proj}:${comp}:${step.id}`] || [];
+                                                            if (cellFermi.length === 0) return null;
+                                                            const totMin = cellFermi.reduce((s, f) => s + (f.durata_minuti || 0), 0);
+                                                            return (
+                                                                <div style={{
+                                                                    position: "absolute", bottom: -5, left: -5,
+                                                                    background: "#ef4444", borderRadius: "50%",
+                                                                    width: 16, height: 16, display: "flex",
+                                                                    alignItems: "center", justifyContent: "center",
+                                                                    fontSize: 8, fontWeight: 900, color: "white",
+                                                                    boxShadow: "0 2px 5px rgba(239,68,68,0.5)",
+                                                                    pointerEvents: "none"
+                                                                }} title={`${cellFermi.length} fermo/i · ${totMin}min`}>
+                                                                    {cellFermi.length}
+                                                                </div>
+                                                            );
+                                                        })()}
 
                                                         {isConfigMode && (
                                                             <>
@@ -734,6 +912,35 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                         ))}
                     </div>
                 </div>
+
+                {/* Sezione fermi — solo in espanso */}
+                {isExpanded && (() => {
+                    const projFermi = Object.entries(fermiByProject)
+                        .filter(([key]) => key.startsWith(proj + ":"))
+                        .flatMap(([key, items]) => items.map(f => ({ ...f, _key: key })));
+                    if (projFermi.length === 0) return null;
+                    return (
+                        <div style={{ borderTop: "1px solid var(--border)", padding: "12px 24px", background: "rgba(239,68,68,0.04)" }}>
+                            <div style={{ fontSize: 13, fontWeight: 800, color: "#ef4444", marginBottom: 8 }}>
+                                ⚡ Fermi — {new Date(wDate + "T12:00:00").toLocaleDateString("it-IT")} · {projFermi.reduce((s, f) => s + (f.durata_minuti || 0), 0)}min totali
+                            </div>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                                {projFermi.map((f, i) => (
+                                    <div key={i} style={{
+                                        background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)",
+                                        borderRadius: 8, padding: "6px 12px", fontSize: 12
+                                    }}>
+                                        <span style={{ fontWeight: 800, color: "var(--text-muted)", marginRight: 4 }}>{f.componente} · {PHASE_CODE[f.fase] || f.fase}</span>
+                                        <span style={{ fontWeight: 800, color: "#ef4444" }}>{f.durata_minuti}min</span>
+                                        <span style={{ color: "var(--text-primary)", marginLeft: 6 }}>{f.motivo}</span>
+                                        {f.macchina_id && <span style={{ color: "var(--text-muted)", marginLeft: 6 }}>· {f.macchina_id}</span>}
+                                        {f.note && <span style={{ color: "var(--text-muted)", marginLeft: 6, fontStyle: "italic" }}>"{f.note}"</span>}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    );
+                })()}
             </div>
         );
     };
@@ -793,7 +1000,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     <button
                         onClick={() => setIsConfigMode(!isConfigMode)}
                         className="btn"
-                        style={{ 
+                        style={{
                             padding: "8px 12px", display: "flex", alignItems: "center", gap: "6px", fontWeight: "700",
                             background: isConfigMode ? "var(--accent)" : "var(--bg-tertiary)",
                             color: isConfigMode ? "white" : "var(--text-secondary)",
@@ -802,6 +1009,20 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                         }}
                     >
                         {isConfigMode ? "✓ Fine Config" : "⚙ Configura Celle"}
+                    </button>
+
+                    <button
+                        onClick={handlePrint}
+                        className="btn"
+                        style={{
+                            padding: "8px 12px", display: "flex", alignItems: "center", gap: "6px", fontWeight: "700",
+                            background: "var(--bg-tertiary)",
+                            color: "var(--text-secondary)",
+                            border: "1px solid var(--border)"
+                        }}
+                        title="Stampa le quattro box"
+                    >
+                        🖨 Stampa
                     </button>
 
                     {viewMode === "weekly" ? (
@@ -846,35 +1067,40 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
 
             {/* Sleek Mosaic Board (High Efficiency Layout) */}
             {!loading && (
-                <div style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr",
-                    gridTemplateRows: "1fr 1fr",
-                    gap: "12px",
-                    height: "calc(100vh - 90px)",
-                    padding: "0",
-                    overflow: "hidden"
-                }}>
+                <div
+                    data-print-area="boxes"
+                    style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gridTemplateRows: "1fr 1fr",
+                        gap: "12px",
+                        height: "calc(100vh - 90px)",
+                        padding: "0",
+                        overflow: "hidden"
+                    }}>
                     {PROJECTS.map((proj) => renderProjectBox(proj))}
                 </div>
             )}
 
-            {/* Expanded Project Modal */}
+            {/* Expanded Project — centrato a schermo */}
             {expandedProject && (
-                <div style={{
-                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: "rgba(0,0,0,0.8)", zIndex: 2000,
-                    display: "flex", justifyContent: "center", alignItems: "center",
-                    backdropFilter: "blur(10px)",
-                    padding: "40px"
-                }} onClick={() => setExpandedProject(null)}>
-                    <div style={{
-                        width: "100%",
-                        height: "100%",
-                        maxWidth: "1800px",
+                <div
+                    style={{
+                        position: "fixed", inset: 0,
+                        backgroundColor: "rgba(0,0,0,0.75)",
+                        zIndex: 2000,
                         display: "flex",
-                        flexDirection: "column"
-                    }} onClick={e => e.stopPropagation()}>
+                        justifyContent: "center",
+                        alignItems: "center",
+                        backdropFilter: "blur(8px)",
+                        padding: "32px"
+                    }}
+                    onClick={() => setExpandedProject(null)}
+                >
+                    <div
+                        style={{ width: "100%", height: "100%", maxWidth: "1600px", display: "flex", flexDirection: "column" }}
+                        onClick={e => e.stopPropagation()}
+                    >
                         {renderProjectBox(expandedProject, true)}
                     </div>
                 </div>
@@ -992,12 +1218,91 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
 
             {/* Quick Config Modal (Configura Singolo) */}
             {quickConfigModal && (
-                <QuickConfigModal 
+                <QuickConfigModal
                     data={quickConfigModal}
                     onClose={() => setQuickConfigModal(null)}
                     onSave={() => { setQuickConfigModal(null); fetchData(); }}
                     showToast={showToast}
                 />
+            )}
+
+            {/* Fermo Modal */}
+            {fermoModal && (
+                <div style={{
+                    position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.6)", zIndex: 4000,
+                    display: "flex", justifyContent: "center", alignItems: "center", backdropFilter: "blur(6px)"
+                }} onClick={() => setFermoModal(null)}>
+                    <div style={{
+                        background: "var(--bg-card)", borderRadius: 16, width: 420, padding: 28,
+                        boxShadow: "0 20px 60px rgba(0,0,0,0.4)", border: "1px solid rgba(239,68,68,0.3)"
+                    }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+                            <div style={{ fontSize: 20 }}>⚡</div>
+                            <div>
+                                <div style={{ fontSize: 15, fontWeight: 800, color: "#ef4444" }}>Registra Fermo</div>
+                                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                                    {fermoModal.comp} · {PHASE_CODE[fermoModal.fase] || fermoModal.fase} · {new Date(wDate + "T12:00:00").toLocaleDateString("it-IT")}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                            <div>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>MACCHINA (opzionale)</label>
+                                <input
+                                    className="input"
+                                    placeholder="Es. FRW123"
+                                    value={fermoForm.macchinaId}
+                                    onChange={e => setFermoForm(f => ({ ...f, macchinaId: e.target.value.toUpperCase() }))}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>MOTIVO *</label>
+                                <select
+                                    className="select-input"
+                                    value={fermoForm.motivo}
+                                    onChange={e => setFermoForm(f => ({ ...f, motivo: e.target.value }))}
+                                >
+                                    <option value="">— Seleziona —</option>
+                                    {motiviFermoList.map(m => (
+                                        <option key={m.id} value={m.label}>{m.icona ? m.icona + " " : ""}{m.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>DURATA (minuti) *</label>
+                                <input
+                                    className="input"
+                                    type="number"
+                                    placeholder="Es. 30"
+                                    value={fermoForm.durata}
+                                    onChange={e => setFermoForm(f => ({ ...f, durata: e.target.value }))}
+                                />
+                            </div>
+                            <div>
+                                <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>NOTE (opzionale)</label>
+                                <input
+                                    className="input"
+                                    placeholder="Dettagli aggiuntivi..."
+                                    value={fermoForm.note}
+                                    onChange={e => setFermoForm(f => ({ ...f, note: e.target.value }))}
+                                />
+                            </div>
+                        </div>
+
+                        <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+                            <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setFermoModal(null)}>Annulla</button>
+                            <button
+                                className="btn btn-primary"
+                                style={{ flex: 1, background: "#ef4444", borderColor: "#ef4444" }}
+                                disabled={savingFermo}
+                                onClick={saveFermo}
+                            >
+                                {savingFermo ? "..." : "Salva Fermo"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
