@@ -528,6 +528,8 @@ export default function App() {
               turnoCorrente={turnoCorrente}
               motiviFermo={motiviFermo}
               tecnologie={tecnologie}
+              assegnazioni={assegnazioni}
+              dipendenti={dipendenti}
             />
           )}
           {currentView === "anagraficaMacchine" && (

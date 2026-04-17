@@ -29,6 +29,8 @@ export default function ProductionReportView({
   turnoCorrente,
   motiviFermo = [],
   tecnologie = [],
+  assegnazioni = [],
+  dipendenti = [],
 }) {
   const [activeTech, setActiveTech] = useState("TUTTO");
   const [loading, setLoading] = useState(true);
@@ -49,6 +51,8 @@ export default function ProductionReportView({
   const [editingMachine, setEditingMachine] = useState(null);
   // Local overrides for machine fino
   const [localMachineFinos, setLocalMachineFinos] = useState({});
+  // Assignments for current date
+  const [todayAssignments, setTodayAssignments] = useState([]);
 
   // Sync with global shift if it changes externally
   useEffect(() => {
@@ -224,11 +228,20 @@ export default function ProductionReportView({
 
       setRawProductionData(resProd.data || []);
       setRawDowntimeData(resDowntime.data || []);
+
+      // Filter assignments for this date and shift
+      const filtered = assegnazioni.filter(a => {
+        if (a.data !== date) return false;
+        if (selectedTurno !== "ALL" && a.turno_id !== selectedTurno) return false;
+        return true;
+      });
+      setTodayAssignments(filtered);
+
       setLoading(false);
     };
 
     fetchData();
-  }, [globalDate, selectedTurno, anagrafica]);
+  }, [globalDate, selectedTurno, anagrafica, assegnazioni]);
 
   // Dynamic Matrix Calculation based on activeTech and raw data
   const { matrice, detailedProduction, downtimeMap, detailedDowntime } = useMemo(() => {
