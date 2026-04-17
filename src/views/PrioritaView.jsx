@@ -82,6 +82,7 @@ export default function PrioritaView({ showToast, globalDate }) {
     const [selectedDetail, setSelectedDetail] = useState(null);
     const [savingCell, setSavingCell] = useState(null); // {comp, fino}
     const [cellExclusions, setCellExclusions] = useState({});
+    const [cellInclusions, setCellInclusions] = useState({});
     const [isConfigMode, setIsConfigMode] = useState(false);
     const [quickConfigModal, setQuickConfigModal] = useState(null);
     const [showDetails, setShowDetails] = useState(true);
@@ -115,14 +116,16 @@ export default function PrioritaView({ showToast, globalDate }) {
             }
 
             const { data: visRes } = await supabase.from("cell_visibility_overrides").select("*").eq("view", "lab");
-            const excl = {};
+            const excl = {}, incl = {};
             if (visRes) {
                 visRes.forEach(r => {
                     const key = `${r.componente}:${r.fase}`;
                     if (r.tipo === "exclude") excl[key] = true;
+                    else if (r.tipo === "include") incl[key] = true;
                 });
             }
             setCellExclusions(excl);
+            setCellInclusions(incl);
 
             // 2. Material_fino_overrides → sequenza finos per componente
             const { data: matOverridesRes } = await fetchAllRows(() =>
@@ -272,6 +275,52 @@ export default function PrioritaView({ showToast, globalDate }) {
         } catch (err) {
             console.error("Errore toggle visibilità:", err);
             showToast?.("Errore salvataggio visibilità", "error");
+        }
+    };
+
+    const toggleCellExclusion = async (comp, fase) => {
+        const normC = normalizeComp(comp);
+        const key = `${normC}:${fase}`;
+        const isCurrentlyExcluded = !!cellExclusions[key];
+        try {
+            if (isCurrentlyExcluded) {
+                await supabase.from("cell_visibility_overrides")
+                    .delete()
+                    .eq("view", "lab").eq("tipo", "exclude")
+                    .eq("componente", normC).eq("fase", fase);
+                setCellExclusions(prev => { const u = { ...prev }; delete u[key]; return u; });
+            } else {
+                await supabase.from("cell_visibility_overrides")
+                    .upsert({ view: "lab", tipo: "exclude", progetto: "ALL", componente: normC, fase: fase },
+                        { onConflict: "view,tipo,progetto,componente,fase" });
+                setCellExclusions(prev => ({ ...prev, [key]: true }));
+            }
+        } catch (err) {
+            console.error("Errore toggle esclusione:", err);
+            showToast?.("Errore salvataggio", "error");
+        }
+    };
+
+    const toggleCellInclusion = async (comp, fase) => {
+        const normC = normalizeComp(comp);
+        const key = `${normC}:${fase}`;
+        const isCurrentlyIncluded = !!cellInclusions[key];
+        try {
+            if (isCurrentlyIncluded) {
+                await supabase.from("cell_visibility_overrides")
+                    .delete()
+                    .eq("view", "lab").eq("tipo", "include")
+                    .eq("componente", normC).eq("fase", fase);
+                setCellInclusions(prev => { const u = { ...prev }; delete u[key]; return u; });
+            } else {
+                await supabase.from("cell_visibility_overrides")
+                    .upsert({ view: "lab", tipo: "include", progetto: "ALL", componente: normC, fase: fase },
+                        { onConflict: "view,tipo,progetto,componente,fase" });
+                setCellInclusions(prev => ({ ...prev, [key]: true }));
+            }
+        } catch (err) {
+            console.error("Errore toggle inclusione:", err);
+            showToast?.("Errore salvataggio", "error");
         }
     };
 
@@ -538,6 +587,32 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                     const isSaving = savingCell?.comp === normComp && savingCell?.fino === fino;
                                                     const isFirstFino = idx === 0;
 
+                                                    const isCellExcluded = !!cellExclusions[`${normComp}:${fase}`];
+
+                                                    // In config mode, if excluded, show "+" button instead
+                                                    if (isConfigMode && isCellExcluded) {
+                                                        return (
+                                                            <div key={fase + "_" + fino} style={{
+                                                                width: 90, flexShrink: 0, padding: "0 4px",
+                                                                borderLeft: idx > 0 ? "1px solid var(--border-light)" : "none",
+                                                                display: "flex", justifyContent: "center", alignItems: "center"
+                                                            }}>
+                                                                <div
+                                                                    onClick={() => toggleCellExclusion(normComp, fase)}
+                                                                    title="Ripristina cella"
+                                                                    style={{
+                                                                        width: "75px", height: "45px",
+                                                                        border: "2px dashed var(--accent)",
+                                                                        borderRadius: "10px",
+                                                                        display: "flex", alignItems: "center", justifyContent: "center",
+                                                                        cursor: "pointer", color: "var(--accent)", fontSize: "20px",
+                                                                        opacity: 0.5, transition: "all 0.2s"
+                                                                    }}
+                                                                >+</div>
+                                                            </div>
+                                                        );
+                                                    }
+
                                                     return (
                                                         <div key={fase + "_" + fino} style={{
                                                             width: 90, flexShrink: 0, padding: "0 4px",
@@ -545,8 +620,14 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                         }}>
                                                             {/* Cella principale — rimanenza */}
                                                             <div
-                                                                onClick={() => !isEditing && startEditing(normComp, fino, cell.inv)}
-                                                                title={isConfigMode ? "Configura fase" : "Clicca per modificare inventario fisico"}
+                                                                onClick={() => {
+                                                                    if (isConfigMode) {
+                                                                        toggleCellExclusion(normComp, fase);
+                                                                    } else if (!isEditing) {
+                                                                        startEditing(normComp, fino, cell.inv);
+                                                                    }
+                                                                }}
+                                                                title={isConfigMode ? "Clicca per escludere/ripristinare fase" : "Clicca per modificare inventario fisico"}
                                                                 style={{
                                                                     width: "100%",
                                                                     height: 50,
@@ -557,7 +638,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                     alignItems: "center",
                                                                     justifyContent: "center",
                                                                     cursor: "pointer",
-                                                                    border: `1px solid ${cell.remaining !== 0 ? theme.main + "33" : "transparent"}`,
+                                                                    border: isConfigMode ? "2px dashed var(--accent)" : `1px solid ${cell.remaining !== 0 ? theme.main + "33" : "transparent"}`,
                                                                     position: "relative",
                                                                     transition: "all 0.15s"
                                                                 }}
