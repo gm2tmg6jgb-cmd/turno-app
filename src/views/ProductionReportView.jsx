@@ -1113,20 +1113,15 @@ export default function ProductionReportView({
                               fontWeight: "400",
                               pointerEvents: "none"
                             }}>
-                              <div style={{ 
-                                whiteSpace: "nowrap", 
-                                overflow: "hidden", 
-                                textOverflow: "ellipsis", 
-                                maxWidth: "70px", 
-                                margin: "0 auto" 
+                              <div style={{
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                                maxWidth: "70px",
+                                margin: "0 auto"
                               }}>
                                 {mats.join(", ")}
                               </div>
-                              {opCodes.length > 0 && (
-                                <div style={{ color: "var(--accent)", fontSize: "8px" }}>
-                                  op: {opCodes.join("/")}
-                                </div>
-                              )}
                             </div>
                           )}
                         </td>
