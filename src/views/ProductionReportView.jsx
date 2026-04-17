@@ -1596,9 +1596,16 @@ function ComponentConfigModal({ editing, onChange, onSave, onClose, onDelete, ex
           style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--border)", marginBottom: "16px", backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: "14px" }}
         >
           <option value="">— Seleziona macchina —</option>
-          {(macchine || []).map(m => (
-            <option key={m.id} value={m.id}>{m.id} {m.nome ? `— ${m.nome}` : ""}</option>
-          ))}
+          {(() => {
+            const sorted = [...(macchine || [])].sort((a, b) => {
+              const idxA = ALL_MACHINES_ORDER.indexOf(a.id);
+              const idxB = ALL_MACHINES_ORDER.indexOf(b.id);
+              return (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+            });
+            return sorted.map(m => (
+              <option key={m.id} value={m.id}>{m.id} {m.nome ? `— ${m.nome}` : ""}</option>
+            ));
+          })()}
         </select>
 
         <label style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-muted)", display: "block", marginBottom: "4px" }}>FINO (operazione SAP) *</label>
