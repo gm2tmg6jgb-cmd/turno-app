@@ -431,7 +431,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                             boxShadow: isConfigMode ? "0 0 10px var(--accent)" : "none"
                         }}
                     >
-                        {isConfigMode ? "✓ Fine Config" : "⚙ Configura Fasi"}
+                        {isConfigMode ? "✓ Fine Config" : "⚙ Configura Celle"}
                     </button>
                 </div>
             </div>
@@ -496,7 +496,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                     if (seq.length === 0) {
                                         return (
                                             <div key={comp} style={{ padding: 20, color: "var(--text-muted)", fontSize: 13 }}>
-                                                Nessuna fase configurata per {comp}. Configura i materiali tramite ⚙ Configura Fasi.
+                                                Nessuna fase configurata per {comp}. Configura i materiali tramite ⚙ Configura Celle.
                                             </div>
                                         );
                                     }
