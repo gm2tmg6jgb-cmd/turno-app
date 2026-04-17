@@ -53,6 +53,8 @@ export default function ProductionReportView({
   const [localMachineFinos, setLocalMachineFinos] = useState({});
   // Assignments for current date
   const [todayAssignments, setTodayAssignments] = useState([]);
+  // Config mode for configuring cells
+  const [isConfigMode, setIsConfigMode] = useState(false);
 
   // Sync with global shift if it changes externally
   useEffect(() => {
@@ -294,6 +296,9 @@ export default function ProductionReportView({
         machineId = getPrimaryMachineId(cfgMatch.macchina_id);
         compKey = cfgMatch.componente;
       } else {
+        // If not in config mode, only show configured cells
+        if (!isConfigMode) return;
+
         // FALLBACK: use macchina_id from the row, then fino-based machine lookup
         machineId = rawMachineId ? getPrimaryMachineId(rawMachineId) : null;
         if (!machineId && rowFino && finoToMachineId[rowFino]) {
@@ -343,7 +348,7 @@ export default function ProductionReportView({
     });
 
     return { matrice: newMatrice, detailedProduction: newDetailedProduction, downtimeMap: newDowntimeMap, detailedDowntime: newDetailedDowntime };
-  }, [rawProductionData, rawDowntimeData, activeTech, anagrafica, tecnologie, componentConfigs, macchine, localMachineFinos]);
+  }, [rawProductionData, rawDowntimeData, activeTech, anagrafica, tecnologie, componentConfigs, macchine, localMachineFinos, isConfigMode]);
 
 
   const activeTechMachines = useMemo(() => {
@@ -637,6 +642,26 @@ export default function ProductionReportView({
                 </button>
               )}
             </div>
+            <button
+              onClick={() => setIsConfigMode(!isConfigMode)}
+              className="btn"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "10px 12px",
+                borderRadius: "8px",
+                fontWeight: "600",
+                background: isConfigMode ? "var(--accent)" : "var(--bg-tertiary)",
+                color: isConfigMode ? "white" : "var(--text-secondary)",
+                border: "1px solid var(--border)",
+                boxShadow: isConfigMode ? "0 0 10px var(--accent)" : "none",
+              }}
+              title="Configura le celle da visualizzare"
+            >
+              {isConfigMode ? "✓ Fine Config" : "⚙ Configura Celle"}
+            </button>
+
             <button
               onClick={handleSendEmail}
               className="btn btn-primary"
