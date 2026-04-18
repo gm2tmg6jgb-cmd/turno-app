@@ -28,6 +28,7 @@ const ComponentFlowView = lazy(() => import("./views/ComponentFlowView"));
 const PrioritaView = lazy(() => import("./views/PrioritaView"));
 const AnagraficaView = lazy(() => import("./views/AnagraficaView"));
 const MotiviView = lazy(() => import("./views/MotiviView"));
+const ProductionDelaysView = lazy(() => import("./views/ProductionDelaysView"));
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 export default function App() {
@@ -207,6 +208,7 @@ export default function App() {
 
   const navItems = [
     { id: "dashboard", label: "Gestione Dipendenti", icon: Icons.dashboard },
+    // DEBUG: navItems should contain productionDelays
     { id: "planning", label: "Pianificazione", icon: Icons.calendar },
     { id: "assegnazioni", label: "Assegnazioni", icon: Icons.machine, badge: alertCount || null },
     { id: "sapHub", label: "Hub SAP", icon: Icons.settings, status: "new" },
@@ -220,6 +222,7 @@ export default function App() {
     { id: "prioritiesSummary", label: "Riepilogo Priorità", icon: Icons.dashboard, status: "new" },
     { id: "productionFlowReport", label: "Flusso Report Produzione", icon: Icons.report, status: "new" },
     { id: "productionReport", label: "Report Produzione", icon: Icons.report },
+    { id: "productionDelays", label: "Gestione Ritardi", icon: Icons.alert, status: "new" },
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings },
     { id: "zones", label: "Anagrafica Zone", icon: Icons.settings },
@@ -227,6 +230,10 @@ export default function App() {
     { id: "motivi", label: "Gestione Motivi", icon: Icons.settings },
     { id: "inventory", label: "Inventario", icon: Icons.report },
   ];
+
+  // DEBUG: Log navItems to verify productionDelays is included
+  console.log('[App] navItems:', navItems.map(item => item.id));
+  console.log('[App] Has productionDelays:', navItems.some(item => item.id === 'productionDelays'));
 
   const viewTitles = {
     dashboard: "Gestione dipendenti",
@@ -239,6 +246,7 @@ export default function App() {
     prioritiesSummary: "Riepilogo Priorità Macchine",
     productionFlowReport: "Flusso Report Produzione",
     productionReport: "Report Produzione",
+    productionDelays: "Gestione Ritardi Produzione",
     fermi: "Report Fermi",
     anagrafica: "Anagrafica Dipendenti",
     anagraficaFermi: "Anagrafica Fermi Macchine",
@@ -365,6 +373,7 @@ export default function App() {
                 {renderItem(ni("prioritiesSummary"))}
                 {renderItem(ni("productionFlowReport"))}
                 {renderItem(ni("productionReport"))}
+                {renderItem(ni("productionDelays"))}
                 {renderItem(ni("lpaPlan"))}
                 {renderItem(ni("inventory"))}
 
@@ -530,6 +539,12 @@ export default function App() {
               tecnologie={tecnologie}
               assegnazioni={assegnazioni}
               dipendenti={dipendenti}
+            />
+          )}
+          {currentView === "productionDelays" && (
+            <ProductionDelaysView
+              showToast={showToast}
+              globalDate={globalDate}
             />
           )}
           {currentView === "anagraficaMacchine" && (
