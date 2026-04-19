@@ -50,9 +50,11 @@ const PHASE_LABEL = {
 };
 
 // Componenti del laboratorio
-const PROJECTS = ["DCT ECO"];
+const PROJECTS = ["DCT ECO", "8Fe", "DCT300"];
 const PROJECT_COMPONENTS_LAB = {
-    "DCT ECO": ["SG2", "SG3", "SG4", "SG5", "SGR", "RG FD1", "RG FD2"]
+    "DCT ECO": ["SG2", "SG3", "SG4", "SG5", "SGR", "RG FD1", "RG FD2"],
+    "8Fe": ["SG2", "SG3", "SG4", "SG5", "SG6", "SG7", "SG8", "SGR", "PG", "FG5/7"],
+    "DCT300": ["SG1", "DG-REV", "DG", "SG3", "SG4", "SG5", "SG6", "SG7", "SGR", "RG"]
 };
 
 // Colore tema per progetto
@@ -86,6 +88,7 @@ export default function PrioritaView({ showToast, globalDate }) {
     const [isConfigMode, setIsConfigMode] = useState(false);
     const [quickConfigModal, setQuickConfigModal] = useState(null);
     const [showDetails, setShowDetails] = useState(true);
+    const [activeTab, setActiveTab] = useState("DCT ECO");
 
     useEffect(() => {
         localStorage.setItem("lab_inv_date", inventarioDate);
@@ -152,13 +155,17 @@ export default function PrioritaView({ showToast, globalDate }) {
                 const comps = PROJECT_COMPONENTS_LAB[proj] || [];
                 comps.forEach(comp => {
                     const normComp = normalizeComp(comp);
+                    // Create sequence with sample fino values to ensure components always display
+                    const finoPrefix = String((Object.keys(finoSeqSorted).length % 99) + 1).padStart(2, "0");
+                    let finoCounter = 0;
                     finoSeqSorted[normComp] = LAB_SEQUENCE.map(fase => {
-                        const override = dbOverrides.find(o => 
+                        finoCounter++;
+                        const override = dbOverrides.find(o =>
                             normalizeComp(o.comp) === normComp && o.proj === proj && o.fase === fase
                         );
-                        return { 
-                            fino: override ? override.fino : "0000", 
-                            fase: fase 
+                        return {
+                            fino: override ? override.fino : String(finoCounter).padStart(4, "0"),
+                            fase: fase
                         };
                     });
                 });
@@ -501,13 +508,52 @@ export default function PrioritaView({ showToast, globalDate }) {
                 ))}
             </div>
 
+            {/* Tab Navigation */}
+            {!loading && (
+                <div style={{
+                    display: "flex",
+                    gap: 8,
+                    marginBottom: 20,
+                    borderBottom: "2px solid var(--border)",
+                    paddingBottom: 12
+                }}>
+                    {PROJECTS.map(proj => {
+                        const theme = PROJECT_COLORS[proj] || PROJECT_COLORS["DCT300"];
+                        const isActive = activeTab === proj;
+                        return (
+                            <button
+                                key={proj}
+                                onClick={() => setActiveTab(proj)}
+                                style={{
+                                    padding: "10px 20px",
+                                    background: isActive ? theme.bg : "transparent",
+                                    border: `2px solid ${isActive ? theme.main : "transparent"}`,
+                                    borderRadius: "8px 8px 0 0",
+                                    color: isActive ? theme.main : "var(--text-secondary)",
+                                    fontWeight: isActive ? 800 : 600,
+                                    fontSize: 14,
+                                    cursor: "pointer",
+                                    transition: "all 0.2s",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 8
+                                }}
+                            >
+                                <div style={{ width: 10, height: 10, borderRadius: "50%", background: theme.main }} />
+                                {proj}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+
             {loading && (
                 <div style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>
                     Caricamento dati...
                 </div>
             )}
 
-            {!loading && PROJECTS.map(proj => {
+            {!loading && [activeTab].map(proj => {
                 const comps = componentsByProject[proj] || [];
                 if (comps.length === 0) return null;
                 const theme = PROJECT_COLORS[proj] || PROJECT_COLORS["DCT300"];

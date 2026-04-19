@@ -75,3 +75,12 @@ export function getCurrentWeekRange() {
         sunday: getLocalDate(sunday)
     };
 }
+
+/**
+ * Returns the current week's Monday as "YYYY-MM-DD" string.
+ * Convenience function for weekly target calculations.
+ * @returns {string}
+ */
+export function getCurrentWeekMonday() {
+    return getCurrentWeekRange().monday;
+}

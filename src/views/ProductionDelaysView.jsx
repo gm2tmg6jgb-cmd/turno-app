@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
-  fetchAllInventoryCoverage,
-  fetchLineInventoryCoverage,
+  fetchProjectComponentPriorities,
   saveComponentInventory,
   saveComponentConsumption,
   calculateConsumptionFromCycleTime
 } from '../lib/inventoryCoverageCalculations';
+import { supabase } from '../lib/supabase';
 import { getLocalDate } from '../lib/dateUtils';
 
 const PROJECTS = ["DCT300", "DCT ECO", "8Fe"];
@@ -21,51 +21,56 @@ const defaultStyles = {
   header: { marginBottom: '20px', backgroundColor: 'white', padding: '15px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' },
   title: { fontSize: '24px', fontWeight: 'bold', marginBottom: '10px', color: '#333' },
   summary: { display: 'flex', gap: '20px', marginTop: '10px', flexWrap: 'wrap' },
-  summaryItem: { padding: '10px 15px', borderRadius: '4px', fontWeight: 'bold', color: 'white' },
-  criticalBadge: { backgroundColor: '#dc3545' },
+  summaryItem: { padding: '10px 15px', borderRadius: '4px', fontWeight: 'bold', color: 'white', fontSize: '14px' },
+  ritardoBadge: { backgroundColor: '#dc3545' },
   warningBadge: { backgroundColor: '#ff9800' },
   okBadge: { backgroundColor: '#28a745' },
   controls: { display: 'flex', gap: '10px', marginTop: '15px', flexWrap: 'wrap', alignItems: 'center' },
-  select: { padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: 'white', cursor: 'pointer' },
-  button: { padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold', backgroundColor: '#007bff', color: 'white' },
+  select: { padding: '8px 12px', borderRadius: '4px', border: '1px solid #ccc', backgroundColor: 'white', cursor: 'pointer', fontSize: '14px' },
+  button: { padding: '8px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 'bold', backgroundColor: '#007bff', color: 'white', fontSize: '14px' },
   buttonGreen: { backgroundColor: '#28a745' },
   buttonRed: { backgroundColor: '#dc3545' },
-  tableContainer: { backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', overflowX: 'auto' },
-  table: { width: '100%', borderCollapse: 'collapse', fontSize: '14px' },
-  th: { backgroundColor: '#f8f9fa', padding: '12px', border: '1px solid #ddd', textAlign: 'left', fontWeight: 'bold' },
-  td: { padding: '12px', border: '1px solid #ddd' },
+  tableContainer: { backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', overflowX: 'auto', marginTop: '20px' },
+  table: { width: '100%', borderCollapse: 'collapse', fontSize: '13px' },
+  th: { backgroundColor: '#f8f9fa', padding: '10px', border: '1px solid #ddd', textAlign: 'left', fontWeight: 'bold', whiteSpace: 'nowrap' },
+  td: { padding: '10px', border: '1px solid #ddd' },
   rowCritical: { backgroundColor: '#ffcccc' },
   rowWarning: { backgroundColor: '#fff4e6' },
   rowOk: { backgroundColor: '#e6ffe6' },
   modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
   modal: { backgroundColor: 'white', padding: '20px', borderRadius: '8px', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 4px 8px rgba(0,0,0,0.2)' },
-  input: { width: '100%', padding: '8px', marginBottom: '10px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box' }
+  input: { width: '100%', padding: '8px', marginBottom: '10px', border: '1px solid #ccc', borderRadius: '4px', boxSizing: 'border-box', fontSize: '14px' },
+  label: { display: 'block', marginBottom: '5px', fontWeight: 'bold', fontSize: '14px', color: '#333' }
 };
 
 const ProductionDelaysView = ({ showToast }) => {
-  const [inventoryData, setInventoryData] = useState([]);
+  const [prioritiesData, setPrioritiesData] = useState([]);
   const [filteredData, setFilteredData] = useState([]);
   const [filterProject, setFilterProject] = useState('Tutti Progetti');
   const [filterStatus, setFilterStatus] = useState('Tutti gli Status');
   const [loading, setLoading] = useState(true);
+
+  // Modali
   const [showConsumptionModal, setShowConsumptionModal] = useState(false);
   const [showInventoryModal, setShowInventoryModal] = useState(false);
+  const [showTargetModal, setShowTargetModal] = useState(false);
   const [selectedComponent, setSelectedComponent] = useState(null);
 
-  // Dati per i modal
+  // Form states
   const [consumptionForm, setConsumptionForm] = useState({ pzPerOra: '', tempoCiclo: '' });
   const [inventoryForm, setInventoryForm] = useState({ qty: '' });
+  const [targetForm, setTargetForm] = useState({ targetQty: '' });
 
-  // Load inventory data on mount
+  // Load priorities data
   const loadData = async () => {
     setLoading(true);
     try {
-      const data = await fetchAllInventoryCoverage();
-      setInventoryData(data);
+      const data = await fetchProjectComponentPriorities(PROJECT_COMPONENTS);
+      setPrioritiesData(data);
       applyFilters(data, filterProject, filterStatus);
     } catch (error) {
-      console.error('Error loading inventory:', error);
-      showToast?.('Errore caricamento dati inventario', 'error');
+      console.error('Error loading priorities:', error);
+      showToast?.('Errore caricamento dati ritardi', 'error');
     } finally {
       setLoading(false);
     }
@@ -92,7 +97,7 @@ const ProductionDelaysView = ({ showToast }) => {
   const handleFilterChange = (project, status) => {
     setFilterProject(project);
     setFilterStatus(status);
-    applyFilters(inventoryData, project, status);
+    applyFilters(prioritiesData, project, status);
   };
 
   const handleSaveConsumption = async () => {
@@ -104,7 +109,6 @@ const ProductionDelaysView = ({ showToast }) => {
     try {
       let pzPerOra = parseFloat(consumptionForm.pzPerOra);
 
-      // Se è stato inserito il tempo ciclo, calcola il consumo
       if (consumptionForm.tempoCiclo) {
         pzPerOra = calculateConsumptionFromCycleTime(parseFloat(consumptionForm.tempoCiclo));
       }
@@ -151,8 +155,48 @@ const ProductionDelaysView = ({ showToast }) => {
     }
   };
 
+  const handleSaveTarget = async () => {
+    if (!selectedComponent || !targetForm.targetQty) {
+      showToast?.('Compilare quantità target', 'error');
+      return;
+    }
+
+    try {
+      // Prendi il lunedì della settimana corrente
+      const today = new Date(getLocalDate(new Date()));
+      const day = today.getDay();
+      const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+      const monday = new Date(today);
+      monday.setDate(diff);
+      const weekStart = getLocalDate(monday);
+
+      const { error } = await supabase
+        .from('component_weekly_targets')
+        .upsert({
+          componente: selectedComponent.componente,
+          progetto: selectedComponent.progetto,
+          linea: selectedComponent.linea,
+          week_start: weekStart,
+          target_qty: parseInt(targetForm.targetQty),
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'componente,progetto,linea,week_start'
+        });
+
+      if (error) throw error;
+
+      showToast?.('Target settimanale salvato', 'success');
+      setShowTargetModal(false);
+      setTargetForm({ targetQty: '' });
+      loadData();
+    } catch (error) {
+      console.error('Error saving target:', error);
+      showToast?.('Errore salvataggio target', 'error');
+    }
+  };
+
   const summaryStats = {
-    critico: filteredData.filter(d => d.status === 'CRITICO').length,
+    ritardo: filteredData.filter(d => d.status === 'CRITICO').length,
     warning: filteredData.filter(d => d.status === 'WARNING').length,
     ok: filteredData.filter(d => d.status === 'ON_TRACK').length
   };
@@ -163,16 +207,23 @@ const ProductionDelaysView = ({ showToast }) => {
     return defaultStyles.rowOk;
   };
 
+  const getPriorityColor = (priority) => {
+    if (priority === Infinity) return '#28a745'; // OK
+    if (priority < 1) return '#dc3545'; // CRITICO
+    if (priority < 5) return '#ff9800'; // WARNING
+    return '#28a745'; // OK
+  };
+
   return (
     <div style={defaultStyles.container}>
       {/* Header */}
       <div style={defaultStyles.header}>
-        <div style={defaultStyles.title}>📊 Gestione Ritardi Produzione (Copertura Inventario)</div>
+        <div style={defaultStyles.title}>⚡ Gestione Ritardi Produzione (Priorità Settimanale)</div>
 
         {/* Summary Badges */}
         <div style={defaultStyles.summary}>
-          <div style={{ ...defaultStyles.summaryItem, ...defaultStyles.criticalBadge }}>
-            🔴 {summaryStats.critico} Critici
+          <div style={{ ...defaultStyles.summaryItem, ...defaultStyles.ritardoBadge }}>
+            🔴 {summaryStats.ritardo} Ritardo
           </div>
           <div style={{ ...defaultStyles.summaryItem, ...defaultStyles.warningBadge }}>
             🟡 {summaryStats.warning} Warning
@@ -214,7 +265,7 @@ const ProductionDelaysView = ({ showToast }) => {
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px' }}>Caricamento...</div>
       ) : filteredData.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '40px', backgroundColor: 'white', borderRadius: '8px' }}>
+        <div style={{ textAlign: 'center', padding: '40px', backgroundColor: 'white', borderRadius: '8px', marginTop: '20px' }}>
           Nessun dato disponibile
         </div>
       ) : (
@@ -227,8 +278,12 @@ const ProductionDelaysView = ({ showToast }) => {
                 <th style={defaultStyles.th}>Linea</th>
                 <th style={defaultStyles.th}>Inventario</th>
                 <th style={defaultStyles.th}>Consumo/Ora</th>
-                <th style={defaultStyles.th}>Gg Copertura</th>
-                <th style={defaultStyles.th}>Data Esaurimento</th>
+                <th style={defaultStyles.th}>Target Sett</th>
+                <th style={defaultStyles.th}>Prodotto</th>
+                <th style={defaultStyles.th}>Gap</th>
+                <th style={defaultStyles.th}>Gg Recuperare</th>
+                <th style={defaultStyles.th}>Priority</th>
+                <th style={defaultStyles.th}>Copertura (gg)</th>
                 <th style={defaultStyles.th}>Status</th>
                 <th style={defaultStyles.th}>Azioni</th>
               </tr>
@@ -241,18 +296,27 @@ const ProductionDelaysView = ({ showToast }) => {
                   <td style={defaultStyles.td}>{item.linea}</td>
                   <td style={defaultStyles.td}>{item.qty_disponibile} pz</td>
                   <td style={defaultStyles.td}>{item.pz_per_ora || '-'} pz/ora</td>
+                  <td style={defaultStyles.td}><strong>{item.target_qty} pz</strong></td>
+                  <td style={defaultStyles.td}>{item.produced} pz</td>
+                  <td style={defaultStyles.td}><strong style={{ color: item.gap > 0 ? '#dc3545' : '#28a745' }}>{item.gap} pz</strong></td>
+                  <td style={defaultStyles.td}>{item.days_to_recover}</td>
+                  <td style={defaultStyles.td}>
+                    <strong style={{ color: getPriorityColor(item.priority) }}>
+                      {item.priority === Infinity ? '∞' : item.priority.toFixed(2)}
+                    </strong>
+                  </td>
                   <td style={defaultStyles.td}>
                     <strong>
                       {item.coverage_days === Infinity ? '∞' : `${item.coverage_days}`}
                     </strong>
                   </td>
-                  <td style={defaultStyles.td}>{item.stockout_date || '-'}</td>
                   <td style={defaultStyles.td}>
                     <span style={{
                       padding: '4px 8px',
                       borderRadius: '4px',
                       fontWeight: 'bold',
                       color: 'white',
+                      fontSize: '12px',
                       backgroundColor: item.status === 'CRITICO' ? '#dc3545' : item.status === 'WARNING' ? '#ff9800' : '#28a745'
                     }}>
                       {item.status === 'CRITICO' ? '🔴' : item.status === 'WARNING' ? '🟡' : '🟢'} {item.status}
@@ -260,7 +324,18 @@ const ProductionDelaysView = ({ showToast }) => {
                   </td>
                   <td style={defaultStyles.td}>
                     <button
-                      style={{ ...defaultStyles.button, fontSize: '12px', marginRight: '5px' }}
+                      style={{ ...defaultStyles.button, fontSize: '11px', marginRight: '3px', padding: '5px 8px' }}
+                      onClick={() => {
+                        setSelectedComponent(item);
+                        setTargetForm({ targetQty: item.target_qty || '' });
+                        setShowTargetModal(true);
+                      }}
+                      title="Configura target settimanale"
+                    >
+                      Target
+                    </button>
+                    <button
+                      style={{ ...defaultStyles.button, fontSize: '11px', marginRight: '3px', padding: '5px 8px' }}
                       onClick={() => {
                         setSelectedComponent(item);
                         setConsumptionForm({ pzPerOra: item.pz_per_ora || '', tempoCiclo: '' });
@@ -270,7 +345,7 @@ const ProductionDelaysView = ({ showToast }) => {
                       Consumo
                     </button>
                     <button
-                      style={{ ...defaultStyles.button, ...defaultStyles.buttonGreen, fontSize: '12px' }}
+                      style={{ ...defaultStyles.button, ...defaultStyles.buttonGreen, fontSize: '11px', padding: '5px 8px' }}
                       onClick={() => {
                         setSelectedComponent(item);
                         setInventoryForm({ qty: item.qty_disponibile });
@@ -287,6 +362,30 @@ const ProductionDelaysView = ({ showToast }) => {
         </div>
       )}
 
+      {/* Target Modal */}
+      {showTargetModal && (
+        <div style={defaultStyles.modalOverlay} onClick={() => setShowTargetModal(false)}>
+          <div style={defaultStyles.modal} onClick={(e) => e.stopPropagation()}>
+            <h3>Configura Target Settimanale</h3>
+            <p><strong>{selectedComponent?.componente}</strong> - {selectedComponent?.progetto} ({selectedComponent?.linea})</p>
+
+            <label style={defaultStyles.label}>Quantità Target per Settimana (pz):</label>
+            <input
+              type="number"
+              style={defaultStyles.input}
+              placeholder="Es: 500"
+              value={targetForm.targetQty}
+              onChange={(e) => setTargetForm({ targetQty: e.target.value })}
+            />
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+              <button style={defaultStyles.button} onClick={handleSaveTarget}>Salva</button>
+              <button style={{ ...defaultStyles.button, ...defaultStyles.buttonRed }} onClick={() => setShowTargetModal(false)}>Annulla</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Consumption Modal */}
       {showConsumptionModal && (
         <div style={defaultStyles.modalOverlay} onClick={() => setShowConsumptionModal(false)}>
@@ -294,7 +393,7 @@ const ProductionDelaysView = ({ showToast }) => {
             <h3>Configura Consumo Orario</h3>
             <p><strong>{selectedComponent?.componente}</strong> - {selectedComponent?.progetto} ({selectedComponent?.linea})</p>
 
-            <label>Consumo (pz/ora):</label>
+            <label style={defaultStyles.label}>Consumo (pz/ora):</label>
             <input
               type="number"
               style={defaultStyles.input}
@@ -304,7 +403,7 @@ const ProductionDelaysView = ({ showToast }) => {
               step="0.1"
             />
 
-            <label>Oppure Tempo Ciclo (minuti):</label>
+            <label style={defaultStyles.label}>Oppure Tempo Ciclo (minuti):</label>
             <input
               type="number"
               style={defaultStyles.input}
@@ -330,7 +429,7 @@ const ProductionDelaysView = ({ showToast }) => {
             <h3>Aggiorna Inventario</h3>
             <p><strong>{selectedComponent?.componente}</strong> - {selectedComponent?.progetto} ({selectedComponent?.linea})</p>
 
-            <label>Quantità Disponibile (pz):</label>
+            <label style={defaultStyles.label}>Quantità Disponibile (pz):</label>
             <input
               type="number"
               style={defaultStyles.input}
