@@ -498,16 +498,17 @@ export default function PrioritaView({ showToast, globalDate }) {
                     <button
                         onClick={() => setIsConfigMode(!isConfigMode)}
                         className="btn"
+                        title={isConfigMode ? "Esci dalla configurazione" : "Configura celle"}
                         style={{
-                            padding: "8px 12px", display: "flex", alignItems: "center", gap: 6,
-                            fontWeight: 700,
+                            padding: "8px 14px", display: "flex", alignItems: "center", gap: 6,
+                            fontWeight: 700, fontSize: 16,
                             background: isConfigMode ? "var(--accent)" : "var(--bg-tertiary)",
                             color: isConfigMode ? "white" : "var(--text-secondary)",
                             border: "1px solid var(--border)",
                             boxShadow: isConfigMode ? "0 0 10px var(--accent)" : "none"
                         }}
                     >
-                        {isConfigMode ? "✓ Fine Config" : "⚙ Configura Celle"}
+                        {isConfigMode ? "✓" : "⚙️"}
                     </button>
                 </div>
             </div>
