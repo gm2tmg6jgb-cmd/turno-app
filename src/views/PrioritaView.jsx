@@ -98,6 +98,26 @@ export default function PrioritaView({ showToast, globalDate }) {
         if (globalDate) setInventarioDate(globalDate);
     }, [globalDate]);
 
+    useEffect(() => {
+        if (!isConfigMode) {
+            // Reload exclusion/inclusion data when exiting config mode to show saved changes
+            const loadVisibility = async () => {
+                const { data: visRes } = await supabase.from("cell_visibility_overrides").select("*").eq("view", "lab");
+                const excl = {}, incl = {};
+                if (visRes) {
+                    visRes.forEach(r => {
+                        const key = `${r.componente}:${r.fase}`;
+                        if (r.tipo === "exclude") excl[key] = true;
+                        else if (r.tipo === "include") incl[key] = true;
+                    });
+                }
+                setCellExclusions(excl);
+                setCellInclusions(incl);
+            };
+            loadVisibility();
+        }
+    }, [isConfigMode]);
+
     const fetchData = async () => {
         setLoading(true);
         try {
