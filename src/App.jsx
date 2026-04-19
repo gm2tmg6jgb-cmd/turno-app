@@ -375,7 +375,6 @@ export default function App() {
                 {renderItem(ni("sapHub"))}
                 {renderItem(ni("componentFlow"))}
                 {renderItem(ni("priorita"))}
-                {renderItem(ni("weisserPriorities"))}
                 {renderItem(ni("prioritiesSummary"))}
                 {renderItem(ni("productionFlowReport"))}
                 {renderItem(ni("productionReport"))}
@@ -383,7 +382,6 @@ export default function App() {
                 {renderItem(ni("productionSchedule"))}
                 {renderItem(ni("nuovaPianificazione"))}
                 {renderItem(ni("lpaPlan"))}
-                {renderItem(ni("inventory"))}
 
                 <div className="nav-section-label">Anagrafiche</div>
                 {renderItem(ni("anagraficaMacchine"))}
