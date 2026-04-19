@@ -375,7 +375,6 @@ export default function App() {
                 {renderItem(ni("priorita"))}
                 {renderItem(ni("productionFlowReport"))}
                 {renderItem(ni("productionReport"))}
-                {renderItem(ni("productionDelays"))}
                 {renderItem(ni("productionSchedule"))}
                 {renderItem(ni("nuovaPianificazione"))}
                 {renderItem(ni("lpaPlan"))}
