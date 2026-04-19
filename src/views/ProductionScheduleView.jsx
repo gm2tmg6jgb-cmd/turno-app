@@ -94,6 +94,11 @@ const getDelayColor = (delayDays) => {
   return { backgroundColor: '#ffccbc', color: '#d32f2f', fontWeight: 'bold' };
 };
 
+const getPhaseLabel = (phaseColumn) => {
+  const labels = { 'sg1': 'SG1', 'dg2': 'DG2', 'sg3': 'SG3', 'sg4': 'SG4', 'sg5': 'SG5', 'sg6': 'SG6', 'sg7': 'SG7', 'rg': 'RG' };
+  return labels[phaseColumn] || phaseColumn.toUpperCase();
+};
+
 const ProductionScheduleView = ({ showToast }) => {
   const [selectedRow, setSelectedRow] = useState(null);
   const [modalData, setModalData] = useState(null);
@@ -279,9 +284,7 @@ const ProductionScheduleView = ({ showToast }) => {
                       <th style={{ padding: '8px', textAlign: 'left', borderRight: '1px solid #ccc' }}>Data Sched.</th>
                       <th style={{ padding: '8px', textAlign: 'left', borderRight: '1px solid #ccc' }}>Variante</th>
                       <th style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ccc' }}>Qty</th>
-                      <th style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ccc' }}>SG1</th>
-                      <th style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ccc' }}>DG2</th>
-                      <th style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ccc' }}>SG3</th>
+                      <th style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ccc' }}>{getPhaseLabel(modalData.phaseColumn)}</th>
                       <th style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ccc' }}>Ritardo (gg)</th>
                       <th style={{ padding: '8px', textAlign: 'center' }}>Stato</th>
                     </tr>
@@ -289,20 +292,19 @@ const ProductionScheduleView = ({ showToast }) => {
                   <tbody>
                     {modalData.rows.map((row, idx) => {
                       const delayDays = calculateDelayDays(row.date, modalData.inventory.dateArrived);
+                      const phaseValue = row[modalData.phaseColumn];
                       return (
-                      <tr key={row.id} style={{ borderBottom: '1px solid #ddd', backgroundColor: row[modalData.phaseColumn] === modalData.phase ? '#fff9c4' : (idx % 2 === 0 ? '#fafafa' : 'white') }}>
+                      <tr key={row.id} style={{ borderBottom: '1px solid #ddd', backgroundColor: phaseValue === modalData.phase ? '#fff9c4' : (idx % 2 === 0 ? '#fafafa' : 'white') }}>
                         <td style={{ padding: '8px', borderRight: '1px solid #ddd', fontWeight: 'bold' }}>{row.line}</td>
                         <td style={{ padding: '8px', borderRight: '1px solid #ddd', fontSize: '10px' }}>{row.date} {row.time}</td>
                         <td style={{ padding: '8px', borderRight: '1px solid #ddd', fontSize: '10px' }}>{row.variant}</td>
                         <td style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ddd', fontWeight: 'bold', color: '#2196F3' }}>{row.qty}</td>
-                        <td style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ddd', ...getStatusColor(row.sg1), fontSize: '10px' }}>{row.sg1}</td>
-                        <td style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ddd', ...getStatusColor(row.dg2), fontSize: '10px' }}>{row.dg2}</td>
-                        <td style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ddd', ...getStatusColor(row.sg3), fontSize: '10px' }}>{row.sg3}</td>
+                        <td style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ddd', ...getStatusColor(phaseValue), fontSize: '10px' }}>{phaseValue}</td>
                         <td style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ddd', ...getDelayColor(delayDays), fontSize: '11px', borderRadius: '4px' }}>
                           {delayDays > 0 ? `+${delayDays}gg` : (delayDays === 0 ? 'On-time' : `${delayDays}gg`)}
                         </td>
-                        <td style={{ padding: '8px', textAlign: 'center', color: row[modalData.phaseColumn] === modalData.phase ? '#4CAF50' : '#999', fontWeight: 'bold' }}>
-                          {row[modalData.phaseColumn] === modalData.phase ? '✓ QUI' : '→ Dopo'}
+                        <td style={{ padding: '8px', textAlign: 'center', color: phaseValue === modalData.phase ? '#4CAF50' : '#999', fontWeight: 'bold' }}>
+                          {phaseValue === modalData.phase ? '✓ QUI' : '→ Dopo'}
                         </td>
                       </tr>
                     );
