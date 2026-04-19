@@ -99,6 +99,55 @@ const getPhaseLabel = (phaseColumn) => {
   return labels[phaseColumn] || phaseColumn.toUpperCase();
 };
 
+// Pipeline sequenze per fase: sequenza di stazioni e loro inventari mock
+const PHASE_PIPELINES = {
+  'sg1': {
+    stations: ['DRA', 'SCA', 'FRW', 'HOK', 'OKU', 'DRA', 'SLW', 'WSH'],
+    stationNames: ['Start Hard', 'Laser Welding', 'Hobbing', 'To Be Treated', 'Shot Peening', 'Start Hard 2', 'Teeth Grinding', 'Washing'],
+    inventory: { 'DRA': 431, 'SCA': 179, 'FRW': 320, 'HOK': 410, 'OKU': 486, 'SLW': 349, 'WSH': 895 } // mock per SG1
+  },
+  'sg2': {
+    stations: ['DRA', 'SCA', 'FRW', 'HOK', 'OKU', 'SLW', 'WSH'],
+    stationNames: ['Start', 'Laser', 'Freasatura', 'Trattamento', 'Pallinatura', 'Grinding', 'Washing'],
+    inventory: { 'DRA': 500, 'SCA': 450, 'FRW': 380, 'HOK': 420, 'OKU': 510, 'SLW': 290, 'WSH': 1200 }
+  }
+};
+
+// Calcola tracciamento ritroso della pipeline (trovando il bottleneck)
+const calculateBackwardsPipeline = (phaseColumn, totalRequired, pipelineData) => {
+  if (!pipelineData) return null;
+
+  const stations = pipelineData.stations;
+  const stationInventories = pipelineData.inventory;
+
+  // Crea array di stazioni con i loro inventari
+  const stationDetails = stations.map(station => ({
+    code: station,
+    name: pipelineData.stationNames[stations.indexOf(station)],
+    inventory: stationInventories[station] || 0
+  }));
+
+  // Trova il bottleneck (stazione con meno pezzi)
+  const bottleneck = stationDetails.reduce((min, station) =>
+    station.inventory < min.inventory ? station : min
+  );
+
+  // Calcola quanto può passare realmente attraverso la pipeline
+  const maxCapacity = bottleneck.inventory;
+  const actualCapacity = Math.min(maxCapacity, totalRequired);
+  const deficit = Math.max(0, totalRequired - maxCapacity);
+
+  return {
+    stations: stationDetails,
+    bottleneck,
+    totalRequired,
+    maxCapacity,
+    actualCapacity,
+    deficit,
+    percentage: totalRequired > 0 ? Math.round((actualCapacity / totalRequired) * 100) : 0
+  };
+};
+
 const ProductionScheduleView = ({ showToast }) => {
   const [selectedRow, setSelectedRow] = useState(null);
   const [modalData, setModalData] = useState(null);
@@ -110,7 +159,11 @@ const ProductionScheduleView = ({ showToast }) => {
     'Linea 2': PRODUCTION_DATA.filter(d => d.line === 'Linea 2')
   };
 
-  const startEditingQty = (rowId, currentQty) => {
+  const startEditingQty = (rowId, currentQty, e) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
     setEditingCell(rowId);
     setEditingValue(String(currentQty));
   };
@@ -154,9 +207,20 @@ const ProductionScheduleView = ({ showToast }) => {
       machine: 'N/A'
     };
 
-    // Calcola copertura %
-    const coverage = totalQtyRequired > 0 ? Math.round((inventoryInfo.qty / totalQtyRequired) * 100) : 0;
-    const shortage = Math.max(0, totalQtyRequired - inventoryInfo.qty);
+    // Calcola tracciamento ritroso della pipeline
+    const pipelineData = PHASE_PIPELINES[phaseColumn];
+    const backwardsAnalysis = calculateBackwardsPipeline(phaseColumn, totalQtyRequired, pipelineData);
+
+    // Calcola copertura % usando il bottleneck della pipeline, o il vecchio metodo se non disponibile
+    let coverage, shortage;
+    if (backwardsAnalysis) {
+      coverage = backwardsAnalysis.percentage;
+      shortage = backwardsAnalysis.deficit;
+    } else {
+      // Fallback al vecchio calcolo per fasi senza pipeline definita
+      coverage = totalQtyRequired > 0 ? Math.round((inventoryInfo.qty / totalQtyRequired) * 100) : 0;
+      shortage = Math.max(0, totalQtyRequired - inventoryInfo.qty);
+    }
 
     // Breakdown per linea
     const breakdownPerLine = {};
@@ -187,6 +251,7 @@ const ProductionScheduleView = ({ showToast }) => {
       shortage,
       breakdownPerLine,
       breakdownPerVariant,
+      backwardsAnalysis,
       delayDays: calculateDelayDays(pipelineRows[0]?.date, inventoryInfo.dateArrived)
     });
   };
@@ -251,6 +316,63 @@ const ProductionScheduleView = ({ showToast }) => {
                 </div>
               </div>
             </div>
+
+            {/* Pipeline Sequenza */}
+            {modalData.backwardsAnalysis && (
+              <div style={{ marginBottom: '20px', backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '6px', border: '1px solid #ddd' }}>
+                <h3 style={{ margin: '0 0 15px 0', color: '#333' }}>🔄 Sequenza Pipeline (Tracciamento Ritroso)</h3>
+
+                <div style={{ marginBottom: '15px' }}>
+                  <strong style={{ fontSize: '12px', color: '#666' }}>Stazioni in sequenza:</strong>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '10px', alignItems: 'center' }}>
+                    {modalData.backwardsAnalysis.stations.map((station, idx) => {
+                      const isBottleneck = station.code === modalData.backwardsAnalysis.bottleneck.code;
+                      return (
+                        <React.Fragment key={station.code}>
+                          <div style={{
+                            backgroundColor: isBottleneck ? '#ffccbc' : '#e3f2fd',
+                            border: isBottleneck ? '2px solid #ff7043' : '1px solid #90caf9',
+                            borderRadius: '6px',
+                            padding: '10px 12px',
+                            textAlign: 'center',
+                            minWidth: '70px',
+                            boxShadow: isBottleneck ? '0 2px 4px rgba(255, 112, 67, 0.3)' : 'none'
+                          }}>
+                            <div style={{ fontWeight: 'bold', fontSize: '13px', color: '#333' }}>{station.code}</div>
+                            <div style={{ fontSize: '11px', color: isBottleneck ? '#d32f2f' : '#1976d2', fontWeight: isBottleneck ? 'bold' : 'normal' }}>
+                              {station.inventory} pz
+                            </div>
+                            {isBottleneck && <div style={{ fontSize: '10px', color: '#d32f2f', marginTop: '4px' }}>⚠️ COLLO DI BOTTIGLIA</div>}
+                          </div>
+                          {idx < modalData.backwardsAnalysis.stations.length - 1 && (
+                            <div style={{ fontSize: '18px', color: '#999' }}>→</div>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+                  <div style={{ backgroundColor: 'white', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}>
+                    <div style={{ fontSize: '11px', color: '#666' }}>Richiesti</div>
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2196F3' }}>{modalData.backwardsAnalysis.totalRequired}</div>
+                  </div>
+                  <div style={{ backgroundColor: 'white', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}>
+                    <div style={{ fontSize: '11px', color: '#666' }}>Processabili (bottleneck)</div>
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: modalData.backwardsAnalysis.deficit > 0 ? '#ff7043' : '#4CAF50' }}>
+                      {modalData.backwardsAnalysis.actualCapacity}
+                    </div>
+                  </div>
+                  <div style={{ backgroundColor: 'white', padding: '10px', borderRadius: '4px', border: '1px solid #ddd', gridColumn: '1 / -1' }}>
+                    <div style={{ fontSize: '11px', color: '#666' }}>Deficit</div>
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: modalData.backwardsAnalysis.deficit > 0 ? '#d32f2f' : '#4CAF50' }}>
+                      {modalData.backwardsAnalysis.deficit} pezzi ({100 - modalData.backwardsAnalysis.percentage}% mancante)
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Breakdown per Linea */}
             <div style={{ marginBottom: '20px' }}>
