@@ -218,7 +218,7 @@ export default function App() {
     { id: "skills", label: "Competenze", icon: Icons.brain },
     { id: "formazione", label: "Formazione", icon: Icons.academic },
     { id: "lpaPlan", label: "Piano LPA", icon: Icons.calendar },
-    { id: "componentFlow", label: "Avanzamento Componenti", icon: Icons.report, status: "new" },
+    { id: "componentFlow", label: "Report di Produzione", icon: Icons.report, status: "new" },
     { id: "priorita", label: "Laboratorio Attualizzato Beta", icon: Icons.filter },
     { id: "weisserPriorities", label: "Priorità Macchine", icon: Icons.filter },
     { id: "prioritiesSummary", label: "Riepilogo Priorità", icon: Icons.dashboard, status: "new" },
