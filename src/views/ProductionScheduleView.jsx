@@ -14,23 +14,23 @@ const defaultStyles = {
   sectionHeader: { backgroundColor: '#d3d3d3', fontWeight: 'bold', fontSize: '12px', padding: '8px 4px', border: '1px solid #999' }
 };
 
-// Dati di inventario mock dal Laboratorio (sarà collegato ai dati reali dopo)
+// Dati di inventario mock dal Laboratorio (con date effettive da inventario)
 const INVENTORY_DATA = {
-  'EMAG': { qty: 1250, location: 'Cella EMAG', status: 'In lavorazione', machine: 'EMAG Station' },
-  'DA LAVARE': { qty: 890, location: 'Lavaggio', status: 'In coda', machine: 'Wash Station' },
-  'DA TRATTARE': { qty: 560, location: 'Trattamento', status: 'In coda', machine: 'Treatment' },
-  'LASER': { qty: 2340, location: 'Laser Room', status: 'In lavorazione', machine: 'LASER DCT 300' },
-  'FINITI': { qty: 5600, location: 'Magazzino', status: 'Completato', machine: 'Storage' },
-  'AC1': { qty: 1200, location: 'AC1 Station', status: 'In lavorazione', machine: 'AC1 Cell' },
-  'START': { qty: 450, location: 'Start Area', status: 'Non avviato', machine: 'Start Station' },
-  'PFAUTER DG': { qty: 340, location: 'Pfauter DG', status: 'In lavorazione', machine: 'PFAUTER DG' },
-  'RH160': { qty: 280, location: 'RH160', status: 'In lavorazione', machine: 'RH160 Station' },
-  'DG cor SCA11006': { qty: 620, location: 'DG Correction', status: 'In lavorazione', machine: 'DG Station' },
-  'IN TRATT.': { qty: 180, location: 'In Trattamento', status: 'In lavorazione', machine: 'Treatment Station' },
-  'US': { qty: 90, location: 'US Cleaning', status: 'In lavorazione', machine: 'US Station' },
-  'DA PALLIN.': { qty: 140, location: 'Pallinatura', status: 'In coda', machine: 'Pallinatura' },
-  'DA DENTARE': { qty: 500, location: 'Dentatura', status: 'In coda', machine: 'Dentatura Station' },
-  'STROZZA': { qty: 200, location: 'Strozzatura', status: 'In lavorazione', machine: 'Strozzatura' }
+  'EMAG': { qty: 1250, location: 'Cella EMAG', status: 'In lavorazione', machine: 'EMAG Station', dateArrived: '2026-04-18' },
+  'DA LAVARE': { qty: 890, location: 'Lavaggio', status: 'In coda', machine: 'Wash Station', dateArrived: '2026-04-19' },
+  'DA TRATTARE': { qty: 560, location: 'Trattamento', status: 'In coda', machine: 'Treatment', dateArrived: '2026-04-19' },
+  'LASER': { qty: 2340, location: 'Laser Room', status: 'In lavorazione', machine: 'LASER DCT 300', dateArrived: '2026-04-17' },
+  'FINITI': { qty: 5600, location: 'Magazzino', status: 'Completato', machine: 'Storage', dateArrived: '2026-04-16' },
+  'AC1': { qty: 1200, location: 'AC1 Station', status: 'In lavorazione', machine: 'AC1 Cell', dateArrived: '2026-04-18' },
+  'START': { qty: 450, location: 'Start Area', status: 'Non avviato', machine: 'Start Station', dateArrived: '2026-04-20' },
+  'PFAUTER DG': { qty: 340, location: 'Pfauter DG', status: 'In lavorazione', machine: 'PFAUTER DG', dateArrived: '2026-04-18' },
+  'RH160': { qty: 280, location: 'RH160', status: 'In lavorazione', machine: 'RH160 Station', dateArrived: '2026-04-19' },
+  'DG cor SCA11006': { qty: 620, location: 'DG Correction', status: 'In lavorazione', machine: 'DG Station', dateArrived: '2026-04-19' },
+  'IN TRATT.': { qty: 180, location: 'In Trattamento', status: 'In lavorazione', machine: 'Treatment Station', dateArrived: '2026-04-20' },
+  'US': { qty: 90, location: 'US Cleaning', status: 'In lavorazione', machine: 'US Station', dateArrived: '2026-04-20' },
+  'DA PALLIN.': { qty: 140, location: 'Pallinatura', status: 'In coda', machine: 'Pallinatura', dateArrived: '2026-04-21' },
+  'DA DENTARE': { qty: 500, location: 'Dentatura', status: 'In coda', machine: 'Dentatura Station', dateArrived: '2026-04-20' },
+  'STROZZA': { qty: 200, location: 'Strozzatura', status: 'In lavorazione', machine: 'Strozzatura', dateArrived: '2026-04-21' }
 };
 
 const PRODUCTION_DATA = [
@@ -78,6 +78,20 @@ const getStatusColor = (status) => {
   if (upper.includes('FINITI') || upper === 'AC1') return defaultStyles.cellGreen;
   if (upper.includes('EMAG') || upper.includes('RH160') || upper.includes('PFAUTER') || upper.includes('PALLIN') || upper.includes('DENTARE') || upper.includes('STOZZA')) return defaultStyles.cellYellow;
   return defaultStyles.cellWhite;
+};
+
+const calculateDelayDays = (scheduledDate, actualDate) => {
+  if (!scheduledDate || !actualDate) return 0;
+  const sched = new Date(scheduledDate);
+  const actual = new Date(actualDate);
+  const diffTime = actual - sched;
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+};
+
+const getDelayColor = (delayDays) => {
+  if (delayDays <= 0) return { backgroundColor: '#c8e6c9', color: '#2e7d32', fontWeight: 'bold' };
+  if (delayDays <= 3) return { backgroundColor: '#fff9c4', color: '#f57f17', fontWeight: 'bold' };
+  return { backgroundColor: '#ffccbc', color: '#d32f2f', fontWeight: 'bold' };
 };
 
 const ProductionScheduleView = ({ showToast }) => {
@@ -139,7 +153,8 @@ const ProductionScheduleView = ({ showToast }) => {
       coverage,
       shortage,
       breakdownPerLine,
-      breakdownPerVariant
+      breakdownPerVariant,
+      delayDays: calculateDelayDays(pipelineRows[0]?.date, inventoryInfo.dateArrived)
     });
   };
 
@@ -261,17 +276,20 @@ const ProductionScheduleView = ({ showToast }) => {
                   <thead style={{ position: 'sticky', top: 0 }}>
                     <tr style={{ backgroundColor: '#f0f0f0', borderBottom: '2px solid #999' }}>
                       <th style={{ padding: '8px', textAlign: 'left', borderRight: '1px solid #ccc' }}>Linea</th>
-                      <th style={{ padding: '8px', textAlign: 'left', borderRight: '1px solid #ccc' }}>Data</th>
+                      <th style={{ padding: '8px', textAlign: 'left', borderRight: '1px solid #ccc' }}>Data Sched.</th>
                       <th style={{ padding: '8px', textAlign: 'left', borderRight: '1px solid #ccc' }}>Variante</th>
                       <th style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ccc' }}>Qty</th>
                       <th style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ccc' }}>SG1</th>
                       <th style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ccc' }}>DG2</th>
                       <th style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ccc' }}>SG3</th>
+                      <th style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ccc' }}>Ritardo (gg)</th>
                       <th style={{ padding: '8px', textAlign: 'center' }}>Stato</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {modalData.rows.map((row, idx) => (
+                    {modalData.rows.map((row, idx) => {
+                      const delayDays = calculateDelayDays(row.date, modalData.inventory.dateArrived);
+                      return (
                       <tr key={row.id} style={{ borderBottom: '1px solid #ddd', backgroundColor: row[modalData.phaseColumn] === modalData.phase ? '#fff9c4' : (idx % 2 === 0 ? '#fafafa' : 'white') }}>
                         <td style={{ padding: '8px', borderRight: '1px solid #ddd', fontWeight: 'bold' }}>{row.line}</td>
                         <td style={{ padding: '8px', borderRight: '1px solid #ddd', fontSize: '10px' }}>{row.date} {row.time}</td>
@@ -280,11 +298,15 @@ const ProductionScheduleView = ({ showToast }) => {
                         <td style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ddd', ...getStatusColor(row.sg1), fontSize: '10px' }}>{row.sg1}</td>
                         <td style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ddd', ...getStatusColor(row.dg2), fontSize: '10px' }}>{row.dg2}</td>
                         <td style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ddd', ...getStatusColor(row.sg3), fontSize: '10px' }}>{row.sg3}</td>
+                        <td style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ddd', ...getDelayColor(delayDays), fontSize: '11px', borderRadius: '4px' }}>
+                          {delayDays > 0 ? `+${delayDays}gg` : (delayDays === 0 ? 'On-time' : `${delayDays}gg`)}
+                        </td>
                         <td style={{ padding: '8px', textAlign: 'center', color: row[modalData.phaseColumn] === modalData.phase ? '#4CAF50' : '#999', fontWeight: 'bold' }}>
                           {row[modalData.phaseColumn] === modalData.phase ? '✓ QUI' : '→ Dopo'}
                         </td>
                       </tr>
-                    ))}
+                    );
+                    })}
                   </tbody>
                 </table>
               </div>
