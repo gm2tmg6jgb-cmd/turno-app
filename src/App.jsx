@@ -30,6 +30,7 @@ const AnagraficaView = lazy(() => import("./views/AnagraficaView"));
 const MotiviView = lazy(() => import("./views/MotiviView"));
 const ProductionDelaysView = lazy(() => import("./views/ProductionDelaysView"));
 const ProductionScheduleView = lazy(() => import("./views/ProductionScheduleView"));
+const NuovaPianificazioneView = lazy(() => import("./views/NuovaPianificazioneView"));
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 export default function App() {
@@ -225,6 +226,7 @@ export default function App() {
     { id: "productionReport", label: "Report Produzione", icon: Icons.report },
     { id: "productionDelays", label: "Gestione Ritardi", icon: Icons.alert, status: "new" },
     { id: "productionSchedule", label: "Programma Produzione", icon: Icons.calendar, status: "new" },
+    { id: "nuovaPianificazione", label: "Nuova Pianificazione", icon: Icons.calendar, status: "new" },
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings },
     { id: "zones", label: "Anagrafica Zone", icon: Icons.settings },
@@ -250,6 +252,7 @@ export default function App() {
     productionReport: "Report Produzione",
     productionDelays: "Gestione Ritardi Produzione",
     productionSchedule: "Programma Produzione",
+    nuovaPianificazione: "Nuova Pianificazione Produzione",
     fermi: "Report Fermi",
     anagrafica: "Anagrafica Dipendenti",
     anagraficaFermi: "Anagrafica Fermi Macchine",
@@ -378,6 +381,7 @@ export default function App() {
                 {renderItem(ni("productionReport"))}
                 {renderItem(ni("productionDelays"))}
                 {renderItem(ni("productionSchedule"))}
+                {renderItem(ni("nuovaPianificazione"))}
                 {renderItem(ni("lpaPlan"))}
                 {renderItem(ni("inventory"))}
 
@@ -553,6 +557,9 @@ export default function App() {
           )}
           {currentView === "productionSchedule" && (
             <ProductionScheduleView showToast={showToast} />
+          )}
+          {currentView === "nuovaPianificazione" && (
+            <NuovaPianificazioneView showToast={showToast} />
           )}
           {currentView === "anagraficaMacchine" && (
             <AdminSecurityWrapper title="Anagrafica Macchine">
