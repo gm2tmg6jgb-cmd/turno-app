@@ -373,7 +373,6 @@ export default function App() {
                 <div className="nav-section-label">Report & Dati</div>
                 {renderItem(ni("componentFlow"))}
                 {renderItem(ni("priorita"))}
-                {renderItem(ni("prioritiesSummary"))}
                 {renderItem(ni("productionFlowReport"))}
                 {renderItem(ni("productionReport"))}
                 {renderItem(ni("productionDelays"))}
