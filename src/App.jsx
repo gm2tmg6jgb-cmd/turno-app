@@ -371,8 +371,6 @@ export default function App() {
                 {renderItem(ni("formazione"))}
 
                 <div className="nav-section-label">Report & Dati</div>
-                {renderItem(ni("op10"))}
-                {renderItem(ni("sapHub"))}
                 {renderItem(ni("componentFlow"))}
                 {renderItem(ni("priorita"))}
                 {renderItem(ni("prioritiesSummary"))}
@@ -382,6 +380,8 @@ export default function App() {
                 {renderItem(ni("productionSchedule"))}
                 {renderItem(ni("nuovaPianificazione"))}
                 {renderItem(ni("lpaPlan"))}
+                {renderItem(ni("op10"))}
+                {renderItem(ni("sapHub"))}
 
                 <div className="nav-section-label">Anagrafiche</div>
                 {renderItem(ni("anagraficaMacchine"))}
