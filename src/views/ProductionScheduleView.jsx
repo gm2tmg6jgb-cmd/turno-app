@@ -102,10 +102,38 @@ const getPhaseLabel = (phaseColumn) => {
 const ProductionScheduleView = ({ showToast }) => {
   const [selectedRow, setSelectedRow] = useState(null);
   const [modalData, setModalData] = useState(null);
+  const [editingCell, setEditingCell] = useState(null);
+  const [editingValue, setEditingValue] = useState('');
 
   const groupedData = {
     'Linea 1': PRODUCTION_DATA.filter(d => d.line === 'Linea 1'),
     'Linea 2': PRODUCTION_DATA.filter(d => d.line === 'Linea 2')
+  };
+
+  const startEditingQty = (rowId, currentQty) => {
+    setEditingCell(rowId);
+    setEditingValue(String(currentQty));
+  };
+
+  const saveQtyEdit = (rowId) => {
+    const newQty = parseInt(editingValue) || 0;
+    if (modalData) {
+      const updatedRows = modalData.rows.map(row =>
+        row.id === rowId ? { ...row, qty: newQty } : row
+      );
+      const totalQtyRequired = updatedRows.reduce((sum, row) => sum + (row.qty || 0), 0);
+      const coverage = totalQtyRequired > 0 ? Math.round((modalData.inventory.qty / totalQtyRequired) * 100) : 0;
+      const shortage = Math.max(0, totalQtyRequired - modalData.inventory.qty);
+
+      setModalData(prev => ({
+        ...prev,
+        rows: updatedRows,
+        totalQtyRequired,
+        coverage,
+        shortage
+      }));
+    }
+    setEditingCell(null);
   };
 
   const handlePhaseClick = (phaseValue, phaseColumn) => {
@@ -293,12 +321,49 @@ const ProductionScheduleView = ({ showToast }) => {
                     {modalData.rows.map((row, idx) => {
                       const delayDays = calculateDelayDays(row.date, modalData.inventory.dateArrived);
                       const phaseValue = row[modalData.phaseColumn];
+                      const isEditingThisCell = editingCell === row.id;
                       return (
                       <tr key={row.id} style={{ borderBottom: '1px solid #ddd', backgroundColor: phaseValue === modalData.phase ? '#fff9c4' : (idx % 2 === 0 ? '#fafafa' : 'white') }}>
                         <td style={{ padding: '8px', borderRight: '1px solid #ddd', fontWeight: 'bold' }}>{row.line}</td>
                         <td style={{ padding: '8px', borderRight: '1px solid #ddd', fontSize: '10px' }}>{row.date} {row.time}</td>
                         <td style={{ padding: '8px', borderRight: '1px solid #ddd', fontSize: '10px' }}>{row.variant}</td>
-                        <td style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ddd', fontWeight: 'bold', color: '#2196F3' }}>{row.qty}</td>
+                        <td
+                          onClick={() => startEditingQty(row.id, row.qty)}
+                          style={{
+                            padding: '8px',
+                            textAlign: 'center',
+                            borderRight: '1px solid #ddd',
+                            fontWeight: 'bold',
+                            color: '#2196F3',
+                            cursor: 'pointer',
+                            backgroundColor: isEditingThisCell ? '#e3f2fd' : 'transparent',
+                            border: isEditingThisCell ? '2px solid #2196F3' : 'none'
+                          }}
+                        >
+                          {isEditingThisCell ? (
+                            <input
+                              type="number"
+                              value={editingValue}
+                              onChange={e => setEditingValue(e.target.value)}
+                              onBlur={() => saveQtyEdit(row.id)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') saveQtyEdit(row.id);
+                                if (e.key === 'Escape') setEditingCell(null);
+                              }}
+                              autoFocus
+                              style={{
+                                width: '60px',
+                                padding: '4px',
+                                fontSize: '14px',
+                                fontWeight: 'bold',
+                                border: '1px solid #2196F3',
+                                borderRadius: '4px'
+                              }}
+                            />
+                          ) : (
+                            row.qty
+                          )}
+                        </td>
                         <td style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ddd', ...getStatusColor(phaseValue), fontSize: '10px' }}>{phaseValue}</td>
                         <td style={{ padding: '8px', textAlign: 'center', borderRight: '1px solid #ddd', ...getDelayColor(delayDays), fontSize: '11px', borderRadius: '4px' }}>
                           {delayDays > 0 ? `+${delayDays}gg` : (delayDays === 0 ? 'On-time' : `${delayDays}gg`)}
