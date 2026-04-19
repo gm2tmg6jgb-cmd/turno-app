@@ -222,7 +222,7 @@ export default function App() {
     { id: "priorita", label: "Laboratorio Attualizzato Beta", icon: Icons.filter },
     { id: "weisserPriorities", label: "Priorità Macchine", icon: Icons.filter },
     { id: "prioritiesSummary", label: "Riepilogo Priorità", icon: Icons.dashboard, status: "new" },
-    { id: "productionFlowReport", label: "Flusso Report Produzione", icon: Icons.report, status: "new" },
+    { id: "productionFlowReport", label: "Produzione Macchine", icon: Icons.report, status: "new" },
     { id: "productionReport", label: "Report Produzione", icon: Icons.report },
     { id: "productionDelays", label: "Gestione Ritardi", icon: Icons.alert, status: "new" },
     { id: "productionSchedule", label: "Programma Produzione", icon: Icons.calendar, status: "new" },
