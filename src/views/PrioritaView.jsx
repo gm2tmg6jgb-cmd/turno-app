@@ -667,13 +667,11 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                             {/* Cella principale — rimanenza */}
                                                             <div
                                                                 onClick={() => {
-                                                                    if (isConfigMode) {
-                                                                        toggleCellExclusion(normComp, fase);
-                                                                    } else if (!isEditing) {
+                                                                    if (!isConfigMode && !isEditing) {
                                                                         startEditing(normComp, fino, cell.inv);
                                                                     }
                                                                 }}
-                                                                title={isConfigMode ? "Clicca per escludere/ripristinare fase" : "Clicca per modificare inventario fisico"}
+                                                                title={isConfigMode ? "Configura cella (clicca pulsanti)" : "Clicca per modificare inventario fisico"}
                                                                 style={{
                                                                     width: "100%",
                                                                     height: 50,
@@ -683,7 +681,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                     flexDirection: "column",
                                                                     alignItems: "center",
                                                                     justifyContent: "center",
-                                                                    cursor: "pointer",
+                                                                    cursor: isConfigMode ? "default" : "pointer",
                                                                     border: isConfigMode ? "2px dashed var(--accent)" : `1px solid ${cell.remaining !== 0 ? theme.main + "33" : "transparent"}`,
                                                                     position: "relative",
                                                                     transition: "all 0.15s"
@@ -691,8 +689,6 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                             >
                                                                 {isSaving ? (
                                                                     <div style={{ fontSize: 11, color: "var(--text-muted)" }}>...</div>
-                                                                ) : isConfigMode ? (
-                                                                    <div style={{ fontSize: 18, color: "var(--accent)" }}>⚙</div>
                                                                 ) : isEditing ? (
                                                                     <input
                                                                         autoFocus
@@ -717,6 +713,40 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                     }}>
                                                                         {cell.remaining !== 0 ? cell.remaining : "—"}
                                                                     </div>
+                                                                )}
+
+                                                                {isConfigMode && (
+                                                                    <>
+                                                                        {/* Gear icon - top right */}
+                                                                        <div style={{
+                                                                            position: "absolute", top: -6, right: -6,
+                                                                            background: "var(--bg-card)", borderRadius: "50%",
+                                                                            width: "20px", height: "20px", display: "flex",
+                                                                            alignItems: "center", justifyContent: "center",
+                                                                            fontSize: "12px", boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
+                                                                            border: "1px solid var(--accent)", color: "var(--accent)"
+                                                                        }}>
+                                                                            ⚙️
+                                                                        </div>
+                                                                        {/* Hide/Exclude button - top left */}
+                                                                        <div
+                                                                            onClick={(e) => { e.stopPropagation(); toggleCellExclusion(normComp, fase); }}
+                                                                            title="Nascondi cella"
+                                                                            style={{
+                                                                                position: "absolute", top: -6, left: -6,
+                                                                                background: "#ef4444",
+                                                                                borderRadius: "50%",
+                                                                                width: "20px", height: "20px", display: "flex",
+                                                                                alignItems: "center", justifyContent: "center",
+                                                                                fontSize: "12px", fontWeight: "bold",
+                                                                                color: "white", cursor: "pointer",
+                                                                                boxShadow: "0 2px 5px rgba(239,68,68,0.5)",
+                                                                                transition: "all 0.2s"
+                                                                            }}
+                                                                        >
+                                                                            ✕
+                                                                        </div>
+                                                                    </>
                                                                 )}
                                                             </div>
 
