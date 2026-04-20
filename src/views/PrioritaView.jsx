@@ -466,12 +466,12 @@ export default function PrioritaView({ showToast, globalDate }) {
         }
     };
 
-    const startEditing = (comp, fino, currentInv) => {
+    const startEditing = (comp, fino, currentInv, proj) => {
         if (isConfigMode) {
             const cell = matrixData[comp]?.[fino];
             if (cell) {
                 setQuickConfigModal({
-                    project: "DCT ECO",
+                    project: proj || activeTab,
                     comp,
                     phase: cell.fase,
                     phaseLabel: PHASE_LABEL[cell.fase] || cell.fase
@@ -764,7 +764,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                             <div
                                                                 onClick={() => {
                                                                     if (!isConfigMode && !isEditing && isEditable) {
-                                                                        startEditing(normComp, fino, cell.inv);
+                                                                        startEditing(normComp, fino, cell.inv, proj);
                                                                     }
                                                                 }}
                                                                 title={isConfigMode ? "Configura cella (clicca pulsanti)" : "Clicca per modificare inventario fisico"}
@@ -854,7 +854,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                 }}>
                                                                 {/* Inventario fisico (editabile) */}
                                                                 <div
-                                                                    onClick={() => startEditing(normComp, fino, cell.inv)}
+                                                                    onClick={() => startEditing(normComp, fino, cell.inv, proj)}
                                                                     title="Modifica inventario fisico"
                                                                     style={{
                                                                         width: "100%", fontSize: 12, fontWeight: 800,
