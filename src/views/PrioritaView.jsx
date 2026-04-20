@@ -7,9 +7,15 @@ import { Icons } from "../components/ui/Icons";
 const LOCAL_ANAGRAFICA = {
     "M0153401/S": { comp: "SG3", proj: "8Fe" },
     "M0153401": { comp: "SG3", proj: "8Fe" },
-    "M0153389/S": { comp: "SG3", proj: "DCT300" },
-    "M0153384/S": { comp: "DG", proj: "DCT300" },
-    "M0153384": { comp: "DG", proj: "DCT300" },
+    "M0153389/S": { comp: "SG3 - 1A", proj: "DCT300" },
+    "M0153384/S": { comp: "DG - 1A", proj: "DCT300" },
+    "M0153384": { comp: "DG - 1A", proj: "DCT300" },
+    "M0146872": { comp: "DG - 1A", proj: "DCT300" },
+    "M0146872/S": { comp: "DG - 1A", proj: "DCT300" },
+    "M0146872/T": { comp: "DG - 1A", proj: "DCT300" },
+    "M0156548": { comp: "DG - 21A", proj: "DCT300" },
+    "M0156548/S": { comp: "DG - 21A", proj: "DCT300" },
+    "M0156548/T": { comp: "DG - 21A", proj: "DCT300" },
     "M0192963/S": { comp: "SG3", proj: "DCT ECO" },
     "M0192963": { comp: "SG3", proj: "DCT ECO" },
     "M0140997/S": { comp: "SG2", proj: "DCT ECO" },
@@ -54,7 +60,7 @@ const PROJECTS = ["DCT ECO", "8Fe", "DCT300"];
 const PROJECT_COMPONENTS_LAB = {
     "DCT ECO": ["SG2", "SG3", "SG4", "SG5", "SGR", "RG FD1", "RG FD2"],
     "8Fe": ["SG2", "SG3", "SG4", "SG5", "SG6", "SG7", "SG8", "SGR", "PG", "FG5/7"],
-    "DCT300": ["SG1", "DG-REV", "DG", "SG3", "SG4", "SG5", "SG6", "SG7", "SGR", "RG"]
+    "DCT300": ["SG1", "DG-REV", "DG - 1A", "DG - 21A", "SG3 - 1A", "SG3 - 21A", "SG4 - 1A", "SG4 - 21A", "SG5 - 1A", "SG5 - 21A", "SG6 - 1A", "SG6 - 21A", "SG7 - 1A", "SG7 - 21A", "SGR", "RG - 1A", "RG - 21A"]
 };
 
 // Colore tema per progetto
@@ -654,6 +660,14 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                     const isFirstFino = idx === 0;
 
                                                     const isCellExcluded = !!cellExclusions[`${normComp}:${fase}`];
+
+                                                    // Handle excluded cells
+                                                    if (isCellExcluded) {
+                                                        if (!isConfigMode) {
+                                                            // Normal mode — return empty placeholder to keep layout
+                                                            return <div key={fase + "_" + fino} style={{ width: 90, flexShrink: 0 }} />;
+                                                        }
+                                                    }
 
                                                     // In config mode, if excluded, show "+" button instead
                                                     if (isConfigMode && isCellExcluded) {
