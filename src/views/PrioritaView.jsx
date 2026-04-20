@@ -293,12 +293,29 @@ export default function PrioritaView({ showToast, globalDate }) {
                         const sapRecords = sapMap[normComp]?.[fino]?.records || [];
                         const prevFino = idx > 0 ? seq[idx - 1].fino : null;
 
-                        // Controlla se c'è una fonte sapPrev specifica per questo progetto/fase
+                        // Trova il fino della fase precedente attiva (salta celle escluse)
+                        // Se c'è una fonte sapPrev specifica (es. DCT300 WIP←FRW), cerca da quella fase
+                        // in poi verso il basso saltando le escluse
                         const sapPrevSourceFase = SAP_PREV_SOURCE[proj]?.[fase];
-                        let sapPrevFino = prevFino;
+                        let sapPrevFino = null;
+
                         if (sapPrevSourceFase) {
-                            const sourceEntry = seq.find(s => s.fase === sapPrevSourceFase);
-                            sapPrevFino = sourceEntry?.fino || prevFino;
+                            // Cerca la fase sorgente specificata, poi se esclusa cerca la precedente attiva
+                            const sourceIdx = seq.findIndex(s => s.fase === sapPrevSourceFase);
+                            for (let i = sourceIdx; i >= 0; i--) {
+                                if (!excl[`${normComp}:${seq[i].fase}`]) {
+                                    sapPrevFino = seq[i].fino;
+                                    break;
+                                }
+                            }
+                        } else {
+                            // Risali la sequenza saltando le celle escluse
+                            for (let i = idx - 1; i >= 0; i--) {
+                                if (!excl[`${normComp}:${seq[i].fase}`]) {
+                                    sapPrevFino = seq[i].fino;
+                                    break;
+                                }
+                            }
                         }
                         const sapPrev = sapPrevFino ? (sapMap[normComp]?.[sapPrevFino]?.qty || 0) : 0;
                         const remaining = inv - sap + sapPrev;
