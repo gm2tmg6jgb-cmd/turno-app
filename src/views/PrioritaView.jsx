@@ -40,7 +40,9 @@ const PHASE_CODE = {
     "to_be_treated": "WIP", "ht": "HT", "shot_peening": "OKU",
     "start_hard": "DRA", "laser_welding_2": "SCA", "ut_soft": "MZA",
     "ut": "UT", "grinding_cone": "SLA", "grinding_cone_2": "SLA",
-    "teeth_grinding": "SLW", "to_be_washed": "WIP", "washing": "WSH",
+    "teeth_grinding": "SLW", "teeth_grinding_post_dra": "SLW",
+    "ore": "ORE",
+    "to_be_washed": "WIP", "washing": "WSH",
     "baa": "BAA"
 };
 
@@ -51,7 +53,9 @@ const PHASE_LABEL = {
     "to_be_treated": "Da Trattare", "ht": "Tratt. Term.", "shot_peening": "Pallinatura",
     "start_hard": "Torn. Hard", "laser_welding_2": "Sald. Hard", "ut_soft": "MZA Soft",
     "ut": "MZA Hard", "grinding_cone": "Rett. Cono", "grinding_cone_2": "Rett. Cono 2",
-    "teeth_grinding": "Rett. Denti", "to_be_washed": "Da Lavare", "washing": "Lavaggio",
+    "teeth_grinding": "Rett. Denti", "teeth_grinding_post_dra": "Rett. Denti",
+    "ore": "ORE",
+    "to_be_washed": "Da Lavare", "washing": "Lavaggio",
     "baa": "BAA"
 };
 
@@ -175,9 +179,14 @@ export default function PrioritaView({ showToast, globalDate }) {
                 "shot_peening", "start_hard", "laser_welding_2", "ut",
                 "grinding_cone", "grinding_cone_2", "teeth_grinding", "to_be_washed", "washing", "baa"
             ];
-            const LAB_SEQUENCE_DCT300 = LAB_SEQUENCE_DEFAULT.filter(f =>
-                !["milling", "grinding_cone", "grinding_cone_2"].includes(f)
-            );
+            // DCT300: rimuovi ut_soft(MZA), milling(FRA), grinding_cone/2(SLA)
+            //         aggiungi ore dopo deburring, teeth_grinding_post_dra dopo start_hard
+            const LAB_SEQUENCE_DCT300 = [
+                "start_soft", "laser_welding", "shaping",
+                "hobbing", "deburring", "ore", "to_be_treated", "ht",
+                "shot_peening", "start_hard", "teeth_grinding_post_dra", "laser_welding_2", "ut",
+                "teeth_grinding", "to_be_washed", "washing", "baa"
+            ];
             const LAB_SEQUENCE_BY_PROJ = {
                 "DCT300": LAB_SEQUENCE_DCT300
             };
