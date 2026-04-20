@@ -164,9 +164,9 @@ export default function PrioritaView({ showToast, globalDate }) {
 
             // Costruisce sequenze finos per componente
             const LAB_SEQUENCE = [
-                "laser_welding", "ut_soft", "shaping", 
-                "milling", "hobbing", "deburring", "to_be_treated", "ht", 
-                "shot_peening", "start_hard", "laser_welding_2", "ut", 
+                "start_soft", "laser_welding", "ut_soft", "shaping",
+                "milling", "hobbing", "deburring", "to_be_treated", "ht",
+                "shot_peening", "start_hard", "laser_welding_2", "ut",
                 "grinding_cone", "grinding_cone_2", "teeth_grinding", "to_be_washed", "washing", "baa"
             ];
 
