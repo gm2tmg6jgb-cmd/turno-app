@@ -514,15 +514,16 @@ export default function PrioritaView({ showToast, globalDate }) {
 
     const startEditing = (comp, fino, currentInv, proj) => {
         if (isConfigMode) {
-            const cell = matrixData[comp]?.[fino];
-            if (cell) {
-                setQuickConfigModal({
-                    project: proj || activeTab,
-                    comp,
-                    phase: cell.fase,
-                    phaseLabel: PHASE_LABEL[cell.fase] || cell.fase
-                });
-            }
+            // Cerca la fase dal fino nella sequenza (anche se la cella non ha dati)
+            const seq = finoSequences[comp] || [];
+            const seqEntry = seq.find(s => s.fino === fino);
+            const fase = seqEntry?.fase || matrixData[comp]?.[fino]?.fase;
+            setQuickConfigModal({
+                project: proj || activeTab,
+                comp,
+                phase: fase,
+                phaseLabel: PHASE_LABEL[fase] || fase || fino
+            });
             return;
         }
         setEditingCell({ comp, fino, value: currentInv });
