@@ -38,7 +38,7 @@ export default function ProductionReportView({
   const [hoveredCol, setHoveredCol] = useState(null);
   const [hoveredRow, setHoveredRow] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTurno, setSelectedTurno] = useState(turnoCorrente || "ALL");
+  const [selectedTurno, setSelectedTurno] = useState("ALL");
   const [selectedMachineDowntime, setSelectedMachineDowntime] = useState(null);
   const [selectedProduction, setSelectedProduction] = useState(null);
   const [rawProductionData, setRawProductionData] = useState([]);
@@ -56,12 +56,7 @@ export default function ProductionReportView({
   // Config mode for configuring cells
   const [isConfigMode, setIsConfigMode] = useState(false);
 
-  // Sync with global shift if it changes externally
-  useEffect(() => {
-    if (turnoCorrente) {
-      setSelectedTurno(turnoCorrente);
-    }
-  }, [turnoCorrente]);
+  // Note: selectedTurno defaults to ALL and is not auto-synced with turnoCorrente
 
   // Sync machine finos from prop
   useEffect(() => {
