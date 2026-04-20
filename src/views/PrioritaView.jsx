@@ -319,10 +319,14 @@ export default function PrioritaView({ showToast, globalDate }) {
                             }
                         }
                         const sapPrev = sapPrevFino ? (sapMap[normComp]?.[sapPrevFino]?.qty || 0) : 0;
-                        const remaining = inv - sap + sapPrev;
+                        // Per la prima cella attiva (nessun sapPrev), se non c'è inventario manuale
+                        // mostra il SAP in uscita come valore (= pezzi disponibili per la fase successiva)
+                        const isFirstActive = sapPrevFino === null;
+                        const remaining = (isFirstActive && inv === 0) ? sap : (inv - sap + sapPrev);
 
                         newMatrix[normComp][fino] = {
-                            fino, fase, inv, sap, sapPrev, remaining, records: sapRecords
+                            fino, fase, inv, sap, sapPrev, remaining, records: sapRecords,
+                            isFirstActive
                         };
                     });
                 });
