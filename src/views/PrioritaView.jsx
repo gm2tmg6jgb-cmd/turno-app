@@ -263,10 +263,18 @@ export default function PrioritaView({ showToast, globalDate }) {
                     const fino = String(r.fino || "").padStart(4, "0");
                     if (!fino || fino === "0000") return;
 
+                    // Primo tentativo: match esatto material_fino_overrides
+                    let comp = null;
                     const config = validConfigMap[`${matCode}_${fino}`];
-                    if (!config) return;
+                    if (config) {
+                        comp = config.comp;
+                    } else {
+                        // Fallback: usa anagrafica (LOCAL o DB) per componente, fino reale da SAP
+                        const anagEntry = anagrafica[matCode];
+                        if (!anagEntry || !PROJECTS.includes(anagEntry.proj)) return;
+                        comp = normalizeComp(anagEntry.comp);
+                    }
 
-                    const comp = config.comp;
                     if (!sapMap[comp]) sapMap[comp] = {};
                     if (!sapMap[comp][fino]) sapMap[comp][fino] = { qty: 0, records: [] };
                     sapMap[comp][fino].qty += (r.qta_ottenuta || 0);
@@ -277,6 +285,40 @@ export default function PrioritaView({ showToast, globalDate }) {
                     });
                 });
             }
+
+            // Per componenti senza material_fino_overrides, aggiorna finoSeqSorted
+            // usando i finos reali trovati in sapMap (invece dei placeholder)
+            PROJECTS.forEach(proj => {
+                const LAB_SEQUENCE = LAB_SEQUENCE_BY_PROJ[proj] || LAB_SEQUENCE_DEFAULT;
+                (PROJECT_COMPONENTS_LAB[proj] || []).forEach(comp => {
+                    const normComp = normalizeComp(comp);
+                    const seq = finoSeqSorted[normComp] || [];
+                    const compSapFinos = Object.keys(sapMap[normComp] || {}).sort();
+                    if (compSapFinos.length === 0) return;
+
+                    // Conta quante celle hanno finos reali da dbOverrides
+                    const configuredFinos = new Set(
+                        dbOverrides
+                            .filter(o => normalizeComp(o.comp) === normComp && o.proj === proj)
+                            .map(o => o.fino)
+                    );
+                    const hasFullConfig = seq.every(s => configuredFinos.has(s.fino));
+                    if (hasFullConfig) return; // già tutto configurato
+
+                    // Assegna finos reali SAP alle fasi in ordine
+                    let finoIdx = 0;
+                    finoSeqSorted[normComp] = LAB_SEQUENCE.map((fase, i) => {
+                        // Se esiste un override DB per questa fase, usalo
+                        const override = dbOverrides.find(o =>
+                            normalizeComp(o.comp) === normComp && o.proj === proj && o.fase === fase
+                        );
+                        if (override) return { fino: override.fino, fase };
+                        // Altrimenti usa il prossimo fino reale da SAP
+                        const sapFino = compSapFinos[finoIdx++] || String(i + 1).padStart(4, "0");
+                        return { fino: sapFino, fase };
+                    });
+                });
+            });
 
             // Per alcuni progetti, il sapPrev di una fase viene da una fase specifica (non la precedente)
             // 5. Calcolo WIP flow per componente
