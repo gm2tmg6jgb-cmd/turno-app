@@ -809,11 +809,13 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                             {/* Cella principale — rimanenza */}
                                                             <div
                                                                 onClick={() => {
-                                                                    if (!isConfigMode && !isEditing && isEditable) {
+                                                                    if (isConfigMode) {
+                                                                        startEditing(normComp, fino, cell.inv, proj);
+                                                                    } else if (!isEditing && isEditable) {
                                                                         startEditing(normComp, fino, cell.inv, proj);
                                                                     }
                                                                 }}
-                                                                title={isConfigMode ? "Configura cella (clicca pulsanti)" : "Clicca per modificare inventario fisico"}
+                                                                title={isConfigMode ? "Clicca per configurare questa cella" : "Clicca per modificare inventario fisico"}
                                                                 style={{
                                                                     width: "100%",
                                                                     height: 50,
