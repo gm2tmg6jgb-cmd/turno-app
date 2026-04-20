@@ -224,8 +224,6 @@ export default function PrioritaView({ showToast, globalDate }) {
                     });
                 });
             });
-            setFinoSequences(finoSeqSorted);
-
             // 3. Inventario fisico da Supabase
             const { data: invRes } = await supabase
                 .from("inventario_fisico")
@@ -374,6 +372,8 @@ export default function PrioritaView({ showToast, globalDate }) {
                 });
             });
 
+            // Imposta sequenze DOPO la riassegnazione, così render e matrix usano gli stessi finos
+            setFinoSequences({ ...finoSeqSorted });
             setMatrixData(newMatrix);
             setComponentsByProject(PROJECT_COMPONENTS_LAB);
 
