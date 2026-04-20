@@ -266,6 +266,18 @@ export default function PrioritaView({ showToast, globalDate }) {
                 });
             }
 
+            // Per alcuni progetti, il sapPrev di una fase viene da una fase specifica (non la precedente)
+            const SAP_PREV_SOURCE = {
+                "DCT300": {
+                    "to_be_treated": "hobbing" // WIP prende sapPrev da FRW
+                }
+            };
+
+            // Fasi non editabili per progetto
+            const NON_EDITABLE_PHASES = {
+                "DCT300": ["shot_peening"] // OKU
+            };
+
             // 5. Calcolo WIP flow per componente
             const newMatrix = {};
             PROJECTS.forEach(proj => {
@@ -280,7 +292,15 @@ export default function PrioritaView({ showToast, globalDate }) {
                         const sap = sapMap[normComp]?.[fino]?.qty || 0;
                         const sapRecords = sapMap[normComp]?.[fino]?.records || [];
                         const prevFino = idx > 0 ? seq[idx - 1].fino : null;
-                        const sapPrev = prevFino ? (sapMap[normComp]?.[prevFino]?.qty || 0) : 0;
+
+                        // Controlla se c'è una fonte sapPrev specifica per questo progetto/fase
+                        const sapPrevSourceFase = SAP_PREV_SOURCE[proj]?.[fase];
+                        let sapPrevFino = prevFino;
+                        if (sapPrevSourceFase) {
+                            const sourceEntry = seq.find(s => s.fase === sapPrevSourceFase);
+                            sapPrevFino = sourceEntry?.fino || prevFino;
+                        }
+                        const sapPrev = sapPrevFino ? (sapMap[normComp]?.[sapPrevFino]?.qty || 0) : 0;
                         const remaining = inv - sap + sapPrev;
 
                         newMatrix[normComp][fino] = {
@@ -715,6 +735,8 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                         );
                                                     }
 
+                                                    const isEditable = !(NON_EDITABLE_PHASES[proj] || []).includes(fase);
+
                                                     return (
                                                         <div key={fase + "_" + fino} style={{
                                                             width: 90, flexShrink: 0, padding: "0 4px",
@@ -723,7 +745,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                             {/* Cella principale — rimanenza */}
                                                             <div
                                                                 onClick={() => {
-                                                                    if (!isConfigMode && !isEditing) {
+                                                                    if (!isConfigMode && !isEditing && isEditable) {
                                                                         startEditing(normComp, fino, cell.inv);
                                                                     }
                                                                 }}
@@ -737,7 +759,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                     flexDirection: "column",
                                                                     alignItems: "center",
                                                                     justifyContent: "center",
-                                                                    cursor: isConfigMode ? "default" : "pointer",
+                                                                    cursor: isConfigMode ? "default" : isEditable ? "pointer" : "default",
                                                                     border: isConfigMode ? "2px dashed var(--accent)" : `1px solid ${cell.remaining !== 0 ? theme.main + "33" : "transparent"}`,
                                                                     position: "relative",
                                                                     transition: "all 0.15s"
