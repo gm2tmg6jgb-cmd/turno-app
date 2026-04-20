@@ -291,24 +291,8 @@ export default function ProductionReportView({
         machineId = getPrimaryMachineId(cfgMatch.macchina_id);
         compKey = cfgMatch.componente;
       } else {
-        // If not in config mode, only show configured cells
-        if (!isConfigMode) return;
-
-        // FALLBACK: use macchina_id from the row, then fino-based machine lookup
-        machineId = rawMachineId ? getPrimaryMachineId(rawMachineId) : null;
-        if (!machineId && rowFino && finoToMachineId[rowFino]) {
-          machineId = getPrimaryMachineId(finoToMachineId[rowFino]);
-        }
-        if (!machineId) return;
-
-        // Component from anagrafica
-        const info = anagrafica[mat];
-        if (info?.componente) {
-          const project = info.progetto || (mat.startsWith("M016") ? "DCT Eco" : mat.startsWith("M015") ? "8Fe" : "DCT 300");
-          compKey = info.componente;
-          if (project === "DCT Eco") compKey += "_ECO";
-          else if (project === "8Fe") compKey += "_8FE";
-        }
+        // No manual config found — always skip (never show unconfigurated data)
+        return;
       }
 
       if (!machineId || !compKey) return;
