@@ -73,6 +73,18 @@ const PROJECT_COLORS = {
     "DCT300": { main: "#3c6ef0", bg: "rgba(60, 110, 240, 0.05)" },
     "8Fe": { main: "#10b981", bg: "rgba(16, 185, 129, 0.05)" },
 };
+// sapPrev di una fase può provenire da una fase specifica (non la precedente)
+const SAP_PREV_SOURCE = {
+    "DCT300": {
+        "to_be_treated": "hobbing" // WIP prende sapPrev da FRW
+    }
+};
+
+// Fasi non editabili per progetto
+const NON_EDITABLE_PHASES = {
+    "DCT300": ["shot_peening"] // OKU
+};
+
 const normalizeComp = (c) => {
     if (!c) return "";
     const s = String(c).toUpperCase();
@@ -267,17 +279,6 @@ export default function PrioritaView({ showToast, globalDate }) {
             }
 
             // Per alcuni progetti, il sapPrev di una fase viene da una fase specifica (non la precedente)
-            const SAP_PREV_SOURCE = {
-                "DCT300": {
-                    "to_be_treated": "hobbing" // WIP prende sapPrev da FRW
-                }
-            };
-
-            // Fasi non editabili per progetto
-            const NON_EDITABLE_PHASES = {
-                "DCT300": ["shot_peening"] // OKU
-            };
-
             // 5. Calcolo WIP flow per componente
             const newMatrix = {};
             PROJECTS.forEach(proj => {
