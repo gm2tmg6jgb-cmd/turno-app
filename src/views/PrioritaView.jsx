@@ -169,12 +169,18 @@ export default function PrioritaView({ showToast, globalDate }) {
             }));
 
             // Costruisce sequenze finos per componente
-            const LAB_SEQUENCE = [
+            const LAB_SEQUENCE_DEFAULT = [
                 "start_soft", "laser_welding", "ut_soft", "shaping",
                 "milling", "hobbing", "deburring", "to_be_treated", "ht",
                 "shot_peening", "start_hard", "laser_welding_2", "ut",
                 "grinding_cone", "grinding_cone_2", "teeth_grinding", "to_be_washed", "washing", "baa"
             ];
+            const LAB_SEQUENCE_DCT300 = LAB_SEQUENCE_DEFAULT.filter(f =>
+                !["milling", "grinding_cone", "grinding_cone_2"].includes(f)
+            );
+            const LAB_SEQUENCE_BY_PROJ = {
+                "DCT300": LAB_SEQUENCE_DCT300
+            };
 
             const finoSeqSorted = {};
             PROJECTS.forEach(proj => {
@@ -184,6 +190,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                     // Create sequence with sample fino values to ensure components always display
                     const finoPrefix = String((Object.keys(finoSeqSorted).length % 99) + 1).padStart(2, "0");
                     let finoCounter = 0;
+                    const LAB_SEQUENCE = LAB_SEQUENCE_BY_PROJ[proj] || LAB_SEQUENCE_DEFAULT;
                     finoSeqSorted[normComp] = LAB_SEQUENCE.map(fase => {
                         finoCounter++;
                         const override = dbOverrides.find(o =>
