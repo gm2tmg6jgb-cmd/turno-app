@@ -1127,8 +1127,18 @@ const QuickConfigModal = ({ data, onClose, onSave, showToast }) => {
     if (isLoading) return null;
 
     return (
-        <div className="modal-backdrop" style={{ zIndex: 3000 }}>
-            <div className="modal-content" style={{ width: 380, padding: 24 }} onClick={e => e.stopPropagation()}>
+        <div onClick={onClose} style={{
+            position: "fixed", inset: 0, zIndex: 3000,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex", alignItems: "center", justifyContent: "center"
+        }}>
+            <div onClick={e => e.stopPropagation()} style={{
+                width: 400, padding: 28,
+                background: "var(--bg-card)",
+                borderRadius: 16,
+                border: "1px solid var(--border)",
+                boxShadow: "0 20px 60px rgba(0,0,0,0.3)"
+            }}>
                 <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 4, marginTop: 0 }}>
                     Configura fase: {PHASE_LABEL[data.phase] || data.phase}
                 </h3>
