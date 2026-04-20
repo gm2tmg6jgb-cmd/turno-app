@@ -585,7 +585,6 @@ export default function PrioritaView({ showToast, globalDate }) {
                         borderRadius: 16,
                         border: `1px solid ${theme.main}33`,
                         boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
-                        overflow: "hidden",
                         marginBottom: 24
                     }}>
                         {/* Header progetto */}
