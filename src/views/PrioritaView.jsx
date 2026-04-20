@@ -609,6 +609,29 @@ export default function PrioritaView({ showToast, globalDate }) {
                         {/* Tabella */}
                         <div style={{ overflow: "auto", padding: 12 }}>
                             <div style={{ minWidth: "max-content" }}>
+                                {/* Intestazione colonne — solo una volta */}
+                                {(() => {
+                                    const firstSeq = finoSequences[normalizeComp(comps[0])] || [];
+                                    if (firstSeq.length === 0) return null;
+                                    return (
+                                        <div style={{ display: "flex", marginBottom: 6, paddingLeft: 120, position: "sticky", top: 0, background: "var(--bg-card)", zIndex: 2 }}>
+                                            {firstSeq.map(({ fino, fase }) => (
+                                                <div key={fase + "_" + fino} style={{
+                                                    width: 90, flexShrink: 0, textAlign: "center", paddingTop: 4,
+                                                    borderTop: `2px solid ${theme.main}44`
+                                                }}>
+                                                    <div style={{ fontSize: 14, fontWeight: 800, color: theme.main }}>
+                                                        {PHASE_CODE[fase] || fase}
+                                                    </div>
+                                                    <div style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 600 }}>
+                                                        op.{fino}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    );
+                                })()}
+
                                 {comps.map(comp => {
                                     const normComp = normalizeComp(comp);
                                     const seq = finoSequences[normComp] || [];
@@ -624,23 +647,6 @@ export default function PrioritaView({ showToast, globalDate }) {
 
                                     return (
                                         <div key={comp}>
-                                            {/* Intestazione colonne */}
-                                            <div style={{ display: "flex", marginBottom: 6, paddingLeft: 120 }}>
-                                                {seq.map(({ fino, fase }) => (
-                                                    <div key={fase + "_" + fino} style={{
-                                                        width: 90, flexShrink: 0, textAlign: "center", paddingTop: 4,
-                                                        borderTop: `2px solid ${theme.main}44`
-                                                    }}>
-                                                        <div style={{ fontSize: 14, fontWeight: 800, color: theme.main }}>
-                                                            {PHASE_CODE[fase] || fase}
-                                                        </div>
-                                                        <div style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 600 }}>
-                                                            op.{fino}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-
                                             {/* Riga componente */}
                                             <div style={{ display: "flex", alignItems: "stretch", padding: "8px 0" }}>
                                                 {/* Label componente */}
