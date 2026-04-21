@@ -888,16 +888,6 @@ export default function ProductionReportView({
                       key={idx}
                       onMouseEnter={() => setHoveredCol(comp)}
                       onMouseLeave={() => setHoveredCol(null)}
-                      onClick={() => {
-                        if (!isConfigMode) return;
-                        const existing = componentConfigs.filter(c => c.componente === comp);
-                        if (existing.length === 1) {
-                          const cfg = existing[0];
-                          setEditingComponent({ ...cfg, codicisText: (cfg.codici || []).join("\n") });
-                        } else {
-                          setEditingComponent({ componente: comp, macchina_id: "", progetto: "", codicisText: "", fino: "" });
-                        }
-                      }}
                       style={{
                         border: "1px solid var(--border)",
                         padding: "8px",
@@ -906,20 +896,13 @@ export default function ProductionReportView({
                         fontWeight: "600",
                         fontSize: "13px",
                         minWidth: "70px",
-                        color: isConfigMode ? (isConfigured ? "#10b981" : "var(--text-muted)") : "var(--text-primary)",
+                        color: "var(--text-primary)",
                         fontFamily: "inherit",
                         transition: "background-color 0.1s",
-                        cursor: isConfigMode ? "pointer" : "default",
-                        outline: isConfigMode ? `2px dashed ${isConfigured ? "#10b981" : "#9ca3af"}` : "none",
-                        outlineOffset: "-2px",
+                        cursor: "default",
                       }}
                     >
                       {comp.replace("_ECO", "").replace("_8FE", "")}
-                      {isConfigMode && (
-                        <div style={{ fontSize: "9px", marginTop: 2, color: isConfigured ? "#10b981" : "#9ca3af" }}>
-                          {isConfigured ? "✓ conf." : "+ aggiungi"}
-                        </div>
-                      )}
                     </th>
                   );
                 })}
@@ -951,11 +934,6 @@ export default function ProductionReportView({
                     }}
                   >
                     <td
-                      onClick={() => setEditingMachine({
-                        id: machineId,
-                        nome: displayLabel,
-                        fino: localMachineFinos[machineId] ?? (macchine.find(m => m.id === machineId)?.fino || ""),
-                      })}
                       style={{
                         padding: "12px 16px",
                         fontWeight: "600",
@@ -967,20 +945,12 @@ export default function ProductionReportView({
                         zIndex: 10,
                         whiteSpace: "nowrap",
                         transition: "background-color 0.1s",
-                        cursor: "pointer",
+                        cursor: "default",
                         display: "flex",
                         alignItems: "center",
                         gap: "6px",
                       }}
                     >
-                      <span
-                        title={localMachineFinos[machineId] ? `Fino: ${localMachineFinos[machineId]}` : "Configura fino"}
-                        style={{
-                          width: "7px", height: "7px", borderRadius: "50%", flexShrink: 0,
-                          backgroundColor: localMachineFinos[machineId] ? "#10b981" : "#d1d5db",
-                          display: "inline-block",
-                        }}
-                      />
                       {displayLabel}
                     </td>
                     <td
@@ -1040,31 +1010,36 @@ export default function ProductionReportView({
                           onMouseEnter={() => setHoveredCol(comp)}
                           onMouseLeave={() => setHoveredCol(null)}
                           onClick={() => {
-                            if (hasProduction) {
-                              const rawDetails = details;
+                            if (isConfigMode) {
+                              // Config mode: apre config per questa cella (macchina + componente)
+                              const existing = componentConfigs.find(
+                                c => c.componente === comp && c.macchina_id === machineId
+                              );
+                              if (existing) {
+                                setEditingComponent({ ...existing, codicisText: (existing.codici || []).join("\n") });
+                              } else {
+                                setEditingComponent({ componente: comp, macchina_id: machineId, progetto: "", codicisText: "", fino: "" });
+                              }
+                            } else {
+                              // Modalità normale: mostra dettaglio pezzi prodotti
                               const groupedDetails = Object.values(
-                                rawDetails.reduce((acc, curr) => {
+                                details.reduce((acc, curr) => {
                                   const mat = curr.materiale || "N/A";
-                                  if (!acc[mat]) {
-                                    acc[mat] = { ...curr, qta_ottenuta: 0 };
-                                  }
+                                  if (!acc[mat]) acc[mat] = { ...curr, qta_ottenuta: 0 };
                                   acc[mat].qta_ottenuta += curr.qta_ottenuta || 0;
                                   return acc;
                                 }, {}),
                               );
-
                               setSelectedProduction({
                                 machineId,
                                 label: displayLabel,
-                                componentName: comp
-                                  .replace("_ECO", "")
-                                  .replace("_8FE", ""),
+                                componentName: comp.replace("_ECO", "").replace("_8FE", ""),
                                 details: groupedDetails,
                               });
                             }
                           }}
                           style={{
-                            border: "1px solid var(--border)",
+                            border: isConfigMode ? "2px dashed var(--accent)" : "1px solid var(--border)",
                             padding: "8px",
                             textAlign: "center",
                             backgroundColor:
@@ -1075,9 +1050,10 @@ export default function ProductionReportView({
                             fontWeight: "600",
                             fontSize: "12px",
                             minWidth: "80px",
-                            opacity: val ? 1 : 0.2,
+                            opacity: isConfigMode ? 1 : (val ? 1 : 0.2),
                             transition: "background-color 0.1s",
-                            cursor: val ? "pointer" : "default",
+                            cursor: "pointer",
+                            position: "relative",
                           }}
                         >
                           {val || "0"}
