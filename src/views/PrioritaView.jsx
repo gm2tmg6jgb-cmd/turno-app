@@ -519,6 +519,7 @@ export default function PrioritaView({ showToast, globalDate }) {
             setQuickConfigModal({
                 project: proj || activeTab,
                 comp,
+                fino,   // pass fino so the modal can filter by exact operation
                 phase: fase,
                 phaseLabel: PHASE_LABEL[fase] || fase || fino
             });
@@ -1040,23 +1041,29 @@ const QuickConfigModal = ({ data, onClose, onSave, showToast }) => {
     useEffect(() => {
         const fetchExisting = async () => {
             try {
-                const { data: existing } = await supabase
+                // Filter by fino if known (avoids mixing records from different operations)
+                const finoFilter = data.fino && data.fino !== "0000" ? data.fino : null;
+
+                let query = supabase
                     .from("material_fino_overrides")
                     .select("*")
                     .eq("fase", data.phase)
                     .eq("componente", data.comp.toUpperCase())
                     .eq("progetto", data.project);
 
+                if (finoFilter) {
+                    query = query.eq("fino", finoFilter);
+                }
+
+                const { data: existing } = await query;
+
                 if (existing && existing.length > 0) {
-                    // Prendi il fino della prima riga e filtra solo i record con quel fino
-                    // (gestisce sia fino null che stringa)
                     const fino = existing[0].fino ?? null;
-                    const forFino = existing.filter(r => (r.fino ?? null) === fino);
                     setForm({
-                        fino: fino || "",
+                        fino: fino !== null ? String(fino) : "",
                         componente: existing[0].componente || data.comp || "",
-                        codice: forFino[0]?.materiale || "",
-                        codice2: forFino[1]?.materiale || ""
+                        codice: existing[0]?.materiale || "",
+                        codice2: existing[1]?.materiale || ""
                     });
                 }
             } catch (_) { /* table not ready yet */ }
