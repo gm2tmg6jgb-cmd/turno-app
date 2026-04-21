@@ -811,11 +811,15 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                 onClick={() => {
                                                                     if (isConfigMode) {
                                                                         startEditing(normComp, fino, cell.inv, proj, fase);
-                                                                    } else if (!isEditing && isEditable) {
-                                                                        startEditing(normComp, fino, cell.inv, proj);
+                                                                    } else if (!isEditing && cell.records?.length > 0) {
+                                                                        setSelectedDetail({
+                                                                            title: `${comp} — op.${fino} (${PHASE_CODE[fase] || fase})`,
+                                                                            records: cell.records,
+                                                                            fino, fase
+                                                                        });
                                                                     }
                                                                 }}
-                                                                title={isConfigMode ? "Clicca per configurare questa cella" : "Clicca per modificare inventario fisico"}
+                                                                title={isConfigMode ? "Clicca per configurare questa cella" : "Clicca per vedere i pezzi prodotti"}
                                                                 style={{
                                                                     width: "100%",
                                                                     height: 50,
@@ -825,7 +829,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                     flexDirection: "column",
                                                                     alignItems: "center",
                                                                     justifyContent: "center",
-                                                                    cursor: isConfigMode ? "default" : isEditable ? "pointer" : "default",
+                                                                    cursor: isConfigMode ? "pointer" : cell.records?.length > 0 ? "pointer" : "default",
                                                                     border: isConfigMode ? "2px dashed var(--accent)" : `1px solid ${cell.remaining !== 0 ? theme.main + "33" : "transparent"}`,
                                                                     position: "relative",
                                                                     transition: "all 0.15s"
