@@ -1058,15 +1058,17 @@ const QuickConfigModal = ({ data, onClose, onSave, showToast }) => {
                     .select("*")
                     .eq("fase", data.phase)
                     .eq("componente", data.comp.toUpperCase())
-                    .eq("progetto", data.project)
-                    .limit(2);
+                    .eq("progetto", data.project);
 
                 if (existing && existing.length > 0) {
+                    // Prendi il fino della prima riga e filtra solo i record con quel fino
+                    const fino = existing[0].fino || "";
+                    const forFino = existing.filter(r => r.fino === fino);
                     setForm({
-                        fino: existing[0].fino || "",
+                        fino: fino,
                         componente: existing[0].componente || data.comp || "",
-                        codice: existing[0].materiale || "",
-                        codice2: existing[1] ? existing[1].materiale : ""
+                        codice: forFino[0]?.materiale || "",
+                        codice2: forFino[1]?.materiale || ""
                     });
                 }
             } catch (_) { /* table not ready yet */ }
