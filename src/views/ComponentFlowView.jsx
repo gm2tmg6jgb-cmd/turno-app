@@ -822,8 +822,15 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                                 phaseLabel: step.label
                                                             });
                                                         } else {
-                                                            setFermoModal({ project: proj, comp, fase: step.id, phaseLabel: step.label });
-                                                            setFermoForm({ macchinaId: "", motivo: "", durata: "", note: "" });
+                                                            // Normal mode: show SAP production details
+                                                            const cellData = matrixData[proj]?.[comp]?.[step.id];
+                                                            if (cellData?.records?.length > 0) {
+                                                                setSelectedDetail({
+                                                                    title: `${comp} · ${step.label}`,
+                                                                    records: cellData.records,
+                                                                    phaseId: step.id
+                                                                });
+                                                            }
                                                         }
                                                     }}
                                                 >
@@ -879,16 +886,6 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
 
                                                         {isConfigMode && (
                                                             <>
-                                                                <div style={{
-                                                                    position: "absolute", top: -6, right: -6,
-                                                                    background: "var(--bg-card)", borderRadius: "50%",
-                                                                    width: "20px", height: "20px", display: "flex",
-                                                                    alignItems: "center", justifyContent: "center",
-                                                                    fontSize: "12px", boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
-                                                                    border: "1px solid var(--accent)", color: "var(--accent)"
-                                                                }}>
-                                                                    ⚙️
-                                                                </div>
                                                                 <div
                                                                     onClick={(e) => { e.stopPropagation(); isDynamicIncluded ? toggleCellInclusion(proj, comp, step.id) : toggleCellExclusion(proj, comp, step.id); }}
                                                                     title={isDynamicIncluded ? "Rimuovi cella aggiunta" : "Nascondi cella"}
