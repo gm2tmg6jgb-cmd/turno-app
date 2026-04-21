@@ -1335,10 +1335,21 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
                     .limit(isDCT300 ? 2 : 1);
 
                 if (existing && existing.length > 0) {
+                    // Load macchina from anagrafica_materiali for the first material
+                    let loadedMacchina = "";
+                    const { data: matData } = await supabase
+                        .from('anagrafica_materiali')
+                        .select('macchina_id')
+                        .eq('codice', existing[0].materiale)
+                        .maybeSingle();
+                    if (matData?.macchina_id) {
+                        loadedMacchina = matData.macchina_id;
+                    }
+
                     setForm({
-                        fino: existing[0].fino || "",
+                        fino: existing[0].fino ?? null,
                         componente: existing[0].componente || data.comp || "",
-                        macchina: "",
+                        macchina: loadedMacchina,
                         codice: existing[0].materiale || "",
                         codice2: isDCT300 && existing[1] ? existing[1].materiale : ""
                     });
@@ -1370,8 +1381,8 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
         }
     };
 
-    const saveSingleMaterial = async (matCode, finoStr, comp, project, phase) => {
-        const matPayload = { codice: matCode, componente: comp, progetto: project };
+    const saveSingleMaterial = async (matCode, finoStr, comp, project, phase, macchina = "") => {
+        const matPayload = { codice: matCode, componente: comp, progetto: project, macchina_id: macchina.trim() || null };
         const { data: existingMat } = await supabase.from('anagrafica_materiali').select('id').eq('codice', matCode).maybeSingle();
         if (existingMat) {
             await supabase.from('anagrafica_materiali').update(matPayload).eq('id', existingMat.id);
@@ -1401,16 +1412,16 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
         setIsSaving(true);
         try {
             const comp = form.componente.toUpperCase();
-            const finoStr = form.fino.trim() ? String(form.fino.trim()).padStart(4, "0") : null;
+            const finoStr = form.fino && String(form.fino).trim() ? String(form.fino.trim()).padStart(4, "0") : null;
             const ensureHok = (code) => {
                 const c = code.toUpperCase().trim();
                 return data.phase === "ht" && !c.endsWith("/T") ? c + "/T" : c;
             };
 
-            await saveSingleMaterial(ensureHok(form.codice), finoStr, comp, data.project, data.phase);
+            await saveSingleMaterial(ensureHok(form.codice), finoStr, comp, data.project, data.phase, form.macchina);
 
             if (isDCT300 && form.codice2.trim()) {
-                await saveSingleMaterial(ensureHok(form.codice2), finoStr, comp, data.project, data.phase);
+                await saveSingleMaterial(ensureHok(form.codice2), finoStr, comp, data.project, data.phase, form.macchina);
             }
 
             showToast("Mappatura salvata con successo!");
