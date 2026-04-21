@@ -905,13 +905,15 @@ export default function ProductionReportView({
                       {comp.replace("_ECO", "").replace("_8FE", "")}
                       <span
                         title={isConfigured ? `${componentConfigs.filter(c=>c.componente===comp).length} macchine configurate` : "Clicca per aggiungere"}
-                        onClick={() => setEditingComponent({
-                          componente: comp,
-                          macchina_id: "",
-                          progetto: "",
-                          codicisText: "",
-                          fino: "",
-                        })}
+                        onClick={() => {
+                          const existing = componentConfigs.filter(c => c.componente === comp);
+                          if (existing.length === 1) {
+                            const cfg = existing[0];
+                            setEditingComponent({ ...cfg, codicisText: (cfg.codici || []).join("\n") });
+                          } else {
+                            setEditingComponent({ componente: comp, macchina_id: "", progetto: "", codicisText: "", fino: "" });
+                          }
+                        }}
                         style={{
                           display: "inline-block",
                           marginLeft: "4px",
