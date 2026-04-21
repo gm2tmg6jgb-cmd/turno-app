@@ -1031,7 +1031,7 @@ export default function PrioritaView({ showToast, globalDate }) {
 const QuickConfigModal = ({ data, onClose, onSave, showToast }) => {
     const [form, setForm] = useState({
         fino: "",
-        componente: data.comp || "",
+        componente: (data.comp || "").toUpperCase().replace(/ ECO$/, "").trim(),
         codice: "",
         codice2: ""
     });
@@ -1041,32 +1041,31 @@ const QuickConfigModal = ({ data, onClose, onSave, showToast }) => {
     useEffect(() => {
         const fetchExisting = async () => {
             try {
-                // Filter by fino if known (avoids mixing records from different operations)
-                const finoFilter = data.fino && data.fino !== "0000" ? data.fino : null;
+                // DB stores components WITHOUT " ECO" suffix (e.g. "SG4" not "SG4 ECO")
+                const dbComp = data.comp.toUpperCase().replace(/ ECO$/, "").trim();
 
-                let query = supabase
+                const { data: existing } = await supabase
                     .from("material_fino_overrides")
                     .select("*")
                     .eq("fase", data.phase)
-                    .eq("componente", data.comp.toUpperCase())
+                    .eq("componente", dbComp)
                     .eq("progetto", data.project);
-
-                if (finoFilter) {
-                    query = query.eq("fino", finoFilter);
-                }
-
-                const { data: existing } = await query;
 
                 if (existing && existing.length > 0) {
                     const fino = existing[0].fino ?? null;
                     setForm({
                         fino: fino !== null ? String(fino) : "",
-                        componente: existing[0].componente || data.comp || "",
+                        componente: existing[0].componente || dbComp || "",
                         codice: existing[0]?.materiale || "",
                         codice2: existing[1]?.materiale || ""
                     });
+                } else {
+                    // Use DB-format component name for new records too
+                    setForm(prev => ({ ...prev, componente: dbComp }));
                 }
-            } catch (_) { /* table not ready yet */ }
+            } catch (err) {
+                console.error("QuickConfigModal fetch error:", err);
+            }
             finally { setIsLoading(false); }
         };
         fetchExisting();
