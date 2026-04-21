@@ -289,18 +289,21 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
 
             // === SISTEMA MANUALE: solo material_fino_overrides ===
             const { data: matOverridesRes, error: matOverridesErr } = await fetchAllRows(() => supabase.from("material_fino_overrides").select("*"));
+            // Normalizza nomi varianti Lab (es. "DG - 1A" → "DG") per non duplicare righe in flow view
+            const normalizeFlowComp = (comp) => comp.replace(/\s*-\s*(1A|21A)$/i, "").trim();
+
             const dbMaterialOverrides = matOverridesErr ? [] : (matOverridesRes || []).map(r => ({
                 mat: (r.materiale || "").toUpperCase(),
                 fino: r.fino ? String(r.fino).padStart(4, "0") : null,
                 phase: r.fase,
-                comp: (r.componente || "").toUpperCase(),
+                comp: normalizeFlowComp((r.componente || "").toUpperCase()),
                 proj: (r.progetto || "").trim()
             }));
 
             const cfgSet = new Set();
             (matOverridesErr ? [] : (matOverridesRes || [])).forEach(r => {
                 if (r.progetto && r.componente && r.fase) {
-                    cfgSet.add(`${r.progetto.trim()}::${r.componente.toUpperCase()}::${r.fase}`);
+                    cfgSet.add(`${r.progetto.trim()}::${normalizeFlowComp(r.componente.toUpperCase())}::${r.fase}`);
                 }
             });
             setConfiguredCells(cfgSet);

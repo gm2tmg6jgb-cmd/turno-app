@@ -155,10 +155,9 @@ export default function ProductionReportView({
     "DH Welding", // 8Fe (14)
     "SG2_ECO",
     "SG3_ECO",
-    "SG4_ECO",
     "SG5_ECO",
     "SGR_ECO",
-    "RG_ECO", // Eco (6)
+    "RG_ECO", // Eco (5)
   ];
 
   // Configuration for Twin Machines (macchine gemellari)
@@ -825,7 +824,7 @@ export default function ProductionReportView({
                   8Fe
                 </th>
                 <th
-                  colSpan={6}
+                  colSpan={5}
                   style={{
                     border: "1px solid var(--border)",
                     padding: "8px",
