@@ -1135,6 +1135,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                     <tr style={{ background: "var(--bg-tertiary)" }}>
                                         <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)", borderRadius: "6px 0 0 6px" }}>Data</th>
                                         <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Materiale</th>
+                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Op</th>
                                         {selectedDetail.phaseId === "baa"
                                             ? <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Orario</th>
                                             : <><th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Turno</th>
@@ -1149,6 +1150,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                             <tr key={i} style={{ borderBottom: "1px solid var(--border-light)" }}>
                                                 <td style={{ padding: "10px", fontSize: "13px" }}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
                                                 <td style={{ padding: "10px", fontSize: "13px", color: "var(--accent)", fontWeight: "600" }}>{r.materiale}</td>
+                                                <td style={{ padding: "10px", fontSize: "13px", fontWeight: "600" }}>{r.fino || "—"}</td>
                                                 {selectedDetail.phaseId === "baa"
                                                     ? <td style={{ padding: "10px", fontSize: "13px" }}>{r.orario || "—"}</td>
                                                     : <><td style={{ padding: "10px", fontSize: "13px" }}>{r.turno_id}</td>
@@ -1161,7 +1163,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan="6" style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>
+                                            <td colSpan="7" style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>
                                                 Nessun record trovato in questa fase.
                                             </td>
                                         </tr>
@@ -1314,6 +1316,7 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
     const [form, setForm] = useState({
         fino: "",
         componente: data.comp || "",
+        macchina: "",
         codice: "",
         codice2: ""
     });
@@ -1335,6 +1338,7 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
                     setForm({
                         fino: existing[0].fino || "",
                         componente: existing[0].componente || data.comp || "",
+                        macchina: "",
                         codice: existing[0].materiale || "",
                         codice2: isDCT300 && existing[1] ? existing[1].materiale : ""
                     });
@@ -1452,6 +1456,18 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
                             placeholder="Es. SG3..."
                             value={form.componente}
                             onChange={e => setForm({...form, componente: e.target.value.toUpperCase()})}
+                        />
+                    </div>
+
+                    <div className="form-group">
+                        <label className="form-label" style={{ fontWeight: "700", fontSize: "11px", textTransform: "uppercase" }}>
+                            Macchina <span style={{ color: "var(--text-muted)", fontWeight: "400", textTransform: "none" }}>— opzionale</span>
+                        </label>
+                        <input
+                            className="input"
+                            placeholder="Es. FRW10193, DRA10060..."
+                            value={form.macchina}
+                            onChange={e => setForm({...form, macchina: e.target.value.toUpperCase()})}
                         />
                     </div>
 
