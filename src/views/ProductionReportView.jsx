@@ -888,6 +888,16 @@ export default function ProductionReportView({
                       key={idx}
                       onMouseEnter={() => setHoveredCol(comp)}
                       onMouseLeave={() => setHoveredCol(null)}
+                      onClick={() => {
+                        if (!isConfigMode) return;
+                        const existing = componentConfigs.filter(c => c.componente === comp);
+                        if (existing.length === 1) {
+                          const cfg = existing[0];
+                          setEditingComponent({ ...cfg, codicisText: (cfg.codici || []).join("\n") });
+                        } else {
+                          setEditingComponent({ componente: comp, macchina_id: "", progetto: "", codicisText: "", fino: "" });
+                        }
+                      }}
                       style={{
                         border: "1px solid var(--border)",
                         padding: "8px",
@@ -896,33 +906,20 @@ export default function ProductionReportView({
                         fontWeight: "600",
                         fontSize: "13px",
                         minWidth: "70px",
-                        color: "var(--text-primary)",
+                        color: isConfigMode ? (isConfigured ? "#10b981" : "var(--text-muted)") : "var(--text-primary)",
                         fontFamily: "inherit",
                         transition: "background-color 0.1s",
-                        position: "relative",
+                        cursor: isConfigMode ? "pointer" : "default",
+                        outline: isConfigMode ? `2px dashed ${isConfigured ? "#10b981" : "#9ca3af"}` : "none",
+                        outlineOffset: "-2px",
                       }}
                     >
                       {comp.replace("_ECO", "").replace("_8FE", "")}
-                      <span
-                        title={isConfigured ? `${componentConfigs.filter(c=>c.componente===comp).length} macchine configurate` : "Clicca per aggiungere"}
-                        onClick={() => {
-                          const existing = componentConfigs.filter(c => c.componente === comp);
-                          if (existing.length === 1) {
-                            const cfg = existing[0];
-                            setEditingComponent({ ...cfg, codicisText: (cfg.codici || []).join("\n") });
-                          } else {
-                            setEditingComponent({ componente: comp, macchina_id: "", progetto: "", codicisText: "", fino: "" });
-                          }
-                        }}
-                        style={{
-                          display: "inline-block",
-                          marginLeft: "4px",
-                          cursor: "pointer",
-                          color: isConfigured ? "#10b981" : "#9ca3af",
-                          fontSize: "11px",
-                          verticalAlign: "middle",
-                        }}
-                      >⚙</span>
+                      {isConfigMode && (
+                        <div style={{ fontSize: "9px", marginTop: 2, color: isConfigured ? "#10b981" : "#9ca3af" }}>
+                          {isConfigured ? "✓ conf." : "+ aggiungi"}
+                        </div>
+                      )}
                     </th>
                   );
                 })}
