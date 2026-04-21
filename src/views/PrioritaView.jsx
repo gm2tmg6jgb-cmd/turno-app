@@ -512,12 +512,10 @@ export default function PrioritaView({ showToast, globalDate }) {
         }
     };
 
-    const startEditing = (comp, fino, currentInv, proj) => {
+    const startEditing = (comp, fino, currentInv, proj, faseHint) => {
         if (isConfigMode) {
-            // Cerca la fase dal fino nella sequenza (anche se la cella non ha dati)
-            const seq = finoSequences[comp] || [];
-            const seqEntry = seq.find(s => s.fino === fino);
-            const fase = seqEntry?.fase || matrixData[comp]?.[fino]?.fase;
+            // Use faseHint when provided (avoids ambiguity when fino="0000" appears multiple times)
+            const fase = faseHint || matrixData[comp]?.[fino]?.fase;
             setQuickConfigModal({
                 project: proj || activeTab,
                 comp,
@@ -811,7 +809,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                             <div
                                                                 onClick={() => {
                                                                     if (isConfigMode) {
-                                                                        startEditing(normComp, fino, cell.inv, proj);
+                                                                        startEditing(normComp, fino, cell.inv, proj, fase);
                                                                     } else if (!isEditing && isEditable) {
                                                                         startEditing(normComp, fino, cell.inv, proj);
                                                                     }
@@ -862,17 +860,6 @@ export default function PrioritaView({ showToast, globalDate }) {
 
                                                                 {isConfigMode && (
                                                                     <>
-                                                                        {/* Gear icon - top right */}
-                                                                        <div style={{
-                                                                            position: "absolute", top: -6, right: -6,
-                                                                            background: "var(--bg-card)", borderRadius: "50%",
-                                                                            width: "20px", height: "20px", display: "flex",
-                                                                            alignItems: "center", justifyContent: "center",
-                                                                            fontSize: "12px", boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
-                                                                            border: "1px solid var(--accent)", color: "var(--accent)"
-                                                                        }}>
-                                                                            ⚙️
-                                                                        </div>
                                                                         {/* Hide/Exclude button - top left */}
                                                                         <div
                                                                             onClick={(e) => { e.stopPropagation(); toggleCellExclusion(normComp, fase); }}
@@ -1062,10 +1049,11 @@ const QuickConfigModal = ({ data, onClose, onSave, showToast }) => {
 
                 if (existing && existing.length > 0) {
                     // Prendi il fino della prima riga e filtra solo i record con quel fino
-                    const fino = existing[0].fino || "";
-                    const forFino = existing.filter(r => r.fino === fino);
+                    // (gestisce sia fino null che stringa)
+                    const fino = existing[0].fino ?? null;
+                    const forFino = existing.filter(r => (r.fino ?? null) === fino);
                     setForm({
-                        fino: fino,
+                        fino: fino || "",
                         componente: existing[0].componente || data.comp || "",
                         codice: forFino[0]?.materiale || "",
                         codice2: forFino[1]?.materiale || ""
