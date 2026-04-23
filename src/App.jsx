@@ -7,6 +7,7 @@ import { Toast } from "./components/ui/Toast";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { getLocalDate } from "./lib/dateUtils";
 import Login from "./components/Login";
+import { version } from "../package.json";
 
 // Views — lazy loaded per ridurre bundle iniziale
 const DashboardView = lazy(() => import("./views/DashboardView"));
@@ -446,6 +447,10 @@ function AppContent({ session, onLogout }) {
           >
             🚪 Esci
           </button>
+
+          <div style={{ textAlign: "center", marginTop: 12, fontSize: 11, color: "var(--text-muted)", opacity: 0.5 }}>
+            v{version}
+          </div>
         </div>
       </div>
 

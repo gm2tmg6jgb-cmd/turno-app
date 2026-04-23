@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
+import { version } from "../../package.json";
 
 export default function Login() {
     const [email, setEmail] = useState("");
@@ -68,6 +69,7 @@ export default function Login() {
                     <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--text-muted)" }}>
                         {mode === "login" ? "Accedi per continuare" : "Recupera la tua password"}
                     </p>
+                    <span style={{ fontSize: 10, color: "var(--text-muted)", opacity: 0.5 }}>v{version}</span>
                 </div>
 
                 {/* FORM LOGIN */}
