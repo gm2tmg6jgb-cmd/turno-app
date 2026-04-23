@@ -383,9 +383,11 @@ export default function PlanningView({
                                                     displayColor = mot?.colore || "var(--danger)";
                                                     isAbsence = true;
                                                 } else if (actual && actual.presente) {
-                                                    const tId = actual.turno_id || "D";
-                                                    displayLabel = tId; // Restore as 1
-                                                    const turn = TURNI.find(t => t.id === tId);
+                                                    // Usa getSlotForGroup per calcolare la fascia oraria corretta
+                                                    const group = d.turno || d.turno_default || "D";
+                                                    const slot = getSlotForGroup(group, day.date);
+                                                    displayLabel = slot?.id || actual.turno_id || group;
+                                                    const turn = TURNI.find(t => t.id === group) || TURNI.find(t => t.id === "D");
                                                     displayColor = turn?.colore || "var(--success)";
                                                 } else if (day.isWeekend) {
                                                     displayLabel = "-";
