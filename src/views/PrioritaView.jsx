@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase, fetchAllRows } from "../lib/supabase";
 import { Icons } from "../components/ui/Icons";
+import Modal from "../components/Modal";
 
 // --- LABORATORIO INVENTARIO: Tracciamento WIP con Inventario Fisico ---
 
@@ -1127,57 +1128,38 @@ const QuickConfigModal = ({ data, onClose, onSave, showToast }) => {
     if (isLoading) return null;
 
     return (
-        <div onClick={onClose} style={{
-            position: "fixed", inset: 0, zIndex: 3000,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex", alignItems: "center", justifyContent: "center"
-        }}>
-            <div onClick={e => e.stopPropagation()} style={{
-                width: 400, padding: 28,
-                background: "var(--bg-card)",
-                borderRadius: 16,
-                border: "1px solid var(--border)",
-                boxShadow: "0 20px 60px rgba(0,0,0,0.3)"
-            }}>
-                <h3 style={{ fontSize: 16, fontWeight: 800, marginBottom: 4, marginTop: 0 }}>
-                    Configura fase: {PHASE_LABEL[data.phase] || data.phase}
-                </h3>
-                <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 20 }}>
-                    {data.comp} — {data.project}
-                </div>
-
+        <Modal
+            title={`⚙️ Configura fase: ${PHASE_LABEL[data.phase] || data.phase}`}
+            subtitle={`${data.comp} — ${data.project}`}
+            onClose={onClose}
+            width={420}
+            zIndex={3000}
+        >
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 {[
                     { key: "fino", label: "Fino (Operazione SAP)", placeholder: "es. 0100" },
                     { key: "codice", label: "Codice Materiale 1", placeholder: "es. M0162644" },
                     { key: "codice2", label: "Codice Materiale 2 (opzionale)", placeholder: "es. M0162644/S" },
                     { key: "componente", label: "Componente", placeholder: "es. SG4 ECO" },
                 ].map(field => (
-                    <div key={field.key} style={{ marginBottom: 14 }}>
-                        <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", display: "block", marginBottom: 4 }}>
-                            {field.label}
-                        </label>
+                    <div key={field.key} className="form-group">
+                        <label className="form-label">{field.label}</label>
                         <input
                             type="text"
                             value={form[field.key]}
                             onChange={e => setForm(prev => ({ ...prev, [field.key]: e.target.value }))}
                             placeholder={field.placeholder}
-                            style={{
-                                width: "100%", padding: "8px 12px", fontSize: 13,
-                                borderRadius: 8, border: "1px solid var(--border)",
-                                background: "var(--bg-tertiary)", color: "var(--text-primary)",
-                                boxSizing: "border-box"
-                            }}
+                            className="input"
                         />
                     </div>
                 ))}
-
-                <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
-                    <button className="btn btn-secondary" style={{ flex: 1 }} onClick={onClose}>Annulla</button>
-                    <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleSave} disabled={isSaving}>
-                        {isSaving ? "Salvataggio..." : "Salva"}
-                    </button>
-                </div>
             </div>
-        </div>
+            <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={onClose}>Annulla</button>
+                <button className="btn btn-primary" onClick={handleSave} disabled={isSaving}>
+                    {isSaving ? "Salvataggio..." : "Salva"}
+                </button>
+            </div>
+        </Modal>
     );
 };

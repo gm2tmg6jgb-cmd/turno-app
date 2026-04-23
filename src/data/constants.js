@@ -223,3 +223,43 @@ export const MOTIVI_FERMO = [
     { id: "pausa", label: "Pausa / Riunione", colore: "#6B7280", icona: "☕" },
     { id: "altro", label: "Altro", colore: "#9CA3AF", icona: "📝" },
 ];
+
+// ComponentFlowView constants
+export const PROCESS_STEPS = [
+    { id: "start_soft", label: "Soft Turning", code: "DRA" },
+    { id: "dmc", label: "DMC", code: "ZSA" },
+    { id: "laser_welding", label: "Saldatura Soft", code: "SCA" },
+    { id: "laser_welding_soft_2", label: "Saldatura Soft 2", code: "SCA" },
+    { id: "shaping", label: "Stozzatura", code: "STW" },
+    { id: "milling", label: "Fresatura", code: "FRA" },
+    { id: "broaching", label: "Brocciatura", code: "RAA" },
+    { id: "hobbing", label: "Dentatura", code: "FRW" },
+    { id: "deburring", label: "Sbavatura", code: "EGW" },
+    { id: "ht", label: "Trattamento Termico", code: "HOK" },
+    { id: "shot_peening", label: "Pallinatura", code: "OKU" },
+    { id: "start_hard", label: "Tornitura Hard", code: "TH" },
+    { id: "laser_welding_2", label: "Saldatura Hard", code: "SCA" },
+    { id: "ut_soft", label: "MZA Soft", code: "MZA" },
+    { id: "ut", label: "MZA Hard", code: "MZA" },
+    { id: "grinding_cone", label: "Rettifica Cono", code: "SLA" },
+    { id: "grinding_cone_2", label: "Rettifica Cono 2", code: "SLA" },
+    { id: "teeth_grinding", label: "Rettifica Denti", code: "SLW" },
+    { id: "washing", label: "Lavaggio", code: "WSH" },
+    { id: "baa", label: "BAA", code: "BAA" }
+];
+
+export const PROJECTS = ["DCT300", "DCT ECO", "8Fe", "RG + DH"];
+
+export const PROJECT_COMPONENTS = {
+    "DCT300": ["SG1", "DG-REV", "DG", "SG3", "SG4", "SG5", "SG6", "SG7", "SGR", "RG"],
+    "8Fe": ["SG2", "SG3", "SG4", "SG5", "SG6", "SG7", "SG8", "SGR", "PG", "FG5/7"],
+    "DCT ECO": ["SG2", "SG3", "SG4", "SG5", "SGR", "RG FD1", "RG FD2"],
+    "RG + DH": ["RG FD1", "RG FD2", "DH TORNITURA", "DH ASSEMBLAGGIO", "DH SALDATURA"]
+};
+
+export const EXCLUDED_PHASES = {
+    "DCT300": ["dmc", "broaching", "milling", "laser_welding_soft_2", "grinding_cone_2"],
+    "8Fe": ["laser_welding_2", "ut", "ut_soft", "grinding_cone_2"],
+    "DCT ECO": ["dmc", "broaching", "laser_welding_soft_2", "start_soft"],
+    "RG + DH": ["shaping", "broaching", "laser_welding_soft_2", "milling", "ut", "grinding_cone", "laser_welding", "grinding_cone_2"]
+};

@@ -1,45 +1,13 @@
 import { useState, useEffect } from "react";
 import { supabase, fetchAllRows } from "../lib/supabase";
 import { getCurrentWeekRange } from "../lib/dateUtils";
-import { TURNI } from "../data/constants";
+import { TURNI, PROCESS_STEPS, PROJECTS, PROJECT_COMPONENTS, EXCLUDED_PHASES } from "../data/constants";
 import { getSlotForGroup } from "../lib/shiftRotation";
+import Modal from "../components/Modal";
 
 // Parsing 100% manuale: solo material_fino_overrides (configurazione utente su Supabase)
 
-
-const PROCESS_STEPS = [
-    { id: "start_soft", label: "Soft Turning", code: "DRA" },
-    { id: "dmc", label: "DMC", code: "ZSA" },
-    { id: "laser_welding", label: "Saldatura Soft", code: "SCA" },
-    { id: "laser_welding_soft_2", label: "Saldatura Soft 2", code: "SCA" },
-    { id: "shaping", label: "Stozzatura", code: "STW" },
-    { id: "milling", label: "Fresatura", code: "FRA" },
-    { id: "broaching", label: "Brocciatura", code: "RAA" },
-    { id: "hobbing", label: "Dentatura", code: "FRW" },
-    { id: "deburring", label: "Sbavatura", code: "EGW" },
-    { id: "ht", label: "Trattamento Termico", code: "HOK" },
-    { id: "shot_peening", label: "Pallinatura", code: "OKU" },
-    { id: "start_hard", label: "Tornitura Hard", code: "TH" },
-    { id: "laser_welding_2", label: "Saldatura Hard", code: "SCA" },
-    { id: "ut_soft", label: "MZA Soft", code: "MZA" },
-    { id: "ut", label: "MZA Hard", code: "MZA" },
-    { id: "grinding_cone", label: "Rettifica Cono", code: "SLA" },
-    { id: "grinding_cone_2", label: "Rettifica Cono 2", code: "SLA" },
-    { id: "teeth_grinding", label: "Rettifica Denti", code: "SLW" },
-    { id: "washing", label: "Lavaggio", code: "WSH" },
-    { id: "baa", label: "BAA", code: "BAA" }
-];
-
 const PHASE_CODE = Object.fromEntries(PROCESS_STEPS.map(step => [step.id, step.code]));
-
-const PROJECTS = ["DCT300", "DCT ECO", "8Fe", "RG + DH"];
-
-const PROJECT_COMPONENTS = {
-    "DCT300": ["SG1", "DG-REV", "DG", "SG3", "SG4", "SG5", "SG6", "SG7", "SGR", "RG"],
-    "8Fe": ["SG2", "SG3", "SG4", "SG5", "SG6", "SG7", "SG8", "SGR", "PG", "FG5/7"],
-    "DCT ECO": ["SG2", "SG3", "SG4", "SG5", "SGR", "RG FD1", "RG FD2"],
-    "RG + DH": ["RG FD1", "RG FD2", "DH TORNITURA", "DH ASSEMBLAGGIO", "DH SALDATURA"]
-};
 
 // Daily targets (standard)
 const PROJECT_TARGETS = {
@@ -47,13 +15,6 @@ const PROJECT_TARGETS = {
     "8Fe": 800,
     "DCT ECO": 600,
     "RG + DH": 200
-};
-
-const EXCLUDED_PHASES = {
-    "DCT300": ["dmc", "broaching", "milling", "laser_welding_soft_2", "grinding_cone_2"], // milling tolto dalle globali per attivazione selettiva su SG4? No, ora rimosso su richiesta
-    "8Fe": ["laser_welding_2", "ut", "ut_soft", "grinding_cone_2"],
-    "DCT ECO": ["dmc", "broaching", "laser_welding_soft_2", "start_soft"],
-    "RG + DH": ["shaping", "broaching", "laser_welding_soft_2", "milling", "ut", "grinding_cone", "laser_welding", "grinding_cone_2"]
 };
 
 const COMPONENT_EXCLUSIONS = {
@@ -340,7 +301,6 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 return;
             }
 
-            console.log(`[ComponentFlow] Fetch ${viewMode} - records grezzi: ${prodRes?.length ?? 0}, configurazioni: ${dbMaterialOverrides.length}`);
 
             const newMatrix = {};
             const projComponentSets = {};
@@ -1212,46 +1172,36 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
 
             {/* Target Settings Modal */}
             {targetModal && (
-                <div className="modal-backdrop" style={{ zIndex: 3000 }}>
-                    <div className="modal-content" style={{ width: "300px", padding: "24px", textAlign: "center" }}>
-                        <h3 style={{ fontSize: "18px", marginBottom: "16px", fontWeight: "800" }}>Target Giornaliero {targetModal.proj}</h3>
-                        <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "20px" }}>
-                            Inserisci il valore target per l'intera giornata (24h).
-                        </p>
-
-                        <input
-                            type="number"
-                            value={targetModal.value}
-                            onChange={(e) => setTargetModal({ ...targetModal, value: parseInt(e.target.value) || 0 })}
-                            style={{
-                                width: "100%", padding: "12px", fontSize: "20px", fontWeight: "900",
-                                textAlign: "center", borderRadius: "10px", border: "2px solid var(--accent)",
-                                marginBottom: "20px"
+                <Modal
+                    title={`🎯 Target Giornaliero ${targetModal.proj}`}
+                    subtitle="Inserisci il valore target per l'intera giornata (24h)."
+                    onClose={() => setTargetModal(null)}
+                    width={320}
+                    zIndex={3000}
+                >
+                    <input
+                        type="number"
+                        value={targetModal.value}
+                        onChange={(e) => setTargetModal({ ...targetModal, value: parseInt(e.target.value) || 0 })}
+                        className="input"
+                        style={{ width: "100%", fontSize: "24px", fontWeight: "900", textAlign: "center", border: "2px solid var(--accent)", marginTop: 4 }}
+                    />
+                    <div className="modal-footer">
+                        <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setTargetModal(null)}>Annulla</button>
+                        <button
+                            className="btn btn-primary"
+                            style={{ flex: 1 }}
+                            onClick={() => {
+                                const newOverrides = { ...targetOverrides, [targetModal.proj]: targetModal.value };
+                                setTargetOverrides(newOverrides);
+                                localStorage.setItem("bap_target_overrides", JSON.stringify(newOverrides));
+                                setTargetModal(null);
+                                showToast?.("Target aggiornato!", "success");
                             }}
-                        />
-
-                        <div style={{ display: "flex", gap: "10px" }}>
-                            <button
-                                className="btn btn-secondary"
-                                style={{ flex: 1 }}
-                                onClick={() => setTargetModal(null)}
-                            >Annulla</button>
-                            <button
-                                className="btn btn-primary"
-                                style={{ flex: 1 }}
-                                onClick={() => {
-                                    const newOverrides = { ...targetOverrides, [targetModal.proj]: targetModal.value };
-                                    setTargetOverrides(newOverrides);
-                                    localStorage.setItem("bap_target_overrides", JSON.stringify(newOverrides));
-                                    setTargetModal(null);
-                                    showToast?.("Target aggiornato con successo!", "success");
-                                }}
-                            >Salva</button>
-                        </div>
+                        >Salva</button>
                     </div>
-                </div>
+                </Modal>
             )}
-            {/* Target Settings Modal */}
 
             {/* Quick Config Modal (Configura Singolo) */}
             {quickConfigModal && (
@@ -1345,15 +1295,28 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     );
 }
 
+// Numero di codici materiale richiesti per componente in DCT300
+const DCT300_CODES_COUNT = {
+    "DG": 3, "SG3": 3, "SG4": 3, "SG5": 3, "SG6": 3, "SG7": 3,
+    "SG1": 2, "RG": 2,
+    "SGR": 1,
+};
+
 // --- QUICK CONFIG MODAL (CONFIGURA SINGOLO) ---
 function QuickConfigModal({ data, onClose, onSave, showToast }) {
     const isDCT300 = data.project === "DCT300";
+    // Quanti codici mostrare per questo componente
+    const numCodici = isDCT300
+        ? (DCT300_CODES_COUNT[data.comp?.toUpperCase()] ?? 2)
+        : 1;
+
     const [form, setForm] = useState({
         fino: "",
         componente: data.comp || "",
         macchina: "",
         codice: "",
-        codice2: ""
+        codice2: "",
+        codice3: "",
     });
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
@@ -1361,36 +1324,34 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
     useEffect(() => {
         const fetchExisting = async () => {
             try {
-                const { data: existing } = await supabase
+                // Carica SENZA filtro progetto per gestire varianti ("DCT300" vs "DCT 300")
+                const { data: allForCell, error: existingErr } = await supabase
                     .from('material_fino_overrides')
                     .select('*')
                     .eq('fase', data.phase)
-                    .eq('componente', data.comp.toUpperCase())
-                    .eq('progetto', data.project)
-                    .limit(isDCT300 ? 2 : 1);
+                    .ilike('componente', data.comp)
+                    .order('id', { ascending: true });
 
-                if (existing && existing.length > 0) {
-                    // Load macchina from anagrafica_materiali for the first material
-                    let loadedMacchina = "";
-                    const { data: matData } = await supabase
-                        .from('anagrafica_materiali')
-                        .select('macchina_id')
-                        .eq('codice', existing[0].materiale)
-                        .maybeSingle();
-                    if (matData?.macchina_id) {
-                        loadedMacchina = matData.macchina_id;
-                    }
+                if (existingErr) console.error("QuickConfigModal query error:", existingErr);
 
+                // Filtra progetto lato client (ignora spazi e case)
+                const normalizeProj = (p) => (p || "").trim().replace(/\s+/g, "").toLowerCase();
+                const existing = (allForCell || [])
+                    .filter(r => normalizeProj(r.progetto) === normalizeProj(data.project))
+                    .slice(0, numCodici);
+
+                if (existing.length > 0) {
                     setForm({
-                        fino: existing[0].fino ?? null,
+                        fino:       existing[0].fino ?? "",
                         componente: existing[0].componente || data.comp || "",
-                        macchina: loadedMacchina,
-                        codice: existing[0].materiale || "",
-                        codice2: isDCT300 && existing[1] ? existing[1].materiale : ""
+                        macchina:   existing[0].macchina_id || "",
+                        codice:     existing[0]?.materiale || "",
+                        codice2:    existing[1]?.materiale || "",
+                        codice3:    existing[2]?.materiale || "",
                     });
                 }
-            } catch (_) {
-                // table not ready yet, keep form empty
+            } catch (err) {
+                console.error("QuickConfigModal fetchExisting error:", err);
             } finally {
                 setIsLoading(false);
             }
@@ -1398,16 +1359,23 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
         fetchExisting();
     }, []);
 
+    // Normalizza progetto per confronto (ignora spazi e case)
+    const normalizeProj = (p) => (p || "").trim().replace(/\s+/g, "").toLowerCase();
+
     const deleteMaterial = async (matCode) => {
         if (!matCode.trim()) return;
         try {
             const code = matCode.toUpperCase().trim();
-            await supabase.from('material_fino_overrides')
-                .delete()
+            // Cerca per id per evitare problemi con varianti del nome progetto
+            const { data: rows } = await supabase.from('material_fino_overrides')
+                .select('id, progetto')
                 .eq('materiale', code)
                 .eq('fase', data.phase)
-                .eq('componente', data.comp.toUpperCase())
-                .eq('progetto', data.project);
+                .ilike('componente', data.comp);
+            const target = (rows || []).find(r => normalizeProj(r.progetto) === normalizeProj(data.project));
+            if (target) {
+                await supabase.from('material_fino_overrides').delete().eq('id', target.id);
+            }
             showToast("Materiale eliminato con successo!");
             onSave();
         } catch (err) {
@@ -1417,26 +1385,30 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
     };
 
     const saveSingleMaterial = async (matCode, finoStr, comp, project, phase, macchina = "") => {
-        const matPayload = { codice: matCode, componente: comp, progetto: project, macchina_id: macchina.trim() || null };
-        const { data: existingMat } = await supabase.from('anagrafica_materiali').select('id').eq('codice', matCode).maybeSingle();
-        if (existingMat) {
-            await supabase.from('anagrafica_materiali').update(matPayload).eq('id', existingMat.id);
-        } else {
-            await supabase.from('anagrafica_materiali').insert(matPayload);
-        }
+        const ovPayload = {
+            materiale:  matCode,
+            fino:       finoStr,
+            fase:       phase,
+            componente: comp,
+            progetto:   project,
+            macchina_id: macchina.trim() || null,
+        };
 
-        const ovPayload = { materiale: matCode, fino: finoStr, fase: phase, componente: comp, progetto: project };
-        let ovQuery = supabase.from('material_fino_overrides').select('id')
+        // Cerca record esistente tollerando varianti del progetto (es. "DCT 300" vs "DCT300")
+        let ovSearchQ = supabase.from('material_fino_overrides').select('id, progetto')
             .eq('materiale', matCode)
             .eq('fase', phase)
-            .eq('componente', comp)
-            .eq('progetto', project);
-        ovQuery = finoStr ? ovQuery.eq('fino', finoStr) : ovQuery.is('fino', null);
-        const { data: existingOv } = await ovQuery.maybeSingle();
+            .ilike('componente', comp);
+        ovSearchQ = finoStr ? ovSearchQ.eq('fino', finoStr) : ovSearchQ.is('fino', null);
+        const { data: ovRows } = await ovSearchQ;
+        const existingOv = (ovRows || []).find(r => normalizeProj(r.progetto) === normalizeProj(project));
+
         if (existingOv) {
-            await supabase.from('material_fino_overrides').update(ovPayload).eq('id', existingOv.id);
+            const { error: updErr } = await supabase.from('material_fino_overrides').update(ovPayload).eq('id', existingOv.id);
+            if (updErr) console.error("Update error:", updErr);
         } else {
-            await supabase.from('material_fino_overrides').insert(ovPayload);
+            const { error: insErr } = await supabase.from('material_fino_overrides').insert(ovPayload);
+            if (insErr) console.error("Insert error:", insErr, "payload:", ovPayload);
         }
     };
 
@@ -1455,8 +1427,11 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
 
             await saveSingleMaterial(ensureHok(form.codice), finoStr, comp, data.project, data.phase, form.macchina);
 
-            if (isDCT300 && form.codice2.trim()) {
+            if (numCodici >= 2 && form.codice2.trim()) {
                 await saveSingleMaterial(ensureHok(form.codice2), finoStr, comp, data.project, data.phase, form.macchina);
+            }
+            if (numCodici >= 3 && form.codice3.trim()) {
+                await saveSingleMaterial(ensureHok(form.codice3), finoStr, comp, data.project, data.phase, form.macchina);
             }
 
             showToast("Mappatura salvata con successo!");
@@ -1470,107 +1445,87 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
     };
 
     return (
-        <div className="modal-backdrop" style={{ zIndex: 5000 }}>
-            <div className="modal-content" style={{ width: "450px", padding: "24px", borderRadius: "20px" }}>
-                <div style={{ marginBottom: "20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <h3 style={{ margin: 0, fontWeight: "900", fontSize: "18px" }}>⚙️ Configura Singolo Cell</h3>
-                    <button className="btn btn-secondary btn-sm" onClick={onClose}>✕</button>
+        <Modal
+            title={<>⚙️ Configura Singolo Cell</>}
+            subtitle={
+                <>
+                    Fase <strong style={{ color: "var(--accent)" }}>{data.phaseLabel}</strong> — Progetto <strong>{data.project}</strong>
+                    {isLoading && <span style={{ marginLeft: 8, opacity: 0.6 }}>· Caricamento...</span>}
+                </>
+            }
+            onClose={onClose}
+            width={460}
+            zIndex={5000}
+        >
+            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                <div className="form-group">
+                    <label className="form-label">
+                        OP Macchina (Fino) <span style={{ color: "var(--text-muted)", fontWeight: 400, textTransform: "none" }}>— opzionale</span>
+                    </label>
+                    <input
+                        className="input"
+                        value={form.fino}
+                        onChange={e => setForm({...form, fino: e.target.value})}
+                    />
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                    <p style={{ fontSize: "12px", color: "var(--text-muted)", margin: 0 }}>
-                        Stai configurando la fase <strong style={{ color: "var(--accent)" }}>{data.phaseLabel}</strong> del progetto <strong>{data.project}</strong>.
-                        {isLoading && <span style={{ marginLeft: "8px", opacity: 0.6 }}>Caricamento dati esistenti...</span>}
-                    </p>
+                <div className="form-group">
+                    <label className="form-label">Componente *</label>
+                    <input
+                        className="input"
+                        value={form.componente}
+                        onChange={e => setForm({...form, componente: e.target.value.toUpperCase()})}
+                    />
+                </div>
 
-                    <div className="form-group">
-                        <label className="form-label" style={{ fontWeight: "700", fontSize: "11px", textTransform: "uppercase" }}>
-                            OP Macchina (Fino) <span style={{ color: "var(--text-muted)", fontWeight: "400", textTransform: "none" }}>— opzionale</span>
-                        </label>
-                        <input
-                            className="input"
-                            placeholder="Es. 0140, 0010... (lascia vuoto per abbinare qualsiasi op)"
-                            value={form.fino}
-                            onChange={e => setForm({...form, fino: e.target.value})}
-                        />
-                    </div>
+                <div className="form-group">
+                    <label className="form-label">
+                        Macchina <span style={{ color: "var(--text-muted)", fontWeight: 400, textTransform: "none" }}>— opzionale</span>
+                    </label>
+                    <input
+                        className="input"
+                        value={form.macchina}
+                        onChange={e => setForm({...form, macchina: e.target.value.toUpperCase()})}
+                    />
+                </div>
 
-                    <div className="form-group">
-                        <label className="form-label" style={{ fontWeight: "700", fontSize: "11px", textTransform: "uppercase" }}>Componente *</label>
-                        <input
-                            className="input"
-                            placeholder="Es. SG3..."
-                            value={form.componente}
-                            onChange={e => setForm({...form, componente: e.target.value.toUpperCase()})}
-                        />
-                    </div>
-
-                    <div className="form-group">
-                        <label className="form-label" style={{ fontWeight: "700", fontSize: "11px", textTransform: "uppercase" }}>
-                            Macchina <span style={{ color: "var(--text-muted)", fontWeight: "400", textTransform: "none" }}>— opzionale</span>
-                        </label>
-                        <input
-                            className="input"
-                            placeholder="Es. FRW10193, DRA10060..."
-                            value={form.macchina}
-                            onChange={e => setForm({...form, macchina: e.target.value.toUpperCase()})}
-                        />
-                    </div>
-
-                    <div className="form-group">
-                        <label className="form-label" style={{ fontWeight: "700", fontSize: "11px", textTransform: "uppercase" }}>
-                            Codice Materiale {isDCT300 ? "1" : ""} *
+                {/* Codici materiale — numero dinamico in base al componente */}
+                {[
+                    { key: "codice",  label: numCodici > 1 ? "Codice Materiale 1 *" : "Codice Materiale *", required: true },
+                    { key: "codice2", label: "Codice Materiale 2", required: numCodici >= 2 },
+                    { key: "codice3", label: "Codice Materiale 3", required: numCodici >= 3 },
+                ].slice(0, numCodici).map(({ key, label, required }) => (
+                    <div className="form-group" key={key}>
+                        <label className="form-label">
+                            {label}
+                            {!required && <span style={{ color: "var(--text-muted)", fontWeight: 400, textTransform: "none" }}> — opzionale</span>}
                         </label>
                         <div style={{ display: "flex", gap: "8px" }}>
                             <input
                                 className="input"
-                                placeholder="Es. M0153389/S"
-                                value={form.codice}
-                                onChange={e => setForm({...form, codice: e.target.value.toUpperCase()})}
+                                value={form[key]}
+                                onChange={e => setForm({...form, [key]: e.target.value.toUpperCase()})}
                                 style={{ flex: 1 }}
                             />
-                            {form.codice && (
+                            {form[key] && (
                                 <button
-                                    onClick={() => deleteMaterial(form.codice)}
-                                    title="Elimina questo materiale"
-                                    style={{ padding: "0 12px", background: "#ef4444", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "700", fontSize: "14px", flexShrink: 0 }}
+                                    onClick={() => deleteMaterial(form[key])}
+                                    className="btn btn-sm"
+                                    title="Elimina materiale"
+                                    style={{ background: "var(--danger-muted)", color: "var(--danger)", border: "1px solid var(--danger)", flexShrink: 0 }}
                                 >✕</button>
                             )}
                         </div>
                     </div>
-
-                    {isDCT300 && (
-                        <div className="form-group">
-                            <label className="form-label" style={{ fontWeight: "700", fontSize: "11px", textTransform: "uppercase" }}>
-                                Codice Materiale 2 <span style={{ color: "var(--text-muted)", fontWeight: "400", textTransform: "none" }}>— opzionale</span>
-                            </label>
-                            <div style={{ display: "flex", gap: "8px" }}>
-                                <input
-                                    className="input"
-                                    placeholder="Es. M0153389"
-                                    value={form.codice2}
-                                    onChange={e => setForm({...form, codice2: e.target.value.toUpperCase()})}
-                                    style={{ flex: 1 }}
-                                />
-                                {form.codice2 && (
-                                    <button
-                                        onClick={() => deleteMaterial(form.codice2)}
-                                        title="Elimina questo materiale"
-                                        style={{ padding: "0 12px", background: "#ef4444", color: "white", border: "none", borderRadius: "8px", cursor: "pointer", fontWeight: "700", fontSize: "14px", flexShrink: 0 }}
-                                    >✕</button>
-                                )}
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                <div style={{ marginTop: "24px", display: "flex", gap: "10px" }}>
-                    <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleSave} disabled={isSaving}>
-                        {isSaving ? "Salvataggio..." : "Salva Configurazione"}
-                    </button>
-                    <button className="btn btn-secondary" onClick={onClose}>Annulla</button>
-                </div>
+                ))}
             </div>
-        </div>
+
+            <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={onClose}>Annulla</button>
+                <button className="btn btn-primary" onClick={handleSave} disabled={isSaving}>
+                    {isSaving ? "Salvataggio..." : "Salva Configurazione"}
+                </button>
+            </div>
+        </Modal>
     );
 }

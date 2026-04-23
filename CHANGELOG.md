@@ -4,6 +4,24 @@ Tutte le modifiche significative di Turno App sono documentate in questo file.
 
 ---
 
+## [1.1.0] — 2026-04-23 — Performance e Fix QuickConfigModal
+
+### 🚀 Performance
+- Lazy-load jsPDF e html2canvas (-150KB bundle iniziale): caricati solo al click su "Esporta PDF"
+- Costanti PROCESS_STEPS e PROJECT_COMPONENTS spostate in constants.js
+
+### 🔧 Fix
+- Rimossi console.log di debug dalla produzione (QuickConfigModal, ComponentFlow)
+- Fix QuickConfigModal: dati esistenti ora caricati correttamente
+- Fix QuickConfigModal: supporto 3 codici materiale per componenti DCT300 (DG, SG3-7)
+- Fix: vincolo unico material_fino_overrides corretto (per fase+componente+progetto)
+- Fix: macchina_id salvata direttamente in material_fino_overrides
+
+### 🎨 UI
+- Modal uniformati con design coerente in tutta l'app
+
+---
+
 ## [1.0.0] — 2026-04-23 — Prima Release Stabile
 
 ### 🔐 Sicurezza

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import Modal from "../components/Modal";
 
 const ALL_MACHINES_ORDER = [
   "DRA10060","DRA10061","DRA10062","DRA10063","DRA10064","DRA10065","DRA10066",
@@ -1500,53 +1501,45 @@ function ComponentConfigModal({ editing, onChange, onSave, onClose, onDelete, ex
   if (!editing) return null;
   const existing = (existingConfigs || []).filter(c => c.componente === editing.componente);
   return (
-    <div style={{
-      position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.55)",
-      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000,
-      backdropFilter: "blur(4px)",
-    }} onClick={onClose}>
-      <div style={{
-        background: "var(--bg-card)", borderRadius: "16px", padding: "28px",
-        width: "460px", maxHeight: "85vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
-      }} onClick={e => e.stopPropagation()}>
-        <h2 style={{ fontSize: "18px", fontWeight: "800", marginBottom: "4px" }}>
-          ⚙ Configura: <span style={{ color: "var(--accent)" }}>{editing.componente}</span>
-        </h2>
-        <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "16px" }}>
-          Associa macchina + fino + codici materiale. La combinazione <strong>fino + materiale</strong> identifica univocamente la macchina.
-        </p>
+    <Modal
+      title={<>⚙️ Configura: <span style={{ color: "var(--accent)" }}>{editing.componente}</span></>}
+      subtitle="Associa macchina + fino + codici materiale. La combinazione fino + materiale identifica univocamente la macchina."
+      onClose={onClose}
+      width={480}
+    >
+      {/* Configurazioni esistenti */}
+      {existing.length > 0 && (
+        <div style={{ marginBottom: "20px" }}>
+          <label className="form-label">Configurazioni Esistenti</label>
+          {existing.map(cfg => (
+            <div key={cfg.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px", backgroundColor: "var(--bg-secondary)", borderRadius: "8px", marginBottom: "6px", fontSize: "13px" }}>
+              <span style={{ flex: 1 }}>
+                <strong>{cfg.macchina_id || "—"}</strong>
+                {cfg.fino && <span style={{ color: "var(--text-muted)", marginLeft: "6px" }}>op:{cfg.fino}</span>}
+                <span style={{ color: "var(--text-muted)", marginLeft: "6px" }}>{(cfg.codici||[]).length} codici</span>
+              </span>
+              <button
+                onClick={() => onChange({ ...cfg, codicisText: (cfg.codici||[]).join("\n") })}
+                className="btn btn-secondary btn-sm"
+              >Modifica</button>
+              <button
+                onClick={() => onDelete(cfg.id)}
+                className="btn btn-sm"
+                style={{ background: "var(--danger-muted)", color: "var(--danger)", border: "1px solid var(--danger)" }}
+              >✕</button>
+            </div>
+          ))}
+          <hr className="modal-divider" />
+          <p style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "12px" }}>Aggiungi nuova associazione:</p>
+        </div>
+      )}
 
-        {/* Existing configs for this component */}
-        {existing.length > 0 && (
-          <div style={{ marginBottom: "20px" }}>
-            <label style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-muted)", display: "block", marginBottom: "8px" }}>CONFIGURAZIONI ESISTENTI</label>
-            {existing.map(cfg => (
-              <div key={cfg.id} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "8px 12px", backgroundColor: "var(--bg-secondary)", borderRadius: "8px", marginBottom: "6px", fontSize: "13px" }}>
-                <span style={{ flex: 1 }}>
-                  <strong>{cfg.macchina_id || "—"}</strong>
-                  {cfg.fino && <span style={{ color: "var(--text-muted)", marginLeft: "6px" }}>op:{cfg.fino}</span>}
-                  <span style={{ color: "var(--text-muted)", marginLeft: "6px" }}>{(cfg.codici||[]).length} codici</span>
-                </span>
-                <button
-                  onClick={() => onChange({ ...cfg, codicisText: (cfg.codici||[]).join("\n") })}
-                  style={{ padding: "4px 10px", borderRadius: "6px", border: "1px solid var(--border)", background: "none", cursor: "pointer", fontSize: "12px" }}
-                >Modifica</button>
-                <button
-                  onClick={() => onDelete(cfg.id)}
-                  style={{ padding: "4px 10px", borderRadius: "6px", border: "none", background: "#fee2e2", color: "#dc2626", cursor: "pointer", fontSize: "12px" }}
-                >✕</button>
-              </div>
-            ))}
-            <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: "16px 0" }} />
-            <p style={{ fontSize: "12px", color: "var(--text-muted)", marginBottom: "12px" }}>Aggiungi nuova associazione:</p>
-          </div>
-        )}
-
-        <label style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-muted)", display: "block", marginBottom: "4px" }}>MACCHINA *</label>
+      <div className="form-group">
+        <label className="form-label">Macchina *</label>
         <select
           value={editing.macchina_id || ""}
           onChange={e => onChange({ ...editing, macchina_id: e.target.value })}
-          style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--border)", marginBottom: "16px", backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: "14px" }}
+          className="input"
         >
           <option value="">— Seleziona macchina —</option>
           {(() => {
@@ -1560,44 +1553,51 @@ function ComponentConfigModal({ editing, onChange, onSave, onClose, onDelete, ex
             ));
           })()}
         </select>
+      </div>
 
-        <label style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-muted)", display: "block", marginBottom: "4px" }}>FINO (operazione SAP) *</label>
+      <div className="form-group" style={{ marginTop: 14 }}>
+        <label className="form-label">Fino (operazione SAP) *</label>
         <input
           type="text"
           value={editing.fino}
           onChange={e => onChange({ ...editing, fino: e.target.value })}
           placeholder="es. 50, TORNS..."
-          style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--border)", marginBottom: "16px", backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: "14px", boxSizing: "border-box" }}
+          className="input"
         />
+      </div>
 
-        <label style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-muted)", display: "block", marginBottom: "4px" }}>CODICI MATERIALE *</label>
+      <div className="form-group" style={{ marginTop: 14 }}>
+        <label className="form-label">Codici Materiale *</label>
         <p style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "6px" }}>Uno per riga oppure separati da virgola</p>
         <textarea
           value={editing.codicisText}
           onChange={e => onChange({ ...editing, codicisText: e.target.value })}
           rows={5}
           placeholder={"M0170686/S\nM0170687\nM0170688"}
-          style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--border)", marginBottom: "16px", backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: "13px", fontFamily: "monospace", resize: "vertical", boxSizing: "border-box" }}
+          className="input"
+          style={{ fontFamily: "monospace", resize: "vertical" }}
         />
+      </div>
 
-        <label style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-muted)", display: "block", marginBottom: "4px" }}>PROGETTO</label>
+      <div className="form-group" style={{ marginTop: 14 }}>
+        <label className="form-label">Progetto</label>
         <select
           value={editing.progetto}
           onChange={e => onChange({ ...editing, progetto: e.target.value })}
-          style={{ width: "100%", padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--border)", marginBottom: "24px", backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: "14px" }}
+          className="input"
         >
           <option value="">— Nessuno —</option>
           <option value="DCT 300">DCT 300</option>
           <option value="8Fe">8Fe</option>
           <option value="DCT Eco">DCT Eco</option>
         </select>
-
-        <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={{ padding: "8px 20px", borderRadius: "8px", border: "1px solid var(--border)", background: "none", cursor: "pointer", fontWeight: "600" }}>Chiudi</button>
-          <button onClick={onSave} style={{ padding: "8px 20px", borderRadius: "8px", border: "none", background: "#10b981", color: "white", cursor: "pointer", fontWeight: "700" }}>Salva</button>
-        </div>
       </div>
-    </div>
+
+      <div className="modal-footer">
+        <button onClick={onClose} className="btn btn-secondary">Chiudi</button>
+        <button onClick={onSave} className="btn btn-primary">Salva</button>
+      </div>
+    </Modal>
   );
 }
 
@@ -1605,37 +1605,28 @@ function ComponentConfigModal({ editing, onChange, onSave, onClose, onDelete, ex
 function MachineFineModal({ editing, onChange, onSave, onClose }) {
   if (!editing) return null;
   return (
-    <div style={{
-      position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.55)",
-      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3000,
-      backdropFilter: "blur(4px)",
-    }} onClick={onClose}>
-      <div style={{
-        background: "var(--bg-card)", borderRadius: "16px", padding: "28px",
-        width: "360px", boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
-      }} onClick={e => e.stopPropagation()}>
-        <h2 style={{ fontSize: "18px", fontWeight: "800", marginBottom: "4px" }}>
-          🔩 Macchina: <span style={{ color: "var(--accent)" }}>{editing.nome}</span>
-        </h2>
-        <p style={{ fontSize: "13px", color: "var(--text-muted)", marginBottom: "20px" }}>
-          Imposta il codice <strong>fino</strong> SAP per abbinare i record di <code>conferme_sap</code>.
-        </p>
-
-        <label style={{ fontSize: "12px", fontWeight: "700", color: "var(--text-muted)", display: "block", marginBottom: "4px" }}>FINO</label>
+    <Modal
+      title={<>🔩 Macchina: <span style={{ color: "var(--accent)" }}>{editing.nome}</span></>}
+      subtitle={<>Imposta il codice <strong>fino</strong> SAP per abbinare i record di conferme_sap.</>}
+      onClose={onClose}
+      width={380}
+    >
+      <div className="form-group">
+        <label className="form-label">Fino</label>
         <input
           type="text"
           value={editing.fino}
           onChange={e => onChange({ ...editing, fino: e.target.value })}
           placeholder="es. TORNS"
-          style={{ width: "100%", padding: "10px 12px", borderRadius: "8px", border: "1px solid var(--border)", marginBottom: "24px", backgroundColor: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: "15px", fontWeight: "700", boxSizing: "border-box" }}
+          className="input"
+          style={{ fontSize: "15px", fontWeight: "700" }}
           autoFocus
         />
-
-        <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
-          <button onClick={onClose} style={{ padding: "8px 20px", borderRadius: "8px", border: "1px solid var(--border)", background: "none", cursor: "pointer", fontWeight: "600" }}>Annulla</button>
-          <button onClick={onSave} style={{ padding: "8px 20px", borderRadius: "8px", border: "none", background: "#3b82f6", color: "white", cursor: "pointer", fontWeight: "700" }}>Salva</button>
-        </div>
       </div>
-    </div>
+      <div className="modal-footer">
+        <button onClick={onClose} className="btn btn-secondary">Annulla</button>
+        <button onClick={onSave} className="btn btn-primary">Salva</button>
+      </div>
+    </Modal>
   );
 }

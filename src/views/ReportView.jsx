@@ -7,9 +7,6 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from 'recharts';
 
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-
 import { getSlotForGroup } from '../lib/shiftRotation';
 import { getLocalDate } from '../lib/dateUtils';
 
@@ -384,6 +381,10 @@ export default function ReportView({ dipendenti, presenze, assegnazioni, macchin
         if (!input) return;
 
         try {
+            const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+                import('html2canvas'),
+                import('jspdf'),
+            ]);
             const canvas = await html2canvas(input, { scale: 2 });
             const imgData = canvas.toDataURL('image/png');
             const pdf = new jsPDF('p', 'mm', 'a4');
