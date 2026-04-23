@@ -43,6 +43,8 @@ function AppContent({ session, onLogout }) {
     return localStorage.getItem("lastSeenVersion") !== version;
   });
 
+  const isAdmin = session?.user?.app_metadata?.role === "admin";
+
   const handleOpenChangelog = () => {
     setShowChangelog(true);
     setHasNewVersion(false);
@@ -223,7 +225,6 @@ function AppContent({ session, onLogout }) {
 
   const navItems = [
     { id: "dashboard", label: "Gestione Dipendenti", icon: Icons.dashboard },
-    // DEBUG: navItems should contain productionDelays
     { id: "planning", label: "Pianificazione", icon: Icons.calendar },
     { id: "assegnazioni", label: "Assegnazioni", icon: Icons.machine, badge: alertCount || null },
     { id: "sapHub", label: "Hub SAP", icon: Icons.settings, status: "new" },
@@ -240,13 +241,13 @@ function AppContent({ session, onLogout }) {
     { id: "productionDelays", label: "Gestione Ritardi Produzione", icon: Icons.alert, status: "new" },
     { id: "productionSchedule", label: "Programma Produzione", icon: Icons.calendar, status: "new" },
     { id: "nuovaPianificazione", label: "Nuova Pianificazione Produzione", icon: Icons.calendar, status: "new" },
-    { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine },
-    { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings },
-    { id: "zones", label: "Anagrafica Zone", icon: Icons.settings },
-    { id: "anagrafica", label: "Anagrafica Dipendenti", icon: Icons.users },
-    { id: "motivi", label: "Gestione Motivi", icon: Icons.settings },
+    { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine, adminOnly: true },
+    { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings, adminOnly: true },
+    { id: "zones", label: "Anagrafica Zone", icon: Icons.settings, adminOnly: true },
+    { id: "anagrafica", label: "Anagrafica Dipendenti", icon: Icons.users, adminOnly: true },
+    { id: "motivi", label: "Gestione Motivi", icon: Icons.settings, adminOnly: true },
     { id: "inventory", label: "Inventario", icon: Icons.report },
-  ];
+  ].filter(item => !item.adminOnly || isAdmin);
 
   const viewTitles = {
     dashboard: "Gestione dipendenti",
@@ -430,9 +431,41 @@ function AppContent({ session, onLogout }) {
           </button>
 
           <div className="sidebar-user">
-            <div className="sidebar-avatar">{reparto ? reparto.capoturno?.substring(0, 2).toUpperCase() : "PM"}</div>
+            <div className="sidebar-avatar" style={{ position: "relative" }}>
+              {reparto ? reparto.capoturno?.substring(0, 2).toUpperCase() : "PM"}
+              {isAdmin && (
+                <span style={{
+                  position: "absolute",
+                  bottom: -4,
+                  right: -4,
+                  background: "var(--accent)",
+                  borderRadius: "50%",
+                  width: 14,
+                  height: 14,
+                  fontSize: 9,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  border: "2px solid var(--bg-secondary)"
+                }}>★</span>
+              )}
+            </div>
             <div className="sidebar-user-info">
-              <div className="name">{session?.user?.email || "Plant Manager"}</div>
+              <div className="name" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {session?.user?.email || "Plant Manager"}
+                {isAdmin && (
+                  <span style={{
+                    background: "var(--accent)",
+                    color: "white",
+                    fontSize: 9,
+                    fontWeight: 800,
+                    padding: "1px 5px",
+                    borderRadius: 4,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.5px"
+                  }}>Admin</span>
+                )}
+              </div>
               <div className="role">{reparto ? `Capoturno — ${reparto.nome}` : "Gestione Stabilimento"}</div>
             </div>
           </div>
@@ -623,13 +656,13 @@ function AppContent({ session, onLogout }) {
           {currentView === "nuovaPianificazione" && (
             <NuovaPianificazioneView showToast={showToast} />
           )}
-          {currentView === "anagraficaMacchine" && (
+          {currentView === "anagraficaMacchine" && isAdmin && (
             <AdminSecurityWrapper title="Anagrafica Macchine">
               <AnagraficaMacchineView macchine={macchine} setMacchine={setMacchine} tecnologie={tecnologie} zone={zone} showToast={showToast} />
             </AdminSecurityWrapper>
           )}
 
-          {currentView === "anagraficaFermi" && (
+          {currentView === "anagraficaFermi" && isAdmin && (
             <AnagraficaFermiView
               motiviFermo={motiviFermo}
               setMotiviFermo={setMotiviFermo}
@@ -638,7 +671,7 @@ function AppContent({ session, onLogout }) {
             />
           )}
 
-          {currentView === "zones" && (
+          {currentView === "zones" && isAdmin && (
             <AdminSecurityWrapper title="Anagrafica Zone">
               <ZoneView zones={zone} setZones={setZone} macchine={macchine} setMacchine={setMacchine} showToast={showToast} />
             </AdminSecurityWrapper>
@@ -659,7 +692,7 @@ function AppContent({ session, onLogout }) {
             />
           )}
 
-          {currentView === "anagrafica" && (
+          {currentView === "anagrafica" && isAdmin && (
             <AdminSecurityWrapper title="Anagrafica Dipendenti">
               <AnagraficaView
                 dipendenti={dipendenti}
@@ -671,7 +704,7 @@ function AppContent({ session, onLogout }) {
             </AdminSecurityWrapper>
           )}
 
-          {currentView === "motivi" && (
+          {currentView === "motivi" && isAdmin && (
             <AdminSecurityWrapper title="Gestione Motivi">
               <MotiviView motivi={motivi} setMotivi={setMotivi} showToast={showToast} />
             </AdminSecurityWrapper>
