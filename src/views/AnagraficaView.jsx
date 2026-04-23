@@ -59,10 +59,11 @@ export default function AnagraficaView({ dipendenti, setDipendenti, showToast, t
                     rol_residui: (parseFloat(newDip.rol_residui) || 0) * 8
                 };
 
+                const cleanId = (currentDipId || "").split(':')[0];
                 const { error } = await supabase
                     .from('dipendenti')
                     .update(payload)
-                    .eq('id', currentDipId);
+                    .eq('id', cleanId);
 
                 if (error) throw error;
 
@@ -131,12 +132,14 @@ export default function AnagraficaView({ dipendenti, setDipendenti, showToast, t
     const openEdit = (dip) => {
         setNewDip({
             ...dip,
-            turno: dip.turno_default || dip.turno || "D", 
+            turno: dip.turno_default || dip.turno || "D",
             reparto: dip.reparto || dip.reparto_id || "T11",
             ferie_residue: (dip.ferie_residue || 0) / 8,
             rol_residui: (dip.rol_residui || 0) / 8
         });
-        setCurrentDipId(dip.id);
+        // Sanitize ID: remove anything after ':' (e.g., "D002:1" → "D002")
+        const cleanId = (dip.id || "").split(':')[0];
+        setCurrentDipId(cleanId);
         setIsEditing(true);
         setShowModal(true);
     };
