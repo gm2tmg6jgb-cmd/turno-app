@@ -884,6 +884,33 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                             );
                                                         })()}
 
+                                                        {/* Bottone aggiungi fermo — in basso a sinistra */}
+                                                        {!isConfigMode && (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setFermoModal({ project: proj, comp, fase: step.id, phaseLabel: step.label });
+                                                                    setFermoForm({ macchinaId: "", motivo: "", durata: "", note: "" });
+                                                                }}
+                                                                title="Aggiungi fermo"
+                                                                style={{
+                                                                    position: "absolute", bottom: -8, left: -8,
+                                                                    background: "#f59e0b", borderRadius: "50%",
+                                                                    width: "24px", height: "24px",
+                                                                    border: "none", display: "flex",
+                                                                    alignItems: "center", justifyContent: "center",
+                                                                    fontSize: "16px", fontWeight: "900",
+                                                                    boxShadow: "0 2px 6px rgba(245,158,11,0.4)",
+                                                                    color: "white", cursor: "pointer", zIndex: 10,
+                                                                    padding: 0,
+                                                                    transition: "all 0.2s",
+                                                                    lineHeight: "1"
+                                                                }}
+                                                                onMouseOver={(e) => e.currentTarget.style.transform = "scale(1.15)"}
+                                                                onMouseOut={(e) => e.currentTarget.style.transform = "scale(1)"}
+                                                            >+</button>
+                                                        )}
+
                                                         {isConfigMode && (
                                                             <>
                                                                 <div
