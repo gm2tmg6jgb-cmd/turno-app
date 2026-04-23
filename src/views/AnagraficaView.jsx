@@ -316,30 +316,30 @@ export default function AnagraficaView({ dipendenti, setDipendenti, showToast, t
                                 </div>
                             )}
 
-                            {newDip.tipo !== 'interinale' && (
-                                <>
-                                    <div className="form-group">
-                                        <label className="form-label" style={{ color: "var(--success)" }}>Ferie Residue (Giorni)</label>
-                                        <input 
-                                            className="input" 
-                                            type="number" 
-                                            step="0.1"
-                                            value={newDip.ferie_residue} 
-                                            onChange={(e) => setNewDip({ ...newDip, ferie_residue: e.target.value })} 
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label" style={{ color: "var(--warning)" }}>ROL Residui (Giorni)</label>
-                                        <input 
-                                            className="input" 
-                                            type="number" 
-                                            step="0.1"
-                                            value={newDip.rol_residui} 
-                                            onChange={(e) => setNewDip({ ...newDip, rol_residui: e.target.value })} 
-                                        />
-                                    </div>
-                                </>
-                            )}
+                            <div className="form-group">
+                                <label className="form-label" style={{ color: "var(--success)" }}>Ferie Residue (Giorni)</label>
+                                <input
+                                    className="input"
+                                    type="number"
+                                    step="0.1"
+                                    disabled={newDip.tipo === 'interinale'}
+                                    value={newDip.ferie_residue}
+                                    onChange={(e) => setNewDip({ ...newDip, ferie_residue: e.target.value })}
+                                    title={newDip.tipo === 'interinale' ? 'Non applicabile a dipendenti interinali' : ''}
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label" style={{ color: "var(--warning)" }}>ROL Residui (Giorni)</label>
+                                <input
+                                    className="input"
+                                    type="number"
+                                    step="0.1"
+                                    disabled={newDip.tipo === 'interinale'}
+                                    value={newDip.rol_residui}
+                                    onChange={(e) => setNewDip({ ...newDip, rol_residui: e.target.value })}
+                                    title={newDip.tipo === 'interinale' ? 'Non applicabile a dipendenti interinali' : ''}
+                                />
+                            </div>
 
                             <div className="form-group" style={{ gridColumn: "span 2" }}>
                                 <div className="alert alert-info" style={{ marginTop: 0, padding: "8px 12px" }}>
