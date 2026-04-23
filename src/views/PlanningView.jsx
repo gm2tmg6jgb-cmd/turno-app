@@ -537,8 +537,8 @@ export default function PlanningView({
                         </div>
 
                         <div style={{ marginBottom: 20 }}>
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
-                                {["M", "P", "S", "N", "D"].map(tId => {
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                                {["A", "B", "C", "D"].map(tId => {
                                     const turn = TURNI.find(t => t.id === tId) || { colore: "#666" };
                                     return (
                                         <button
