@@ -39,6 +39,15 @@ import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 function AppContent({ session, onLogout }) {
   const [currentView, setCurrentView] = useState("componentFlow");
   const [showChangelog, setShowChangelog] = useState(false);
+  const [hasNewVersion, setHasNewVersion] = useState(() => {
+    return localStorage.getItem("lastSeenVersion") !== version;
+  });
+
+  const handleOpenChangelog = () => {
+    setShowChangelog(true);
+    setHasNewVersion(false);
+    localStorage.setItem("lastSeenVersion", version);
+  };
   const repartoCorrente = ""; // Intenzionalmente vuota: mostra tutti i reparti. Estendibile in futuro con un selettore.
   const [turnoCorrente, setTurnoCorrente] = useState(() => localStorage.getItem("turnoCorrente") || getActiveGroup());
   const [globalDate, setGlobalDate] = useState(() => getLocalDate(new Date()));
@@ -451,11 +460,38 @@ function AppContent({ session, onLogout }) {
           </button>
 
           <div
-            onClick={() => setShowChangelog(true)}
-            style={{ textAlign: "center", marginTop: 12, fontSize: 11, color: "var(--text-muted)", opacity: 0.5, cursor: "pointer" }}
+            onClick={handleOpenChangelog}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 6,
+              marginTop: 12,
+              fontSize: 11,
+              color: hasNewVersion ? "var(--accent)" : "var(--text-muted)",
+              opacity: hasNewVersion ? 1 : 0.5,
+              cursor: "pointer",
+              fontWeight: hasNewVersion ? 700 : 400,
+              transition: "all 0.2s"
+            }}
             title="Vedi note di versione"
           >
-            v{version} — novità
+            v{version}
+            {hasNewVersion && (
+              <span style={{
+                background: "var(--accent)",
+                color: "white",
+                fontSize: 9,
+                fontWeight: 800,
+                padding: "2px 6px",
+                borderRadius: 20,
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+                animation: "pulse 2s infinite"
+              }}>
+                NUOVO
+              </span>
+            )}
           </div>
         </div>
       </div>
