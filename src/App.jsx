@@ -6,6 +6,7 @@ import { Icons } from "./components/ui/Icons";
 import { Toast } from "./components/ui/Toast";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { getLocalDate } from "./lib/dateUtils";
+import Login from "./components/Login";
 
 // Views — lazy loaded per ridurre bundle iniziale
 const DashboardView = lazy(() => import("./views/DashboardView"));
@@ -33,7 +34,7 @@ const ProductionScheduleView = lazy(() => import("./views/ProductionScheduleView
 const NuovaPianificazioneView = lazy(() => import("./views/NuovaPianificazioneView"));
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
-export default function App() {
+function AppContent({ session, onLogout }) {
   const [currentView, setCurrentView] = useState("componentFlow");
   const repartoCorrente = ""; // Intenzionalmente vuota: mostra tutti i reparti. Estendibile in futuro con un selettore.
   const [turnoCorrente, setTurnoCorrente] = useState(() => localStorage.getItem("turnoCorrente") || getActiveGroup());
@@ -423,10 +424,32 @@ export default function App() {
           <div className="sidebar-user">
             <div className="sidebar-avatar">{reparto ? reparto.capoturno?.substring(0, 2).toUpperCase() : "PM"}</div>
             <div className="sidebar-user-info">
-              <div className="name">{reparto ? reparto.capoturno : "Plant Manager"}</div>
+              <div className="name">{session?.user?.email || "Plant Manager"}</div>
               <div className="role">{reparto ? `Capoturno — ${reparto.nome}` : "Gestione Stabilimento"}</div>
             </div>
           </div>
+
+          <button
+            onClick={onLogout}
+            style={{
+              width: "100%",
+              marginTop: 8,
+              padding: "10px",
+              background: "transparent",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius)",
+              color: "var(--danger)",
+              fontSize: 13,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              cursor: "pointer",
+              fontWeight: 600
+            }}
+          >
+            🚪 Esci
+          </button>
         </div>
       </div>
 
@@ -620,4 +643,34 @@ export default function App() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
+}
+
+export default function App() {
+  const [session, setSession] = useState(undefined);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  if (session === undefined) {
+    return (
+      <div style={{ height: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-primary)" }}>
+        <div style={{ color: "var(--text-muted)", fontSize: 14 }}>Caricamento...</div>
+      </div>
+    );
+  }
+
+  if (!session) return <Login />;
+
+  return <AppContent session={session} onLogout={handleLogout} />;
 }
