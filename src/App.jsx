@@ -7,6 +7,7 @@ import { Toast } from "./components/ui/Toast";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { getLocalDate } from "./lib/dateUtils";
 import Login from "./components/Login";
+import ChangelogModal from "./components/ChangelogModal";
 import { version } from "../package.json";
 
 // Views — lazy loaded per ridurre bundle iniziale
@@ -37,6 +38,7 @@ import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 function AppContent({ session, onLogout }) {
   const [currentView, setCurrentView] = useState("componentFlow");
+  const [showChangelog, setShowChangelog] = useState(false);
   const repartoCorrente = ""; // Intenzionalmente vuota: mostra tutti i reparti. Estendibile in futuro con un selettore.
   const [turnoCorrente, setTurnoCorrente] = useState(() => localStorage.getItem("turnoCorrente") || getActiveGroup());
   const [globalDate, setGlobalDate] = useState(() => getLocalDate(new Date()));
@@ -448,8 +450,12 @@ function AppContent({ session, onLogout }) {
             🚪 Esci
           </button>
 
-          <div style={{ textAlign: "center", marginTop: 12, fontSize: 11, color: "var(--text-muted)", opacity: 0.5 }}>
-            v{version}
+          <div
+            onClick={() => setShowChangelog(true)}
+            style={{ textAlign: "center", marginTop: 12, fontSize: 11, color: "var(--text-muted)", opacity: 0.5, cursor: "pointer" }}
+            title="Vedi note di versione"
+          >
+            v{version} — novità
           </div>
         </div>
       </div>
@@ -642,6 +648,7 @@ function AppContent({ session, onLogout }) {
       </div>
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+      {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
     </div>
   );
 }
