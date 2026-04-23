@@ -372,7 +372,7 @@ export default function PlanningView({
                                                     isAbsence = true;
                                                 } else {
                                                     const tId = planned.turno_id || "D";
-                                                    displayLabel = tId === "D" ? "1" : tId; // Restore as 1
+                                                    displayLabel = tId;
                                                     displayColor = "#6366f1"; // Unique planning color (Indigo)
                                                 }
                                             } else {
@@ -384,18 +384,18 @@ export default function PlanningView({
                                                     isAbsence = true;
                                                 } else if (actual && actual.presente) {
                                                     const tId = actual.turno_id || "D";
-                                                    displayLabel = tId === "D" ? "1" : tId; // Restore as 1
+                                                    displayLabel = tId; // Restore as 1
                                                     const turn = TURNI.find(t => t.id === tId);
                                                     displayColor = turn?.colore || "var(--success)";
                                                 } else if (day.isWeekend) {
                                                     displayLabel = "-";
                                                     displayColor = "var(--text-muted)";
                                                 } else {
-                                                    // AUTOMATION: Show all suggested shifts, D becomes 1
+                                                    // AUTOMATION: Show all suggested shifts
                                                     const group = d.turno || d.turno_default || "D";
                                                     const slot = getSlotForGroup(group, day.date);
                                                     if (slot) {
-                                                        displayLabel = slot.id === "D" ? "1" : slot.id;
+                                                        displayLabel = slot.id;
                                                         const turn = TURNI.find(t => t.id === group) || TURNI.find(t => t.id === "D");
                                                         displayColor = turn?.colore || "#666";
                                                     }
