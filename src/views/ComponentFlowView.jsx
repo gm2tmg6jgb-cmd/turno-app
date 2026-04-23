@@ -849,7 +849,16 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                             boxShadow: hasProduction ? "0 4px 12px rgba(0,0,0,0.15)" : "none",
                                                             cursor: "pointer",
                                                             border: isConfigMode ? "2px dashed var(--accent)" : "1px solid rgba(255,255,255,0.1)",
-                                                            transition: "all 0.2s"
+                                                            transition: "all 0.2s",
+                                                            position: "relative"
+                                                        }}
+                                                        onMouseEnter={(e) => {
+                                                            const btn = e.currentTarget.querySelector('button[data-fermo-btn]');
+                                                            if (btn) btn.style.opacity = "1";
+                                                        }}
+                                                        onMouseLeave={(e) => {
+                                                            const btn = e.currentTarget.querySelector('button[data-fermo-btn]');
+                                                            if (btn) btn.style.opacity = "0.3";
                                                         }}
                                                     >
                                                         {qty}
@@ -884,7 +893,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                             );
                                                         })()}
 
-                                                        {/* Bottone aggiungi fermo — in basso a sinistra */}
+                                                        {/* Bottone aggiungi fermo — integrato dentro la cella */}
                                                         {!isConfigMode && (
                                                             <button
                                                                 onClick={(e) => {
@@ -892,22 +901,21 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                                     setFermoModal({ project: proj, comp, fase: step.id, phaseLabel: step.label });
                                                                     setFermoForm({ macchinaId: "", motivo: "", durata: "", note: "" });
                                                                 }}
+                                                                data-fermo-btn
                                                                 title="Aggiungi fermo"
                                                                 style={{
-                                                                    position: "absolute", bottom: -8, left: -8,
-                                                                    background: "#f59e0b", borderRadius: "50%",
-                                                                    width: "24px", height: "24px",
+                                                                    position: "absolute", bottom: 3, left: 3,
+                                                                    background: "rgba(255, 255, 255, 0.3)", borderRadius: "50%",
+                                                                    width: "18px", height: "18px",
                                                                     border: "none", display: "flex",
                                                                     alignItems: "center", justifyContent: "center",
-                                                                    fontSize: "16px", fontWeight: "900",
-                                                                    boxShadow: "0 2px 6px rgba(245,158,11,0.4)",
-                                                                    color: "white", cursor: "pointer", zIndex: 10,
+                                                                    fontSize: "12px", fontWeight: "900",
+                                                                    color: "white", cursor: "pointer", zIndex: 5,
                                                                     padding: 0,
                                                                     transition: "all 0.2s",
-                                                                    lineHeight: "1"
+                                                                    lineHeight: "1",
+                                                                    opacity: 0.3
                                                                 }}
-                                                                onMouseOver={(e) => e.currentTarget.style.transform = "scale(1.15)"}
-                                                                onMouseOut={(e) => e.currentTarget.style.transform = "scale(1)"}
                                                             >+</button>
                                                         )}
 
