@@ -716,8 +716,8 @@ export default function DashboardView({
                         </div>
 
                         <div style={{ marginBottom: 20 }}>
-                            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
-                                {["M", "P", "S", "N", "D"].map(tId => (
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+                                {["A", "B", "C", "D"].map(tId => (
                                     <button 
                                         key={tId} onClick={() => saveMassPresenza(true, null, tId)}
                                         style={{ padding: "10px 0", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", fontWeight: 800, fontSize: 16, cursor: "pointer" }}
