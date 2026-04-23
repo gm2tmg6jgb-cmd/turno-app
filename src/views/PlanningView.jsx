@@ -367,8 +367,8 @@ export default function PlanningView({
                                                 if (planned.motivo_assenza) {
                                                     const mot = motivi.find(m => m.id === planned.motivo_assenza);
                                                     displayLabel = mot?.sigla || planned.motivo_assenza || "A";
-                                                    // ORANGE for PF/PR, Indigo for others
-                                                    displayColor = (displayLabel === 'PF' || displayLabel === 'PR') ? "#f97316" : "#6366f1";
+                                                    // Usa il colore assegnato al motivo nel database
+                                                    displayColor = mot?.colore || "#6366f1";
                                                     isAbsence = true;
                                                 } else {
                                                     const tId = planned.turno_id || "D";
