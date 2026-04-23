@@ -236,10 +236,6 @@ function AppContent({ session, onLogout }) {
     { id: "inventory", label: "Inventario", icon: Icons.report },
   ];
 
-  // DEBUG: Log navItems to verify productionDelays is included
-  console.log('[App] navItems:', navItems.map(item => item.id));
-  console.log('[App] Has productionDelays:', navItems.some(item => item.id === 'productionDelays'));
-
   const viewTitles = {
     dashboard: "Gestione dipendenti",
     assegnazioni: "Assegnazione Macchine",
