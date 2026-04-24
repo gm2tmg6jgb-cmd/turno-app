@@ -47,15 +47,15 @@ export function saveThroughputConfig(cfg) {
  * - Fase continua: (lotto / (pzH × oee)) + changeOver
  */
 export function phaseHours(phase, cfg) {
+    // change over: per-fase se definito, altrimenti globale; 0 se noChangeOver
+    const co = phase.noChangeOver ? 0 : (phase.changeOverH ?? cfg.changeOverH);
     if (phase.fixedH != null) {
-        const co = phase.noChangeOver ? 0 : cfg.changeOverH;
         if (phase.chargeSize) {
-            const cariche = Math.ceil(cfg.lotto / phase.chargeSize);
-            return cariche * phase.fixedH + co;
+            return Math.ceil(cfg.lotto / phase.chargeSize) * phase.fixedH + co;
         }
         return phase.fixedH + co;
     }
-    return (cfg.lotto / (phase.pzH * cfg.oee)) + cfg.changeOverH;
+    return (cfg.lotto / (phase.pzH * cfg.oee)) + co;
 }
 
 /**

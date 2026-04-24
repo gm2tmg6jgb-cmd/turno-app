@@ -13,9 +13,12 @@ export default function ThroughputView({ showToast }) {
         setDraft({
             lotto: cfg.lotto,
             oeePercent: Math.round(cfg.oee * 100),
-            changeOverH: cfg.changeOverH,
             rackSize: cfg.rackSize ?? 72,
-            phases: cfg.components[key].map(p => ({ ...p }))
+            // changeOverH per-fase: usa quello salvato o il default globale
+            phases: cfg.components[key].map(p => ({
+                ...p,
+                changeOverH: p.noChangeOver ? 0 : (p.changeOverH ?? cfg.changeOverH)
+            }))
         });
         setEditing(true);
     };
@@ -25,13 +28,14 @@ export default function ThroughputView({ showToast }) {
         const newCfg = {
             lotto: Number(draft.lotto),
             oee: Number(draft.oeePercent) / 100,
-            changeOverH: Number(draft.changeOverH),
+            changeOverH: cfg.changeOverH, // mantieni il globale come fallback
             rackSize: Number(draft.rackSize),
             components: {
                 [key]: draft.phases.map(p => ({
                     ...p,
                     pzH: p.fixedH != null ? null : Number(p.pzH),
-                    fixedH: p.fixedH != null ? Number(p.fixedH) : null
+                    fixedH: p.fixedH != null ? Number(p.fixedH) : null,
+                    changeOverH: p.noChangeOver ? undefined : Number(p.changeOverH)
                 }))
             }
         };
@@ -114,12 +118,6 @@ export default function ThroughputView({ showToast }) {
                                 style={inputStyle} />
                         </label>
                         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)" }}>CHANGE OVER (h/fase)</span>
-                            <input type="number" value={draft.changeOverH} min={0} step={0.5}
-                                onChange={e => setDraft(d => ({ ...d, changeOverH: e.target.value }))}
-                                style={inputStyle} />
-                        </label>
-                        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                             <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)" }}>RACK SIZE (pz)</span>
                             <input type="number" value={draft.rackSize} min={1}
                                 onChange={e => setDraft(d => ({ ...d, rackSize: e.target.value }))}
@@ -135,10 +133,6 @@ export default function ThroughputView({ showToast }) {
                         <div>
                             <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 700 }}>OEE</div>
                             <div style={{ fontSize: 20, fontWeight: 900 }}>{Math.round(cfg.oee * 100)}%</div>
-                        </div>
-                        <div>
-                            <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 700 }}>CHANGE OVER</div>
-                            <div style={{ fontSize: 20, fontWeight: 900 }}>{cfg.changeOverH}h / fase</div>
                         </div>
                         <div>
                             <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 700 }}>RACK SIZE</div>
@@ -207,14 +201,13 @@ export default function ThroughputView({ showToast }) {
 
                                     const activeLotto = Number(editing ? draft.lotto : cfg.lotto);
                                     const activeOee = Number(editing ? draft.oeePercent / 100 : cfg.oee);
-                                    const activeCO = Number(editing ? draft.changeOverH : cfg.changeOverH);
                                     // Tempo di solo processo (senza change over)
                                     const lottoH = phase.fixedH != null
                                         ? (phase.chargeSize
                                             ? Math.ceil(activeLotto / phase.chargeSize) * phase.fixedH
                                             : phase.fixedH)
                                         : +(activeLotto / (Number(phase.pzH) * activeOee)).toFixed(1);
-                                    const coH = phase.noChangeOver ? 0 : activeCO;
+                                    const coH = phase.noChangeOver ? 0 : Number(editing ? draft.phases[i].changeOverH : (phase.changeOverH ?? cfg.changeOverH));
 
                                     const barWidth = Math.round((computed.h / totalH) * 100);
 
@@ -270,8 +263,19 @@ export default function ThroughputView({ showToast }) {
                                                     </span>
                                                 )}
                                             </td>
-                                            <td style={{ padding: "12px", textAlign: "right", fontSize: 13, color: coH === 0 ? "var(--text-muted)" : "var(--text-muted)" }}>
-                                                {coH === 0 ? <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>—</span> : `${coH}h`}
+                                            <td style={{ padding: "12px", textAlign: "right" }}>
+                                                {phase.noChangeOver
+                                                    ? <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>—</span>
+                                                    : editing
+                                                        ? <input type="number" value={draft.phases[i].changeOverH} min={0} step={0.5}
+                                                            onChange={e => setDraft(d => {
+                                                                const phases = [...d.phases];
+                                                                phases[i] = { ...phases[i], changeOverH: e.target.value };
+                                                                return { ...d, phases };
+                                                            })}
+                                                            style={{ ...inputStyle, width: 60, textAlign: "right" }} />
+                                                        : <span style={{ fontSize: 13, color: "var(--text-muted)" }}>{coH}h</span>
+                                                }
                                             </td>
                                             <td style={{ padding: "12px", textAlign: "right", fontSize: 14, fontWeight: 800, color: "var(--accent)" }}>
                                                 {computed.h}h
