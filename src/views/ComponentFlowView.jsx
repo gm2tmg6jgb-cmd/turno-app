@@ -1015,21 +1015,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                         {isConfigMode ? "✓ Fine Config" : "⚙ Configura Celle"}
                     </button>
 
-                    <button
-                        onClick={() => setShowThroughput(v => !v)}
-                        className="btn"
-                        style={{
-                            padding: "8px 12px", display: "flex", alignItems: "center", gap: "6px", fontWeight: "700",
-                            background: showThroughput ? "var(--accent)" : "var(--bg-tertiary)",
-                            color: showThroughput ? "white" : "var(--text-secondary)",
-                            border: "1px solid var(--border)",
-                            boxShadow: showThroughput ? "0 0 10px var(--accent)" : "none"
-                        }}
-                    >
-                        ⏱ Attraversamento
-                    </button>
-
-                    <button
+<button
                         onClick={handlePrint}
                         className="btn"
                         style={{
@@ -1083,37 +1069,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
 
 
 
-            {/* Widget Tempi Attraversamento (Feature C) */}
-            {showThroughput && (
-                <div style={{
-                    background: "var(--bg-card)", border: "1px solid var(--border)",
-                    borderRadius: 12, padding: "16px 20px", marginBottom: 16,
-                    display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap"
-                }}>
-                    <span style={{ fontWeight: 800, fontSize: 13, marginRight: 4, color: "var(--text-secondary)" }}>SGR · DCT300</span>
-                    {throughputPhases.map((p, i) => (
-                        <span key={p.phaseId} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span style={{
-                                background: "var(--bg-tertiary)", borderRadius: 8,
-                                padding: "8px 12px", textAlign: "center", minWidth: 90,
-                                border: "1px solid var(--border)"
-                            }}>
-                                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 2 }}>{p.label}</div>
-                                <div style={{ fontSize: 16, fontWeight: 900, color: "var(--accent)" }}>{p.h}h</div>
-                            </span>
-                            {i < throughputPhases.length - 1 && (
-                                <span style={{ color: "var(--text-muted)", fontSize: 16 }}>→</span>
-                            )}
-                        </span>
-                    ))}
-                    <div style={{ marginLeft: "auto", textAlign: "right", paddingLeft: 16 }}>
-                        <div style={{ fontSize: 24, fontWeight: 900, color: "var(--text-primary)" }}>{throughputTotalH}h</div>
-                        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>≈ {(throughputTotalH / 24).toFixed(1)} giorni</div>
-                    </div>
-                </div>
-            )}
-
-            {/* Sleek Mosaic Board (High Efficiency Layout) */}
+{/* Sleek Mosaic Board (High Efficiency Layout) */}
             {!loading && (
                 <div
                     data-print-area="boxes"
