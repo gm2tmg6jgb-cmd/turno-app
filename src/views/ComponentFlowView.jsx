@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase, fetchAllRows } from "../lib/supabase";
 import { getCurrentWeekRange } from "../lib/dateUtils";
-import { TURNI, PROCESS_STEPS, PROJECTS, PROJECT_COMPONENTS, EXCLUDED_PHASES } from "../data/constants";
+import { TURNI, PROCESS_STEPS, PROJECTS, PROJECT_COMPONENTS, EXCLUDED_PHASES, THROUGHPUT_CONFIG } from "../data/constants";
 import { getSlotForGroup } from "../lib/shiftRotation";
 import Modal from "../components/Modal";
+import { computeThroughput } from "../utils/throughput";
 
 // Parsing 100% manuale: solo material_fino_overrides (configurazione utente su Supabase)
 
@@ -65,6 +66,8 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     const [componentsByProject, setComponentsByProject] = useState({});
     const [, setCompMappings] = useState({});
     const [selectedDetail, setSelectedDetail] = useState(null);
+    const [detailTab, setDetailTab] = useState("records");
+    const [showThroughput, setShowThroughput] = useState(false);
     const [isConfigMode, setIsConfigMode] = useState(false);
     const [quickConfigModal, setQuickConfigModal] = useState(null); // { project, comp, phase }
     const [dynamicOverrides] = useState([]);
@@ -72,6 +75,10 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     const refreshTick = 0;
     const [cellExclusions, setCellExclusions] = useState({});
     const [cellInclusions, setCellInclusions] = useState({});
+
+    // Throughput calcolato una volta sola
+    const throughputPhases = useMemo(() => computeThroughput("DCT300::SGR", THROUGHPUT_CONFIG), []);
+    const throughputTotalH = throughputPhases.at(-1)?.cumH || 0;
 
     const handlePrint = () => {
         // Mark for printing and trigger print dialog
@@ -1008,6 +1015,20 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     </button>
 
                     <button
+                        onClick={() => setShowThroughput(v => !v)}
+                        className="btn"
+                        style={{
+                            padding: "8px 12px", display: "flex", alignItems: "center", gap: "6px", fontWeight: "700",
+                            background: showThroughput ? "var(--accent)" : "var(--bg-tertiary)",
+                            color: showThroughput ? "white" : "var(--text-secondary)",
+                            border: "1px solid var(--border)",
+                            boxShadow: showThroughput ? "0 0 10px var(--accent)" : "none"
+                        }}
+                    >
+                        ⏱ Attraversamento
+                    </button>
+
+                    <button
                         onClick={handlePrint}
                         className="btn"
                         style={{
@@ -1060,6 +1081,36 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
             </div>
 
 
+
+            {/* Widget Tempi Attraversamento (Feature C) */}
+            {showThroughput && (
+                <div style={{
+                    background: "var(--bg-card)", border: "1px solid var(--border)",
+                    borderRadius: 12, padding: "16px 20px", marginBottom: 16,
+                    display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap"
+                }}>
+                    <span style={{ fontWeight: 800, fontSize: 13, marginRight: 4, color: "var(--text-secondary)" }}>SGR · DCT300</span>
+                    {throughputPhases.map((p, i) => (
+                        <span key={p.phaseId} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{
+                                background: "var(--bg-tertiary)", borderRadius: 8,
+                                padding: "8px 12px", textAlign: "center", minWidth: 90,
+                                border: "1px solid var(--border)"
+                            }}>
+                                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 2 }}>{p.label}</div>
+                                <div style={{ fontSize: 16, fontWeight: 900, color: "var(--accent)" }}>{p.h}h</div>
+                            </span>
+                            {i < throughputPhases.length - 1 && (
+                                <span style={{ color: "var(--text-muted)", fontSize: 16 }}>→</span>
+                            )}
+                        </span>
+                    ))}
+                    <div style={{ marginLeft: "auto", textAlign: "right", paddingLeft: 16 }}>
+                        <div style={{ fontSize: 24, fontWeight: 900, color: "var(--text-primary)" }}>{throughputTotalH}h</div>
+                        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>≈ {(throughputTotalH / 24).toFixed(1)} giorni</div>
+                    </div>
+                </div>
+            )}
 
             {/* Sleek Mosaic Board (High Efficiency Layout) */}
             {!loading && (
@@ -1125,47 +1176,94 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                             <h3 style={{ margin: 0, fontSize: "18px", color: "var(--text-primary)" }}>{selectedDetail.title}</h3>
                             <button onClick={() => setSelectedDetail(null)} style={{ background: "transparent", border: "none", fontSize: "20px", cursor: "pointer", color: "var(--text-muted)" }}>✕</button>
                         </div>
+                        {/* Tab bar */}
+                        <div style={{ display: "flex", gap: 8, padding: "12px 24px", borderBottom: "1px solid var(--border)" }}>
+                            {[{ id: "records", label: "📋 Produzione" }, { id: "throughput", label: "⏱ Throughput" }].map(tab => (
+                                <button key={tab.id} onClick={() => setDetailTab(tab.id)} style={{
+                                    padding: "6px 14px", borderRadius: 6, cursor: "pointer",
+                                    border: "1px solid var(--border)",
+                                    background: detailTab === tab.id ? "var(--accent)" : "var(--bg-tertiary)",
+                                    color: detailTab === tab.id ? "white" : "var(--text-secondary)",
+                                    fontWeight: 600, fontSize: 12
+                                }}>{tab.label}</button>
+                            ))}
+                        </div>
                         <div style={{ padding: "20px 24px", overflowY: "auto" }}>
-                            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                                <thead>
-                                    <tr style={{ background: "var(--bg-tertiary)" }}>
-                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)", borderRadius: "6px 0 0 6px" }}>Data</th>
-                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Materiale</th>
-                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Op</th>
-                                        {selectedDetail.phaseId === "baa"
-                                            ? <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Orario</th>
-                                            : <><th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Turno</th>
-                                               <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Macchina</th></>
-                                        }
-                                        <th style={{ padding: "10px", textAlign: "right", fontSize: "12px", color: "var(--text-muted)" }}>Q.tà</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {selectedDetail.records.length > 0 ? (
-                                        selectedDetail.records.map((r, i) => (
-                                            <tr key={i} style={{ borderBottom: "1px solid var(--border-light)" }}>
-                                                <td style={{ padding: "10px", fontSize: "13px" }}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
-                                                <td style={{ padding: "10px", fontSize: "13px", color: "var(--accent)", fontWeight: "600" }}>{r.materiale}</td>
-                                                <td style={{ padding: "10px", fontSize: "13px", fontWeight: "600" }}>{r.fino || "—"}</td>
-                                                {selectedDetail.phaseId === "baa"
-                                                    ? <td style={{ padding: "10px", fontSize: "13px" }}>{r.orario || "—"}</td>
-                                                    : <><td style={{ padding: "10px", fontSize: "13px" }}>{r.turno_id}</td>
-                                                       <td style={{ padding: "10px", fontSize: "13px", fontWeight: "bold" }}>{r.macchina || r.macchina_id || r.work_center_sap || "—"}</td></>
-                                                }
-                                                <td style={{ padding: "10px", fontSize: "14px", fontWeight: "bold", textAlign: "right", color: "#3c6ef0" }}>
-                                                    {selectedDetail.phaseId === "baa" ? Math.abs(r.quantita || 0) : r.qta_ottenuta}
+                            {detailTab === "records" ? (
+                                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                                    <thead>
+                                        <tr style={{ background: "var(--bg-tertiary)" }}>
+                                            <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)", borderRadius: "6px 0 0 6px" }}>Data</th>
+                                            <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Materiale</th>
+                                            <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Op</th>
+                                            {selectedDetail.phaseId === "baa"
+                                                ? <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Orario</th>
+                                                : <><th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Turno</th>
+                                                   <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Macchina</th></>
+                                            }
+                                            <th style={{ padding: "10px", textAlign: "right", fontSize: "12px", color: "var(--text-muted)" }}>Q.tà</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {selectedDetail.records.length > 0 ? (
+                                            selectedDetail.records.map((r, i) => (
+                                                <tr key={i} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                                    <td style={{ padding: "10px", fontSize: "13px" }}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
+                                                    <td style={{ padding: "10px", fontSize: "13px", color: "var(--accent)", fontWeight: "600" }}>{r.materiale}</td>
+                                                    <td style={{ padding: "10px", fontSize: "13px", fontWeight: "600" }}>{r.fino || "—"}</td>
+                                                    {selectedDetail.phaseId === "baa"
+                                                        ? <td style={{ padding: "10px", fontSize: "13px" }}>{r.orario || "—"}</td>
+                                                        : <><td style={{ padding: "10px", fontSize: "13px" }}>{r.turno_id}</td>
+                                                           <td style={{ padding: "10px", fontSize: "13px", fontWeight: "bold" }}>{r.macchina || r.macchina_id || r.work_center_sap || "—"}</td></>
+                                                    }
+                                                    <td style={{ padding: "10px", fontSize: "14px", fontWeight: "bold", textAlign: "right", color: "#3c6ef0" }}>
+                                                        {selectedDetail.phaseId === "baa" ? Math.abs(r.quantita || 0) : r.qta_ottenuta}
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan="7" style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>
+                                                    Nessun record trovato in questa fase.
                                                 </td>
                                             </tr>
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td colSpan="7" style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>
-                                                Nessun record trovato in questa fase.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
+                                        )}
+                                    </tbody>
+                                </table>
+                            ) : (
+                                /* Tab Throughput */
+                                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                    <p style={{ margin: "0 0 12px", fontSize: 12, color: "var(--text-muted)" }}>
+                                        Tempo stimato per fase · Lotto {THROUGHPUT_CONFIG.lotto} pz · OEE {THROUGHPUT_CONFIG.oee * 100}%
+                                    </p>
+                                    {throughputPhases.map(p => {
+                                        const isCurrent = p.phaseId === selectedDetail.phaseId;
+                                        const isPast = throughputPhases.findIndex(x => x.phaseId === selectedDetail.phaseId) >
+                                                       throughputPhases.findIndex(x => x.phaseId === p.phaseId);
+                                        return (
+                                            <div key={p.phaseId} style={{
+                                                display: "flex", alignItems: "center", gap: 12,
+                                                padding: "10px 14px", borderRadius: 8,
+                                                background: isCurrent ? "rgba(var(--accent-rgb,60,110,240),0.12)" : "var(--bg-tertiary)",
+                                                border: isCurrent ? "1.5px solid var(--accent)" : "1px solid var(--border)",
+                                                opacity: isPast ? 0.45 : 1
+                                            }}>
+                                                <span style={{ fontSize: 13, fontWeight: isCurrent ? 800 : 600, flex: 1, color: isCurrent ? "var(--accent)" : "var(--text-primary)" }}>
+                                                    {isCurrent ? "▶ " : ""}{p.label}
+                                                </span>
+                                                <span style={{ fontSize: 14, fontWeight: 900, color: isCurrent ? "var(--accent)" : "var(--text-secondary)" }}>{p.h}h</span>
+                                                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>cum. {p.cumH}h</span>
+                                            </div>
+                                        );
+                                    })}
+                                    <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 8, background: "var(--bg-card)", border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                        <span style={{ fontWeight: 700 }}>Totale attraversamento</span>
+                                        <span style={{ fontSize: 20, fontWeight: 900, color: "var(--accent)" }}>
+                                            {throughputTotalH}h &nbsp;<span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 400 }}>≈ {(throughputTotalH / 24).toFixed(1)} gg</span>
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

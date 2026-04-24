@@ -34,6 +34,7 @@ const MotiviView = lazy(() => import("./views/MotiviView"));
 const ProductionDelaysView = lazy(() => import("./views/ProductionDelaysView"));
 const ProductionScheduleView = lazy(() => import("./views/ProductionScheduleView"));
 const NuovaPianificazioneView = lazy(() => import("./views/NuovaPianificazioneView"));
+const ThroughputView = lazy(() => import("./views/ThroughputView"));
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 function AppContent({ session, onLogout }) {
@@ -233,6 +234,7 @@ function AppContent({ session, onLogout }) {
     { id: "formazione", label: "Formazione", icon: Icons.academic },
     { id: "lpaPlan", label: "Piano LPA", icon: Icons.calendar },
     { id: "componentFlow", label: "Avanzamento Componenti", icon: Icons.report, status: "new" },
+    { id: "throughput", label: "Tempi Attraversamento", icon: Icons.report },
     { id: "priorita", label: "Laboratorio Attualizzato Beta", icon: Icons.filter },
     { id: "weisserPriorities", label: "Priorità Macchine", icon: Icons.filter },
     { id: "prioritiesSummary", label: "Riepilogo Priorità", icon: Icons.dashboard, status: "new" },
@@ -255,6 +257,7 @@ function AppContent({ session, onLogout }) {
     op10: "Asservimento OP10",
     sapHub: "Hub Gestione SAP",
     componentFlow: "Avanzamento Componenti",
+    throughput: "Tempi di Attraversamento",
     priorita: "Laboratorio Attualizzato Beta",
     weisserPriorities: "Priorità Macchine",
     prioritiesSummary: "Riepilogo Priorità Macchine",
@@ -382,6 +385,7 @@ function AppContent({ session, onLogout }) {
 
                 <div className="nav-section-label">Report & Dati</div>
                 {renderItem(ni("componentFlow"))}
+                {renderItem(ni("throughput"))}
                 {renderItem(ni("priorita"))}
                 {renderItem(ni("productionFlowReport"))}
                 {renderItem(ni("productionReport"))}
@@ -612,6 +616,9 @@ function AppContent({ session, onLogout }) {
 
           {currentView === "componentFlow" && (
             <ComponentFlowView macchine={macchine} showToast={showToast} globalDate={globalDate} />
+          )}
+          {currentView === "throughput" && (
+            <ThroughputView showToast={showToast} />
           )}
           {currentView === "priorita" && (
             <PrioritaView showToast={showToast} globalDate={globalDate} turnoCorrente={turnoCorrente} />

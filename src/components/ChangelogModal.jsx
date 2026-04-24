@@ -3,6 +3,29 @@ import Modal from "./Modal";
 
 const CHANGELOG = [
     {
+        version: "1.2.0",
+        data: "24 Aprile 2026",
+        label: "Tempi di Attraversamento",
+        modifiche: [
+            {
+                categoria: "🆕 Novità",
+                voci: [
+                    "Nuova vista 'Tempi Attraversamento' nel menu — tabella fasi con ore per fase, cumulato e barra proporzionale",
+                    "Widget '⏱ Attraversamento' nel toolbar di Avanzamento Componenti — pillole fasi con ore e totale giorni",
+                    "Tab '⏱ Throughput' nel modal dettaglio cella — mostra le fasi del componente con evidenza sulla fase corrente",
+                ]
+            },
+            {
+                categoria: "⚙️ Parametri",
+                voci: [
+                    "Formula: (Lotto ÷ (Pz/h × OEE)) + Change over",
+                    "SGR DCT300: Saldatura Soft 130pz/h, Dentatura 86pz/h, T.T. 8h fisso, Tornitura Hard 104pz/h, Rettifica Denti 100pz/h",
+                    "Lotto: 1200 pz · OEE: 85% · Change over: 1h/fase · Totale: ~68h (~2.8 giorni)",
+                ]
+            }
+        ]
+    },
+    {
         version: "1.1.1",
         data: "24 Aprile 2026",
         label: "Fix Macchina nel Modal Dettaglio",
