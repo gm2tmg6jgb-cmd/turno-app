@@ -8,6 +8,8 @@ export default function ThroughputView({ showToast }) {
     const [editing, setEditing] = useState(false);
     // draft è una copia piatta editabile: { lotto, oeePercent, changeOverH, phases: [{phaseId, label, pzH, fixedH}] }
     const [draft, setDraft] = useState(null);
+    const [targetModal, setTargetModal] = useState(null);
+    const [targetValue, setTargetValue] = useState(450);
 
     const startEdit = () => {
         const key = Object.keys(cfg.components)[0];
@@ -66,13 +68,33 @@ export default function ThroughputView({ showToast }) {
     // --- Sync SAP ---
     // phaseData: phaseId → { totQty, firstDate, lottoNum, progress }
     const [phaseData, setPhaseData] = useState({});
+    const [phaseDataRaw, setPhaseDataRaw] = useState({});
     const [sapLoading, setSapLoading] = useState(false);
+    const [lastRefresh, setLastRefresh] = useState(0);
+    const [selectedPhaseDebug, setSelectedPhaseDebug] = useState(null);
+    const [sapConfigModal, setSapConfigModal] = useState(false);
+    const [sapConfigDraft, setSapConfigDraft] = useState(null);
+    const [debugSapModal, setDebugSapModal] = useState(false);
+    const [debugSapData, setDebugSapData] = useState(null);
 
     useEffect(() => {
         const fetchSap = async () => {
             setSapLoading(true);
             try {
+                // Calcola inizio e fine settimana corrente
+                const today = new Date();
+                const dayOfWeek = today.getDay();
+                const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+                const weekStart = new Date(today.setDate(diff));
+                const weekEnd = new Date(weekStart);
+                weekEnd.setDate(weekEnd.getDate() + 6);
+
+                const weekStartStr = weekStart.toISOString().split('T')[0];
+                const weekEndStr = weekEnd.toISOString().split('T')[0];
+                console.log("Ricerca SAP per settimana:", weekStartStr, "→", weekEndStr);
+
                 const result = {};
+                const resultRaw = {};
                 const key = Object.keys(cfg.components)[0];
                 const phases = cfg.components[key] || [];
                 const lotto = cfg.lotto || 1200;
@@ -81,12 +103,17 @@ export default function ThroughputView({ showToast }) {
                     // Usa sapMat + sapOp se configurati, altrimenti salta (es. T.T.)
                     if (!phase.sapMat || !phase.sapOp) continue;
 
+                    console.log(`Cercando fase ${phase.label}: materiale="${phase.sapMat}", operazione="${phase.sapOp}"`);
                     const { data: rows } = await supabase
                         .from("conferme_sap")
                         .select("data, qta_ottenuta")
                         .ilike("materiale", phase.sapMat)
                         .eq("fino", phase.sapOp)
+                        .gte("data", weekStartStr)
+                        .lte("data", weekEndStr)
                         .order("data", { ascending: true });
+
+                    console.log(`Fase ${phase.label}: trovati ${rows?.length || 0} record`);
 
                     if (!rows?.length) continue;
 
@@ -96,14 +123,22 @@ export default function ThroughputView({ showToast }) {
                     const progress = Math.round((totQty % lotto) / lotto * 100);
 
                     result[phase.phaseId] = { totQty, firstDate, lottoNum, progress };
+                    resultRaw[phase.phaseId] = {
+                        sapMat: phase.sapMat,
+                        sapOp: phase.sapOp,
+                        weekStart: weekStartStr,
+                        weekEnd: weekEndStr,
+                        rows: rows
+                    };
                 }
                 setPhaseData(result);
+                setPhaseDataRaw(resultRaw);
             } finally {
                 setSapLoading(false);
             }
         };
         fetchSap();
-    }, [cfg]);
+    }, [cfg, lastRefresh]);
 
     // Fase corrente = quella più avanzata (indice più alto) con dati SAP
     const buildTimeline = (phases) => {
@@ -168,6 +203,39 @@ export default function ThroughputView({ showToast }) {
                                 background: "var(--bg-tertiary)", color: "var(--text-muted)",
                                 border: "1px solid var(--border)", borderRadius: 8, cursor: "pointer"
                             }}>↺ Reset Default</button>
+                            <button onClick={() => setLastRefresh(prev => prev + 1)} disabled={sapLoading} className="btn" style={{
+                                padding: "8px 16px", fontWeight: 600,
+                                background: sapLoading ? "var(--bg-tertiary)" : "var(--accent)", color: sapLoading ? "var(--text-muted)" : "white",
+                                border: "none", borderRadius: 8, cursor: sapLoading ? "not-allowed" : "pointer", opacity: sapLoading ? 0.6 : 1
+                            }}>🔄 Aggiorna SAP</button>
+                            <button onClick={() => {
+                                const key = Object.keys(cfg.components)[0];
+                                const phases = cfg.components[key] || [];
+                                setSapConfigDraft(phases.map(p => ({ phaseId: p.phaseId, label: p.label, sapMat: p.sapMat || "", sapOp: p.sapOp || "" })));
+                                setSapConfigModal(true);
+                            }} className="btn" style={{
+                                padding: "8px 16px", fontWeight: 600,
+                                background: "var(--bg-tertiary)", color: "var(--text-secondary)",
+                                border: "1px solid var(--border)", borderRadius: 8, cursor: "pointer"
+                            }}>⚙️ Configura SAP</button>
+                            <button onClick={async () => {
+                                try {
+                                    const { data } = await supabase
+                                        .from("conferme_sap")
+                                        .select("*")
+                                        .limit(50)
+                                        .order("data", { ascending: false });
+                                    setDebugSapData(data || []);
+                                    setDebugSapModal(true);
+                                } catch (err) {
+                                    console.error("Debug SAP error:", err);
+                                    showToast?.("Errore nel caricamento debug SAP", "error");
+                                }
+                            }} className="btn" style={{
+                                padding: "8px 16px", fontWeight: 600,
+                                background: "var(--bg-tertiary)", color: "#ef4444",
+                                border: "1px solid #ef4444", borderRadius: 8, cursor: "pointer", fontSize: 12
+                            }}>🐛 Debug SAP</button>
                         </>
                     ) : (
                         <>
@@ -184,6 +252,100 @@ export default function ThroughputView({ showToast }) {
                         </>
                     )}
                 </div>
+            </div>
+
+            {/* Target Editabili per Progetti */}
+            <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+                gap: "12px",
+                marginBottom: "24px"
+            }}>
+                {Object.entries(cfg.components).length > 0 && Object.entries(cfg.components).map(([key]) => {
+                    const [proj] = key.split("::");
+                    const savedTarget = localStorage.getItem("bap_target_overrides");
+                    const target = savedTarget ? JSON.parse(savedTarget)[proj] || 450 : 450;
+                    // Trova l'ultima data SAP tra tutte le fasi
+                    const lastSapDate = Object.values(phaseData).reduce((latest, pd) => {
+                        if (!pd?.firstDate) return latest;
+                        const date = new Date(pd.firstDate);
+                        return !latest || date > latest ? date : latest;
+                    }, null);
+
+                    return (
+                        <div key={proj} style={{
+                            background: "var(--bg-card)",
+                            border: "1px solid var(--border)",
+                            borderRadius: "12px",
+                            padding: "16px",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: "8px"
+                        }}>
+                            <div style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                marginBottom: "4px"
+                            }}>
+                                <div style={{
+                                    fontSize: "11px",
+                                    fontWeight: "700",
+                                    color: "var(--text-muted)",
+                                    textTransform: "uppercase"
+                                }}>
+                                    {proj}
+                                </div>
+                                {lastSapDate && (
+                                    <div style={{
+                                        fontSize: "9px",
+                                        color: "var(--text-muted)",
+                                        fontStyle: "italic"
+                                    }}>
+                                        Ult. agg: {lastSapDate.toLocaleDateString("it-IT")}
+                                    </div>
+                                )}
+                            </div>
+                            <div style={{
+                                display: "flex",
+                                gap: "8px",
+                                alignItems: "center"
+                            }}>
+                                <div style={{
+                                    fontSize: "28px",
+                                    fontWeight: "900",
+                                    color: "var(--accent)",
+                                    flex: 1
+                                }}>
+                                    {target}
+                                </div>
+                                <span style={{
+                                    fontSize: "11px",
+                                    color: "var(--text-muted)"
+                                }}>pz/gg</span>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setTargetValue(target);
+                                    setTargetModal(proj);
+                                }}
+                                style={{
+                                    padding: "8px 12px",
+                                    background: "var(--bg-tertiary)",
+                                    border: "1px solid var(--border)",
+                                    borderRadius: "8px",
+                                    color: "var(--text-secondary)",
+                                    fontWeight: "700",
+                                    fontSize: "12px",
+                                    cursor: "pointer",
+                                    transition: "all 0.2s"
+                                }}
+                            >
+                                ✏️ Modifica
+                            </button>
+                        </div>
+                    );
+                })}
             </div>
 
             {/* Parametri globali (visualizzazione o editing) */}
@@ -258,6 +420,18 @@ export default function ThroughputView({ showToast }) {
                                 <span style={{ fontSize: 13, color: "var(--text-muted)", marginLeft: 8 }}>≈ {totalDays} giorni</span>
                             </div>
                         </div>
+                        {(() => {
+                            const lastSapDate = Object.values(phaseData).reduce((latest, pd) => {
+                                if (!pd?.firstDate) return latest;
+                                const date = new Date(pd.firstDate);
+                                return !latest || date > latest ? date : latest;
+                            }, null);
+                            return lastSapDate ? (
+                                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--border-light)" }}>
+                                    Ult. agg SAP: <strong>{lastSapDate.toLocaleDateString("it-IT")}</strong>
+                                </div>
+                            ) : null;
+                        })()}
 
                         <table style={{ width: "100%", borderCollapse: "collapse" }}>
                             <thead>
@@ -477,8 +651,10 @@ export default function ThroughputView({ showToast }) {
                                                     padding: "10px 14px", borderRadius: 8,
                                                     background: isCurrent ? "rgba(60,110,240,0.08)" : "var(--bg-tertiary)",
                                                     border: isCurrent ? "1.5px solid var(--accent)" : "1px solid var(--border)",
-                                                    opacity: !p.fromSap && i > currentPhaseIdx ? 0.5 : 1
-                                                }}>
+                                                    opacity: !p.fromSap && i > currentPhaseIdx ? 0.5 : 1,
+                                                    cursor: "pointer",
+                                                    transition: "all 0.2s"
+                                                }} onClick={() => setSelectedPhaseDebug(p.phaseId)}>
                                                     <span style={{
                                                         width: 8, height: 8, borderRadius: "50%",
                                                         background: isPast ? "#22c55e" : isCurrent ? "var(--accent)" : "var(--border)",
@@ -529,6 +705,379 @@ export default function ThroughputView({ showToast }) {
                     </div>
                 );
             })}
+
+            {/* Modal Debug SAP Data */}
+            {selectedPhaseDebug && (
+                phaseDataRaw[selectedPhaseDebug] ? (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+                    background: "rgba(0,0,0,0.5)", display: "flex",
+                    alignItems: "center", justifyContent: "center", zIndex: 1000,
+                    overflowY: "auto"
+                }} onClick={() => setSelectedPhaseDebug(null)}>
+                    <div style={{
+                        background: "var(--bg-card)", border: "1px solid var(--border)",
+                        borderRadius: 12, padding: "24px", width: "100%", maxWidth: 600,
+                        boxShadow: "0 20px 60px rgba(0,0,0,0.4)", margin: "20px"
+                    }} onClick={e => e.stopPropagation()}>
+                        <h3 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 900 }}>
+                            Dati SAP — {Object.values(cfg.components)[0]?.find(p => p.phaseId === selectedPhaseDebug)?.label || selectedPhaseDebug}
+                        </h3>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+                            <div>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4 }}>Materiale Cercato</div>
+                                <div style={{ fontSize: 14, color: "var(--text-primary)" }}>{phaseDataRaw[selectedPhaseDebug].sapMat}</div>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4 }}>Operazione Cercata</div>
+                                <div style={{ fontSize: 14, color: "var(--text-primary)" }}>{phaseDataRaw[selectedPhaseDebug].sapOp}</div>
+                            </div>
+                            <div>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4 }}>Intervallo Date</div>
+                                <div style={{ fontSize: 14, color: "var(--text-primary)" }}>
+                                    {phaseDataRaw[selectedPhaseDebug].weekStart} → {phaseDataRaw[selectedPhaseDebug].weekEnd}
+                                </div>
+                            </div>
+                            <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 8 }}>
+                                    Record Trovati ({phaseDataRaw[selectedPhaseDebug].rows.length})
+                                </div>
+                                <div style={{ maxHeight: 300, overflowY: "auto", background: "var(--bg-tertiary)", borderRadius: 8, padding: 12 }}>
+                                    {phaseDataRaw[selectedPhaseDebug].rows.length === 0 ? (
+                                        <div style={{ fontSize: 13, color: "var(--text-muted)" }}>Nessun record trovato</div>
+                                    ) : (
+                                        <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+                                            <thead>
+                                                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                                                    <th style={{ padding: 8, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)" }}>Data</th>
+                                                    <th style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--text-secondary)" }}>Qty</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {phaseDataRaw[selectedPhaseDebug].rows.map((row, i) => (
+                                                    <tr key={i} style={{ borderBottom: "1px solid var(--border-light)", opacity: 0.8 }}>
+                                                        <td style={{ padding: 8 }}>{row.data}</td>
+                                                        <td style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--accent)" }}>{row.qta_ottenuta.toLocaleString("it-IT")}</td>
+                                                    </tr>
+                                                ))}
+                                                <tr style={{ background: "rgba(60,110,240,0.1)", fontWeight: 700 }}>
+                                                    <td style={{ padding: 8 }}>TOTALE</td>
+                                                    <td style={{ padding: 8, textAlign: "right", color: "var(--accent)" }}>
+                                                        {phaseDataRaw[selectedPhaseDebug].rows.reduce((s, r) => s + r.qta_ottenuta, 0).toLocaleString("it-IT")}
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setSelectedPhaseDebug(null)}
+                            style={{
+                                width: "100%", padding: "10px 16px", background: "var(--bg-tertiary)",
+                                color: "var(--text-secondary)", border: "1px solid var(--border)",
+                                borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14
+                            }}
+                        >
+                            Chiudi
+                        </button>
+                    </div>
+                </div>
+                ) : (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+                    background: "rgba(0,0,0,0.5)", display: "flex",
+                    alignItems: "center", justifyContent: "center", zIndex: 1000
+                }} onClick={() => setSelectedPhaseDebug(null)}>
+                    <div style={{
+                        background: "var(--bg-card)", border: "1px solid var(--border)",
+                        borderRadius: 12, padding: "24px", width: "100%", maxWidth: 500,
+                        boxShadow: "0 20px 60px rgba(0,0,0,0.4)"
+                    }} onClick={e => e.stopPropagation()}>
+                        <h3 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 900 }}>
+                            ⚠️ Nessun dato SAP
+                        </h3>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
+                            <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                                Non è stato trovato alcun record SAP per questa fase nella settimana corrente.
+                            </div>
+                            <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 8 }}>Parametri Ricerca</div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 12, color: "var(--text-secondary)" }}>
+                                    <div><strong>Settimana:</strong> 20/04/2026 → 26/04/2026</div>
+                                    <div><strong>Materiale:</strong> M0140996/S</div>
+                                    <div><strong>Operazione:</strong> {(() => {
+                                        const phaseLabel = selectedPhaseDebug;
+                                        const phase = Object.values(cfg.components)[0]?.find(p => p.phaseId === phaseLabel);
+                                        return phase?.sapOp || "—";
+                                    })()}</div>
+                                </div>
+                            </div>
+                            <div style={{ fontSize: 11, color: "var(--text-muted)", paddingTop: 12, borderTop: "1px solid var(--border-light)" }}>
+                                ℹ️ Verifica che il materiale e l'operazione nel database corrispondano ai parametri di ricerca.
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => setSelectedPhaseDebug(null)}
+                            style={{
+                                width: "100%", padding: "10px 16px", background: "var(--bg-tertiary)",
+                                color: "var(--text-secondary)", border: "1px solid var(--border)",
+                                borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14
+                            }}
+                        >
+                            Chiudi
+                        </button>
+                    </div>
+                </div>
+                )
+            )}
+
+            {/* Modal Debug SAP Data */}
+            {debugSapModal && debugSapData && (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+                    background: "rgba(0,0,0,0.5)", display: "flex",
+                    alignItems: "center", justifyContent: "center", zIndex: 1000,
+                    overflowY: "auto"
+                }} onClick={() => setDebugSapModal(false)}>
+                    <div style={{
+                        background: "var(--bg-card)", border: "1px solid var(--border)",
+                        borderRadius: 12, padding: "24px", width: "100%", maxWidth: 800,
+                        boxShadow: "0 20px 60px rgba(0,0,0,0.4)", margin: "20px"
+                    }} onClick={e => e.stopPropagation()}>
+                        <h3 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 900 }}>
+                            🐛 Debug SAP — Ultimi 50 record nel database
+                        </h3>
+                        <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 16 }}>
+                            Mostra un campione dei dati nel database. Confronta con i codici che stai cercando.
+                        </div>
+                        <div style={{ maxHeight: 500, overflowY: "auto", background: "var(--bg-tertiary)", borderRadius: 8, padding: 12, border: "1px solid var(--border)" }}>
+                            {debugSapData.length === 0 ? (
+                                <div style={{ fontSize: 13, color: "var(--text-muted)", padding: 20, textAlign: "center" }}>
+                                    ⚠️ Nessun record trovato nel database conferme_sap
+                                </div>
+                            ) : (
+                                <table style={{ width: "100%", fontSize: 11, borderCollapse: "collapse" }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-card)" }}>
+                                            <th style={{ padding: 8, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)" }}>Data</th>
+                                            <th style={{ padding: 8, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)" }}>Materiale</th>
+                                            <th style={{ padding: 8, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)" }}>Fino</th>
+                                            <th style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--text-secondary)" }}>Qta</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {debugSapData.map((row, i) => (
+                                            <tr key={i} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                                <td style={{ padding: 8 }}>{row.data}</td>
+                                                <td style={{ padding: 8, fontFamily: "monospace" }}>{row.materiale}</td>
+                                                <td style={{ padding: 8, fontFamily: "monospace" }}>{row.fino}</td>
+                                                <td style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--accent)" }}>
+                                                    {row.qta_ottenuta?.toLocaleString("it-IT")}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                        <button
+                            onClick={() => setDebugSapModal(false)}
+                            style={{
+                                width: "100%", padding: "10px 16px", background: "var(--bg-tertiary)",
+                                color: "var(--text-secondary)", border: "1px solid var(--border)",
+                                borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14,
+                                marginTop: 16
+                            }}
+                        >
+                            Chiudi
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Configura Codici SAP */}
+            {sapConfigModal && sapConfigDraft && (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+                    background: "rgba(0,0,0,0.5)", display: "flex",
+                    alignItems: "center", justifyContent: "center", zIndex: 1000,
+                    overflowY: "auto"
+                }} onClick={() => setSapConfigModal(false)}>
+                    <div style={{
+                        background: "var(--bg-card)", border: "1px solid var(--border)",
+                        borderRadius: 12, padding: "24px", width: "100%", maxWidth: 600,
+                        boxShadow: "0 20px 60px rgba(0,0,0,0.4)", margin: "20px"
+                    }} onClick={e => e.stopPropagation()}>
+                        <h3 style={{ margin: "0 0 20px", fontSize: 18, fontWeight: 900 }}>
+                            ⚙️ Configura Codici SAP
+                        </h3>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 20, maxHeight: 400, overflowY: "auto" }}>
+                            {sapConfigDraft.map((phase, idx) => (
+                                <div key={phase.phaseId} style={{
+                                    background: "var(--bg-tertiary)", padding: 12, borderRadius: 8,
+                                    border: "1px solid var(--border)"
+                                }}>
+                                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, color: "var(--text-secondary)" }}>
+                                        {phase.label}
+                                    </div>
+                                    <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)" }}>
+                                                Codice Materiale
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={phase.sapMat}
+                                                onChange={e => {
+                                                    const updated = [...sapConfigDraft];
+                                                    updated[idx].sapMat = e.target.value.toUpperCase();
+                                                    setSapConfigDraft(updated);
+                                                }}
+                                                style={{
+                                                    padding: "6px 10px", borderRadius: 6, fontSize: 12,
+                                                    background: "var(--bg-card)", border: "1px solid var(--border)",
+                                                    color: "var(--text-primary)", fontWeight: 700, outline: "none"
+                                                }}
+                                                placeholder="es. M0140996/S"
+                                            />
+                                        </div>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)" }}>
+                                                Codice Operazione
+                                            </label>
+                                            <input
+                                                type="text"
+                                                value={phase.sapOp}
+                                                onChange={e => {
+                                                    const updated = [...sapConfigDraft];
+                                                    updated[idx].sapOp = e.target.value;
+                                                    setSapConfigDraft(updated);
+                                                }}
+                                                style={{
+                                                    padding: "6px 10px", borderRadius: 6, fontSize: 12,
+                                                    background: "var(--bg-card)", border: "1px solid var(--border)",
+                                                    color: "var(--text-primary)", fontWeight: 700, outline: "none"
+                                                }}
+                                                placeholder="es. 0060"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                            <button
+                                onClick={() => {
+                                    const key = Object.keys(cfg.components)[0];
+                                    const newCfg = {
+                                        ...cfg,
+                                        components: {
+                                            [key]: cfg.components[key].map(phase => {
+                                                const draftPhase = sapConfigDraft.find(p => p.phaseId === phase.phaseId);
+                                                return {
+                                                    ...phase,
+                                                    sapMat: draftPhase?.sapMat || phase.sapMat,
+                                                    sapOp: draftPhase?.sapOp || phase.sapOp
+                                                };
+                                            })
+                                        }
+                                    };
+                                    saveThroughputConfig(newCfg);
+                                    setCfg(newCfg);
+                                    setSapConfigModal(false);
+                                    showToast?.("Codici SAP aggiornati!", "success");
+                                }}
+                                style={{
+                                    flex: 1, padding: "10px 16px", background: "var(--accent)",
+                                    color: "white", border: "none", borderRadius: 8,
+                                    fontWeight: 700, cursor: "pointer", fontSize: 14
+                                }}
+                            >
+                                ✓ Salva
+                            </button>
+                            <button
+                                onClick={() => setSapConfigModal(false)}
+                                style={{
+                                    flex: 1, padding: "10px 16px", background: "var(--bg-tertiary)",
+                                    color: "var(--text-secondary)", border: "1px solid var(--border)",
+                                    borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14
+                                }}
+                            >
+                                Annulla
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Modifica Target */}
+            {targetModal && (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+                    background: "rgba(0,0,0,0.5)", display: "flex",
+                    alignItems: "center", justifyContent: "center", zIndex: 1000
+                }} onClick={() => setTargetModal(null)}>
+                    <div style={{
+                        background: "var(--bg-card)", border: "1px solid var(--border)",
+                        borderRadius: 12, padding: "24px", width: "100%", maxWidth: 320,
+                        boxShadow: "0 20px 60px rgba(0,0,0,0.4)"
+                    }} onClick={e => e.stopPropagation()}>
+                        <h3 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 900 }}>
+                            Modifica Target {targetModal}
+                        </h3>
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{
+                                display: "block", fontSize: 12, fontWeight: 700,
+                                color: "var(--text-muted)", marginBottom: 8, textTransform: "uppercase"
+                            }}>
+                                Pezzi al giorno (pz/gg)
+                            </label>
+                            <input
+                                type="number"
+                                value={targetValue}
+                                onChange={e => setTargetValue(Number(e.target.value))}
+                                style={{
+                                    width: "100%", padding: "10px 12px", borderRadius: 8,
+                                    border: "1px solid var(--border)", background: "var(--bg-tertiary)",
+                                    color: "var(--text-primary)", fontSize: 14, fontWeight: 700,
+                                    outline: "none", boxSizing: "border-box"
+                                }}
+                            />
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                            <button
+                                onClick={() => {
+                                    const saved = localStorage.getItem("bap_target_overrides");
+                                    const overrides = saved ? JSON.parse(saved) : {};
+                                    overrides[targetModal] = targetValue;
+                                    localStorage.setItem("bap_target_overrides", JSON.stringify(overrides));
+                                    setTargetModal(null);
+                                    showToast?.("Target aggiornato!", "success");
+                                }}
+                                style={{
+                                    flex: 1, padding: "10px 16px", background: "var(--accent)",
+                                    color: "white", border: "none", borderRadius: 8,
+                                    fontWeight: 700, cursor: "pointer", fontSize: 14
+                                }}
+                            >
+                                ✓ Salva
+                            </button>
+                            <button
+                                onClick={() => setTargetModal(null)}
+                                style={{
+                                    flex: 1, padding: "10px 16px", background: "var(--bg-tertiary)",
+                                    color: "var(--text-secondary)", border: "1px solid var(--border)",
+                                    borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14
+                                }}
+                            >
+                                Annulla
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
