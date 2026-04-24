@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { THROUGHPUT_CONFIG } from "../data/constants";
+import { THROUGHPUT_CONFIG, PROCESS_STEPS } from "../data/constants";
 import { computeThroughput, loadThroughputConfig, saveThroughputConfig } from "../utils/throughput";
 import { supabase } from "../lib/supabase";
 
@@ -77,6 +77,10 @@ export default function ThroughputView({ showToast }) {
     const [debugSapModal, setDebugSapModal] = useState(false);
     const [debugSapData, setDebugSapData] = useState(null);
 
+    // Flow data (per la scheda di flusso)
+    const [flowData, setFlowData] = useState({});
+    const [flowLoading, setFlowLoading] = useState(false);
+
     useEffect(() => {
         const fetchSap = async () => {
             setSapLoading(true);
@@ -145,6 +149,69 @@ export default function ThroughputView({ showToast }) {
         };
         fetchSap();
     }, [cfg, lastRefresh]);
+
+    // Fetch dati flusso per la scheda (come ComponentFlowView)
+    useEffect(() => {
+        const fetchFlowData = async () => {
+            setFlowLoading(true);
+            try {
+                const today = new Date();
+                const dayOfWeek = today.getDay();
+                const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+                const weekStart = new Date(today.setDate(diff));
+                const weekEnd = new Date(weekStart);
+                weekEnd.setDate(weekEnd.getDate() + 6);
+
+                const toLocalDateStr = (d) => {
+                    const y = d.getFullYear();
+                    const m = String(d.getMonth() + 1).padStart(2, "0");
+                    const day = String(d.getDate()).padStart(2, "0");
+                    return `${y}-${m}-${day}`;
+                };
+
+                const weekStartStr = toLocalDateStr(weekStart);
+                const weekEndStr = toLocalDateStr(weekEnd);
+
+                // Carica material_fino_overrides
+                const { data: matOverrides } = await supabase.from("material_fino_overrides").select("*");
+
+                // Carica conferme_sap per la settimana
+                const { data: prodRes } = await supabase.from("conferme_sap").select("data, materiale, work_center_sap, macchina_id, qta_ottenuta, fino")
+                    .gte("data", weekStartStr)
+                    .lte("data", weekEndStr);
+
+                // Organizza i dati per componente/fase
+                const newFlow = { "DCT300::SGR": {} };
+                const key = "DCT300::SGR";
+
+                if (prodRes) {
+                    prodRes.forEach(r => {
+                        const matCode = (r.materiale || "").toUpperCase();
+                        const fino = String(r.fino || "").padStart(4, "0");
+
+                        const override = (matOverrides || []).find(o => o.mat === matCode && o.fino === fino)
+                            || (matOverrides || []).find(o => o.mat === matCode && !o.fino);
+
+                        if (!override || override.proj !== "DCT300" || override.comp !== "SGR") return;
+
+                        const phase = override.phase;
+                        if (!phase || phase === "baa") return;
+
+                        if (!newFlow[key][phase]) newFlow[key][phase] = { value: 0, records: [] };
+                        newFlow[key][phase].value += (r.qta_ottenuta || 0);
+                        newFlow[key][phase].records.push({ ...r, matCode });
+                    });
+                }
+
+                setFlowData(newFlow);
+            } catch (err) {
+                console.error("Errore fetch flow data:", err);
+            } finally {
+                setFlowLoading(false);
+            }
+        };
+        fetchFlowData();
+    }, [lastRefresh]);
 
     // Fase corrente = quella più avanzata (indice più alto) con dati SAP
     const buildTimeline = (phases) => {
@@ -724,6 +791,69 @@ export default function ThroughputView({ showToast }) {
                     </div>
                 );
             })}
+
+            {/* Scheda Flusso SGR */}
+            <div style={{
+                background: "var(--bg-card)", border: "1px solid var(--border)",
+                borderRadius: 14, padding: "24px", marginBottom: 24
+            }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                    <span style={{ background: "var(--accent)", color: "white", fontSize: 12, fontWeight: 800, padding: "3px 10px", borderRadius: 20 }}>DCT300</span>
+                    <span style={{ fontWeight: 800, fontSize: 17 }}>SGR</span>
+                    {flowLoading && <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Caricamento…</span>}
+                </div>
+
+                {flowData["DCT300::SGR"] && Object.keys(flowData["DCT300::SGR"]).length > 0 ? (
+                    <div style={{ overflowX: "auto" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                            <thead>
+                                <tr style={{ background: "var(--bg-tertiary)", borderBottom: "1px solid var(--border)" }}>
+                                    <th style={{ padding: "12px", textAlign: "left", fontWeight: 800, color: "var(--text-secondary)" }}>Fase</th>
+                                    {Object.keys(PROCESS_STEPS || []).slice(0, 15).map(idx => (
+                                        <th key={idx} style={{ padding: "8px", textAlign: "center", fontWeight: 700, color: "var(--text-muted)", whiteSpace: "nowrap" }}>
+                                            {PROCESS_STEPS?.[idx]?.code || "—"}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                    <td style={{ padding: "12px", fontWeight: 700 }}>SGR</td>
+                                    {Object.keys(PROCESS_STEPS || []).slice(0, 15).map(idx => {
+                                        const phaseId = PROCESS_STEPS?.[idx]?.id;
+                                        const data = flowData["DCT300::SGR"]?.[phaseId];
+                                        const value = data?.value || 0;
+                                        const isActive = value > 0;
+
+                                        let bgColor = "transparent";
+                                        if (isActive) {
+                                            if (value < 500) bgColor = "#ef4444"; // Rosso
+                                            else if (value < 1000) bgColor = "#f59e0b"; // Arancio
+                                            else bgColor = "#22c55e"; // Verde
+                                        }
+
+                                        return (
+                                            <td key={idx} style={{
+                                                padding: "8px", textAlign: "center", fontSize: 11,
+                                                background: isActive ? bgColor : "var(--bg-tertiary)",
+                                                color: isActive ? "white" : "var(--text-muted)",
+                                                fontWeight: isActive ? 700 : 400, borderRadius: 4,
+                                                margin: "2px"
+                                            }}>
+                                                {isActive ? value.toLocaleString("it-IT") : "0"}
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <div style={{ fontSize: 13, color: "var(--text-muted)", padding: "24px", textAlign: "center" }}>
+                        ⚠️ Nessun dato di flusso disponibile
+                    </div>
+                )}
+            </div>
 
             {/* Modal Debug SAP Data */}
             {selectedPhaseDebug && (
