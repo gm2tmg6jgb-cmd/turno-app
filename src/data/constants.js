@@ -271,11 +271,11 @@ export const THROUGHPUT_CONFIG = {
     rackSize: 72,           // pezzi per rack (fasi continue)
     components: {
         "DCT300::SGR": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/S", sapOp: "0060" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/S", sapOp: "0090" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996/S", sapOp: "0120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996/S", sapOp: "0230" },
+            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "0060" },
+            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "0090" },
+            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
+            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "0120" },
+            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "0230" },
         ]
     }
 };
