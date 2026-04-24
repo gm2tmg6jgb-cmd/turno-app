@@ -55,15 +55,24 @@ export default function ThroughputView({ showToast }) {
 
     const entries = Object.entries(cfg.components);
 
+    // --- Target giornaliero (stesso di ComponentFlowView) ---
+    const dailyTarget = (() => {
+        try {
+            const saved = localStorage.getItem("bap_target_overrides");
+            return (saved ? JSON.parse(saved) : { "DCT300": 450 })["DCT300"] || 450;
+        } catch { return 450; }
+    })();
+
     // --- Sync SAP ---
-    const [sapDates, setSapDates] = useState({}); // phaseId → prima data SAP (string "YYYY-MM-DD")
+    // phaseData: phaseId → { totQty, firstDate, lottoNum, progress }
+    const [phaseData, setPhaseData] = useState({});
     const [sapLoading, setSapLoading] = useState(false);
 
     useEffect(() => {
-        const fetchSapDates = async () => {
+        const fetchSap = async () => {
             setSapLoading(true);
             try {
-                // 1. Leggi override per SGR DCT300
+                // 1. Materiali SGR DCT300 per fase
                 const { data: overrides, error } = await supabase
                     .from("material_fino_overrides")
                     .select("materiale, fase")
@@ -71,52 +80,81 @@ export default function ThroughputView({ showToast }) {
                     .eq("componente", "SGR");
                 if (error || !overrides?.length) return;
 
-                // 2. Raggruppa materiali per fase
                 const matsByPhase = {};
                 overrides.forEach(o => {
                     if (!matsByPhase[o.fase]) matsByPhase[o.fase] = new Set();
                     matsByPhase[o.fase].add((o.materiale || "").toUpperCase());
                 });
 
-                // 3. Per ogni fase del config, trova la prima data SAP
-                const dates = {};
+                // 2. Per ogni fase: prima data + qty cumulata
+                const result = {};
                 const key = Object.keys(cfg.components)[0];
                 const phases = cfg.components[key] || [];
                 for (const phase of phases) {
                     const mats = [...(matsByPhase[phase.phaseId] || [])];
                     if (!mats.length) continue;
+
                     const { data: rows } = await supabase
                         .from("conferme_sap")
-                        .select("data")
+                        .select("data, qta_ottenuta")
                         .in("materiale", mats)
-                        .order("data", { ascending: true })
-                        .limit(1);
-                    if (rows?.[0]?.data) dates[phase.phaseId] = rows[0].data;
+                        .order("data", { ascending: true });
+
+                    if (!rows?.length) continue;
+
+                    const totQty = rows.reduce((s, r) => s + (r.qta_ottenuta || 0), 0);
+                    const firstDate = rows[0].data;
+                    const lotto = cfg.lotto || 1200;
+                    const lottoNum = Math.ceil(totQty / lotto);         // lotto corrente
+                    const progress = Math.round((totQty % lotto) / lotto * 100); // % avanzamento lotto corrente
+
+                    result[phase.phaseId] = { totQty, firstDate, lottoNum, progress };
                 }
-                setSapDates(dates);
+                setPhaseData(result);
             } finally {
                 setSapLoading(false);
             }
         };
-        fetchSapDates();
+        fetchSap();
     }, [cfg]);
 
-    // Costruisce la timeline: per ogni fase, startDate (reale o stimata) e endDate
+    // Fase corrente = quella più avanzata (indice più alto) con dati SAP
     const buildTimeline = (phases) => {
-        const timeline = [];
-        let prevEnd = null;
-        for (const p of phases) {
-            const sapDate = sapDates[p.phaseId];
-            const startDate = sapDate ? new Date(sapDate) : prevEnd ? new Date(prevEnd) : null;
-            const endDate = startDate ? new Date(startDate.getTime() + p.h * 3600000) : null;
-            timeline.push({ ...p, startDate, endDate, fromSap: !!sapDate });
-            prevEnd = endDate;
-        }
-        return timeline;
+        // Trova il lotto più alto con dati SAP → è il lotto corrente di quella fase
+        // La fase "corrente" è quella con lottoNum più basso (il lotto è ancora lì)
+        // Le fasi "completate" hanno lottoNum > lottoNum della fase successiva
+        const lotto = cfg.lotto || 1200;
+        let prevEndDate = null;
+
+        return phases.map(p => {
+            const pd = phaseData[p.phaseId];
+            const fromSap = !!pd;
+            const totQty = pd?.totQty || 0;
+            const lottoNum = pd?.lottoNum || 0;
+            const progress = pd?.progress ?? 0;
+
+            // Data inizio: prima data SAP oppure fine fase precedente
+            const startDate = pd?.firstDate
+                ? new Date(pd.firstDate)
+                : prevEndDate ? new Date(prevEndDate) : null;
+
+            // Data fine stimata: startDate + ore fase
+            const endDate = startDate
+                ? new Date(startDate.getTime() + p.h * 3600000)
+                : null;
+
+            prevEndDate = endDate;
+
+            return { ...p, fromSap, totQty, lottoNum, progress, startDate, endDate };
+        });
     };
 
-    const fmt = d => d ? d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
-    const fmtDate = d => d ? d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" }) : "—";
+    const fmtDate = d => d
+        ? d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "2-digit" })
+        : "—";
+    const fmtFull = d => d
+        ? d.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" })
+        : "—";
 
     return (
         <div style={{ padding: "32px", maxWidth: 960, margin: "0 auto" }}>
@@ -363,92 +401,140 @@ export default function ThroughputView({ showToast }) {
                         {/* Timeline SAP (beta) */}
                         {(() => {
                             const timeline = buildTimeline(phases);
-                            const currentPhaseIdx = (() => {
-                                let last = -1;
-                                timeline.forEach((p, i) => { if (p.fromSap) last = i; });
-                                return last;
-                            })();
+                            const lotto = cfg.lotto || 1200;
+
+                            // Fase corrente = la fase con il lottoNum più basso tra quelle con dati SAP
+                            // (il lotto più indietro nel processo è quello che determina il collo di bottiglia)
+                            // In pratica: la prima fase (da sinistra) che NON ha ancora completato il lotto corrente
+                            const maxLottoNum = Math.max(0, ...timeline.filter(p => p.fromSap).map(p => p.lottoNum));
+                            const currentPhaseIdx = timeline.findIndex(p => p.fromSap && p.lottoNum < maxLottoNum) !== -1
+                                ? timeline.findIndex(p => p.fromSap && p.lottoNum < maxLottoNum)
+                                : timeline.reduce((last, p, i) => p.fromSap ? i : last, -1);
                             const currentPhase = timeline[currentPhaseIdx];
                             const lastPhase = timeline[timeline.length - 1];
 
+                            // Scostamento rispetto al piano: target giornaliero / 24h = pz/h attesi
+                            const targetPzH = dailyTarget / 24;
+
                             return (
                                 <div style={{ marginTop: 24, borderTop: "1px solid var(--border)", paddingTop: 20 }}>
-                                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                                        <span style={{ fontWeight: 800, fontSize: 14 }}>📡 Sincronizzazione SAP</span>
+
+                                    {/* Header */}
+                                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+                                        <span style={{ fontWeight: 800, fontSize: 14 }}>📡 Lotto Corrente — SGR DCT300</span>
                                         {sapLoading && <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Caricamento…</span>}
                                         {!sapLoading && currentPhase && (
                                             <span style={{
-                                                background: "rgba(34,197,94,0.15)", color: "#22c55e",
-                                                fontSize: 12, fontWeight: 700, padding: "2px 10px", borderRadius: 20,
-                                                border: "1px solid rgba(34,197,94,0.3)"
+                                                background: "rgba(60,110,240,0.15)", color: "var(--accent)",
+                                                fontSize: 12, fontWeight: 700, padding: "3px 12px", borderRadius: 20,
+                                                border: "1px solid var(--accent)"
                                             }}>
-                                                Lotto in: {currentPhase.label}
+                                                Lotto #{maxLottoNum} · In: {currentPhase.label}
                                             </span>
                                         )}
                                         {!sapLoading && lastPhase?.endDate && (
                                             <span style={{ marginLeft: "auto", fontSize: 13, color: "var(--text-muted)" }}>
-                                                Uscita stimata al washing: <strong style={{ color: "var(--text-primary)" }}>{fmtDate(lastPhase.endDate)}</strong>
+                                                Uscita stimata washing: <strong style={{ color: "var(--text-primary)" }}>{fmtFull(lastPhase.endDate)}</strong>
                                             </span>
                                         )}
                                     </div>
 
-                                    {/* Barra timeline orizzontale */}
-                                    <div style={{ display: "flex", gap: 0, alignItems: "stretch", borderRadius: 10, overflow: "hidden", marginBottom: 16 }}>
+                                    {/* Barra timeline proporzionale */}
+                                    <div style={{ display: "flex", alignItems: "stretch", borderRadius: 10, overflow: "hidden", marginBottom: 20, height: 52 }}>
                                         {timeline.map((p, i) => {
-                                            const isPast = i < currentPhaseIdx;
+                                            const isPast = p.fromSap && p.lottoNum > maxLottoNum - 1 && i < currentPhaseIdx;
                                             const isCurrent = i === currentPhaseIdx;
-                                            const isFuture = i > currentPhaseIdx;
-                                            const barColor = isPast ? "#22c55e" : isCurrent ? "var(--accent)" : "var(--bg-tertiary)";
-                                            const flex = p.h;
+                                            const bg = isPast ? "#22c55e" : isCurrent ? "var(--accent)" : "var(--bg-tertiary)";
+                                            // Per la fase corrente, mostra avanzamento interno
+                                            const innerPct = isCurrent ? (p.progress || 0) : 0;
                                             return (
                                                 <div key={p.phaseId} style={{
-                                                    flex, background: barColor,
-                                                    padding: "10px 8px", textAlign: "center",
-                                                    borderRight: i < timeline.length - 1 ? "1px solid rgba(0,0,0,0.15)" : "none",
-                                                    opacity: isFuture && !p.fromSap ? 0.5 : 1,
-                                                    transition: "all 0.3s"
+                                                    flex: p.h, position: "relative", overflow: "hidden",
+                                                    background: bg,
+                                                    borderRight: i < timeline.length - 1 ? "2px solid rgba(0,0,0,0.2)" : "none",
+                                                    display: "flex", flexDirection: "column",
+                                                    alignItems: "center", justifyContent: "center",
+                                                    opacity: !p.fromSap && i > currentPhaseIdx ? 0.4 : 1
                                                 }}>
-                                                    <div style={{ fontSize: 10, fontWeight: 700, color: (isPast || isCurrent) ? "white" : "var(--text-muted)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.label}</div>
-                                                    <div style={{ fontSize: 11, color: (isPast || isCurrent) ? "rgba(255,255,255,0.8)" : "var(--text-muted)", marginTop: 2 }}>{p.h}h</div>
+                                                    {/* Barra progress interna per fase corrente */}
+                                                    {isCurrent && innerPct > 0 && (
+                                                        <div style={{
+                                                            position: "absolute", left: 0, top: 0, bottom: 0,
+                                                            width: `${innerPct}%`,
+                                                            background: "rgba(255,255,255,0.2)"
+                                                        }} />
+                                                    )}
+                                                    <div style={{ fontSize: 10, fontWeight: 700, color: (isPast || isCurrent) ? "white" : "var(--text-muted)", zIndex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "90%", textAlign: "center" }}>{p.label}</div>
+                                                    {isCurrent && <div style={{ fontSize: 10, color: "rgba(255,255,255,0.85)", zIndex: 1 }}>{innerPct}%</div>}
                                                 </div>
                                             );
                                         })}
                                     </div>
 
-                                    {/* Dettaglio date per fase */}
+                                    {/* Dettaglio per fase */}
                                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                                         {timeline.map((p, i) => {
-                                            const isPast = i < currentPhaseIdx;
+                                            const isPast = p.fromSap && i < currentPhaseIdx;
                                             const isCurrent = i === currentPhaseIdx;
+                                            // Scostamento: qty attesa vs qty reale
+                                            const expectedQty = p.fromSap && p.startDate
+                                                ? Math.round(targetPzH * ((Date.now() - p.startDate.getTime()) / 3600000))
+                                                : null;
+                                            const delta = p.fromSap && expectedQty != null ? p.totQty - expectedQty : null;
+
                                             return (
                                                 <div key={p.phaseId} style={{
-                                                    display: "flex", alignItems: "center", gap: 12,
-                                                    padding: "8px 12px", borderRadius: 8,
-                                                    background: isCurrent ? "rgba(var(--accent-rgb,60,110,240),0.08)" : "transparent",
-                                                    border: isCurrent ? "1px solid var(--accent)" : "1px solid transparent"
+                                                    display: "grid",
+                                                    gridTemplateColumns: "8px 1fr auto auto auto auto",
+                                                    alignItems: "center", gap: 12,
+                                                    padding: "10px 14px", borderRadius: 8,
+                                                    background: isCurrent ? "rgba(60,110,240,0.08)" : "var(--bg-tertiary)",
+                                                    border: isCurrent ? "1.5px solid var(--accent)" : "1px solid var(--border)",
+                                                    opacity: !p.fromSap && i > currentPhaseIdx ? 0.5 : 1
                                                 }}>
                                                     <span style={{
-                                                        width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-                                                        background: isPast ? "#22c55e" : isCurrent ? "var(--accent)" : "var(--border)"
+                                                        width: 8, height: 8, borderRadius: "50%",
+                                                        background: isPast ? "#22c55e" : isCurrent ? "var(--accent)" : "var(--border)",
+                                                        display: "block"
                                                     }} />
-                                                    <span style={{ fontWeight: isCurrent ? 800 : 600, fontSize: 13, flex: 1, color: isCurrent ? "var(--accent)" : "var(--text-primary)" }}>
+                                                    <span style={{ fontWeight: isCurrent ? 800 : 600, fontSize: 13, color: isCurrent ? "var(--accent)" : "var(--text-primary)" }}>
                                                         {isCurrent && "▶ "}{p.label}
                                                     </span>
-                                                    <span style={{ fontSize: 12, color: p.fromSap ? "#22c55e" : "var(--text-muted)" }}>
-                                                        {p.fromSap ? "📡 " : "📐 "}
-                                                        Inizio: {fmtDate(p.startDate)}
-                                                    </span>
-                                                    <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                                                        Fine stimata: {fmtDate(p.endDate)}
-                                                    </span>
-                                                    <span style={{ fontSize: 11, color: "var(--text-muted)", minWidth: 30, textAlign: "right" }}>{p.h}h</span>
+                                                    {p.fromSap ? (
+                                                        <>
+                                                            <span style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "right" }}>
+                                                                <span style={{ color: "var(--text-secondary)", fontWeight: 700 }}>{p.totQty.toLocaleString("it-IT")}</span> pz · Lotto #{p.lottoNum} · {p.progress}%
+                                                            </span>
+                                                            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                                                                📡 Inizio: <strong>{fmtDate(p.startDate)}</strong>
+                                                            </span>
+                                                            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                                                                Fine stim.: <strong>{fmtDate(p.endDate)}</strong>
+                                                            </span>
+                                                            {delta != null && (
+                                                                <span style={{
+                                                                    fontSize: 12, fontWeight: 700, minWidth: 60, textAlign: "right",
+                                                                    color: delta >= 0 ? "#22c55e" : "#ef4444"
+                                                                }}>
+                                                                    {delta >= 0 ? "+" : ""}{delta.toLocaleString("it-IT")} pz
+                                                                </span>
+                                                            )}
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Nessun dato SAP</span>
+                                                            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>📐 Inizio stim.: <strong>{fmtDate(p.startDate)}</strong></span>
+                                                            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Fine stim.: <strong>{fmtDate(p.endDate)}</strong></span>
+                                                            <span />
+                                                        </>
+                                                    )}
                                                 </div>
                                             );
                                         })}
                                     </div>
 
-                                    <div style={{ marginTop: 10, fontSize: 11, color: "var(--text-muted)" }}>
-                                        📡 = data reale da SAP &nbsp;·&nbsp; 📐 = data stimata dal throughput
+                                    <div style={{ marginTop: 12, fontSize: 11, color: "var(--text-muted)" }}>
+                                        📡 dato reale SAP &nbsp;·&nbsp; 📐 stima throughput &nbsp;·&nbsp; ±pz = scostamento vs target ({dailyTarget} pz/gg)
                                     </div>
                                 </div>
                             );
@@ -459,6 +545,17 @@ export default function ThroughputView({ showToast }) {
         </div>
     );
 }
+
+const inputStyle = {
+    padding: "6px 10px", borderRadius: 6, fontSize: 14, fontWeight: 700,
+    background: "var(--bg-tertiary)", border: "1px solid var(--accent)",
+    color: "var(--text-primary)", width: 90, outline: "none"
+};
+
+const thStyle = () => ({
+    padding: "10px 12px", textAlign: "right", fontSize: 11,
+    color: "var(--text-muted)", fontWeight: 700
+});
 
 const inputStyle = {
     padding: "6px 10px", borderRadius: 6, fontSize: 14, fontWeight: 700,
