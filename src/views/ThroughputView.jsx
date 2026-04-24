@@ -180,9 +180,8 @@ export default function ThroughputView({ showToast }) {
                     .gte("data", weekStartStr)
                     .lte("data", weekEndStr);
 
-                // Organizza i dati per componente/fase
-                const newFlow = { "DCT300::SGR": {} };
-                const key = "DCT300::SGR";
+                // Organizza i dati per TUTTI i progetti/componenti
+                const newFlow = {};
 
                 if (prodRes) {
                     prodRes.forEach(r => {
@@ -192,11 +191,22 @@ export default function ThroughputView({ showToast }) {
                         const override = (matOverrides || []).find(o => o.mat === matCode && o.fino === fino)
                             || (matOverrides || []).find(o => o.mat === matCode && !o.fino);
 
-                        if (!override || override.proj !== "DCT300" || override.comp !== "SGR") return;
+                        if (!override) return;
 
                         const phase = override.phase;
                         if (!phase || phase === "baa") return;
 
+                        // Normalizza i nomi dei progetti come in ComponentFlowView
+                        let proj = override.proj;
+                        if (proj === "DCT 300") proj = "DCT300";
+                        if (proj === "8 FE" || proj === "8Fedct") proj = "8Fe";
+                        if (proj === "DCT Eco" || proj === "DCTeco") proj = "DCT ECO";
+
+                        let comp = override.comp;
+                        if (comp === "SG2-REV") comp = "DG-REV";
+
+                        const key = `${proj}::${comp}`;
+                        if (!newFlow[key]) newFlow[key] = {};
                         if (!newFlow[key][phase]) newFlow[key][phase] = { value: 0, records: [] };
                         newFlow[key][phase].value += (r.qta_ottenuta || 0);
                         newFlow[key][phase].records.push({ ...r, matCode });
@@ -792,68 +802,92 @@ export default function ThroughputView({ showToast }) {
                 );
             })}
 
-            {/* Scheda Flusso SGR */}
-            <div style={{
-                background: "var(--bg-card)", border: "1px solid var(--border)",
-                borderRadius: 14, padding: "24px", marginBottom: 24
-            }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-                    <span style={{ background: "var(--accent)", color: "white", fontSize: 12, fontWeight: 800, padding: "3px 10px", borderRadius: 20 }}>DCT300</span>
-                    <span style={{ fontWeight: 800, fontSize: 17 }}>SGR</span>
-                    {flowLoading && <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Caricamento…</span>}
+            {/* Schede Flusso - Tutti i componenti */}
+            {flowLoading ? (
+                <div style={{ padding: "24px", textAlign: "center", color: "var(--text-muted)" }}>
+                    Caricamento dati di flusso…
                 </div>
+            ) : Object.entries(flowData).length > 0 ? (
+                Object.entries(flowData).map(([key, componentData]) => {
+                    const [proj, comp] = key.split("::");
+                    const hasData = Object.keys(componentData).length > 0;
 
-                {flowData["DCT300::SGR"] && Object.keys(flowData["DCT300::SGR"]).length > 0 ? (
-                    <div style={{ overflowX: "auto" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                            <thead>
-                                <tr style={{ background: "var(--bg-tertiary)", borderBottom: "1px solid var(--border)" }}>
-                                    <th style={{ padding: "12px", textAlign: "left", fontWeight: 800, color: "var(--text-secondary)" }}>Fase</th>
-                                    {Object.keys(PROCESS_STEPS || []).slice(0, 15).map(idx => (
-                                        <th key={idx} style={{ padding: "8px", textAlign: "center", fontWeight: 700, color: "var(--text-muted)", whiteSpace: "nowrap" }}>
-                                            {PROCESS_STEPS?.[idx]?.code || "—"}
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr style={{ borderBottom: "1px solid var(--border-light)" }}>
-                                    <td style={{ padding: "12px", fontWeight: 700 }}>SGR</td>
-                                    {Object.keys(PROCESS_STEPS || []).slice(0, 15).map(idx => {
-                                        const phaseId = PROCESS_STEPS?.[idx]?.id;
-                                        const data = flowData["DCT300::SGR"]?.[phaseId];
-                                        const value = data?.value || 0;
-                                        const isActive = value > 0;
+                    return (
+                        <div key={key} style={{
+                            background: "var(--bg-card)", border: "1px solid var(--border)",
+                            borderRadius: 14, padding: "24px", marginBottom: 24
+                        }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                                <span style={{ background: "var(--accent)", color: "white", fontSize: 12, fontWeight: 800, padding: "3px 10px", borderRadius: 20 }}>
+                                    {proj}
+                                </span>
+                                <span style={{ fontWeight: 800, fontSize: 17 }}>
+                                    {comp}
+                                </span>
+                            </div>
 
-                                        let bgColor = "transparent";
-                                        if (isActive) {
-                                            if (value < 500) bgColor = "#ef4444"; // Rosso
-                                            else if (value < 1000) bgColor = "#f59e0b"; // Arancio
-                                            else bgColor = "#22c55e"; // Verde
-                                        }
+                            {hasData ? (
+                                <div style={{ overflowX: "auto" }}>
+                                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                                        <thead>
+                                            <tr style={{ background: "var(--bg-tertiary)", borderBottom: "1px solid var(--border)" }}>
+                                                <th style={{ padding: "12px", textAlign: "left", fontWeight: 800, color: "var(--text-secondary)" }}>Fase</th>
+                                                {Object.keys(PROCESS_STEPS || []).slice(0, 15).map(idx => (
+                                                    <th key={idx} style={{ padding: "8px", textAlign: "center", fontWeight: 700, color: "var(--text-muted)", whiteSpace: "nowrap" }}>
+                                                        {PROCESS_STEPS?.[idx]?.code || "—"}
+                                                    </th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                                <td style={{ padding: "12px", fontWeight: 700 }}>{comp}</td>
+                                                {Object.keys(PROCESS_STEPS || []).slice(0, 15).map(idx => {
+                                                    const phaseId = PROCESS_STEPS?.[idx]?.id;
+                                                    const data = componentData?.[phaseId];
+                                                    const value = data?.value || 0;
+                                                    const isActive = value > 0;
 
-                                        return (
-                                            <td key={idx} style={{
-                                                padding: "8px", textAlign: "center", fontSize: 11,
-                                                background: isActive ? bgColor : "var(--bg-tertiary)",
-                                                color: isActive ? "white" : "var(--text-muted)",
-                                                fontWeight: isActive ? 700 : 400, borderRadius: 4,
-                                                margin: "2px"
-                                            }}>
-                                                {isActive ? value.toLocaleString("it-IT") : "0"}
-                                            </td>
-                                        );
-                                    })}
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                ) : (
-                    <div style={{ fontSize: 13, color: "var(--text-muted)", padding: "24px", textAlign: "center" }}>
-                        ⚠️ Nessun dato di flusso disponibile
-                    </div>
-                )}
-            </div>
+                                                    let bgColor = "transparent";
+                                                    if (isActive) {
+                                                        if (value < 500) bgColor = "#ef4444"; // Rosso
+                                                        else if (value < 1000) bgColor = "#f59e0b"; // Arancio
+                                                        else bgColor = "#22c55e"; // Verde
+                                                    }
+
+                                                    return (
+                                                        <td key={idx} style={{
+                                                            padding: "8px", textAlign: "center", fontSize: 11,
+                                                            background: isActive ? bgColor : "var(--bg-tertiary)",
+                                                            color: isActive ? "white" : "var(--text-muted)",
+                                                            fontWeight: isActive ? 700 : 400, borderRadius: 4,
+                                                            margin: "2px"
+                                                        }}>
+                                                            {isActive ? value.toLocaleString("it-IT") : "0"}
+                                                        </td>
+                                                    );
+                                                })}
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div style={{ fontSize: 13, color: "var(--text-muted)", padding: "24px", textAlign: "center" }}>
+                                    ⚠️ Nessun dato di flusso disponibile
+                                </div>
+                            )}
+                        </div>
+                    );
+                })
+            ) : (
+                <div style={{
+                    background: "var(--bg-card)", border: "1px solid var(--border)",
+                    borderRadius: 14, padding: "24px", marginBottom: 24,
+                    fontSize: 13, color: "var(--text-muted)", textAlign: "center"
+                }}>
+                    ⚠️ Nessun dato di flusso per i componenti
+                </div>
+            )}
 
             {/* Modal Debug SAP Data */}
             {selectedPhaseDebug && (
