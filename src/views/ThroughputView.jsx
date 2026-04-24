@@ -72,41 +72,28 @@ export default function ThroughputView({ showToast }) {
         const fetchSap = async () => {
             setSapLoading(true);
             try {
-                // 1. Materiali SGR DCT300 per fase
-                const { data: overrides, error } = await supabase
-                    .from("material_fino_overrides")
-                    .select("materiale, fase")
-                    .eq("progetto", "DCT300")
-                    .eq("componente", "SGR");
-                if (error || !overrides?.length) return;
-
-                const matsByPhase = {};
-                overrides.forEach(o => {
-                    if (!matsByPhase[o.fase]) matsByPhase[o.fase] = new Set();
-                    matsByPhase[o.fase].add((o.materiale || "").toUpperCase());
-                });
-
-                // 2. Per ogni fase: prima data + qty cumulata
                 const result = {};
                 const key = Object.keys(cfg.components)[0];
                 const phases = cfg.components[key] || [];
+                const lotto = cfg.lotto || 1200;
+
                 for (const phase of phases) {
-                    const mats = [...(matsByPhase[phase.phaseId] || [])];
-                    if (!mats.length) continue;
+                    // Usa sapMat + sapOp se configurati, altrimenti salta (es. T.T.)
+                    if (!phase.sapMat || !phase.sapOp) continue;
 
                     const { data: rows } = await supabase
                         .from("conferme_sap")
                         .select("data, qta_ottenuta")
-                        .in("materiale", mats)
+                        .ilike("materiale", phase.sapMat)
+                        .eq("fino", phase.sapOp)
                         .order("data", { ascending: true });
 
                     if (!rows?.length) continue;
 
                     const totQty = rows.reduce((s, r) => s + (r.qta_ottenuta || 0), 0);
                     const firstDate = rows[0].data;
-                    const lotto = cfg.lotto || 1200;
-                    const lottoNum = Math.ceil(totQty / lotto);         // lotto corrente
-                    const progress = Math.round((totQty % lotto) / lotto * 100); // % avanzamento lotto corrente
+                    const lottoNum = Math.ceil(totQty / lotto);
+                    const progress = Math.round((totQty % lotto) / lotto * 100);
 
                     result[phase.phaseId] = { totQty, firstDate, lottoNum, progress };
                 }
