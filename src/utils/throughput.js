@@ -16,12 +16,14 @@ export function loadThroughputConfig() {
             lotto: parsed.lotto ?? THROUGHPUT_CONFIG.lotto,
             oee: parsed.oee ?? THROUGHPUT_CONFIG.oee,
             changeOverH: parsed.changeOverH ?? THROUGHPUT_CONFIG.changeOverH,
+            rackSize: parsed.rackSize ?? THROUGHPUT_CONFIG.rackSize,
             components: {}
         };
         for (const [key, defaultPhases] of Object.entries(THROUGHPUT_CONFIG.components)) {
             const savedPhases = parsed.components?.[key] || [];
             merged.components[key] = defaultPhases.map(dp => {
                 const sp = savedPhases.find(p => p.phaseId === dp.phaseId);
+                // Mantieni sempre chargeSize e noChangeOver dal default (non editabili dall'utente)
                 return sp ? { ...dp, pzH: sp.pzH, fixedH: sp.fixedH } : dp;
             });
         }
@@ -40,9 +42,19 @@ export function saveThroughputConfig(cfg) {
 
 /**
  * Calcola le ore necessarie per una singola fase.
+ * - Fase con chargeSize (es. T.T.): ⌈lotto / chargeSize⌉ × fixedH, senza change over se noChangeOver=true
+ * - Fase con fixedH normale: fixedH + changeOver
+ * - Fase continua: (lotto / (pzH × oee)) + changeOver
  */
 export function phaseHours(phase, cfg) {
-    if (phase.fixedH != null) return phase.fixedH + cfg.changeOverH;
+    if (phase.fixedH != null) {
+        const co = phase.noChangeOver ? 0 : cfg.changeOverH;
+        if (phase.chargeSize) {
+            const cariche = Math.ceil(cfg.lotto / phase.chargeSize);
+            return cariche * phase.fixedH + co;
+        }
+        return phase.fixedH + co;
+    }
     return (cfg.lotto / (phase.pzH * cfg.oee)) + cfg.changeOverH;
 }
 

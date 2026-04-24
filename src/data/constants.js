@@ -268,11 +268,12 @@ export const THROUGHPUT_CONFIG = {
     lotto: 1200,
     oee: 0.85,
     changeOverH: 1,
+    rackSize: 72,           // pezzi per rack (fasi continue)
     components: {
         "DCT300::SGR": [
             { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130 },
             { phaseId: "hobbing",         label: "Dentatura",        pzH: 86 },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8 },
+            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true },
             { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104 },
             { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100 },
         ]

@@ -14,6 +14,7 @@ export default function ThroughputView({ showToast }) {
             lotto: cfg.lotto,
             oeePercent: Math.round(cfg.oee * 100),
             changeOverH: cfg.changeOverH,
+            rackSize: cfg.rackSize ?? 72,
             phases: cfg.components[key].map(p => ({ ...p }))
         });
         setEditing(true);
@@ -25,6 +26,7 @@ export default function ThroughputView({ showToast }) {
             lotto: Number(draft.lotto),
             oee: Number(draft.oeePercent) / 100,
             changeOverH: Number(draft.changeOverH),
+            rackSize: Number(draft.rackSize),
             components: {
                 [key]: draft.phases.map(p => ({
                     ...p,
@@ -117,6 +119,12 @@ export default function ThroughputView({ showToast }) {
                                 onChange={e => setDraft(d => ({ ...d, changeOverH: e.target.value }))}
                                 style={inputStyle} />
                         </label>
+                        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)" }}>RACK SIZE (pz)</span>
+                            <input type="number" value={draft.rackSize} min={1}
+                                onChange={e => setDraft(d => ({ ...d, rackSize: e.target.value }))}
+                                style={inputStyle} />
+                        </label>
                     </>
                 ) : (
                     <>
@@ -131,6 +139,17 @@ export default function ThroughputView({ showToast }) {
                         <div>
                             <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 700 }}>CHANGE OVER</div>
                             <div style={{ fontSize: 20, fontWeight: 900 }}>{cfg.changeOverH}h / fase</div>
+                        </div>
+                        <div>
+                            <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 700 }}>RACK SIZE</div>
+                            <div style={{ fontSize: 20, fontWeight: 900 }}>{cfg.rackSize ?? 72} pz</div>
+                        </div>
+                        <div>
+                            <div style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 700 }}>T.T. CARICA</div>
+                            <div style={{ fontSize: 20, fontWeight: 900 }}>
+                                {cfg.components[Object.keys(cfg.components)[0]]?.find(p => p.chargeSize)?.chargeSize ?? 176} pz
+                                <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6, fontWeight: 400 }}>× {Math.ceil(cfg.lotto / (cfg.components[Object.keys(cfg.components)[0]]?.find(p => p.chargeSize)?.chargeSize ?? 176))} cariche</span>
+                            </div>
                         </div>
                     </>
                 )}
