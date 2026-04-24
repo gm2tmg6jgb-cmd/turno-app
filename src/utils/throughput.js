@@ -23,8 +23,14 @@ export function loadThroughputConfig() {
             const savedPhases = parsed.components?.[key] || [];
             merged.components[key] = defaultPhases.map(dp => {
                 const sp = savedPhases.find(p => p.phaseId === dp.phaseId);
-                // Mantieni sempre chargeSize e noChangeOver dal default (non editabili dall'utente)
-                return sp ? { ...dp, pzH: sp.pzH, fixedH: sp.fixedH } : dp;
+                if (!sp) return dp;
+                return {
+                    ...dp,
+                    pzH: sp.pzH != null ? Number(sp.pzH) : dp.pzH,
+                    fixedH: sp.fixedH != null ? Number(sp.fixedH) : dp.fixedH,
+                    // changeOverH per-fase se salvato (undefined = usa globale)
+                    ...(sp.changeOverH != null && !dp.noChangeOver ? { changeOverH: Number(sp.changeOverH) } : {})
+                };
             });
         }
         return merged;
@@ -47,15 +53,19 @@ export function saveThroughputConfig(cfg) {
  * - Fase continua: (lotto / (pzH × oee)) + changeOver
  */
 export function phaseHours(phase, cfg) {
-    // change over: per-fase se definito, altrimenti globale; 0 se noChangeOver
-    const co = phase.noChangeOver ? 0 : (phase.changeOverH ?? cfg.changeOverH);
+    const lotto = Number(cfg.lotto) || 0;
+    const oee = Number(cfg.oee) || 1;
+    const co = phase.noChangeOver ? 0 : Number(phase.changeOverH ?? cfg.changeOverH ?? 1);
+
     if (phase.fixedH != null) {
+        const fixedH = Number(phase.fixedH) || 0;
         if (phase.chargeSize) {
-            return Math.ceil(cfg.lotto / phase.chargeSize) * phase.fixedH + co;
+            return Math.ceil(lotto / Number(phase.chargeSize)) * fixedH + co;
         }
-        return phase.fixedH + co;
+        return fixedH + co;
     }
-    return (cfg.lotto / (phase.pzH * cfg.oee)) + co;
+    const pzH = Number(phase.pzH) || 1;
+    return (lotto / (pzH * oee)) + co;
 }
 
 /**
