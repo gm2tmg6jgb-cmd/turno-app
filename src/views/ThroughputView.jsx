@@ -100,18 +100,24 @@ export default function ThroughputView({ showToast }) {
                 const lotto = cfg.lotto || 1200;
 
                 for (const phase of phases) {
-                    // Usa sapMat + sapOp se configurati, altrimenti salta (es. T.T.)
-                    if (!phase.sapMat || !phase.sapOp) continue;
+                    // Richiede sapMat; sapOp è opzionale (alcuni processi come Tratt. Termico non lo hanno)
+                    if (!phase.sapMat) continue;
 
-                    console.log(`Cercando fase ${phase.label}: materiale="${phase.sapMat}", operazione="${phase.sapOp}"`);
-                    const { data: rows } = await supabase
+                    console.log(`Cercando fase ${phase.label}: materiale="${phase.sapMat}"${phase.sapOp ? `, operazione="${phase.sapOp}"` : ""}`);
+
+                    let query = supabase
                         .from("conferme_sap")
                         .select("data, qta_ottenuta")
                         .ilike("materiale", phase.sapMat)
-                        .eq("fino", phase.sapOp)
                         .gte("data", weekStartStr)
-                        .lte("data", weekEndStr)
-                        .order("data", { ascending: true });
+                        .lte("data", weekEndStr);
+
+                    // Filtra per operazione solo se configurata
+                    if (phase.sapOp) {
+                        query = query.eq("fino", phase.sapOp);
+                    }
+
+                    const { data: rows } = await query.order("data", { ascending: true });
 
                     console.log(`Fase ${phase.label}: trovati ${rows?.length || 0} record`);
 
