@@ -195,6 +195,19 @@ export default function ThroughputView({ showToast }) {
                     <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--text-muted)" }}>
                         Formula: (Lotto ÷ (Pz/h × OEE)) + Change over
                     </p>
+                    <div style={{ display: "flex", gap: 24, marginTop: 12 }}>
+                        <div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>RACK SIZE</div>
+                            <div style={{ fontSize: 16, fontWeight: 900, marginTop: 2 }}>{cfg.rackSize ?? 72} pz</div>
+                        </div>
+                        <div>
+                            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>T.T. CARICA</div>
+                            <div style={{ fontSize: 16, fontWeight: 900, marginTop: 2 }}>
+                                {cfg.components[Object.keys(cfg.components)[0]]?.find(p => p.chargeSize)?.chargeSize ?? 176} pz
+                                <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6, fontWeight: 400 }}>× {Math.ceil(cfg.lotto / (cfg.components[Object.keys(cfg.components)[0]]?.find(p => p.chargeSize)?.chargeSize ?? 176))} cariche</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                     {!editing ? (
