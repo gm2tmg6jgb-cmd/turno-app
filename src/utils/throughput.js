@@ -1,7 +1,45 @@
+import { THROUGHPUT_CONFIG } from "../data/constants";
+
+const LS_KEY = "throughput_config";
+
+/**
+ * Legge la config dal localStorage. Se non esiste, usa THROUGHPUT_CONFIG di default.
+ * Merge intelligente: mantiene la struttura delle fasi da constants, sovrascrive solo i valori editabili.
+ */
+export function loadThroughputConfig() {
+    try {
+        const saved = localStorage.getItem(LS_KEY);
+        if (!saved) return THROUGHPUT_CONFIG;
+        const parsed = JSON.parse(saved);
+        // Merge: mantiene le fasi di default ma aggiorna pzH e fixedH se salvati
+        const merged = {
+            lotto: parsed.lotto ?? THROUGHPUT_CONFIG.lotto,
+            oee: parsed.oee ?? THROUGHPUT_CONFIG.oee,
+            changeOverH: parsed.changeOverH ?? THROUGHPUT_CONFIG.changeOverH,
+            components: {}
+        };
+        for (const [key, defaultPhases] of Object.entries(THROUGHPUT_CONFIG.components)) {
+            const savedPhases = parsed.components?.[key] || [];
+            merged.components[key] = defaultPhases.map(dp => {
+                const sp = savedPhases.find(p => p.phaseId === dp.phaseId);
+                return sp ? { ...dp, pzH: sp.pzH, fixedH: sp.fixedH } : dp;
+            });
+        }
+        return merged;
+    } catch {
+        return THROUGHPUT_CONFIG;
+    }
+}
+
+/**
+ * Salva la config nel localStorage.
+ */
+export function saveThroughputConfig(cfg) {
+    localStorage.setItem(LS_KEY, JSON.stringify(cfg));
+}
+
 /**
  * Calcola le ore necessarie per una singola fase.
- * Se la fase ha fixedH (es. trattamento termico), usa quello + changeOver.
- * Altrimenti usa: (lotto / (pzH × oee)) + changeOver
  */
 export function phaseHours(phase, cfg) {
     if (phase.fixedH != null) return phase.fixedH + cfg.changeOverH;
@@ -9,10 +47,7 @@ export function phaseHours(phase, cfg) {
 }
 
 /**
- * Calcola tutte le fasi di un componente con ore per fase e ore cumulate.
- * @param {string} componentKey - es. "DCT300::SGR"
- * @param {object} cfg - THROUGHPUT_CONFIG
- * @returns {Array} fasi arricchite con h (ore fase) e cumH (ore cumulate)
+ * Calcola tutte le fasi con ore per fase e cumulate.
  */
 export function computeThroughput(componentKey, cfg) {
     const phases = cfg.components[componentKey] || [];
@@ -22,16 +57,4 @@ export function computeThroughput(componentKey, cfg) {
         cumH += h;
         return { ...p, h: +h.toFixed(1), cumH: +cumH.toFixed(1) };
     });
-}
-
-/**
- * Dato un phaseId corrente, restituisce le ore rimanenti (dalla fase corrente inclusa).
- */
-export function remainingHours(componentKey, currentPhaseId, cfg) {
-    const phases = computeThroughput(componentKey, cfg);
-    const idx = phases.findIndex(p => p.phaseId === currentPhaseId);
-    if (idx === -1) return null;
-    const total = phases.at(-1)?.cumH || 0;
-    const doneBefore = idx > 0 ? phases[idx - 1].cumH : 0;
-    return +(total - doneBefore).toFixed(1);
 }

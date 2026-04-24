@@ -4,7 +4,7 @@ import { getCurrentWeekRange } from "../lib/dateUtils";
 import { TURNI, PROCESS_STEPS, PROJECTS, PROJECT_COMPONENTS, EXCLUDED_PHASES, THROUGHPUT_CONFIG } from "../data/constants";
 import { getSlotForGroup } from "../lib/shiftRotation";
 import Modal from "../components/Modal";
-import { computeThroughput } from "../utils/throughput";
+import { computeThroughput, loadThroughputConfig } from "../utils/throughput";
 
 // Parsing 100% manuale: solo material_fino_overrides (configurazione utente su Supabase)
 
@@ -77,7 +77,8 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     const [cellInclusions, setCellInclusions] = useState({});
 
     // Throughput calcolato una volta sola
-    const throughputPhases = useMemo(() => computeThroughput("DCT300::SGR", THROUGHPUT_CONFIG), []);
+    const throughputCfg = useMemo(() => loadThroughputConfig(), [showThroughput, selectedDetail]);
+    const throughputPhases = useMemo(() => computeThroughput("DCT300::SGR", throughputCfg), [throughputCfg]);
     const throughputTotalH = throughputPhases.at(-1)?.cumH || 0;
 
     const handlePrint = () => {
@@ -1234,7 +1235,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                 /* Tab Throughput */
                                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                                     <p style={{ margin: "0 0 12px", fontSize: 12, color: "var(--text-muted)" }}>
-                                        Tempo stimato per fase · Lotto {THROUGHPUT_CONFIG.lotto} pz · OEE {THROUGHPUT_CONFIG.oee * 100}%
+                                        Tempo stimato per fase · Lotto {throughputCfg.lotto} pz · OEE {Math.round(throughputCfg.oee * 100)}%
                                     </p>
                                     {throughputPhases.map(p => {
                                         const isCurrent = p.phaseId === selectedDetail.phaseId;
