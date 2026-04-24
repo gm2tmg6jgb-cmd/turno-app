@@ -180,8 +180,16 @@ export default function ThroughputView({ showToast }) {
                     .gte("data", weekStartStr)
                     .lte("data", weekEndStr);
 
+                // Log primi 5 record di prodRes per capire il formato
+                console.log("📊 fetchFlowData: prodRes =", prodRes?.length, "records, matOverrides =", matOverrides?.length);
+                if (prodRes?.length > 0) {
+                    console.log("Sample prodRes records:", prodRes.slice(0, 3).map(r => ({ mat: r.materiale, fino: r.fino })));
+                    console.log("Sample matOverrides:", matOverrides?.slice(0, 3).map(o => ({ mat: o.mat, fino: o.fino, proj: o.proj, comp: o.comp })));
+                }
+
                 // Organizza i dati per TUTTI i progetti/componenti
                 const newFlow = {};
+                let matchCount = 0;
 
                 if (prodRes) {
                     prodRes.forEach(r => {
@@ -193,6 +201,7 @@ export default function ThroughputView({ showToast }) {
 
                         if (!override) return;
 
+                        matchCount++;
                         const phase = override.phase;
                         if (!phase || phase === "baa") return;
 
@@ -213,6 +222,7 @@ export default function ThroughputView({ showToast }) {
                     });
                 }
 
+                console.log("📊 fetchFlowData: matchCount =", matchCount, "components =", Object.keys(newFlow).length, "newFlow keys =", Object.keys(newFlow));
                 setFlowData(newFlow);
             } catch (err) {
                 console.error("Errore fetch flow data:", err);
@@ -802,92 +812,73 @@ export default function ThroughputView({ showToast }) {
                 );
             })}
 
-            {/* Schede Flusso - Tutti i componenti */}
-            {flowLoading ? (
-                <div style={{ padding: "24px", textAlign: "center", color: "var(--text-muted)" }}>
-                    Caricamento dati di flusso…
-                </div>
-            ) : Object.entries(flowData).length > 0 ? (
-                Object.entries(flowData).map(([key, componentData]) => {
-                    const [proj, comp] = key.split("::");
-                    const hasData = Object.keys(componentData).length > 0;
+            {/* Schede Flusso - Tutti i componenti da cfg */}
+            {Object.entries(cfg.components).map(([componentKey, phases]) => {
+                const [proj, comp] = componentKey.split("::");
+                const flowDataForComponent = flowData[componentKey] || {};
 
-                    return (
-                        <div key={key} style={{
-                            background: "var(--bg-card)", border: "1px solid var(--border)",
-                            borderRadius: 14, padding: "24px", marginBottom: 24
-                        }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-                                <span style={{ background: "var(--accent)", color: "white", fontSize: 12, fontWeight: 800, padding: "3px 10px", borderRadius: 20 }}>
-                                    {proj}
-                                </span>
-                                <span style={{ fontWeight: 800, fontSize: 17 }}>
-                                    {comp}
-                                </span>
-                            </div>
-
-                            {hasData ? (
-                                <div style={{ overflowX: "auto" }}>
-                                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                                        <thead>
-                                            <tr style={{ background: "var(--bg-tertiary)", borderBottom: "1px solid var(--border)" }}>
-                                                <th style={{ padding: "12px", textAlign: "left", fontWeight: 800, color: "var(--text-secondary)" }}>Fase</th>
-                                                {Object.keys(PROCESS_STEPS || []).slice(0, 15).map(idx => (
-                                                    <th key={idx} style={{ padding: "8px", textAlign: "center", fontWeight: 700, color: "var(--text-muted)", whiteSpace: "nowrap" }}>
-                                                        {PROCESS_STEPS?.[idx]?.code || "—"}
-                                                    </th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr style={{ borderBottom: "1px solid var(--border-light)" }}>
-                                                <td style={{ padding: "12px", fontWeight: 700 }}>{comp}</td>
-                                                {Object.keys(PROCESS_STEPS || []).slice(0, 15).map(idx => {
-                                                    const phaseId = PROCESS_STEPS?.[idx]?.id;
-                                                    const data = componentData?.[phaseId];
-                                                    const value = data?.value || 0;
-                                                    const isActive = value > 0;
-
-                                                    let bgColor = "transparent";
-                                                    if (isActive) {
-                                                        if (value < 500) bgColor = "#ef4444"; // Rosso
-                                                        else if (value < 1000) bgColor = "#f59e0b"; // Arancio
-                                                        else bgColor = "#22c55e"; // Verde
-                                                    }
-
-                                                    return (
-                                                        <td key={idx} style={{
-                                                            padding: "8px", textAlign: "center", fontSize: 11,
-                                                            background: isActive ? bgColor : "var(--bg-tertiary)",
-                                                            color: isActive ? "white" : "var(--text-muted)",
-                                                            fontWeight: isActive ? 700 : 400, borderRadius: 4,
-                                                            margin: "2px"
-                                                        }}>
-                                                            {isActive ? value.toLocaleString("it-IT") : "0"}
-                                                        </td>
-                                                    );
-                                                })}
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            ) : (
-                                <div style={{ fontSize: 13, color: "var(--text-muted)", padding: "24px", textAlign: "center" }}>
-                                    ⚠️ Nessun dato di flusso disponibile
-                                </div>
-                            )}
+                return (
+                    <div key={componentKey} style={{
+                        background: "var(--bg-card)", border: "1px solid var(--border)",
+                        borderRadius: 14, padding: "24px", marginBottom: 24
+                    }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                            <span style={{ background: "var(--accent)", color: "white", fontSize: 12, fontWeight: 800, padding: "3px 10px", borderRadius: 20 }}>
+                                {proj}
+                            </span>
+                            <span style={{ fontWeight: 800, fontSize: 17 }}>
+                                {comp}
+                            </span>
+                            {flowLoading && <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Caricamento…</span>}
                         </div>
-                    );
-                })
-            ) : (
-                <div style={{
-                    background: "var(--bg-card)", border: "1px solid var(--border)",
-                    borderRadius: 14, padding: "24px", marginBottom: 24,
-                    fontSize: 13, color: "var(--text-muted)", textAlign: "center"
-                }}>
-                    ⚠️ Nessun dato di flusso per i componenti
-                </div>
-            )}
+
+                        <div style={{ overflowX: "auto" }}>
+                            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                                <thead>
+                                    <tr style={{ background: "var(--bg-tertiary)", borderBottom: "1px solid var(--border)" }}>
+                                        <th style={{ padding: "12px", textAlign: "left", fontWeight: 800, color: "var(--text-secondary)" }}>Fase</th>
+                                        {Object.keys(PROCESS_STEPS || []).slice(0, 15).map(idx => (
+                                            <th key={idx} style={{ padding: "8px", textAlign: "center", fontWeight: 700, color: "var(--text-muted)", whiteSpace: "nowrap" }}>
+                                                {PROCESS_STEPS?.[idx]?.code || "—"}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                        <td style={{ padding: "12px", fontWeight: 700 }}>{comp}</td>
+                                        {Object.keys(PROCESS_STEPS || []).slice(0, 15).map(idx => {
+                                            const phaseId = PROCESS_STEPS?.[idx]?.id;
+                                            const data = flowDataForComponent?.[phaseId];
+                                            const value = data?.value || 0;
+                                            const isActive = value > 0;
+
+                                            let bgColor = "transparent";
+                                            if (isActive) {
+                                                if (value < 500) bgColor = "#ef4444"; // Rosso
+                                                else if (value < 1000) bgColor = "#f59e0b"; // Arancio
+                                                else bgColor = "#22c55e"; // Verde
+                                            }
+
+                                            return (
+                                                <td key={idx} style={{
+                                                    padding: "8px", textAlign: "center", fontSize: 11,
+                                                    background: isActive ? bgColor : "var(--bg-tertiary)",
+                                                    color: isActive ? "white" : "var(--text-muted)",
+                                                    fontWeight: isActive ? 700 : 400, borderRadius: 4,
+                                                    margin: "2px"
+                                                }}>
+                                                    {isActive ? value.toLocaleString("it-IT") : "0"}
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                );
+            })}
 
             {/* Modal Debug SAP Data */}
             {selectedPhaseDebug && (
