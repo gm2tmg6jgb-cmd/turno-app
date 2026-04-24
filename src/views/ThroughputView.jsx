@@ -556,14 +556,3 @@ const thStyle = () => ({
     padding: "10px 12px", textAlign: "right", fontSize: 11,
     color: "var(--text-muted)", fontWeight: 700
 });
-
-const inputStyle = {
-    padding: "6px 10px", borderRadius: 6, fontSize: 14, fontWeight: 700,
-    background: "var(--bg-tertiary)", border: "1px solid var(--accent)",
-    color: "var(--text-primary)", width: 90, outline: "none"
-};
-
-const thStyle = () => ({
-    padding: "10px 12px", textAlign: "right", fontSize: 11,
-    color: "var(--text-muted)", fontWeight: 700
-});
