@@ -205,9 +205,16 @@ export default function ThroughputView({ showToast }) {
                                         })[i]
                                         : p;
 
-                                    const lottoH = computed.fixedH != null
-                                        ? computed.fixedH
-                                        : +(Number(editing ? draft.lotto : cfg.lotto) / (Number(phase.pzH) * Number(editing ? draft.oeePercent / 100 : cfg.oee))).toFixed(1);
+                                    const activeLotto = Number(editing ? draft.lotto : cfg.lotto);
+                                    const activeOee = Number(editing ? draft.oeePercent / 100 : cfg.oee);
+                                    const activeCO = Number(editing ? draft.changeOverH : cfg.changeOverH);
+                                    // Tempo di solo processo (senza change over)
+                                    const lottoH = phase.fixedH != null
+                                        ? (phase.chargeSize
+                                            ? Math.ceil(activeLotto / phase.chargeSize) * phase.fixedH
+                                            : phase.fixedH)
+                                        : +(activeLotto / (Number(phase.pzH) * activeOee)).toFixed(1);
+                                    const coH = phase.noChangeOver ? 0 : activeCO;
 
                                     const barWidth = Math.round((computed.h / totalH) * 100);
 
@@ -254,11 +261,17 @@ export default function ThroughputView({ showToast }) {
                                                         <span style={{ fontSize: 13, color: "var(--text-muted)" }}>{isNaN(lottoH) ? "—" : `${lottoH}h`}</span>
                                                     )
                                                 ) : (
-                                                    <span style={{ fontSize: 13 }}>{phase.fixedH != null ? `${phase.fixedH}h fisso` : `${lottoH}h`}</span>
+                                                    <span style={{ fontSize: 13 }}>
+                                                        {phase.fixedH != null
+                                                            ? (phase.chargeSize
+                                                                ? `${Math.ceil(activeLotto / phase.chargeSize)} × ${phase.fixedH}h = ${lottoH}h`
+                                                                : `${phase.fixedH}h fisso`)
+                                                            : `${lottoH}h`}
+                                                    </span>
                                                 )}
                                             </td>
-                                            <td style={{ padding: "12px", textAlign: "right", fontSize: 13, color: "var(--text-muted)" }}>
-                                                {editing ? draft.changeOverH : cfg.changeOverH}h
+                                            <td style={{ padding: "12px", textAlign: "right", fontSize: 13, color: coH === 0 ? "var(--text-muted)" : "var(--text-muted)" }}>
+                                                {coH === 0 ? <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>—</span> : `${coH}h`}
                                             </td>
                                             <td style={{ padding: "12px", textAlign: "right", fontSize: 14, fontWeight: 800, color: "var(--accent)" }}>
                                                 {computed.h}h
