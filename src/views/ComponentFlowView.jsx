@@ -258,7 +258,8 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 fino: r.fino ? String(r.fino).padStart(4, "0") : null,
                 phase: r.fase,
                 comp: normalizeFlowComp((r.componente || "").toUpperCase()),
-                proj: (r.progetto || "").trim()
+                proj: (r.progetto || "").trim(),
+                macchina_id: (r.macchina_id || "").toUpperCase()
             }));
 
             const cfgSet = new Set();
@@ -329,7 +330,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     if (!comp) return;
                     if (comp === "SG2-REV") comp = "DG-REV";
 
-                    const wc = (r.macchina_id || r.work_center_sap || "").toUpperCase();
+                    const wc = (r.macchina_id || r.work_center_sap || override.macchina_id || "").toUpperCase();
                     projComponentSets[proj].add(comp);
                     if (!newMatrix[proj][comp]) newMatrix[proj][comp] = {};
                     if (!newMatrix[proj][comp][phase]) newMatrix[proj][comp][phase] = { value: 0, records: [] };
@@ -1149,7 +1150,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                 {selectedDetail.phaseId === "baa"
                                                     ? <td style={{ padding: "10px", fontSize: "13px" }}>{r.orario || "—"}</td>
                                                     : <><td style={{ padding: "10px", fontSize: "13px" }}>{r.turno_id}</td>
-                                                       <td style={{ padding: "10px", fontSize: "13px", fontWeight: "bold" }}>{r.macchina}</td></>
+                                                       <td style={{ padding: "10px", fontSize: "13px", fontWeight: "bold" }}>{r.macchina || r.macchina_id || r.work_center_sap || "—"}</td></>
                                                 }
                                                 <td style={{ padding: "10px", fontSize: "14px", fontWeight: "bold", textAlign: "right", color: "#3c6ef0" }}>
                                                     {selectedDetail.phaseId === "baa" ? Math.abs(r.quantita || 0) : r.qta_ottenuta}

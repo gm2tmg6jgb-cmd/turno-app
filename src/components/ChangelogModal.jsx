@@ -3,6 +3,20 @@ import Modal from "./Modal";
 
 const CHANGELOG = [
     {
+        version: "1.1.1",
+        data: "24 Aprile 2026",
+        label: "Fix Macchina nel Modal Dettaglio",
+        modifiche: [
+            {
+                categoria: "🔧 Fix",
+                voci: [
+                    "Fix: campo macchina_id ora incluso nel mapping degli override — il nome macchina configurato appare correttamente nel modal dettaglio cella",
+                    "Fix: fallback macchina esteso a macchina_id SAP → work_center_sap → macchina configurata manualmente",
+                ]
+            }
+        ]
+    },
+    {
         version: "1.1.0",
         data: "23 Aprile 2026",
         label: "Performance e Fix QuickConfigModal",
