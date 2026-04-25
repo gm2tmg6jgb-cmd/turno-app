@@ -528,7 +528,7 @@ export default function ThroughputView({ showToast }) {
                                                 fontSize: 12, fontWeight: 700, padding: "3px 12px", borderRadius: 20,
                                                 border: "1px solid var(--accent)"
                                             }}>
-                                                Lotto #{maxLottoNum} · In: {currentPhase.label}
+                                                Lotto #{currentPhase.lottoNum} · In: {currentPhase.label}
                                             </span>
                                         )}
                                         {!sapLoading && lastPhase?.endDate && (
