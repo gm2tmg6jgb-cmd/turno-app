@@ -588,15 +588,16 @@ export default function ThroughputView({ showToast }) {
                                                 <tbody>
                                                     {Array.from({ length: maxLottoNum }, (_, i) => {
                                                         const lottoNum = i + 1;
+                                                        const minLottoNum = Math.min(...timeline.filter(p => p.fromSap && p.lottoNum > 0).map(p => p.lottoNum));
                                                         return (
                                                             <tr key={lottoNum} style={{ borderBottom: "1px solid var(--border-light)" }}>
                                                                 <td style={{ padding: 10, fontWeight: 700, color: "var(--text-primary)", background: "var(--bg-secondary)" }}>
                                                                     Lotto #{lottoNum}
                                                                 </td>
                                                                 {timeline.map(p => {
-                                                                    const isCompleted = lottoNum > p.lottoNum;
+                                                                    const isCompleted = lottoNum > p.lottoNum || (p.fromSap && lottoNum < minLottoNum);
                                                                     const isCurrent = lottoNum === p.lottoNum;
-                                                                    const isNotStarted = lottoNum < p.lottoNum;
+                                                                    const isNotStarted = !isCompleted && !isCurrent;
 
                                                                     return (
                                                                         <td key={p.phaseId} style={{
