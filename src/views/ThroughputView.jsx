@@ -511,9 +511,7 @@ export default function ThroughputView({ showToast }) {
                             const timeline = buildTimeline(phases);
                             const lotto = cfg.lotto || 1200;
                             const maxLottoNum = Math.max(0, ...timeline.filter(p => p.fromSap).map(p => p.lottoNum));
-                            const currentPhaseIdx = timeline.findIndex(p => p.fromSap && p.lottoNum < maxLottoNum) !== -1
-                                ? timeline.findIndex(p => p.fromSap && p.lottoNum < maxLottoNum)
-                                : timeline.reduce((last, p, i) => p.fromSap ? i : last, -1);
+                            const currentPhaseIdx = timeline.findIndex(p => !p.fromSap || p.lottoNum < maxLottoNum);
                             const currentPhase = timeline[currentPhaseIdx];
                             const lastPhase = timeline[timeline.length - 1];
                             const targetPzH = dailyTarget / 24;
