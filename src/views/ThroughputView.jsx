@@ -37,6 +37,7 @@ export default function ThroughputView({ showToast }) {
                     changeOverH: p.noChangeOver ? undefined : Number(p.changeOverH),
                     sapMat: p.sapMat || undefined,
                     sapOp: p.sapOp || undefined,
+                    macchina_id: p.macchina_id || undefined,
                     chargeSize: p.chargeSize ? Number(p.chargeSize) : null
                 }))
             }
@@ -873,6 +874,11 @@ export default function ThroughputView({ showToast }) {
                                 </table>
                             </div>
                         )}
+
+                        {/* Legend */}
+                        <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--border)", fontSize: 11, color: "var(--text-muted)", lineHeight: 1.6 }}>
+                            <div>📡 dato reale SAP · 📐 stima throughput · ±pz = scostamento vs target (1000 pz/gg)</div>
+                        </div>
                     </div>
                         );
                     })}
@@ -907,7 +913,7 @@ export default function ThroughputView({ showToast }) {
                             <div>
                                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4 }}>Intervallo Date</div>
                                 <div style={{ fontSize: 14, color: "var(--text-primary)" }}>
-                                    {phaseDataRaw[selectedPhaseDebug].weekStart} → {phaseDataRaw[selectedPhaseDebug].weekEnd}
+                                    {fmtDate(parseISODate(phaseDataRaw[selectedPhaseDebug].weekStart))} → {fmtDate(parseISODate(phaseDataRaw[selectedPhaseDebug].weekEnd))}
                                 </div>
                             </div>
                             <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}>
@@ -923,7 +929,7 @@ export default function ThroughputView({ showToast }) {
                                                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
                                                     <th style={{ padding: 8, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)" }}>Data</th>
                                                     <th style={{ padding: 8, textAlign: "center", fontWeight: 700, color: "var(--text-secondary)" }}>Operazione</th>
-                                                    <th style={{ padding: 8, textAlign: "center", fontWeight: 700, color: "var(--text-secondary)" }}>Work Center</th>
+                                                    <th style={{ padding: 8, textAlign: "center", fontWeight: 700, color: "var(--text-secondary)" }}>Materiale</th>
                                                     <th style={{ padding: 8, textAlign: "center", fontWeight: 700, color: "var(--text-secondary)" }}>Macchina</th>
                                                     <th style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--text-secondary)" }}>Qty</th>
                                                 </tr>
@@ -937,7 +943,7 @@ export default function ThroughputView({ showToast }) {
                                                         <tr key={i} style={{ borderBottom: "1px solid var(--border-light)", opacity: 0.8 }}>
                                                             <td style={{ padding: 8 }}>{dateStr}</td>
                                                             <td style={{ padding: 8, textAlign: "center", fontSize: 11, fontWeight: 600, color: "var(--text-secondary)" }}>{opStr}</td>
-                                                            <td style={{ padding: 8, textAlign: "center", fontSize: 11 }}>{row.work_center_sap || "—"}</td>
+                                                            <td style={{ padding: 8, textAlign: "center", fontSize: 11 }}>{row.materiale || "—"}</td>
                                                             <td style={{ padding: 8, textAlign: "center", fontSize: 11 }}>{row.macchina_id || "—"}</td>
                                                             <td style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--accent)" }}>{row.qta_ottenuta.toLocaleString("it-IT")}</td>
                                                         </tr>
@@ -1252,6 +1258,7 @@ export default function ThroughputView({ showToast }) {
                                                     <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-tertiary)" }}>
                                                         <th style={{ padding: 8, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)" }}>#</th>
                                                         <th style={{ padding: 8, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)" }}>Fase</th>
+                                                        <th style={{ padding: 8, textAlign: "center", fontWeight: 700, color: "var(--text-secondary)" }}>Macchina</th>
                                                         <th style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--text-secondary)" }}>PZ/H</th>
                                                         <th style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--text-secondary)" }}>Tempo</th>
                                                         <th style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--text-secondary)" }}></th>
@@ -1268,6 +1275,16 @@ export default function ThroughputView({ showToast }) {
                                                                         phases[i] = { ...phases[i], label: e.target.value };
                                                                         return { ...d, phases };
                                                                     })}
+                                                                    style={{ ...inputStyle, width: "100%" }} />
+                                                            </td>
+                                                            <td style={{ padding: 8, textAlign: "center" }}>
+                                                                <input type="text" value={draft.phases[i].macchina_id || ""}
+                                                                    onChange={e => setDraft(d => {
+                                                                        const phases = [...d.phases];
+                                                                        phases[i] = { ...phases[i], macchina_id: e.target.value };
+                                                                        return { ...d, phases };
+                                                                    })}
+                                                                    placeholder="—"
                                                                     style={{ ...inputStyle, width: "100%" }} />
                                                             </td>
                                                             <td style={{ padding: 8, textAlign: "right" }}>
