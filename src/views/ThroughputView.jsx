@@ -134,7 +134,7 @@ export default function ThroughputView({ showToast }) {
 
                     let query = supabase
                         .from("conferme_sap")
-                        .select("data, qta_ottenuta")
+                        .select("data, qta_ottenuta, work_center_sap, macchina_id, fino")
                         .ilike("materiale", phase.sapMat)
                         .gte("data", weekStartStr)
                         .lte("data", weekEndStr);
@@ -837,9 +837,31 @@ export default function ThroughputView({ showToast }) {
                                                     <td style={{ padding: "12px", textAlign: "right", fontSize: 13, color: "var(--text-secondary)" }}>
                                                         {computed.cumH}h
                                                     </td>
-                                                    <td style={{ padding: "12px", textAlign: "right", display: "flex", gap: 4 }}>
+                                                    <td style={{ padding: "12px", textAlign: "right", display: "flex", gap: 4, justifyContent: "flex-end" }}>
                                                         {isEditingThis && (
                                                             <>
+                                                                {i > 0 && (
+                                                                    <button onClick={() => setDraft(d => {
+                                                                        const phases = [...d.phases];
+                                                                        [phases[i - 1], phases[i]] = [phases[i], phases[i - 1]];
+                                                                        return { ...d, phases };
+                                                                    })} style={{
+                                                                        padding: "4px 8px", fontSize: 12, background: "var(--bg-tertiary)",
+                                                                        color: "var(--text-secondary)", border: "1px solid var(--border)",
+                                                                        borderRadius: 4, cursor: "pointer", fontWeight: 700
+                                                                    }} title="Sposta su">↑</button>
+                                                                )}
+                                                                {i < draft.phases.length - 1 && (
+                                                                    <button onClick={() => setDraft(d => {
+                                                                        const phases = [...d.phases];
+                                                                        [phases[i], phases[i + 1]] = [phases[i + 1], phases[i]];
+                                                                        return { ...d, phases };
+                                                                    })} style={{
+                                                                        padding: "4px 8px", fontSize: 12, background: "var(--bg-tertiary)",
+                                                                        color: "var(--text-secondary)", border: "1px solid var(--border)",
+                                                                        borderRadius: 4, cursor: "pointer", fontWeight: 700
+                                                                    }} title="Sposta giù">↓</button>
+                                                                )}
                                                                 <button onClick={() => setDraft(d => {
                                                                     const phases = [...d.phases];
                                                                     phases.splice(i + 1, 0, {
@@ -933,18 +955,29 @@ export default function ThroughputView({ showToast }) {
                                             <thead>
                                                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
                                                     <th style={{ padding: 8, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)" }}>Data</th>
+                                                    <th style={{ padding: 8, textAlign: "center", fontWeight: 700, color: "var(--text-secondary)" }}>Operazione</th>
+                                                    <th style={{ padding: 8, textAlign: "center", fontWeight: 700, color: "var(--text-secondary)" }}>Work Center</th>
+                                                    <th style={{ padding: 8, textAlign: "center", fontWeight: 700, color: "var(--text-secondary)" }}>Macchina</th>
                                                     <th style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--text-secondary)" }}>Qty</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {phaseDataRaw[selectedPhaseDebug].rows.map((row, i) => (
-                                                    <tr key={i} style={{ borderBottom: "1px solid var(--border-light)", opacity: 0.8 }}>
-                                                        <td style={{ padding: 8 }}>{row.data}</td>
-                                                        <td style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--accent)" }}>{row.qta_ottenuta.toLocaleString("it-IT")}</td>
-                                                    </tr>
-                                                ))}
+                                                {phaseDataRaw[selectedPhaseDebug].rows.map((row, i) => {
+                                                    const dateObj = parseISODate(row.data);
+                                                    const dateStr = dateObj ? fmtDate(dateObj) : row.data;
+                                                    const opStr = String(row.fino || "").padStart(4, "0");
+                                                    return (
+                                                        <tr key={i} style={{ borderBottom: "1px solid var(--border-light)", opacity: 0.8 }}>
+                                                            <td style={{ padding: 8 }}>{dateStr}</td>
+                                                            <td style={{ padding: 8, textAlign: "center", fontSize: 11, fontWeight: 600, color: "var(--text-secondary)" }}>{opStr}</td>
+                                                            <td style={{ padding: 8, textAlign: "center", fontSize: 11 }}>{row.work_center_sap || "—"}</td>
+                                                            <td style={{ padding: 8, textAlign: "center", fontSize: 11 }}>{row.macchina_id || "—"}</td>
+                                                            <td style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--accent)" }}>{row.qta_ottenuta.toLocaleString("it-IT")}</td>
+                                                        </tr>
+                                                    );
+                                                })}
                                                 <tr style={{ background: "rgba(60,110,240,0.1)", fontWeight: 700 }}>
-                                                    <td style={{ padding: 8 }}>TOTALE</td>
+                                                    <td colSpan={4} style={{ padding: 8 }}>TOTALE</td>
                                                     <td style={{ padding: 8, textAlign: "right", color: "var(--accent)" }}>
                                                         {phaseDataRaw[selectedPhaseDebug].rows.reduce((s, r) => s + r.qta_ottenuta, 0).toLocaleString("it-IT")}
                                                     </td>
