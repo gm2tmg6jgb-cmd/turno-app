@@ -568,6 +568,57 @@ export default function ThroughputView({ showToast }) {
                                         })}
                                     </div>
 
+                                    {/* Griglia Lotti × Fasi */}
+                                    <div style={{ marginTop: 20, marginBottom: 20 }}>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 12 }}>
+                                            Flow Lotti
+                                        </div>
+                                        <div style={{ overflowX: "auto", background: "var(--bg-tertiary)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                                            <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse", minWidth: 600 }}>
+                                                <thead>
+                                                    <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                                                        <th style={{ padding: 10, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)", background: "var(--bg-secondary)", minWidth: 80 }}>Lotto</th>
+                                                        {timeline.map(p => (
+                                                            <th key={p.phaseId} style={{ padding: 10, textAlign: "center", fontWeight: 700, color: "var(--text-secondary)", background: "var(--bg-secondary)", minWidth: 100 }}>
+                                                                {p.label}
+                                                            </th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {Array.from({ length: maxLottoNum }, (_, i) => {
+                                                        const lottoNum = i + 1;
+                                                        return (
+                                                            <tr key={lottoNum} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                                                <td style={{ padding: 10, fontWeight: 700, color: "var(--text-primary)", background: "var(--bg-secondary)" }}>
+                                                                    Lotto #{lottoNum}
+                                                                </td>
+                                                                {timeline.map(p => {
+                                                                    const isCompleted = lottoNum > p.lottoNum;
+                                                                    const isCurrent = lottoNum === p.lottoNum;
+                                                                    const isNotStarted = lottoNum < p.lottoNum;
+
+                                                                    return (
+                                                                        <td key={p.phaseId} style={{
+                                                                            padding: 10,
+                                                                            textAlign: "center",
+                                                                            background: isCurrent ? "rgba(60,110,240,0.1)" : "transparent",
+                                                                            border: isCurrent ? "1px solid var(--accent)" : "none"
+                                                                        }}>
+                                                                            {isCompleted && <span style={{ color: "#22c55e", fontWeight: 700 }}>✅</span>}
+                                                                            {isCurrent && <span style={{ color: "var(--accent)", fontWeight: 700 }}>🟦 {p.progress}%</span>}
+                                                                            {isNotStarted && <span style={{ color: "var(--border)", fontSize: 14 }}>⬜</span>}
+                                                                        </td>
+                                                                    );
+                                                                })}
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
                                     {/* Dettaglio per fase */}
                                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                                         {timeline.map((p, i) => {
