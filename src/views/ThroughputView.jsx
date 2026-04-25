@@ -1259,6 +1259,8 @@ export default function ThroughputView({ showToast }) {
                                                         <th style={{ padding: 8, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)" }}>#</th>
                                                         <th style={{ padding: 8, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)" }}>Fase</th>
                                                         <th style={{ padding: 8, textAlign: "center", fontWeight: 700, color: "var(--text-secondary)" }}>Macchina</th>
+                                                        <th style={{ padding: 8, textAlign: "center", fontWeight: 700, color: "var(--text-secondary)" }}>Mat. SAP</th>
+                                                        <th style={{ padding: 8, textAlign: "center", fontWeight: 700, color: "var(--text-secondary)" }}>Op. SAP</th>
                                                         <th style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--text-secondary)" }}>PZ/H</th>
                                                         <th style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--text-secondary)" }}>Tempo</th>
                                                         <th style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--text-secondary)" }}></th>
@@ -1286,6 +1288,24 @@ export default function ThroughputView({ showToast }) {
                                                                     })}
                                                                     placeholder="—"
                                                                     style={{ ...inputStyle, width: "100%" }} />
+                                                            </td>
+                                                            <td style={{ padding: 8, textAlign: "center" }}>
+                                                                <input type="text" placeholder="es. M0140996" value={draft.phases[i].sapMat || ""}
+                                                                    onChange={e => setDraft(d => {
+                                                                        const phases = [...d.phases];
+                                                                        phases[i] = { ...phases[i], sapMat: e.target.value };
+                                                                        return { ...d, phases };
+                                                                    })}
+                                                                    style={{ ...inputStyle, width: "100%", fontSize: 11 }} />
+                                                            </td>
+                                                            <td style={{ padding: 8, textAlign: "center" }}>
+                                                                <input type="text" placeholder="es. 0010" value={draft.phases[i].sapOp || ""}
+                                                                    onChange={e => setDraft(d => {
+                                                                        const phases = [...d.phases];
+                                                                        phases[i] = { ...phases[i], sapOp: e.target.value };
+                                                                        return { ...d, phases };
+                                                                    })}
+                                                                    style={{ ...inputStyle, width: "100%", fontSize: 11 }} />
                                                             </td>
                                                             <td style={{ padding: 8, textAlign: "right" }}>
                                                                 {phase.fixedH != null ? (
@@ -1326,6 +1346,25 @@ export default function ThroughputView({ showToast }) {
                                                                         borderRadius: 4, cursor: "pointer", fontWeight: 700
                                                                     }} title="Sposta giù">↓</button>
                                                                 )}
+                                                                <button onClick={() => setDraft(d => {
+                                                                    const phases = [...d.phases];
+                                                                    phases.splice(i + 1, 0, {
+                                                                        phaseId: `phase_${Date.now()}`,
+                                                                        label: "Nuova Fase",
+                                                                        pzH: 100,
+                                                                        fixedH: null,
+                                                                        changeOverH: 0,
+                                                                        chargeSize: null,
+                                                                        noChangeOver: false,
+                                                                        sapMat: "",
+                                                                        sapOp: "",
+                                                                        macchina_id: ""
+                                                                    });
+                                                                    return { ...d, phases };
+                                                                })} style={{
+                                                                    padding: "4px 8px", fontSize: 12, background: "var(--accent)",
+                                                                    color: "white", border: "none", borderRadius: 4, cursor: "pointer", fontWeight: 700
+                                                                }} title="Aggiungi fase dopo questa">+</button>
                                                                 {draft.phases.length > 1 && (
                                                                     <button onClick={() => setDraft(d => ({
                                                                         ...d,
@@ -1333,7 +1372,7 @@ export default function ThroughputView({ showToast }) {
                                                                     }))} style={{
                                                                         padding: "4px 8px", fontSize: 12, background: "#ef4444",
                                                                         color: "white", border: "none", borderRadius: 4, cursor: "pointer"
-                                                                    }}>×</button>
+                                                                    }} title="Elimina fase">×</button>
                                                                 )}
                                                             </td>
                                                         </tr>
@@ -1341,6 +1380,31 @@ export default function ThroughputView({ showToast }) {
                                                 </tbody>
                                             </table>
                                         </div>
+                                        <button
+                                            onClick={() => setDraft(d => ({
+                                                ...d,
+                                                phases: [...d.phases, {
+                                                    phaseId: `phase_${Date.now()}`,
+                                                    label: "Nuova Fase",
+                                                    pzH: 100,
+                                                    fixedH: null,
+                                                    changeOverH: 0,
+                                                    chargeSize: null,
+                                                    noChangeOver: false,
+                                                    sapMat: "",
+                                                    sapOp: "",
+                                                    macchina_id: ""
+                                                }]
+                                            }))}
+                                            style={{
+                                                width: "100%", marginTop: 12, padding: "8px 12px",
+                                                background: "var(--accent)", color: "white",
+                                                border: "none", borderRadius: 8, fontWeight: 700,
+                                                cursor: "pointer", fontSize: 13
+                                            }}
+                                        >
+                                            + Aggiungi Fase
+                                        </button>
                                     </div>
                                 </div>
 
