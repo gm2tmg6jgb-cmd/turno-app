@@ -458,7 +458,7 @@ export default function ThroughputView({ showToast }) {
             </div>
 
             {/* Tabelle componenti */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "24px", marginBottom: 24 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "24px", marginBottom: 24 }}>
                 {filteredEntries.map(([key]) => {
                     const [proj, comp] = key.split("::");
                     const phases = computeThroughput(key, cfg);
@@ -639,20 +639,35 @@ export default function ThroughputView({ showToast }) {
                             );
                         })()}
 
-                        {/* Configuration Panel Toggle */}
-                        <button
-                            onClick={() => setExpandedTableCards(prev => ({ ...prev, [key]: !isExpanded }))}
-                            style={{
-                                width: "100%", padding: "12px 16px", marginTop: 20,
-                                background: "var(--bg-tertiary)", border: "1px solid var(--border)",
-                                borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14,
-                                color: "var(--text-secondary)", transition: "all 0.2s",
-                                display: "flex", alignItems: "center", justifyContent: "center", gap: 8
-                            }}
-                        >
-                            <span>{isExpanded ? "▼" : "▶"}</span>
-                            <span>{isExpanded ? "Nascondi" : "Mostra"} Dettagli Configurazione</span>
-                        </button>
+                        {/* Configuration Panel Toggle + RackSize Edit */}
+                        <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
+                            <button
+                                onClick={() => setExpandedTableCards(prev => ({ ...prev, [key]: !isExpanded }))}
+                                style={{
+                                    flex: 1, padding: "12px 16px",
+                                    background: "var(--bg-tertiary)", border: "1px solid var(--border)",
+                                    borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14,
+                                    color: "var(--text-secondary)", transition: "all 0.2s",
+                                    display: "flex", alignItems: "center", justifyContent: "center", gap: 8
+                                }}
+                            >
+                                <span>{isExpanded ? "▼" : "▶"}</span>
+                                <span>{isExpanded ? "Nascondi" : "Mostra"} Configurazione</span>
+                            </button>
+                            {editingKey === key && (
+                                <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 120 }}>
+                                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>
+                                        Rack Size
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={draft.rackSize}
+                                        onChange={e => setDraft(d => ({ ...d, rackSize: Number(e.target.value) }))}
+                                        style={{ ...inputStyle, width: "100%" }}
+                                    />
+                                </div>
+                            )}
+                        </div>
 
                         {/* Phase Table (COLLAPSIBLE) */}
                         {isExpanded && (
@@ -665,6 +680,7 @@ export default function ThroughputView({ showToast }) {
                                             <th style={thStyle("right")}>PZ/H</th>
                                             <th style={thStyle("right")}>TEMPO LOTTO</th>
                                             <th style={thStyle("right")}>CHANGE OVER</th>
+                                            {editingKey === key && <th style={thStyle("right")}>CARICA</th>}
                                             {editingKey === key && <th style={thStyle("left")}>MAT. SAP</th>}
                                             {editingKey === key && <th style={thStyle("left")}>OP. SAP</th>}
                                             <th style={thStyle("right")}>TOTALE FASE</th>
@@ -777,6 +793,18 @@ export default function ThroughputView({ showToast }) {
                                                         }
                                                     </td>
                                                     {isEditingThis && (
+                                                        <td style={{ padding: "12px", textAlign: "right" }}>
+                                                            <input type="number" value={draft.phases[i].chargeSize || ""} min={1}
+                                                                onChange={e => setDraft(d => {
+                                                                    const phases = [...d.phases];
+                                                                    phases[i] = { ...phases[i], chargeSize: e.target.value ? Number(e.target.value) : null };
+                                                                    return { ...d, phases };
+                                                                })}
+                                                                style={{ ...inputStyle, width: 70, textAlign: "right" }}
+                                                                placeholder="es. 120" />
+                                                        </td>
+                                                    )}
+                                                    {isEditingThis && (
                                                         <td style={{ padding: "12px" }}>
                                                             <input type="text" placeholder="es. M0140996" value={draft.phases[i].sapMat || ""}
                                                                 onChange={e => setDraft(d => {
@@ -843,7 +871,7 @@ export default function ThroughputView({ showToast }) {
                                     </tbody>
                                     <tfoot>
                                         <tr style={{ background: "var(--bg-tertiary)", borderTop: "2px solid var(--border)" }}>
-                                            <td colSpan={editingKey === key ? 7 : 5} style={{ padding: "12px", fontWeight: 800, fontSize: 14 }}>TOTALE</td>
+                                            <td colSpan={editingKey === key ? 8 : 5} style={{ padding: "12px", fontWeight: 800, fontSize: 14 }}>TOTALE</td>
                                             <td style={{ padding: "12px", textAlign: "right", fontSize: 16, fontWeight: 900, color: "var(--accent)" }}>{totalH}h</td>
                                             <td style={{ padding: "12px", textAlign: "right", fontSize: 13, color: "var(--text-muted)" }}>≈ {totalDays} gg</td>
                                         </tr>
