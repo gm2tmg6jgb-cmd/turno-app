@@ -28,6 +28,10 @@ export default function ThroughputView({ showToast }) {
     const saveEdit = useCallback(() => {
         const newCfg = {
             ...cfg,
+            lotto: Number(draft.lotto),
+            oee: Number(draft.oeePercent) / 100,
+            rackSize: Number(draft.rackSize),
+            changeOverH: Number(draft.changeOverH),
             components: {
                 ...cfg.components,  // preserva TUTTI i componenti
                 [editingKey]: draft.phases.map(p => ({
