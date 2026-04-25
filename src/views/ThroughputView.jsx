@@ -318,11 +318,6 @@ export default function ThroughputView({ showToast }) {
                     </h2>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={resetDefaults} className="btn" style={{
-                        padding: "8px 16px", fontWeight: 600,
-                        background: "var(--bg-tertiary)", color: "var(--text-muted)",
-                        border: "1px solid var(--border)", borderRadius: 8, cursor: "pointer"
-                    }}>↺ Reset Default</button>
                     {(() => {
                         const lastSapDate = Object.values(phaseData).reduce((latest, pd) => {
                             if (!pd?.firstDate) return latest;
