@@ -275,7 +275,7 @@ export default function ThroughputView({ showToast }) {
 
             // Data inizio: prima data SAP oppure fine fase precedente
             const startDate = pd?.firstDate
-                ? new Date(pd.firstDate)
+                ? parseISODate(pd.firstDate)
                 : prevEndDate ? new Date(prevEndDate) : null;
 
             // Data fine stimata: startDate + ore fase
@@ -287,6 +287,13 @@ export default function ThroughputView({ showToast }) {
 
             return { ...p, fromSap, totQty, lottoNum, progress, startDate, endDate };
         });
+    };
+
+    // Parse date from ISO string (YYYY-MM-DD) ensuring it's treated as local date, not UTC
+    const parseISODate = (dateStr) => {
+        if (!dateStr) return null;
+        const [year, month, day] = dateStr.split('-').map(Number);
+        return new Date(year, month - 1, day);
     };
 
     const fmtDate = d => d
@@ -314,7 +321,7 @@ export default function ThroughputView({ showToast }) {
                     {(() => {
                         const lastSapDate = Object.values(phaseData).reduce((latest, pd) => {
                             if (!pd?.firstDate) return latest;
-                            const date = new Date(pd.firstDate);
+                            const date = parseISODate(pd.firstDate);
                             return !latest || date > latest ? date : latest;
                         }, null);
                         const dateStr = lastSapDate ? `Ult. agg: ${lastSapDate.toLocaleDateString("it-IT")}` : "Aggiorna SAP";
@@ -363,7 +370,7 @@ export default function ThroughputView({ showToast }) {
                         // Trova l'ultima data SAP tra tutte le fasi
                         const lastSapDate = Object.values(phaseData).reduce((latest, pd) => {
                             if (!pd?.firstDate) return latest;
-                            const date = new Date(pd.firstDate);
+                            const date = parseISODate(pd.firstDate);
                             return !latest || date > latest ? date : latest;
                         }, null);
 
