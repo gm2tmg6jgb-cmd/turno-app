@@ -1044,23 +1044,31 @@ export default function ThroughputView({ showToast }) {
                                 <table style={{ width: "100%", fontSize: 11, borderCollapse: "collapse" }}>
                                     <thead>
                                         <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-card)" }}>
-                                            <th style={{ padding: 8, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)" }}>Data</th>
-                                            <th style={{ padding: 8, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)" }}>Materiale</th>
-                                            <th style={{ padding: 8, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)" }}>Fino</th>
-                                            <th style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--text-secondary)" }}>Qta</th>
+                                            <th style={{ padding: 8, textAlign: "center", fontWeight: 700, color: "var(--text-secondary)", minWidth: 80 }}>Data</th>
+                                            <th style={{ padding: 8, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)", minWidth: 110 }}>Materiale</th>
+                                            <th style={{ padding: 8, textAlign: "center", fontWeight: 700, color: "var(--text-secondary)", minWidth: 70 }}>Operazione</th>
+                                            <th style={{ padding: 8, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)", minWidth: 100 }}>Work Center</th>
+                                            <th style={{ padding: 8, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)", minWidth: 80 }}>Macchina</th>
+                                            <th style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--text-secondary)", minWidth: 70 }}>Qta</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {debugSapData.map((row, i) => (
-                                            <tr key={i} style={{ borderBottom: "1px solid var(--border-light)" }}>
-                                                <td style={{ padding: 8 }}>{row.data}</td>
-                                                <td style={{ padding: 8, fontFamily: "monospace" }}>{row.materiale}</td>
-                                                <td style={{ padding: 8, fontFamily: "monospace" }}>{row.fino}</td>
-                                                <td style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--accent)" }}>
-                                                    {row.qta_ottenuta?.toLocaleString("it-IT")}
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {debugSapData.map((row, i) => {
+                                            const dateObj = parseISODate(row.data);
+                                            const dateStr = dateObj ? fmtDate(dateObj) : row.data;
+                                            return (
+                                                <tr key={i} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                                    <td style={{ padding: 8, textAlign: "center", fontSize: 10 }}>{dateStr}</td>
+                                                    <td style={{ padding: 8, fontFamily: "monospace", fontSize: 10 }}>{row.materiale}</td>
+                                                    <td style={{ padding: 8, textAlign: "center", fontSize: 10 }}>{String(row.fino).padStart(4, "0")}</td>
+                                                    <td style={{ padding: 8, fontSize: 10 }}>{row.work_center_sap || "—"}</td>
+                                                    <td style={{ padding: 8, fontSize: 10 }}>{row.macchina_id || "—"}</td>
+                                                    <td style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--accent)", fontSize: 10 }}>
+                                                        {row.qta_ottenuta?.toLocaleString("it-IT")}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             )}
