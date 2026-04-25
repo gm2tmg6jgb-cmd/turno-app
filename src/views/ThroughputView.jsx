@@ -137,7 +137,7 @@ export default function ThroughputView({ showToast }) {
 
                     let query = supabase
                         .from("conferme_sap")
-                        .select("data, qta_ottenuta, work_center_sap, macchina_id, fino")
+                        .select("data, materiale, qta_ottenuta, work_center_sap, macchina_id, fino")
                         .ilike("materiale", phase.sapMat)
                         .gte("data", weekStartStr)
                         .lte("data", weekEndStr);
