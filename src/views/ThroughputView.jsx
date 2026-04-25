@@ -482,12 +482,8 @@ export default function ThroughputView({ showToast }) {
                         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
                             <span style={{ background: "var(--accent)", color: "white", fontSize: 12, fontWeight: 800, padding: "3px 10px", borderRadius: 20 }}>{proj}</span>
                             <span style={{ fontWeight: 800, fontSize: 17 }}>{comp}</span>
-                            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
-                                <div style={{ textAlign: "right" }}>
-                                    <span style={{ fontSize: 26, fontWeight: 900, color: "var(--accent)" }}>{totalH}h</span>
-                                    <span style={{ fontSize: 13, color: "var(--text-muted)", marginLeft: 8 }}>≈ {totalDays} giorni</span>
-                                </div>
-                                {editingKey === key ? (
+                            {editingKey === key && (
+                                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
                                     <div style={{ display: "flex", gap: 6 }}>
                                         <button onClick={saveEdit} style={{
                                             padding: "6px 14px", fontWeight: 700, fontSize: 13,
@@ -500,16 +496,8 @@ export default function ThroughputView({ showToast }) {
                                             border: "1px solid var(--border)", borderRadius: 8, cursor: "pointer"
                                         }}>Annulla</button>
                                     </div>
-                                ) : (
-                                    <button onClick={() => startEdit(key)} disabled={editing} style={{
-                                        padding: "6px 14px", fontWeight: 600, fontSize: 13,
-                                        background: editing ? "var(--bg-tertiary)" : "var(--accent)",
-                                        color: editing ? "var(--text-muted)" : "white",
-                                        border: "none", borderRadius: 8,
-                                        cursor: editing ? "not-allowed" : "pointer", opacity: editing ? 0.5 : 1
-                                    }}>✏️ Modifica</button>
-                                )}
-                            </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Timeline SAP (PRIMARY DISPLAY) */}
