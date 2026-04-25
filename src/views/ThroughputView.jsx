@@ -28,9 +28,6 @@ export default function ThroughputView({ showToast }) {
     const saveEdit = useCallback(() => {
         const newCfg = {
             ...cfg,
-            lotto: Number(draft.lotto),
-            oee: Number(draft.oeePercent) / 100,
-            rackSize: Number(draft.rackSize),
             components: {
                 ...cfg.components,  // preserva TUTTI i componenti
                 [editingKey]: draft.phases.map(p => ({
@@ -39,7 +36,8 @@ export default function ThroughputView({ showToast }) {
                     fixedH: p.fixedH != null ? Number(p.fixedH) : null,
                     changeOverH: p.noChangeOver ? undefined : Number(p.changeOverH),
                     sapMat: p.sapMat || undefined,
-                    sapOp: p.sapOp || undefined
+                    sapOp: p.sapOp || undefined,
+                    chargeSize: p.chargeSize ? Number(p.chargeSize) : null
                 }))
             }
         };
