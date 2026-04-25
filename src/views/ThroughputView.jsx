@@ -5,53 +5,61 @@ import { supabase } from "../lib/supabase";
 
 export default function ThroughputView({ showToast }) {
     const [cfg, setCfg] = useState(() => loadThroughputConfig());
-    const [editing, setEditing] = useState(false);
-    // draft è una copia piatta editabile: { lotto, oeePercent, changeOverH, phases: [{phaseId, label, pzH, fixedH}] }
+    // editingKey = chiave del componente in modifica (es. "DCT300::SG1"), null se nessuno
+    const [editingKey, setEditingKey] = useState(null);
+    const editing = editingKey !== null;
     const [draft, setDraft] = useState(null);
     const [targetModal, setTargetModal] = useState(null);
     const [targetValue, setTargetValue] = useState(450);
 
-    const startEdit = () => {
-        const key = Object.keys(cfg.components)[0];
+    const startEdit = (key) => {
+        setEditingKey(key);
         setDraft({
             lotto: cfg.lotto,
             oeePercent: Math.round(cfg.oee * 100),
             rackSize: cfg.rackSize ?? 72,
-            // changeOverH per-fase: usa quello salvato o il default globale
-            phases: cfg.components[key].map(p => ({
+            phases: (cfg.components[key] || []).map(p => ({
                 ...p,
                 changeOverH: p.noChangeOver ? 0 : (p.changeOverH ?? cfg.changeOverH)
             }))
         });
-        setEditing(true);
     };
 
     const saveEdit = useCallback(() => {
-        const key = Object.keys(cfg.components)[0];
         const newCfg = {
+            ...cfg,
             lotto: Number(draft.lotto),
             oee: Number(draft.oeePercent) / 100,
-            changeOverH: cfg.changeOverH, // mantieni il globale come fallback
             rackSize: Number(draft.rackSize),
             components: {
-                [key]: draft.phases.map(p => ({
+                ...cfg.components,  // preserva TUTTI i componenti
+                [editingKey]: draft.phases.map(p => ({
                     ...p,
                     pzH: p.fixedH != null ? null : Number(p.pzH),
                     fixedH: p.fixedH != null ? Number(p.fixedH) : null,
-                    changeOverH: p.noChangeOver ? undefined : Number(p.changeOverH)
+                    changeOverH: p.noChangeOver ? undefined : Number(p.changeOverH),
+                    sapMat: p.sapMat || undefined,
+                    sapOp: p.sapOp || undefined
                 }))
             }
         };
         saveThroughputConfig(newCfg);
         setCfg(newCfg);
-        setEditing(false);
+        setEditingKey(null);
+        setDraft(null);
         showToast?.("Parametri salvati", "success");
-    }, [draft, cfg, showToast]);
+    }, [draft, cfg, editingKey, showToast]);
+
+    const cancelEdit = () => {
+        setEditingKey(null);
+        setDraft(null);
+    };
 
     const resetDefaults = () => {
         localStorage.removeItem("throughput_config");
         setCfg(THROUGHPUT_CONFIG);
-        setEditing(false);
+        setEditingKey(null);
+        setDraft(null);
         showToast?.("Parametri ripristinati ai valori di default", "info");
     };
 
@@ -298,76 +306,44 @@ export default function ThroughputView({ showToast }) {
                     </h2>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                    {!editing ? (
-                        <>
-                            <button onClick={startEdit} className="btn" style={{
-                                padding: "8px 16px", fontWeight: 700,
-                                background: "var(--accent)", color: "white",
-                                border: "none", borderRadius: 8, cursor: "pointer"
-                            }}>✏️ Modifica Parametri</button>
-                            <button onClick={resetDefaults} className="btn" style={{
+                    <button onClick={resetDefaults} className="btn" style={{
+                        padding: "8px 16px", fontWeight: 600,
+                        background: "var(--bg-tertiary)", color: "var(--text-muted)",
+                        border: "1px solid var(--border)", borderRadius: 8, cursor: "pointer"
+                    }}>↺ Reset Default</button>
+                    {(() => {
+                        const lastSapDate = Object.values(phaseData).reduce((latest, pd) => {
+                            if (!pd?.firstDate) return latest;
+                            const date = new Date(pd.firstDate);
+                            return !latest || date > latest ? date : latest;
+                        }, null);
+                        const dateStr = lastSapDate ? `Ult. agg: ${lastSapDate.toLocaleDateString("it-IT")}` : "Aggiorna SAP";
+                        return (
+                            <button onClick={() => setLastRefresh(prev => prev + 1)} disabled={sapLoading} className="btn" style={{
                                 padding: "8px 16px", fontWeight: 600,
-                                background: "var(--bg-tertiary)", color: "var(--text-muted)",
-                                border: "1px solid var(--border)", borderRadius: 8, cursor: "pointer"
-                            }}>↺ Reset Default</button>
-                            {(() => {
-                                const lastSapDate = Object.values(phaseData).reduce((latest, pd) => {
-                                    if (!pd?.firstDate) return latest;
-                                    const date = new Date(pd.firstDate);
-                                    return !latest || date > latest ? date : latest;
-                                }, null);
-                                const dateStr = lastSapDate ? `Ult. agg: ${lastSapDate.toLocaleDateString("it-IT")}` : "Aggiorna SAP";
-                                return (
-                                    <button onClick={() => setLastRefresh(prev => prev + 1)} disabled={sapLoading} className="btn" style={{
-                                        padding: "8px 16px", fontWeight: 600,
-                                        background: sapLoading ? "var(--bg-tertiary)" : "var(--accent)", color: sapLoading ? "var(--text-muted)" : "white",
-                                        border: "none", borderRadius: 8, cursor: sapLoading ? "not-allowed" : "pointer", opacity: sapLoading ? 0.6 : 1
-                                    }}>🔄 {dateStr}</button>
-                                );
-                            })()}
-                            <button onClick={() => {
-                                const key = Object.keys(cfg.components)[0];
-                                const phases = cfg.components[key] || [];
-                                setSapConfigDraft(phases.map(p => ({ phaseId: p.phaseId, label: p.label, sapMat: p.sapMat || "", sapOp: p.sapOp || "" })));
-                                setSapConfigModal(true);
-                            }} className="btn" style={{
-                                padding: "8px 16px", fontWeight: 600,
-                                background: "var(--bg-tertiary)", color: "var(--text-secondary)",
-                                border: "1px solid var(--border)", borderRadius: 8, cursor: "pointer"
-                            }}>⚙️ Configura SAP</button>
-                            <button onClick={async () => {
-                                try {
-                                    const { data } = await supabase
-                                        .from("conferme_sap")
-                                        .select("*")
-                                        .limit(50)
-                                        .order("data", { ascending: false });
-                                    setDebugSapData(data || []);
-                                    setDebugSapModal(true);
-                                } catch (err) {
-                                    console.error("Debug SAP error:", err);
-                                    showToast?.("Errore nel caricamento debug SAP", "error");
-                                }
-                            }} className="btn" style={{
-                                padding: "8px 16px", fontWeight: 600,
-                                background: "var(--bg-tertiary)", color: "#ef4444",
-                                border: "1px solid #ef4444", borderRadius: 8, cursor: "pointer", fontSize: 12
-                            }}>🐛 Debug SAP</button>
-                        </>
-                    ) : (
-                        <>
-                            <button onClick={saveEdit} className="btn" style={{
-                                padding: "8px 16px", fontWeight: 700,
-                                background: "#22c55e", color: "white",
-                                border: "none", borderRadius: 8, cursor: "pointer"
-                            }}>✓ Salva</button>
-                            <button onClick={() => setEditing(false)} className="btn" style={{
-                                padding: "8px 16px", fontWeight: 600,
-                                background: "var(--bg-tertiary)", color: "var(--text-secondary)",
-                                border: "1px solid var(--border)", borderRadius: 8, cursor: "pointer"
-                            }}>Annulla</button>
-                        </>
-                    )}
+                                background: sapLoading ? "var(--bg-tertiary)" : "var(--accent)", color: sapLoading ? "var(--text-muted)" : "white",
+                                border: "none", borderRadius: 8, cursor: sapLoading ? "not-allowed" : "pointer", opacity: sapLoading ? 0.6 : 1
+                            }}>🔄 {dateStr}</button>
+                        );
+                    })()}
+                    <button onClick={async () => {
+                        try {
+                            const { data } = await supabase
+                                .from("conferme_sap")
+                                .select("*")
+                                .limit(50)
+                                .order("data", { ascending: false });
+                            setDebugSapData(data || []);
+                            setDebugSapModal(true);
+                        } catch (err) {
+                            console.error("Debug SAP error:", err);
+                            showToast?.("Errore nel caricamento debug SAP", "error");
+                        }
+                    }} className="btn" style={{
+                        padding: "8px 16px", fontWeight: 600,
+                        background: "var(--bg-tertiary)", color: "#ef4444",
+                        border: "1px solid #ef4444", borderRadius: 8, cursor: "pointer", fontSize: 12
+                    }}>🐛 Debug SAP</button>
                 </div>
             </div>
 
@@ -482,25 +458,50 @@ export default function ThroughputView({ showToast }) {
             </div>
 
             {/* Tabelle componenti */}
-            {filteredEntries.map(([key]) => {
-                const [proj, comp] = key.split("::");
-                const phases = computeThroughput(key, cfg);
-                const totalH = phases.at(-1)?.cumH || 0;
-                const totalDays = (totalH / 24).toFixed(1);
-                const isExpanded = expandedTableCards[key];
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "24px", marginBottom: 24 }}>
+                {filteredEntries.map(([key]) => {
+                    const [proj, comp] = key.split("::");
+                    const phases = computeThroughput(key, cfg);
+                    const totalH = phases.at(-1)?.cumH || 0;
+                    const totalDays = (totalH / 24).toFixed(1);
+                    const isExpanded = expandedTableCards[key];
 
-                return (
-                    <div key={key} style={{
-                        background: "var(--bg-card)", border: "1px solid var(--border)",
-                        borderRadius: 14, padding: "24px", marginBottom: 24
-                    }}>
+                    return (
+                        <div key={key} style={{
+                            background: "var(--bg-card)", border: "1px solid var(--border)",
+                            borderRadius: 14, padding: "24px", display: "flex", flexDirection: "column"
+                        }}>
                         {/* Header */}
                         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
                             <span style={{ background: "var(--accent)", color: "white", fontSize: 12, fontWeight: 800, padding: "3px 10px", borderRadius: 20 }}>{proj}</span>
                             <span style={{ fontWeight: 800, fontSize: 17 }}>{comp}</span>
-                            <div style={{ marginLeft: "auto", textAlign: "right" }}>
-                                <span style={{ fontSize: 26, fontWeight: 900, color: "var(--accent)" }}>{totalH}h</span>
-                                <span style={{ fontSize: 13, color: "var(--text-muted)", marginLeft: 8 }}>≈ {totalDays} giorni</span>
+                            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
+                                <div style={{ textAlign: "right" }}>
+                                    <span style={{ fontSize: 26, fontWeight: 900, color: "var(--accent)" }}>{totalH}h</span>
+                                    <span style={{ fontSize: 13, color: "var(--text-muted)", marginLeft: 8 }}>≈ {totalDays} giorni</span>
+                                </div>
+                                {editingKey === key ? (
+                                    <div style={{ display: "flex", gap: 6 }}>
+                                        <button onClick={saveEdit} style={{
+                                            padding: "6px 14px", fontWeight: 700, fontSize: 13,
+                                            background: "#22c55e", color: "white",
+                                            border: "none", borderRadius: 8, cursor: "pointer"
+                                        }}>✓ Salva</button>
+                                        <button onClick={cancelEdit} style={{
+                                            padding: "6px 14px", fontWeight: 600, fontSize: 13,
+                                            background: "var(--bg-tertiary)", color: "var(--text-secondary)",
+                                            border: "1px solid var(--border)", borderRadius: 8, cursor: "pointer"
+                                        }}>Annulla</button>
+                                    </div>
+                                ) : (
+                                    <button onClick={() => startEdit(key)} disabled={editing} style={{
+                                        padding: "6px 14px", fontWeight: 600, fontSize: 13,
+                                        background: editing ? "var(--bg-tertiary)" : "var(--accent)",
+                                        color: editing ? "var(--text-muted)" : "white",
+                                        border: "none", borderRadius: 8,
+                                        cursor: editing ? "not-allowed" : "pointer", opacity: editing ? 0.5 : 1
+                                    }}>✏️ Modifica</button>
+                                )}
                             </div>
                         </div>
 
@@ -664,15 +665,18 @@ export default function ThroughputView({ showToast }) {
                                             <th style={thStyle("right")}>PZ/H</th>
                                             <th style={thStyle("right")}>TEMPO LOTTO</th>
                                             <th style={thStyle("right")}>CHANGE OVER</th>
+                                            {editingKey === key && <th style={thStyle("left")}>MAT. SAP</th>}
+                                            {editingKey === key && <th style={thStyle("left")}>OP. SAP</th>}
                                             <th style={thStyle("right")}>TOTALE FASE</th>
                                             <th style={thStyle("right")}>CUMULATO</th>
                                             <th style={thStyle("right")}></th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {(editing ? draft.phases : phases).map((p, i) => {
-                                            const phase = editing ? p : p;
-                                            const computed = editing
+                                        {(editingKey === key ? draft.phases : phases).map((p, i) => {
+                                            const phase = p;
+                                            const isEditingThis = editingKey === key;
+                                            const computed = isEditingThis
                                                 ? computeThroughput(key, {
                                                     ...cfg,
                                                     lotto: Number(draft.lotto),
@@ -686,21 +690,21 @@ export default function ThroughputView({ showToast }) {
                                                 })[i]
                                                 : p;
 
-                                            const activeLotto = Number(editing ? draft.lotto : cfg.lotto);
-                                            const activeOee = Number(editing ? draft.oeePercent / 100 : cfg.oee);
+                                            const activeLotto = Number(isEditingThis ? draft.lotto : cfg.lotto);
+                                            const activeOee = Number(isEditingThis ? draft.oeePercent / 100 : cfg.oee);
                                             const lottoH = phase.fixedH != null
                                                 ? (phase.chargeSize
                                                     ? Math.ceil(activeLotto / phase.chargeSize) * phase.fixedH
                                                     : phase.fixedH)
                                                 : +(activeLotto / (Number(phase.pzH) * activeOee)).toFixed(1);
-                                            const coH = phase.noChangeOver ? 0 : Number(editing ? draft.phases[i].changeOverH : (phase.changeOverH ?? cfg.changeOverH));
+                                            const coH = phase.noChangeOver ? 0 : Number(isEditingThis ? draft.phases[i].changeOverH : (phase.changeOverH ?? cfg.changeOverH));
                                             const barWidth = Math.round((computed.h / totalH) * 100);
 
                                             return (
                                                 <tr key={phase.phaseId} style={{ borderBottom: "1px solid var(--border-light)" }}>
                                                     <td style={{ padding: "12px", fontSize: 12, color: "var(--text-muted)" }}>{i + 1}</td>
                                                     <td style={{ padding: "12px" }}>
-                                                        {editing ? (
+                                                        {isEditingThis ? (
                                                             <input type="text" value={draft.phases[i].label}
                                                                 onChange={e => setDraft(d => {
                                                                     const phases = [...d.phases];
@@ -716,7 +720,7 @@ export default function ThroughputView({ showToast }) {
                                                         </div>
                                                     </td>
                                                     <td style={{ padding: "12px", textAlign: "right" }}>
-                                                        {editing ? (
+                                                        {isEditingThis ? (
                                                             phase.fixedH != null ? (
                                                                 <span style={{ fontSize: 12, color: "var(--text-muted)" }}>fisso</span>
                                                             ) : (
@@ -733,7 +737,7 @@ export default function ThroughputView({ showToast }) {
                                                         )}
                                                     </td>
                                                     <td style={{ padding: "12px", textAlign: "right" }}>
-                                                        {editing ? (
+                                                        {isEditingThis ? (
                                                             phase.fixedH != null ? (
                                                                 <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "flex-end" }}>
                                                                     <input type="number" value={draft.phases[i].fixedH}
@@ -761,7 +765,7 @@ export default function ThroughputView({ showToast }) {
                                                     <td style={{ padding: "12px", textAlign: "right" }}>
                                                         {phase.noChangeOver
                                                             ? <span style={{ color: "var(--text-muted)", fontStyle: "italic" }}>—</span>
-                                                            : editing
+                                                            : isEditingThis
                                                                 ? <input type="number" value={draft.phases[i].changeOverH} min={0} step={0.5}
                                                                     onChange={e => setDraft(d => {
                                                                         const phases = [...d.phases];
@@ -772,6 +776,28 @@ export default function ThroughputView({ showToast }) {
                                                                 : <span style={{ fontSize: 13, color: "var(--text-muted)" }}>{coH}h</span>
                                                         }
                                                     </td>
+                                                    {isEditingThis && (
+                                                        <td style={{ padding: "12px" }}>
+                                                            <input type="text" placeholder="es. M0140996" value={draft.phases[i].sapMat || ""}
+                                                                onChange={e => setDraft(d => {
+                                                                    const phases = [...d.phases];
+                                                                    phases[i] = { ...phases[i], sapMat: e.target.value };
+                                                                    return { ...d, phases };
+                                                                })}
+                                                                style={{ ...inputStyle, width: 110, fontSize: 11 }} />
+                                                        </td>
+                                                    )}
+                                                    {isEditingThis && (
+                                                        <td style={{ padding: "12px" }}>
+                                                            <input type="text" placeholder="es. 0010" value={draft.phases[i].sapOp || ""}
+                                                                onChange={e => setDraft(d => {
+                                                                    const phases = [...d.phases];
+                                                                    phases[i] = { ...phases[i], sapOp: e.target.value };
+                                                                    return { ...d, phases };
+                                                                })}
+                                                                style={{ ...inputStyle, width: 70, fontSize: 11 }} />
+                                                        </td>
+                                                    )}
                                                     <td style={{ padding: "12px", textAlign: "right", fontSize: 14, fontWeight: 800, color: "var(--accent)" }}>
                                                         {computed.h}h
                                                     </td>
@@ -779,7 +805,7 @@ export default function ThroughputView({ showToast }) {
                                                         {computed.cumH}h
                                                     </td>
                                                     <td style={{ padding: "12px", textAlign: "right", display: "flex", gap: 4 }}>
-                                                        {editing && (
+                                                        {isEditingThis && (
                                                             <>
                                                                 <button onClick={() => setDraft(d => {
                                                                     const phases = [...d.phases];
@@ -790,14 +816,16 @@ export default function ThroughputView({ showToast }) {
                                                                         fixedH: null,
                                                                         changeOverH: 0,
                                                                         chargeSize: null,
-                                                                        noChangeOver: false
+                                                                        noChangeOver: false,
+                                                                        sapMat: "",
+                                                                        sapOp: ""
                                                                     });
                                                                     return { ...d, phases };
                                                                 })} style={{
                                                                     padding: "4px 8px", fontSize: 12, background: "var(--accent)",
                                                                     color: "white", border: "none", borderRadius: 4, cursor: "pointer"
                                                                 }}>+</button>
-                                                                {(editing ? draft.phases : phases).length > 1 && (
+                                                                {draft.phases.length > 1 && (
                                                                     <button onClick={() => setDraft(d => ({
                                                                         ...d,
                                                                         phases: d.phases.filter((_, idx) => idx !== i)
@@ -815,7 +843,7 @@ export default function ThroughputView({ showToast }) {
                                     </tbody>
                                     <tfoot>
                                         <tr style={{ background: "var(--bg-tertiary)", borderTop: "2px solid var(--border)" }}>
-                                            <td colSpan={5} style={{ padding: "12px", fontWeight: 800, fontSize: 14 }}>TOTALE</td>
+                                            <td colSpan={editingKey === key ? 7 : 5} style={{ padding: "12px", fontWeight: 800, fontSize: 14 }}>TOTALE</td>
                                             <td style={{ padding: "12px", textAlign: "right", fontSize: 16, fontWeight: 900, color: "var(--accent)" }}>{totalH}h</td>
                                             <td style={{ padding: "12px", textAlign: "right", fontSize: 13, color: "var(--text-muted)" }}>≈ {totalDays} gg</td>
                                         </tr>
@@ -824,8 +852,9 @@ export default function ThroughputView({ showToast }) {
                             </div>
                         )}
                     </div>
-                );
-            })}
+                        );
+                    })}
+            </div>
 
             {/* Modal Debug SAP Data */}
             {selectedPhaseDebug && (
