@@ -21,19 +21,26 @@ export function loadThroughputConfig() {
         };
         for (const [key, defaultPhases] of Object.entries(THROUGHPUT_CONFIG.components)) {
             const savedPhases = parsed.components?.[key] || [];
-            merged.components[key] = defaultPhases.map(dp => {
-                const sp = savedPhases.find(p => p.phaseId === dp.phaseId);
-                if (!sp) return dp;
+
+            // Se non ci sono fasi salvate, usa i defaults
+            if (savedPhases.length === 0) {
+                merged.components[key] = defaultPhases;
+                continue;
+            }
+
+            // Altrimenti, usa le fasi salvate e preserva i campi editabili dai defaults se disponibili
+            merged.components[key] = savedPhases.map(sp => {
+                const dp = defaultPhases.find(p => p.phaseId === sp.phaseId);
+
+                // Preserva tutti i campi della fase salvata, mantenendo i tipi corretti
                 return {
-                    ...dp,
-                    pzH: sp.pzH != null ? Number(sp.pzH) : dp.pzH,
-                    fixedH: sp.fixedH != null ? Number(sp.fixedH) : dp.fixedH,
-                    // changeOverH per-fase se salvato (undefined = usa globale)
-                    ...(sp.changeOverH != null && !dp.noChangeOver ? { changeOverH: Number(sp.changeOverH) } : {}),
-                    // Preserva i campi SAP e chargeSize
-                    ...(sp.sapMat ? { sapMat: sp.sapMat } : {}),
-                    ...(sp.sapOp ? { sapOp: sp.sapOp } : {}),
-                    ...(sp.chargeSize ? { chargeSize: Number(sp.chargeSize) } : {})
+                    ...sp,
+                    pzH: sp.pzH != null ? Number(sp.pzH) : sp.pzH,
+                    fixedH: sp.fixedH != null ? Number(sp.fixedH) : sp.fixedH,
+                    changeOverH: sp.changeOverH != null ? Number(sp.changeOverH) : sp.changeOverH,
+                    chargeSize: sp.chargeSize != null ? Number(sp.chargeSize) : sp.chargeSize,
+                    sapMat: sp.sapMat || undefined,
+                    sapOp: sp.sapOp || undefined
                 };
             });
         }
