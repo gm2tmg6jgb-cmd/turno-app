@@ -129,47 +129,50 @@ export default function ThroughputView({ showToast }) {
 
                 const result = {};
                 const resultRaw = {};
-                const key = Object.keys(cfg.components)[0];
-                const phases = cfg.components[key] || [];
                 const lotto = cfg.lotto || 1200;
 
-                for (const phase of phases) {
-                    // Richiede sapMat; sapOp è opzionale (alcuni processi come Tratt. Termico non lo hanno)
-                    if (!phase.sapMat) continue;
+                // Itera su TUTTI i componenti della tab attiva, non solo il primo
+                for (const [key] of filteredEntries) {
+                    const phases = cfg.components[key] || [];
 
-                    console.log(`Cercando fase ${phase.label}: materiale="${phase.sapMat}"${phase.sapOp ? `, operazione="${phase.sapOp}"` : ""}`);
+                    for (const phase of phases) {
+                        // Richiede sapMat; sapOp è opzionale (alcuni processi come Tratt. Termico non lo hanno)
+                        if (!phase.sapMat) continue;
 
-                    let query = supabase
-                        .from("conferme_sap")
-                        .select("data, materiale, qta_ottenuta, work_center_sap, macchina_id, fino")
-                        .ilike("materiale", phase.sapMat)
-                        .gte("data", weekStartStr)
-                        .lte("data", weekEndStr);
+                        console.log(`Cercando fase ${phase.label}: materiale="${phase.sapMat}"${phase.sapOp ? `, operazione="${phase.sapOp}"` : ""}`);
 
-                    // Filtra per operazione solo se configurata
-                    if (phase.sapOp) {
-                        query = query.eq("fino", phase.sapOp);
+                        let query = supabase
+                            .from("conferme_sap")
+                            .select("data, materiale, qta_ottenuta, work_center_sap, macchina_id, fino")
+                            .ilike("materiale", phase.sapMat)
+                            .gte("data", weekStartStr)
+                            .lte("data", weekEndStr);
+
+                        // Filtra per operazione solo se configurata
+                        if (phase.sapOp) {
+                            query = query.eq("fino", phase.sapOp);
+                        }
+
+                        const { data: rows } = await query.order("data", { ascending: true });
+
+                        console.log(`Fase ${phase.label}: trovati ${rows?.length || 0} record`);
+
+                        if (!rows?.length) continue;
+
+                        const totQty = rows.reduce((s, r) => s + (r.qta_ottenuta || 0), 0);
+                        const firstDate = rows[0].data;
+                        const lottoNum = Math.ceil(totQty / lotto);
+                        const progress = Math.round((totQty % lotto) / lotto * 100);
+
+                        result[phase.phaseId] = { totQty, firstDate, lottoNum, progress };
+                        resultRaw[phase.phaseId] = {
+                            sapMat: phase.sapMat,
+                            sapOp: phase.sapOp,
+                            weekStart: weekStartStr,
+                            weekEnd: weekEndStr,
+                            rows: rows
+                        };
                     }
-
-                    const { data: rows } = await query.order("data", { ascending: true });
-
-                    console.log(`Fase ${phase.label}: trovati ${rows?.length || 0} record`);
-
-                    if (!rows?.length) continue;
-
-                    const totQty = rows.reduce((s, r) => s + (r.qta_ottenuta || 0), 0);
-                    const firstDate = rows[0].data;
-                    const lottoNum = Math.ceil(totQty / lotto);
-                    const progress = Math.round((totQty % lotto) / lotto * 100);
-
-                    result[phase.phaseId] = { totQty, firstDate, lottoNum, progress };
-                    resultRaw[phase.phaseId] = {
-                        sapMat: phase.sapMat,
-                        sapOp: phase.sapOp,
-                        weekStart: weekStartStr,
-                        weekEnd: weekEndStr,
-                        rows: rows
-                    };
                 }
                 setPhaseData(result);
                 setPhaseDataRaw(resultRaw);
@@ -178,7 +181,7 @@ export default function ThroughputView({ showToast }) {
             }
         };
         fetchSap();
-    }, [cfg, lastRefresh]);
+    }, [cfg, filteredEntries, lastRefresh]);
 
     // Fetch dati flusso per la scheda (come ComponentFlowView)
     useEffect(() => {
