@@ -482,9 +482,9 @@ export default function ThroughputView({ showToast }) {
                         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
                             <span style={{ background: "var(--accent)", color: "white", fontSize: 12, fontWeight: 800, padding: "3px 10px", borderRadius: 20 }}>{proj}</span>
                             <span style={{ fontWeight: 800, fontSize: 17 }}>{comp}</span>
-                            {editingKey === key && (
-                                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
-                                    <div style={{ display: "flex", gap: 6 }}>
+                            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+                                {editingKey === key ? (
+                                    <>
                                         <button onClick={saveEdit} style={{
                                             padding: "6px 14px", fontWeight: 700, fontSize: 13,
                                             background: "#22c55e", color: "white",
@@ -495,9 +495,15 @@ export default function ThroughputView({ showToast }) {
                                             background: "var(--bg-tertiary)", color: "var(--text-secondary)",
                                             border: "1px solid var(--border)", borderRadius: 8, cursor: "pointer"
                                         }}>Annulla</button>
-                                    </div>
-                                </div>
-                            )}
+                                    </>
+                                ) : (
+                                    <button onClick={() => setConfigModal(key)} style={{
+                                        padding: "6px 10px", fontSize: 16, background: "var(--bg-tertiary)",
+                                        border: "1px solid var(--border)", borderRadius: 6, cursor: "pointer",
+                                        color: "var(--text-secondary)", display: "flex", alignItems: "center", justifyContent: "center"
+                                    }}>⚙️</button>
+                                )}
+                            </div>
                         </div>
 
                         {/* Timeline SAP (PRIMARY DISPLAY) */}
@@ -634,19 +640,6 @@ export default function ThroughputView({ showToast }) {
                             );
                         })()}
 
-                        {/* Configuration Button */}
-                        <button
-                            onClick={() => setConfigModal(key)}
-                            style={{
-                                width: "100%", padding: "12px 16px", marginTop: 20,
-                                background: "var(--bg-tertiary)", border: "1px solid var(--border)",
-                                borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14,
-                                color: "var(--text-secondary)", transition: "all 0.2s",
-                                display: "flex", alignItems: "center", justifyContent: "center", gap: 8
-                            }}
-                        >
-                            <span>⚙️ Configurazione</span>
-                        </button>
 
                         {/* Phase Table removed - now in configuration modal */}
                         {false && (
