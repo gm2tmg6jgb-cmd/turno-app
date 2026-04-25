@@ -29,7 +29,11 @@ export function loadThroughputConfig() {
                     pzH: sp.pzH != null ? Number(sp.pzH) : dp.pzH,
                     fixedH: sp.fixedH != null ? Number(sp.fixedH) : dp.fixedH,
                     // changeOverH per-fase se salvato (undefined = usa globale)
-                    ...(sp.changeOverH != null && !dp.noChangeOver ? { changeOverH: Number(sp.changeOverH) } : {})
+                    ...(sp.changeOverH != null && !dp.noChangeOver ? { changeOverH: Number(sp.changeOverH) } : {}),
+                    // Preserva i campi SAP e chargeSize
+                    ...(sp.sapMat ? { sapMat: sp.sapMat } : {}),
+                    ...(sp.sapOp ? { sapOp: sp.sapOp } : {}),
+                    ...(sp.chargeSize ? { chargeSize: Number(sp.chargeSize) } : {})
                 };
             });
         }
