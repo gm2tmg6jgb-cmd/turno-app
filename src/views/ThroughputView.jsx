@@ -1162,6 +1162,9 @@ export default function ThroughputView({ showToast }) {
                                                     <tr style={{ borderBottom: "1px solid var(--border)" }}>
                                                         <th style={{ padding: 8, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)" }}>#</th>
                                                         <th style={{ padding: 8, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)" }}>Fase</th>
+                                                        <th style={{ padding: 8, textAlign: "center", fontWeight: 700, color: "var(--text-secondary)" }}>Macchina</th>
+                                                        <th style={{ padding: 8, textAlign: "center", fontWeight: 700, color: "var(--text-secondary)" }}>Mat. SAP</th>
+                                                        <th style={{ padding: 8, textAlign: "center", fontWeight: 700, color: "var(--text-secondary)" }}>Op. SAP</th>
                                                         <th style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--text-secondary)" }}>PZ/H</th>
                                                         <th style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--text-secondary)" }}>Tempo</th>
                                                     </tr>
@@ -1171,6 +1174,9 @@ export default function ThroughputView({ showToast }) {
                                                         <tr key={phase.phaseId} style={{ borderBottom: "1px solid var(--border-light)" }}>
                                                             <td style={{ padding: 8, color: "var(--text-muted)" }}>{i + 1}</td>
                                                             <td style={{ padding: 8, fontWeight: 600 }}>{phase.label}</td>
+                                                            <td style={{ padding: 8, textAlign: "center", color: "var(--text-secondary)", fontSize: 11 }}>{phase.macchina_id || "—"}</td>
+                                                            <td style={{ padding: 8, textAlign: "center", color: "var(--text-secondary)", fontSize: 11 }}>{phase.sapMat || "—"}</td>
+                                                            <td style={{ padding: 8, textAlign: "center", color: "var(--text-secondary)", fontSize: 11 }}>{phase.sapOp || "—"}</td>
                                                             <td style={{ padding: 8, textAlign: "right", color: "var(--text-secondary)" }}>{phase.pzH || "fisso"}</td>
                                                             <td style={{ padding: 8, textAlign: "right", color: "var(--accent)", fontWeight: 700 }}>
                                                                 {phaseHours(phase, cfg).toFixed(1)}h
