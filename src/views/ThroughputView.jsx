@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { THROUGHPUT_CONFIG, PROCESS_STEPS } from "../data/constants";
-import { computeThroughput, loadThroughputConfig, saveThroughputConfig } from "../utils/throughput";
+import { computeThroughput, loadThroughputConfig, saveThroughputConfig, phaseHours } from "../utils/throughput";
 import { supabase } from "../lib/supabase";
 
 export default function ThroughputView({ showToast }) {
@@ -91,6 +91,8 @@ export default function ThroughputView({ showToast }) {
     const [expandedTableCards, setExpandedTableCards] = useState({});
     // Track active tab
     const [activeTab, setActiveTab] = useState(null);
+    // Configuration modal state
+    const [configModal, setConfigModal] = useState(null);
 
     // Project filtering logic (after useState declarations)
     const uniqueProjects = [...new Set(entries.map(([key]) => key.split("::")[0]))];
@@ -644,38 +646,22 @@ export default function ThroughputView({ showToast }) {
                             );
                         })()}
 
-                        {/* Configuration Panel Toggle + RackSize Edit */}
-                        <div style={{ display: "flex", gap: 12, marginTop: 20 }}>
-                            <button
-                                onClick={() => setExpandedTableCards(prev => ({ ...prev, [key]: !isExpanded }))}
-                                style={{
-                                    flex: 1, padding: "12px 16px",
-                                    background: "var(--bg-tertiary)", border: "1px solid var(--border)",
-                                    borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14,
-                                    color: "var(--text-secondary)", transition: "all 0.2s",
-                                    display: "flex", alignItems: "center", justifyContent: "center", gap: 8
-                                }}
-                            >
-                                <span>{isExpanded ? "▼" : "▶"}</span>
-                                <span>{isExpanded ? "Nascondi" : "Mostra"} Configurazione</span>
-                            </button>
-                            {editingKey === key && (
-                                <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 120 }}>
-                                    <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>
-                                        Rack Size
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={draft.rackSize}
-                                        onChange={e => setDraft(d => ({ ...d, rackSize: Number(e.target.value) }))}
-                                        style={{ ...inputStyle, width: "100%" }}
-                                    />
-                                </div>
-                            )}
-                        </div>
+                        {/* Configuration Button */}
+                        <button
+                            onClick={() => setConfigModal(key)}
+                            style={{
+                                width: "100%", padding: "12px 16px", marginTop: 20,
+                                background: "var(--bg-tertiary)", border: "1px solid var(--border)",
+                                borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14,
+                                color: "var(--text-secondary)", transition: "all 0.2s",
+                                display: "flex", alignItems: "center", justifyContent: "center", gap: 8
+                            }}
+                        >
+                            <span>⚙️ Configurazione</span>
+                        </button>
 
-                        {/* Phase Table (COLLAPSIBLE) */}
-                        {isExpanded && (
+                        {/* Phase Table removed - now in configuration modal */}
+                        {false && (
                             <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--border)" }}>
                                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                                     <thead>
@@ -1117,6 +1103,276 @@ export default function ThroughputView({ showToast }) {
                         >
                             Chiudi
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Configurazione Componente */}
+            {configModal && (
+                <div style={{
+                    position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+                    background: "rgba(0,0,0,0.5)", display: "flex",
+                    alignItems: "center", justifyContent: "center", zIndex: 1000,
+                    overflowY: "auto"
+                }} onClick={() => setConfigModal(null)}>
+                    <div style={{
+                        background: "var(--bg-card)", border: "1px solid var(--border)",
+                        borderRadius: 12, padding: "24px", width: "100%", maxWidth: 900,
+                        boxShadow: "0 20px 60px rgba(0,0,0,0.4)", margin: "20px"
+                    }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+                            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900 }}>
+                                ⚙️ Configurazione — {configModal?.split("::")[0]} / {configModal?.split("::")[1]}
+                            </h3>
+                            <button
+                                onClick={() => setConfigModal(null)}
+                                style={{
+                                    background: "none", border: "none", fontSize: 20, cursor: "pointer",
+                                    color: "var(--text-secondary)"
+                                }}
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {/* Modal content switches between view and edit */}
+                        {editingKey !== configModal ? (
+                            <>
+                                {/* VIEW MODE */}
+                                <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 20 }}>
+                                    {/* Parameters */}
+                                    <div style={{
+                                        background: "var(--bg-tertiary)", padding: 16, borderRadius: 8,
+                                        border: "1px solid var(--border)", display: "grid",
+                                        gridTemplateColumns: "1fr 1fr", gap: 16
+                                    }}>
+                                        <div>
+                                            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4 }}>Lotto</div>
+                                            <div style={{ fontSize: 16, fontWeight: 900, color: "var(--text-primary)" }}>{cfg.lotto} pz</div>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4 }}>OEE</div>
+                                            <div style={{ fontSize: 16, fontWeight: 900, color: "var(--text-primary)" }}>{Math.round(cfg.oee * 100)}%</div>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4 }}>Change Over</div>
+                                            <div style={{ fontSize: 16, fontWeight: 900, color: "var(--text-primary)" }}>{cfg.changeOverH}h</div>
+                                        </div>
+                                        <div>
+                                            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4 }}>Rack Size</div>
+                                            <div style={{ fontSize: 16, fontWeight: 900, color: "var(--text-primary)" }}>{cfg.rackSize || "—"}</div>
+                                        </div>
+                                    </div>
+
+                                    {/* Phases Table */}
+                                    <div>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 12 }}>
+                                            Fasi ({(cfg.components[configModal] || []).length})
+                                        </div>
+                                        <div style={{ maxHeight: 300, overflowY: "auto", background: "var(--bg-tertiary)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                                            <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+                                                <thead>
+                                                    <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                                                        <th style={{ padding: 8, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)" }}>#</th>
+                                                        <th style={{ padding: 8, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)" }}>Fase</th>
+                                                        <th style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--text-secondary)" }}>PZ/H</th>
+                                                        <th style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--text-secondary)" }}>Tempo</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {(cfg.components[configModal] || []).map((phase, i) => (
+                                                        <tr key={phase.phaseId} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                                            <td style={{ padding: 8, color: "var(--text-muted)" }}>{i + 1}</td>
+                                                            <td style={{ padding: 8, fontWeight: 600 }}>{phase.label}</td>
+                                                            <td style={{ padding: 8, textAlign: "right", color: "var(--text-secondary)" }}>{phase.pzH || "fisso"}</td>
+                                                            <td style={{ padding: 8, textAlign: "right", color: "var(--accent)", fontWeight: 700 }}>
+                                                                {phaseHours(phase, cfg).toFixed(1)}h
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Button Bar */}
+                                <div style={{ display: "flex", gap: 12 }}>
+                                    <button
+                                        onClick={() => {
+                                            startEdit(configModal);
+                                        }}
+                                        style={{
+                                            flex: 1, padding: "12px 16px",
+                                            background: "var(--accent)", color: "white",
+                                            border: "none", borderRadius: 8, fontWeight: 700,
+                                            cursor: "pointer", fontSize: 14
+                                        }}
+                                    >
+                                        ✏️ Modifica
+                                    </button>
+                                    <button
+                                        onClick={() => setConfigModal(null)}
+                                        style={{
+                                            flex: 1, padding: "12px 16px",
+                                            background: "var(--bg-tertiary)", color: "var(--text-secondary)",
+                                            border: "1px solid var(--border)", borderRadius: 8, fontWeight: 700,
+                                            cursor: "pointer", fontSize: 14
+                                        }}
+                                    >
+                                        Chiudi
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                {/* EDIT MODE - Same as card edit, but in modal */}
+                                <div style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 20 }}>
+                                    {/* Edit Parameters */}
+                                    <div style={{
+                                        background: "var(--bg-tertiary)", padding: 16, borderRadius: 8,
+                                        border: "1px solid var(--border)", display: "grid",
+                                        gridTemplateColumns: "1fr 1fr", gap: 16
+                                    }}>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Lotto</label>
+                                            <input type="number" value={draft.lotto}
+                                                onChange={e => setDraft(d => ({ ...d, lotto: e.target.value }))}
+                                                style={{ ...inputStyle }} />
+                                        </div>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>OEE %</label>
+                                            <input type="number" value={draft.oeePercent}
+                                                onChange={e => setDraft(d => ({ ...d, oeePercent: e.target.value }))}
+                                                style={{ ...inputStyle }} />
+                                        </div>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Change Over</label>
+                                            <input type="number" value={draft.changeOverH}
+                                                onChange={e => setDraft(d => ({ ...d, changeOverH: e.target.value }))}
+                                                style={{ ...inputStyle }} />
+                                        </div>
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Rack Size</label>
+                                            <input type="number" value={draft.rackSize}
+                                                onChange={e => setDraft(d => ({ ...d, rackSize: Number(e.target.value) }))}
+                                                style={{ ...inputStyle }} />
+                                        </div>
+                                    </div>
+
+                                    {/* Phases Table */}
+                                    <div>
+                                        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 12 }}>
+                                            Fasi ({draft.phases.length})
+                                        </div>
+                                        <div style={{ maxHeight: 350, overflowY: "auto", background: "var(--bg-tertiary)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                                            <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+                                                <thead>
+                                                    <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--bg-tertiary)" }}>
+                                                        <th style={{ padding: 8, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)" }}>#</th>
+                                                        <th style={{ padding: 8, textAlign: "left", fontWeight: 700, color: "var(--text-secondary)" }}>Fase</th>
+                                                        <th style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--text-secondary)" }}>PZ/H</th>
+                                                        <th style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--text-secondary)" }}>Tempo</th>
+                                                        <th style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--text-secondary)" }}></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {draft.phases.map((phase, i) => (
+                                                        <tr key={phase.phaseId} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                                            <td style={{ padding: 8, color: "var(--text-muted)" }}>{i + 1}</td>
+                                                            <td style={{ padding: 8 }}>
+                                                                <input type="text" value={draft.phases[i].label}
+                                                                    onChange={e => setDraft(d => {
+                                                                        const phases = [...d.phases];
+                                                                        phases[i] = { ...phases[i], label: e.target.value };
+                                                                        return { ...d, phases };
+                                                                    })}
+                                                                    style={{ ...inputStyle, width: "100%" }} />
+                                                            </td>
+                                                            <td style={{ padding: 8, textAlign: "right" }}>
+                                                                {phase.fixedH != null ? (
+                                                                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>fisso</span>
+                                                                ) : (
+                                                                    <input type="number" value={draft.phases[i].pzH}
+                                                                        onChange={e => setDraft(d => {
+                                                                            const phases = [...d.phases];
+                                                                            phases[i] = { ...phases[i], pzH: e.target.value };
+                                                                            return { ...d, phases };
+                                                                        })}
+                                                                        style={{ ...inputStyle, width: 60, textAlign: "right" }} />
+                                                                )}
+                                                            </td>
+                                                            <td style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--accent)" }}>
+                                                                {phaseHours(phase, { ...cfg, lotto: Number(draft.lotto), oee: Number(draft.oeePercent) / 100 }).toFixed(1)}h
+                                                            </td>
+                                                            <td style={{ padding: 8, textAlign: "right", display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                                                                {i > 0 && (
+                                                                    <button onClick={() => setDraft(d => {
+                                                                        const phases = [...d.phases];
+                                                                        [phases[i - 1], phases[i]] = [phases[i], phases[i - 1]];
+                                                                        return { ...d, phases };
+                                                                    })} style={{
+                                                                        padding: "4px 8px", fontSize: 12, background: "var(--bg-secondary)",
+                                                                        color: "var(--text-secondary)", border: "1px solid var(--border)",
+                                                                        borderRadius: 4, cursor: "pointer", fontWeight: 700
+                                                                    }} title="Sposta su">↑</button>
+                                                                )}
+                                                                {i < draft.phases.length - 1 && (
+                                                                    <button onClick={() => setDraft(d => {
+                                                                        const phases = [...d.phases];
+                                                                        [phases[i], phases[i + 1]] = [phases[i + 1], phases[i]];
+                                                                        return { ...d, phases };
+                                                                    })} style={{
+                                                                        padding: "4px 8px", fontSize: 12, background: "var(--bg-secondary)",
+                                                                        color: "var(--text-secondary)", border: "1px solid var(--border)",
+                                                                        borderRadius: 4, cursor: "pointer", fontWeight: 700
+                                                                    }} title="Sposta giù">↓</button>
+                                                                )}
+                                                                {draft.phases.length > 1 && (
+                                                                    <button onClick={() => setDraft(d => ({
+                                                                        ...d,
+                                                                        phases: d.phases.filter((_, idx) => idx !== i)
+                                                                    }))} style={{
+                                                                        padding: "4px 8px", fontSize: 12, background: "#ef4444",
+                                                                        color: "white", border: "none", borderRadius: 4, cursor: "pointer"
+                                                                    }}>×</button>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Button Bar */}
+                                <div style={{ display: "flex", gap: 12 }}>
+                                    <button
+                                        onClick={saveEdit}
+                                        style={{
+                                            flex: 1, padding: "12px 16px",
+                                            background: "#22c55e", color: "white",
+                                            border: "none", borderRadius: 8, fontWeight: 700,
+                                            cursor: "pointer", fontSize: 14
+                                        }}
+                                    >
+                                        ✓ Salva
+                                    </button>
+                                    <button
+                                        onClick={cancelEdit}
+                                        style={{
+                                            flex: 1, padding: "12px 16px",
+                                            background: "var(--bg-tertiary)", color: "var(--text-secondary)",
+                                            border: "1px solid var(--border)", borderRadius: 8, fontWeight: 700,
+                                            cursor: "pointer", fontSize: 14
+                                        }}
+                                    >
+                                        Annulla
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             )}
