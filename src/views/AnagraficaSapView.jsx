@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 
-const EMPTY_ROW = { progetto: "", componente: "", fase_label: "", sap_mat: "", sap_op: "", note: "" };
+const EMPTY_ROW = { progetto: "", componente: "", fase_label: "", sap_mat: "", sap_op: "", macchina: "", note: "" };
 
 export default function AnagraficaSapView({ showToast }) {
     const [rows, setRows] = useState([]);
@@ -46,6 +46,7 @@ export default function AnagraficaSapView({ showToast }) {
                 fase_label: draft.fase_label.trim(),
                 sap_mat: draft.sap_mat.trim(),
                 sap_op: draft.sap_op?.trim() || null,
+                macchina: draft.macchina?.trim() || null,
                 note: draft.note?.trim() || null,
             })
             .eq("id", draft.id);
@@ -72,6 +73,7 @@ export default function AnagraficaSapView({ showToast }) {
                 fase_label: newRow.fase_label.trim(),
                 sap_mat: newRow.sap_mat.trim(),
                 sap_op: newRow.sap_op?.trim() || null,
+                macchina: newRow.macchina?.trim() || null,
                 note: newRow.note?.trim() || null,
             });
         if (error) {
@@ -96,7 +98,7 @@ export default function AnagraficaSapView({ showToast }) {
     };
 
     const filtered = rows.filter(r =>
-        !filter || [r.progetto, r.componente, r.fase_label, r.sap_mat, r.sap_op].some(v =>
+        !filter || [r.progetto, r.componente, r.fase_label, r.sap_mat, r.sap_op, r.macchina].some(v =>
             v?.toLowerCase().includes(filter.toLowerCase())
         )
     );
@@ -148,7 +150,7 @@ export default function AnagraficaSapView({ showToast }) {
                 <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
                     <thead>
                         <tr style={{ background: "var(--bg-secondary)", borderBottom: "1px solid var(--border)" }}>
-                            {["Progetto", "Componente", "Fase", "Mat. SAP", "Op. SAP", "Note", ""].map(h => (
+                            {["Progetto", "Componente", "Fase", "Mat. SAP", "Op. SAP", "Macchina", "Note", ""].map(h => (
                                 <th key={h} style={{ padding: "12px 14px", textAlign: "left", fontWeight: 700, color: "var(--text-secondary)", fontSize: 11, textTransform: "uppercase" }}>{h}</th>
                             ))}
                         </tr>
@@ -157,12 +159,12 @@ export default function AnagraficaSapView({ showToast }) {
                         {/* Riga nuova */}
                         {adding && (
                             <tr style={{ background: "rgba(60,110,240,0.06)", borderBottom: "1px solid var(--border)" }}>
-                                {["progetto", "componente", "fase_label", "sap_mat", "sap_op", "note"].map(field => (
+                                {["progetto", "componente", "fase_label", "sap_mat", "sap_op", "macchina", "note"].map(field => (
                                     <td key={field} style={colStyle}>
                                         <input
                                             value={newRow[field]}
                                             onChange={e => setNewRow(r => ({ ...r, [field]: e.target.value }))}
-                                            placeholder={field === "sap_op" || field === "note" ? "opzionale" : ""}
+                                            placeholder={field === "sap_op" || field === "macchina" || field === "note" ? "opzionale" : ""}
                                             style={inputStyle}
                                         />
                                     </td>
@@ -182,7 +184,7 @@ export default function AnagraficaSapView({ showToast }) {
                             const isEditing = editingId === row.id;
                             return (
                                 <tr key={row.id} style={{ borderBottom: "1px solid var(--border-light)", background: isEditing ? "rgba(60,110,240,0.06)" : i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)" }}>
-                                    {["progetto", "componente", "fase_label", "sap_mat", "sap_op", "note"].map(field => (
+                                    {["progetto", "componente", "fase_label", "sap_mat", "sap_op", "macchina", "note"].map(field => (
                                         <td key={field} style={colStyle}>
                                             {isEditing ? (
                                                 <input
