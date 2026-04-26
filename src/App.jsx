@@ -35,6 +35,7 @@ const ProductionDelaysView = lazy(() => import("./views/ProductionDelaysView"));
 const ProductionScheduleView = lazy(() => import("./views/ProductionScheduleView"));
 const NuovaPianificazioneView = lazy(() => import("./views/NuovaPianificazioneView"));
 const ThroughputView = lazy(() => import("./views/ThroughputView"));
+const AnagraficaSapView = lazy(() => import("./views/AnagraficaSapView"));
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 function AppContent({ session, onLogout }) {
@@ -247,6 +248,7 @@ function AppContent({ session, onLogout }) {
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings, adminOnly: true },
     { id: "zones", label: "Anagrafica Zone", icon: Icons.settings, adminOnly: true },
     { id: "anagrafica", label: "Anagrafica Dipendenti", icon: Icons.users, adminOnly: true },
+    { id: "anagraficaSap", label: "Anagrafica SAP", icon: Icons.settings, adminOnly: true },
     { id: "motivi", label: "Gestione Motivi", icon: Icons.settings, adminOnly: true },
     { id: "inventory", label: "Inventario", icon: Icons.report },
   ].filter(item => !item.adminOnly || isAdmin);
@@ -400,6 +402,7 @@ function AppContent({ session, onLogout }) {
                 {renderItem(ni("zones"))}
                 {renderItem(ni("anagraficaFermi"))}
                 {renderItem(ni("anagrafica"))}
+                {renderItem(ni("anagraficaSap"))}
                 {renderItem(ni("motivi"))}
 
               </>
@@ -681,6 +684,12 @@ function AppContent({ session, onLogout }) {
           {currentView === "zones" && isAdmin && (
             <AdminSecurityWrapper title="Anagrafica Zone">
               <ZoneView zones={zone} setZones={setZone} macchine={macchine} setMacchine={setMacchine} showToast={showToast} />
+            </AdminSecurityWrapper>
+          )}
+
+          {currentView === "anagraficaSap" && isAdmin && (
+            <AdminSecurityWrapper title="Anagrafica SAP">
+              <AnagraficaSapView showToast={showToast} />
             </AdminSecurityWrapper>
           )}
 

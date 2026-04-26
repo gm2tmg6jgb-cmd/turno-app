@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { THROUGHPUT_CONFIG, PROCESS_STEPS } from "../data/constants";
 import { computeThroughput, loadThroughputConfig, saveThroughputConfig, phaseHours } from "../utils/throughput";
 import { supabase } from "../lib/supabase";
@@ -66,7 +66,7 @@ export default function ThroughputView({ showToast }) {
         showToast?.("Parametri ripristinati ai valori di default", "info");
     };
 
-    const entries = Object.entries(cfg.components);
+    const entries = useMemo(() => Object.entries(cfg.components), [cfg.components]);
 
     // --- Target giornaliero (stesso di ComponentFlowView) ---
     const dailyTarget = (() => {
@@ -105,17 +105,16 @@ export default function ThroughputView({ showToast }) {
     const normalizedProjects = [...new Set(uniqueProjects.map(p => projectMapping[p] || p))];
     const currentTab = activeTab || normalizedProjects[0] || null;
 
-    const filteredEntries = entries.filter(([key]) => {
+    const filteredEntries = useMemo(() => entries.filter(([key]) => {
         const proj = key.split("::")[0];
         const normalizedProj = projectMapping[proj] || proj;
         return normalizedProj === currentTab;
-    });
+    }), [entries, currentTab]);
 
     useEffect(() => {
         const fetchSap = async () => {
             setSapLoading(true);
             try {
-                // Calcola inizio e fine settimana corrente
                 const today = new Date();
                 const dayOfWeek = today.getDay();
                 const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
@@ -125,37 +124,49 @@ export default function ThroughputView({ showToast }) {
 
                 const weekStartStr = weekStart.toISOString().split('T')[0];
                 const weekEndStr = weekEnd.toISOString().split('T')[0];
-                console.log("Ricerca SAP per settimana:", weekStartStr, "→", weekEndStr);
+
+                // Carica anagrafica_sap centralizzata da Supabase
+                const progettiAttivi = [...new Set(filteredEntries.map(([k]) => k.split("::")[0]))];
+                const componentiAttivi = [...new Set(filteredEntries.map(([k]) => k.split("::")[1]))];
+                const { data: anagraficaRows } = await supabase
+                    .from("anagrafica_sap")
+                    .select("progetto, componente, fase_label, sap_mat, sap_op")
+                    .in("progetto", progettiAttivi)
+                    .in("componente", componentiAttivi);
+
+                // Mappa (progetto::componente::fase_label) → { sap_mat, sap_op }
+                const anagraficaMap = {};
+                for (const r of (anagraficaRows || [])) {
+                    anagraficaMap[`${r.progetto}::${r.componente}::${r.fase_label}`] = { sap_mat: r.sap_mat, sap_op: r.sap_op };
+                }
 
                 const result = {};
                 const resultRaw = {};
                 const lotto = cfg.lotto || 1200;
 
-                // Itera su TUTTI i componenti della tab attiva, non solo il primo
                 for (const [key] of filteredEntries) {
+                    const [progetto, componente] = key.split("::");
                     const phases = cfg.components[key] || [];
 
                     for (const phase of phases) {
-                        // Richiede sapMat; sapOp è opzionale (alcuni processi come Tratt. Termico non lo hanno)
-                        if (!phase.sapMat) continue;
+                        // Priorità: anagrafica_sap centralizzata, fallback a phase.sapMat locale
+                        const anagraficaKey = `${progetto}::${componente}::${phase.label}`;
+                        const sapInfo = anagraficaMap[anagraficaKey];
+                        const sapMat = sapInfo?.sap_mat || phase.sapMat;
+                        const sapOp = sapInfo?.sap_op || phase.sapOp;
 
-                        console.log(`Cercando fase ${phase.label}: materiale="${phase.sapMat}"${phase.sapOp ? `, operazione="${phase.sapOp}"` : ""}`);
+                        if (!sapMat) continue;
 
                         let query = supabase
                             .from("conferme_sap")
                             .select("data, materiale, qta_ottenuta, work_center_sap, macchina_id, fino")
-                            .ilike("materiale", phase.sapMat)
+                            .ilike("materiale", sapMat)
                             .gte("data", weekStartStr)
                             .lte("data", weekEndStr);
 
-                        // Filtra per operazione solo se configurata
-                        if (phase.sapOp) {
-                            query = query.eq("fino", phase.sapOp);
-                        }
+                        if (sapOp) query = query.eq("fino", sapOp);
 
                         const { data: rows } = await query.order("data", { ascending: true });
-
-                        console.log(`Fase ${phase.label}: trovati ${rows?.length || 0} record`);
 
                         if (!rows?.length) continue;
 
@@ -166,8 +177,8 @@ export default function ThroughputView({ showToast }) {
 
                         result[phase.phaseId] = { totQty, firstDate, lottoNum, progress };
                         resultRaw[phase.phaseId] = {
-                            sapMat: phase.sapMat,
-                            sapOp: phase.sapOp,
+                            sapMat,
+                            sapOp,
                             weekStart: weekStartStr,
                             weekEnd: weekEndStr,
                             rows: rows
