@@ -4,45 +4,59 @@ const LS_KEY = "throughput_config";
 
 /**
  * Legge la config dal localStorage. Se non esiste, usa THROUGHPUT_CONFIG di default.
- * Merge intelligente: mantiene la struttura delle fasi da constants, sovrascrive solo i valori editabili.
+ * Migra automaticamente il vecchio formato (lotto/oee globali) al nuovo per-componente.
  */
 export function loadThroughputConfig() {
     try {
         const saved = localStorage.getItem(LS_KEY);
         if (!saved) return THROUGHPUT_CONFIG;
         const parsed = JSON.parse(saved);
-        // Merge: mantiene le fasi di default ma aggiorna pzH e fixedH se salvati
-        const merged = {
-            lotto: parsed.lotto ?? THROUGHPUT_CONFIG.lotto,
-            oee: parsed.oee ?? THROUGHPUT_CONFIG.oee,
-            changeOverH: parsed.changeOverH ?? THROUGHPUT_CONFIG.changeOverH,
-            rackSize: parsed.rackSize ?? THROUGHPUT_CONFIG.rackSize,
-            components: {}
-        };
-        for (const [key, defaultPhases] of Object.entries(THROUGHPUT_CONFIG.components)) {
-            const savedPhases = parsed.components?.[key] || [];
 
-            // Se non ci sono fasi salvate, usa i defaults
-            if (savedPhases.length === 0) {
-                merged.components[key] = defaultPhases;
-                continue;
-            }
+        // Detect old format: had top-level lotto/oee
+        const isOldFormat = parsed.lotto != null || parsed.oee != null;
 
-            // Altrimenti, usa le fasi salvate e preserva i campi editabili dai defaults se disponibili
-            merged.components[key] = savedPhases.map(sp => {
-                const dp = defaultPhases.find(p => p.phaseId === sp.phaseId);
+        const merged = { components: {} };
 
-                // Preserva tutti i campi della fase salvata, mantenendo i tipi corretti
-                return {
-                    ...sp,
-                    pzH: sp.pzH != null ? Number(sp.pzH) : sp.pzH,
-                    fixedH: sp.fixedH != null ? Number(sp.fixedH) : sp.fixedH,
-                    changeOverH: sp.changeOverH != null ? Number(sp.changeOverH) : sp.changeOverH,
-                    chargeSize: sp.chargeSize != null ? Number(sp.chargeSize) : sp.chargeSize,
-                    sapMat: sp.sapMat || undefined,
-                    sapOp: sp.sapOp || undefined
+        for (const [key, defaultComp] of Object.entries(THROUGHPUT_CONFIG.components)) {
+            if (isOldFormat) {
+                // Old format: components[key] was an array of phases
+                const savedPhases = parsed.components?.[key] || [];
+                merged.components[key] = {
+                    lotto: Number(parsed.lotto ?? defaultComp.lotto),
+                    oee: Number(parsed.oee ?? defaultComp.oee),
+                    changeOverH: Number(parsed.changeOverH ?? defaultComp.changeOverH),
+                    rackSize: Number(parsed.rackSize ?? defaultComp.rackSize),
+                    phases: savedPhases.length > 0
+                        ? savedPhases.map(sp => ({
+                            ...sp,
+                            pzH: sp.pzH != null ? Number(sp.pzH) : sp.pzH,
+                            fixedH: sp.fixedH != null ? Number(sp.fixedH) : sp.fixedH,
+                            changeOverH: sp.changeOverH != null ? Number(sp.changeOverH) : sp.changeOverH,
+                            chargeSize: sp.chargeSize != null ? Number(sp.chargeSize) : sp.chargeSize,
+                        }))
+                        : defaultComp.phases.map(p => ({ ...p })),
                 };
-            });
+            } else {
+                // New format: components[key] is { lotto, oee, changeOverH, rackSize, phases }
+                const savedComp = parsed.components?.[key];
+                if (!savedComp) {
+                    merged.components[key] = { ...defaultComp, phases: defaultComp.phases.map(p => ({ ...p })) };
+                    continue;
+                }
+                merged.components[key] = {
+                    lotto: Number(savedComp.lotto ?? defaultComp.lotto),
+                    oee: Number(savedComp.oee ?? defaultComp.oee),
+                    changeOverH: Number(savedComp.changeOverH ?? defaultComp.changeOverH),
+                    rackSize: Number(savedComp.rackSize ?? defaultComp.rackSize),
+                    phases: (savedComp.phases?.length > 0 ? savedComp.phases : defaultComp.phases).map(sp => ({
+                        ...sp,
+                        pzH: sp.pzH != null ? Number(sp.pzH) : sp.pzH,
+                        fixedH: sp.fixedH != null ? Number(sp.fixedH) : sp.fixedH,
+                        changeOverH: sp.changeOverH != null ? Number(sp.changeOverH) : sp.changeOverH,
+                        chargeSize: sp.chargeSize != null ? Number(sp.chargeSize) : sp.chargeSize,
+                    })),
+                };
+            }
         }
         return merged;
     } catch {
@@ -59,14 +73,12 @@ export function saveThroughputConfig(cfg) {
 
 /**
  * Calcola le ore necessarie per una singola fase.
- * - Fase con chargeSize (es. T.T.): ⌈lotto / chargeSize⌉ × fixedH, senza change over se noChangeOver=true
- * - Fase con fixedH normale: fixedH + changeOver
- * - Fase continua: (lotto / (pzH × oee)) + changeOver
+ * compCfg = { lotto, oee, changeOverH, ... }
  */
-export function phaseHours(phase, cfg) {
-    const lotto = Number(cfg.lotto) || 0;
-    const oee = Number(cfg.oee) || 1;
-    const co = phase.noChangeOver ? 0 : Number(phase.changeOverH ?? cfg.changeOverH ?? 1);
+export function phaseHours(phase, compCfg) {
+    const lotto = Number(compCfg.lotto) || 0;
+    const oee = Number(compCfg.oee) || 1;
+    const co = phase.noChangeOver ? 0 : Number(phase.changeOverH ?? compCfg.changeOverH ?? 1);
 
     if (phase.fixedH != null) {
         const fixedH = Number(phase.fixedH) || 0;
@@ -81,12 +93,14 @@ export function phaseHours(phase, cfg) {
 
 /**
  * Calcola tutte le fasi con ore per fase e cumulate.
+ * cfg.components[componentKey] = { lotto, oee, changeOverH, rackSize, phases }
  */
 export function computeThroughput(componentKey, cfg) {
-    const phases = cfg.components[componentKey] || [];
+    const compCfg = cfg.components[componentKey] || {};
+    const phases = compCfg.phases || [];
     let cumH = 0;
     return phases.map(p => {
-        const h = phaseHours(p, cfg);
+        const h = phaseHours(p, compCfg);
         cumH += h;
         return { ...p, h: +h.toFixed(1), cumH: +cumH.toFixed(1) };
     });

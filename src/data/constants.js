@@ -264,218 +264,60 @@ export const EXCLUDED_PHASES = {
     "RG + DH": ["shaping", "broaching", "laser_welding_soft_2", "milling", "ut", "grinding_cone", "laser_welding", "grinding_cone_2"]
 };
 
-export const THROUGHPUT_CONFIG = {
+// Fasi standard di default (uguali per tutti i componenti, personalizzabili via ⚙️)
+// I codici SAP (sapMat, sapOp) vengono da Supabase (anagrafica_sap), non qui
+const STD_PHASES = [
+    { phaseId: "laser_welding",  label: "Saldatura Soft", pzH: 130 },
+    { phaseId: "hobbing",        label: "Dentatura",       pzH: 86  },
+    { phaseId: "ht",             label: "Tratt. Termico",  fixedH: 8, chargeSize: 176, noChangeOver: true },
+    { phaseId: "start_hard",     label: "Tornitura Hard",  pzH: 104 },
+    { phaseId: "teeth_grinding", label: "Rettifica Denti", pzH: 100 },
+];
+
+// Helper: crea config per un componente con parametri di default sovrascrivibili
+const comp = (phases = STD_PHASES, params = {}) => ({
     lotto: 1200,
     oee: 0.85,
     changeOverH: 1,
-    rackSize: 72,           // pezzi per rack (fasi continue)
+    rackSize: 72,
+    ...params,
+    phases: phases.map(p => ({ ...p })),
+});
+
+export const THROUGHPUT_CONFIG = {
     components: {
-        // DCT300 Components
-        "DCT300::SG1": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "DCT300::DG-REV": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "DCT300::DG": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "DCT300::SG3": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "DCT300::SG4": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "DCT300::SG5": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "DCT300::SG6": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "DCT300::SG7": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "DCT300::SGR": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "DCT300::RG": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        // 8Fe Components
-        "8Fe::SG2": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "8Fe::SG3": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "8Fe::SG4": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "8Fe::SG5": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "8Fe::SG6": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "8Fe::SG7": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "8Fe::SG8": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "8Fe::SGR": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "8Fe::PG": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "8Fe::FG5/7": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        // DCT ECO Components
-        "DCT ECO::SG2": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "DCT ECO::SG3": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "DCT ECO::SG4": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "DCT ECO::SG5": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "DCT ECO::SGR": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "DCT ECO::RG FD1": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "DCT ECO::RG FD2": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        // RG+DH Components
-        "RG+DH::RG FD1": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
-        "RG+DH::RG FD2": [
-            { phaseId: "laser_welding",   label: "Saldatura Soft",  pzH: 130, sapMat: "M0140996/s", sapOp: "60" },
-            { phaseId: "hobbing",         label: "Dentatura",        pzH: 86,  sapMat: "M0140996/s", sapOp: "90" },
-            { phaseId: "ht",              label: "Tratt. Termico",   pzH: null, fixedH: 8, chargeSize: 176, noChangeOver: true, sapMat: "M0140996/t" },
-            { phaseId: "start_hard",      label: "Tornitura Hard",   pzH: 104, sapMat: "M0140996", sapOp: "120" },
-            { phaseId: "teeth_grinding",  label: "Rettifica Denti",  pzH: 100, sapMat: "M0140996", sapOp: "230" },
-        ],
+        // DCT300
+        "DCT300::SG1":    comp(),
+        "DCT300::DG-REV": comp(),
+        "DCT300::DG":     comp(),
+        "DCT300::SG3":    comp(),
+        "DCT300::SG4":    comp(),
+        "DCT300::SG5":    comp(),
+        "DCT300::SG6":    comp(),
+        "DCT300::SG7":    comp(),
+        "DCT300::SGR":    comp(),
+        "DCT300::RG":     comp(),
+        // 8Fe
+        "8Fe::SG2":   comp(),
+        "8Fe::SG3":   comp(),
+        "8Fe::SG4":   comp(),
+        "8Fe::SG5":   comp(),
+        "8Fe::SG6":   comp(),
+        "8Fe::SG7":   comp(),
+        "8Fe::SG8":   comp(),
+        "8Fe::SGR":   comp(),
+        "8Fe::PG":    comp(),
+        "8Fe::FG5/7": comp(),
+        // DCT ECO
+        "DCT ECO::SG2":    comp(),
+        "DCT ECO::SG3":    comp(),
+        "DCT ECO::SG4":    comp(),
+        "DCT ECO::SG5":    comp(),
+        "DCT ECO::SGR":    comp(),
+        "DCT ECO::RG FD1": comp(),
+        "DCT ECO::RG FD2": comp(),
+        // RG+DH
+        "RG+DH::RG FD1": comp(),
+        "RG+DH::RG FD2": comp(),
     }
 };

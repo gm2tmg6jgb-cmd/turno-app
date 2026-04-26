@@ -13,37 +13,40 @@ export default function ThroughputView({ showToast }) {
     const [targetValue, setTargetValue] = useState(450);
 
     const startEdit = (key) => {
+        const compCfg = cfg.components[key] || {};
         setEditingKey(key);
         setDraft({
-            lotto: cfg.lotto,
-            oeePercent: Math.round(cfg.oee * 100),
-            rackSize: cfg.rackSize ?? 72,
-            phases: (cfg.components[key] || []).map(p => ({
+            lotto: compCfg.lotto ?? 1200,
+            oeePercent: Math.round((compCfg.oee ?? 0.85) * 100),
+            rackSize: compCfg.rackSize ?? 72,
+            changeOverH: compCfg.changeOverH ?? 1,
+            phases: (compCfg.phases || []).map(p => ({
                 ...p,
-                changeOverH: p.noChangeOver ? 0 : (p.changeOverH ?? cfg.changeOverH)
+                changeOverH: p.noChangeOver ? 0 : (p.changeOverH ?? compCfg.changeOverH ?? 1)
             }))
         });
     };
 
     const saveEdit = useCallback(() => {
         const newCfg = {
-            ...cfg,
-            lotto: Number(draft.lotto),
-            oee: Number(draft.oeePercent) / 100,
-            rackSize: Number(draft.rackSize),
-            changeOverH: Number(draft.changeOverH),
             components: {
-                ...cfg.components,  // preserva TUTTI i componenti
-                [editingKey]: draft.phases.map(p => ({
-                    ...p,
-                    pzH: p.fixedH != null ? null : Number(p.pzH),
-                    fixedH: p.fixedH != null ? Number(p.fixedH) : null,
-                    changeOverH: p.noChangeOver ? undefined : Number(p.changeOverH),
-                    sapMat: p.sapMat || undefined,
-                    sapOp: p.sapOp || undefined,
-                    macchina_id: p.macchina_id || undefined,
-                    chargeSize: p.chargeSize ? Number(p.chargeSize) : null
-                }))
+                ...cfg.components,
+                [editingKey]: {
+                    lotto: Number(draft.lotto),
+                    oee: Number(draft.oeePercent) / 100,
+                    rackSize: Number(draft.rackSize),
+                    changeOverH: Number(draft.changeOverH),
+                    phases: draft.phases.map(p => ({
+                        ...p,
+                        pzH: p.fixedH != null ? null : Number(p.pzH),
+                        fixedH: p.fixedH != null ? Number(p.fixedH) : null,
+                        changeOverH: p.noChangeOver ? undefined : Number(p.changeOverH),
+                        sapMat: p.sapMat || undefined,
+                        sapOp: p.sapOp || undefined,
+                        macchina_id: p.macchina_id || undefined,
+                        chargeSize: p.chargeSize ? Number(p.chargeSize) : null
+                    }))
+                }
             }
         };
         saveThroughputConfig(newCfg);
@@ -142,11 +145,12 @@ export default function ThroughputView({ showToast }) {
 
                 const result = {};
                 const resultRaw = {};
-                const lotto = cfg.lotto || 1200;
 
                 for (const [key] of filteredEntries) {
                     const [progetto, componente] = key.split("::");
-                    const phases = cfg.components[key] || [];
+                    const compCfg = cfg.components[key] || {};
+                    const lotto = compCfg.lotto || 1200;
+                    const phases = compCfg.phases || [];
 
                     for (const phase of phases) {
                         // Priorità: anagrafica_sap centralizzata, fallback a phase.sapMat locale
@@ -278,11 +282,7 @@ export default function ThroughputView({ showToast }) {
     }, [lastRefresh]);
 
     // Fase corrente = quella più avanzata (indice più alto) con dati SAP
-    const buildTimeline = (phases) => {
-        // Trova il lotto più alto con dati SAP → è il lotto corrente di quella fase
-        // La fase "corrente" è quella con lottoNum più basso (il lotto è ancora lì)
-        // Le fasi "completate" hanno lottoNum > lottoNum della fase successiva
-        const lotto = cfg.lotto || 1200;
+    const buildTimeline = (phases, lotto) => {
         let prevEndDate = null;
 
         return phases.map(p => {
@@ -522,8 +522,9 @@ export default function ThroughputView({ showToast }) {
 
                         {/* Timeline SAP (PRIMARY DISPLAY) */}
                         {(() => {
-                            const timeline = buildTimeline(phases);
-                            const lotto = cfg.lotto || 1200;
+                            const compLotto = cfg.components[key]?.lotto || 1200;
+                            const timeline = buildTimeline(phases, compLotto);
+                            const lotto = compLotto;
                             const maxLottoNum = Math.max(0, ...timeline.filter(p => p.fromSap).map(p => p.lottoNum));
                             const currentPhaseIdx = timeline.findIndex(p => !p.fromSap || p.lottoNum < maxLottoNum);
                             const currentPhase = timeline[currentPhaseIdx];
@@ -910,7 +911,7 @@ export default function ThroughputView({ showToast }) {
                         boxShadow: "0 20px 60px rgba(0,0,0,0.4)", margin: "20px"
                     }} onClick={e => e.stopPropagation()}>
                         <h3 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 900 }}>
-                            Dati SAP — {Object.values(cfg.components)[0]?.find(p => p.phaseId === selectedPhaseDebug)?.label || selectedPhaseDebug}
+                            Dati SAP — {Object.values(cfg.components)[0]?.phases?.find(p => p.phaseId === selectedPhaseDebug)?.label || selectedPhaseDebug}
                         </h3>
                         <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 20 }}>
                             <div>
@@ -1009,7 +1010,7 @@ export default function ThroughputView({ showToast }) {
                                     <div><strong>Materiale:</strong> M0140996/S</div>
                                     <div><strong>Operazione:</strong> {(() => {
                                         const phaseLabel = selectedPhaseDebug;
-                                        const phase = Object.values(cfg.components)[0]?.find(p => p.phaseId === phaseLabel);
+                                        const phase = Object.values(cfg.components)[0]?.phases?.find(p => p.phaseId === phaseLabel);
                                         return phase?.sapOp || "—";
                                     })()}</div>
                                 </div>
@@ -1144,28 +1145,33 @@ export default function ThroughputView({ showToast }) {
                                         border: "1px solid var(--border)", display: "grid",
                                         gridTemplateColumns: "1fr 1fr", gap: 16
                                     }}>
+                                        {(() => {
+                                            const cc = cfg.components[configModal] || {};
+                                            return (<>
                                         <div>
                                             <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4 }}>Lotto</div>
-                                            <div style={{ fontSize: 16, fontWeight: 900, color: "var(--text-primary)" }}>{cfg.lotto} pz</div>
+                                            <div style={{ fontSize: 16, fontWeight: 900, color: "var(--text-primary)" }}>{cc.lotto} pz</div>
                                         </div>
                                         <div>
                                             <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4 }}>OEE</div>
-                                            <div style={{ fontSize: 16, fontWeight: 900, color: "var(--text-primary)" }}>{Math.round(cfg.oee * 100)}%</div>
+                                            <div style={{ fontSize: 16, fontWeight: 900, color: "var(--text-primary)" }}>{Math.round((cc.oee ?? 0.85) * 100)}%</div>
                                         </div>
                                         <div>
                                             <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4 }}>Change Over</div>
-                                            <div style={{ fontSize: 16, fontWeight: 900, color: "var(--text-primary)" }}>{cfg.changeOverH}h</div>
+                                            <div style={{ fontSize: 16, fontWeight: 900, color: "var(--text-primary)" }}>{cc.changeOverH}h</div>
                                         </div>
                                         <div>
                                             <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 4 }}>Rack Size</div>
-                                            <div style={{ fontSize: 16, fontWeight: 900, color: "var(--text-primary)" }}>{cfg.rackSize || "—"}</div>
+                                            <div style={{ fontSize: 16, fontWeight: 900, color: "var(--text-primary)" }}>{cc.rackSize || "—"}</div>
                                         </div>
+                                            </>);
+                                        })()}
                                     </div>
 
                                     {/* Phases Table */}
                                     <div>
                                         <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", marginBottom: 12 }}>
-                                            Fasi ({(cfg.components[configModal] || []).length})
+                                            Fasi ({(cfg.components[configModal]?.phases || []).length})
                                         </div>
                                         <div style={{ maxHeight: 300, overflowY: "auto", background: "var(--bg-tertiary)", borderRadius: 8, border: "1px solid var(--border)" }}>
                                             <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
@@ -1181,7 +1187,7 @@ export default function ThroughputView({ showToast }) {
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    {(cfg.components[configModal] || []).map((phase, i) => (
+                                                    {(cfg.components[configModal]?.phases || []).map((phase, i) => (
                                                         <tr key={phase.phaseId} style={{ borderBottom: "1px solid var(--border-light)" }}>
                                                             <td style={{ padding: 8, color: "var(--text-muted)" }}>{i + 1}</td>
                                                             <td style={{ padding: 8, fontWeight: 600 }}>{phase.label}</td>
@@ -1190,7 +1196,7 @@ export default function ThroughputView({ showToast }) {
                                                             <td style={{ padding: 8, textAlign: "center", color: "var(--text-secondary)", fontSize: 11 }}>{phase.sapOp || "—"}</td>
                                                             <td style={{ padding: 8, textAlign: "right", color: "var(--text-secondary)" }}>{phase.pzH || "fisso"}</td>
                                                             <td style={{ padding: 8, textAlign: "right", color: "var(--accent)", fontWeight: 700 }}>
-                                                                {phaseHours(phase, cfg).toFixed(1)}h
+                                                                {phaseHours(phase, cfg.components[configModal]).toFixed(1)}h
                                                             </td>
                                                         </tr>
                                                     ))}
@@ -1338,7 +1344,7 @@ export default function ThroughputView({ showToast }) {
                                                                 )}
                                                             </td>
                                                             <td style={{ padding: 8, textAlign: "right", fontWeight: 700, color: "var(--accent)" }}>
-                                                                {phaseHours(phase, { ...cfg, lotto: Number(draft.lotto), oee: Number(draft.oeePercent) / 100 }).toFixed(1)}h
+                                                                {phaseHours(phase, { lotto: Number(draft.lotto), oee: Number(draft.oeePercent) / 100, changeOverH: Number(draft.changeOverH) }).toFixed(1)}h
                                                             </td>
                                                             <td style={{ padding: 8, textAlign: "right", display: "flex", gap: 4, justifyContent: "flex-end" }}>
                                                                 {i > 0 && (
