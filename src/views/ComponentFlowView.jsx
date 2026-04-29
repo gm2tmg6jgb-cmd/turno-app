@@ -1155,32 +1155,45 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
 
                         // Aggiungi turni di oggi in corso
                         let turniTotali = turniLavorati;
+                        let turniSenzaDatiOggi = 0;
                         const today = new Date().toISOString().split("T")[0];
                         if (wDate === today) {
                             const currentHour = new Date().getHours();
                             const turniCompletatiOggi = Math.floor(currentHour / 6);
                             const turniGiaConosciutiSet = new Set(allRecords.filter(r => r.data === today).map(r => r.turno_id).filter(Boolean));
                             const turniGiaConosciuti = turniGiaConosciutiSet.size;
-                            turniTotali += Math.max(0, turniCompletatiOggi - turniGiaConosciuti);
+                            turniSenzaDatiOggi = Math.max(0, turniCompletatiOggi - turniGiaConosciuti);
+                            turniTotali += turniSenzaDatiOggi;
                         }
 
                         const turniSettimanaliTotali = 20; // 5 giorni × 4 turni
                         const turniMancanti = Math.max(0, turniSettimanaliTotali - turniTotali);
 
-                        // Determina quale giorno è stato aggiornato
-                        const wDateObj = new Date(wDate + "T12:00:00");
-                        const giornoNome = wDateObj.toLocaleDateString("it-IT", { weekday: "long" });
+                        // Trova la data più recente dei dati scaricati
+                        let ultimoScarico = "—";
+                        if (allRecords.length > 0) {
+                            const ultimoRecord = allRecords.sort((a, b) => {
+                                const dateA = new Date(a.data || "2000-01-01");
+                                const dateB = new Date(b.data || "2000-01-01");
+                                return dateB - dateA;
+                            })[0];
+                            if (ultimoRecord.data) {
+                                const dataObj = new Date(ultimoRecord.data + "T12:00:00");
+                                const giorno = dataObj.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
+                                ultimoScarico = giorno;
+                            }
+                        }
 
                         return (
                             <>
                                 <div style={{ fontSize: "16px" }}>📊</div>
                                 <div>
                                     <div style={{ fontWeight: "700", color: "var(--text-primary)" }}>
-                                        ✓ Dati aggiornati fino a: <span style={{ color: "var(--accent)" }}>{giornoNome}</span>
+                                        ✓ Ultimo scarico: <span style={{ color: "var(--accent)" }}>{ultimoScarico}</span>
                                     </div>
                                     <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
                                         Dati SAP: <span style={{ fontWeight: "700", color: "var(--accent)" }}>{turniLavorati}</span> turni
-                                        {turniMancanti > 0 && <span style={{ marginLeft: "16px" }}>— Mancano: <span style={{ fontWeight: "700", color: "#f59e0b" }}>{turniMancanti}</span></span>}
+                                        {turniSenzaDatiOggi > 0 && <span style={{ marginLeft: "12px" }}>⚠️ <span style={{ fontWeight: "700", color: "#ef4444" }}>{turniSenzaDatiOggi}</span> completati senza dati</span>}
                                     </div>
                                 </div>
                             </>
