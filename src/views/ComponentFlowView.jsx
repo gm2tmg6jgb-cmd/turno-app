@@ -315,8 +315,8 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
             });
             setCompMappings(compToMats);
 
-            // Fetch dati produzione
-            const selectFields = "data, materiale, work_center_sap, macchina_id, qta_ottenuta, turno_id, fino, importato_il";
+            // Fetch dati produzione con join a storico_produzione per importato_il
+            const selectFields = "data, materiale, work_center_sap, macchina_id, qta_ottenuta, turno_id, fino, storico_produzione(importato_il)";
             const queryFactory = () => {
                 let q = supabase.from("conferme_sap").select(selectFields);
                 if (viewMode === "weekly") {
