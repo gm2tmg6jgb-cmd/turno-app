@@ -4,6 +4,21 @@ Tutte le modifiche significative di Turno App sono documentate in questo file.
 
 ---
 
+## [1.1.1] — 2026-04-29 — Fix Conteggio Turni Banner Settimanale
+
+### 🔧 Fix
+- **Banner settimanale**: Corretto conteggio turni che ora conta combinazioni uniche (data + turno_id) anziché solo turni_id
+- Banner ora visualizza correttamente 8/20 turni completati (precedentemente mostrava 4/20)
+- Target cumulativo ora calcolato moltiplicando target per turno × numero turni lavorati
+- Aggiunto useEffect per visualizzare alert con turni contati al click su progetto in weekly view
+
+### 🎨 UI
+- Banner settimanale con gradiente blu e informazioni aggiornamento dati
+- Mostra giorno di ultimo aggiornamento (es. "martedì")
+- Visualizza turni completati/totali e numero turni mancanti
+
+---
+
 ## [1.1.0] — 2026-04-23 — Performance e Fix QuickConfigModal
 
 ### 🚀 Performance
