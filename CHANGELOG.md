@@ -4,7 +4,7 @@ Tutte le modifiche significative di Turno App sono documentate in questo file.
 
 ---
 
-## [1.1.2] — 2026-04-29 — Data e Ora Ultimo Scarico SAP
+## [1.2.0] — 2026-04-29 — Data e Ora Ultimo Scarico SAP
 
 ### 🔧 Fix
 - **Banner settimanale**: Aggiunto timestamp completo (data + ora) dell'ultimo scarico SAP
