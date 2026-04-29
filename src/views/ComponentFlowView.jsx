@@ -592,7 +592,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
             "DCT300": { main: "#3c6ef0", bg: "rgba(60, 110, 240, 0.05)" },
             "8Fe": { main: "#10b981", bg: "rgba(16, 185, 129, 0.05)" },
             "DCT ECO": { main: "#f59e0b", bg: "rgba(245, 158, 11, 0.05)" },
-            "RG + DH": { main: "#8b5cf6", bg: "rgba(139, 92, 246, 0.05)" } // Tono Indigo per Specials
+            "RG + DH": { main: "#10b981", bg: "rgba(16, 185, 129, 0.05)" } // Stesso colore di 8Fe (stesso progetto)
         };
         const theme = colors[proj] || colors["DCT300"];
 
@@ -1031,6 +1031,41 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", marginBottom: "10px" }}>
 
                 <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+                    {/* Date Picker - Prima elemento */}
+                    {viewMode === "weekly" ? (
+                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                            <button className="btn btn-secondary btn-sm" onClick={() => {
+                                const d = new Date(wWeek + "T12:00:00");
+                                d.setDate(d.getDate() - 7);
+                                setWWeek(d.toISOString().split("T")[0]);
+                            }}>←</button>
+                            <span style={{ fontWeight: "700", background: "var(--bg-tertiary)", padding: "6px 12px", borderRadius: "8px", fontSize: "13px" }}>
+                                {new Date(wWeek + "T12:00:00").toLocaleDateString("it-IT", { day: "2-digit", month: "short" })}
+                            </span>
+                            <button className="btn btn-secondary btn-sm" onClick={() => {
+                                const d = new Date(wWeek + "T12:00:00");
+                                d.setDate(d.getDate() + 7);
+                                setWWeek(d.toISOString().split("T")[0]);
+                            }}>→</button>
+                        </div>
+                    ) : (
+                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                            <button className="btn btn-secondary btn-sm" onClick={() => {
+                                const d = new Date(wDate + "T12:00:00");
+                                d.setDate(d.getDate() - 1);
+                                setWDate(d.toISOString().split("T")[0]);
+                            }}>←</button>
+                            <span style={{ fontWeight: "700", background: "var(--bg-tertiary)", padding: "6px 12px", borderRadius: "8px", fontSize: "13px" }}>
+                                {new Date(wDate + "T12:00:00").toLocaleDateString("it-IT", { day: "2-digit", month: "short" })}
+                            </span>
+                            <button className="btn btn-secondary btn-sm" onClick={() => {
+                                const d = new Date(wDate + "T12:00:00");
+                                d.setDate(d.getDate() + 1);
+                                setWDate(d.toISOString().split("T")[0]);
+                            }}>→</button>
+                        </div>
+                    )}
+
                     {/* View Mode Toggle */}
                     <div style={{ display: "flex", background: "var(--bg-tertiary)", padding: "4px", borderRadius: "10px", border: "1px solid var(--border)" }}>
                         <button
@@ -1092,7 +1127,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                         {isConfigMode ? "✓ Fine Config" : "⚙ Configura Celle"}
                     </button>
 
-<button
+                    <button
                         onClick={handlePrint}
                         className="btn"
                         style={{
@@ -1105,41 +1140,6 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     >
                         🖨 Stampa
                     </button>
-
-                    {viewMode === "weekly" ? (
-                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                            <button className="btn btn-secondary btn-sm" onClick={() => {
-                                const d = new Date(wWeek + "T12:00:00");
-                                d.setDate(d.getDate() - 7);
-                                setWWeek(d.toISOString().split("T")[0]);
-                            }}>←</button>
-                            <span style={{ fontWeight: "700", background: "var(--bg-tertiary)", padding: "6px 12px", borderRadius: "8px", fontSize: "13px" }}>
-                                {new Date(wWeek + "T12:00:00").toLocaleDateString("it-IT", { day: "2-digit", month: "short" })}
-                            </span>
-                            <button className="btn btn-secondary btn-sm" onClick={() => {
-                                const d = new Date(wWeek + "T12:00:00");
-                                d.setDate(d.getDate() + 7);
-                                setWWeek(d.toISOString().split("T")[0]);
-                            }}>→</button>
-                        </div>
-                    ) : (
-                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                            <button className="btn btn-secondary btn-sm" onClick={() => {
-                                const d = new Date(wDate + "T12:00:00");
-                                d.setDate(d.getDate() - 1);
-                                setWDate(d.toISOString().split("T")[0]);
-                            }}>←</button>
-                            <span style={{ fontWeight: "700", background: "var(--bg-tertiary)", padding: "6px 12px", borderRadius: "8px", fontSize: "13px" }}>
-                                {new Date(wDate + "T12:00:00").toLocaleDateString("it-IT", { day: "2-digit", month: "short" })}
-                            </span>
-                            <button className="btn btn-secondary btn-sm" onClick={() => {
-                                const d = new Date(wDate + "T12:00:00");
-                                d.setDate(d.getDate() + 1);
-                                setWDate(d.toISOString().split("T")[0]);
-                            }}>→</button>
-                        </div>
-                    )}
-
 
                 </div>
             </div>
@@ -1390,6 +1390,12 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                             style={{ flex: 1 }}
                             onClick={() => {
                                 const newOverrides = { ...targetOverrides, [targetModal.proj]: targetModal.value };
+                                // Sincronizza 8Fe e RG + DH (stesso progetto)
+                                if (targetModal.proj === "8Fe") {
+                                    newOverrides["RG + DH"] = targetModal.value;
+                                } else if (targetModal.proj === "RG + DH") {
+                                    newOverrides["8Fe"] = targetModal.value;
+                                }
                                 setTargetOverrides(newOverrides);
                                 localStorage.setItem("bap_target_overrides", JSON.stringify(newOverrides));
                                 setTargetModal(null);
