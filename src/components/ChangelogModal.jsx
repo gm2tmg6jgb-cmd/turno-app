@@ -4,6 +4,51 @@ import Modal from "./Modal";
 const CHANGELOG = [
     {
         version: "1.2.0",
+        data: "29 Aprile 2026",
+        label: "Data e Ora Ultimo Scarico SAP",
+        modifiche: [
+            {
+                categoria: "🆕 Novità",
+                voci: [
+                    "Banner settimanale: aggiunto timestamp completo (data + ora) dell'ultimo scarico SAP",
+                    "Nuovo campo importato_il in conferme_sap traccia quando i dati sono stati importati da SAP",
+                    "Mostra formato: '29/04 00:48' quando è disponibile il timestamp",
+                ]
+            },
+            {
+                categoria: "🔧 Fix",
+                voci: [
+                    "Semplificato il fetching dei dati eliminando query separata a storico_produzione",
+                    "Timestamp importato_il deve essere settato esplicitamente durante l'importazione SAP",
+                ]
+            }
+        ]
+    },
+    {
+        version: "1.1.1",
+        data: "29 Aprile 2026",
+        label: "Fix Conteggio Turni Banner Settimanale",
+        modifiche: [
+            {
+                categoria: "🔧 Fix",
+                voci: [
+                    "Banner settimanale: corretto conteggio turni che ora conta combinazioni uniche (data + turno_id)",
+                    "Banner visualizza correttamente 8/20 turni completati",
+                    "Target cumulativo calcolato moltiplicando target per turno × numero turni lavorati",
+                ]
+            },
+            {
+                categoria: "🎨 UI",
+                voci: [
+                    "Banner settimanale con gradiente blu e informazioni aggiornamento dati",
+                    "Visualizza turni completati/totali e numero turni mancanti",
+                    "⚠️ Avviso per turni completati senza dati SAP",
+                ]
+            }
+        ]
+    },
+    {
+        version: "1.1.0",
         data: "24 Aprile 2026",
         label: "Tempi di Attraversamento",
         modifiche: [
