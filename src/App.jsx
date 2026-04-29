@@ -28,6 +28,7 @@ const FormazioneView = lazy(() => import("./views/FormazioneView"));
 const ZoneView = lazy(() => import("./views/ZoneView"));
 const Op10View = lazy(() => import("./views/Op10View"));
 const ComponentFlowView = lazy(() => import("./views/ComponentFlowView"));
+const ComponentFlowViewBackup = lazy(() => import("./views/ComponentFlowViewBackup"));
 const PrioritaView = lazy(() => import("./views/PrioritaView"));
 const AnagraficaView = lazy(() => import("./views/AnagraficaView"));
 const MotiviView = lazy(() => import("./views/MotiviView"));
@@ -235,6 +236,7 @@ function AppContent({ session, onLogout }) {
     { id: "formazione", label: "Formazione", icon: Icons.academic },
     { id: "lpaPlan", label: "Piano LPA", icon: Icons.calendar },
     { id: "componentFlow", label: "Avanzamento Componenti", icon: Icons.report, status: "new" },
+    { id: "componentFlowBackup", label: "⚙ Avanzamento Backup", icon: Icons.report },
     { id: "throughput", label: "Tempi Attraversamento", icon: Icons.report },
     { id: "priorita", label: "Laboratorio Attualizzato Beta", icon: Icons.filter },
     { id: "weisserPriorities", label: "Priorità Macchine", icon: Icons.filter },
@@ -259,6 +261,7 @@ function AppContent({ session, onLogout }) {
     op10: "Asservimento OP10",
     sapHub: "Hub Gestione SAP",
     componentFlow: "Avanzamento Componenti",
+    componentFlowBackup: "Avanzamento Componenti - Backup",
     throughput: "Tempi di Attraversamento",
     priorita: "Laboratorio Attualizzato Beta",
     weisserPriorities: "Priorità Macchine",
@@ -619,6 +622,9 @@ function AppContent({ session, onLogout }) {
 
           {currentView === "componentFlow" && (
             <ComponentFlowView macchine={macchine} showToast={showToast} globalDate={globalDate} />
+          )}
+          {currentView === "componentFlowBackup" && (
+            <ComponentFlowViewBackup macchine={macchine} showToast={showToast} globalDate={globalDate} />
           )}
           {currentView === "throughput" && (
             <ThroughputView showToast={showToast} />
