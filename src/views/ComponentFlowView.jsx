@@ -193,6 +193,34 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
             }
         };
     }, []);
+
+    // Mostra alert con turni contati quando espandi un progetto
+    useEffect(() => {
+        if (expandedProject && viewMode === "weekly") {
+            const recordsUpToday = Object.values(matrixData[expandedProject] || {})
+                .flatMap(comp => Object.values(comp))
+                .filter(cell => cell?.records?.length > 0)
+                .reduce((acc, cell) => [...acc, ...cell.records], [])
+                .filter(r => r.data <= wDate);
+
+            const turniLavorati = new Set(recordsUpToday.map(r => r.turno_id).filter(Boolean));
+            let numTurni = turniLavorati.size || 0;
+
+            // Aggiungi turni completati oggi
+            const today = new Date().toISOString().split("T")[0];
+            if (wDate === today) {
+                const now = new Date();
+                const currentHour = now.getHours();
+                const turniCompletatiOggi = Math.floor(currentHour / 6);
+                const turniGiaConosciuti = recordsUpToday.filter(r => r.data === today).map(r => r.turno_id).filter(Boolean).length;
+                const turniDaAggiungereDaOggi = Math.max(0, turniCompletatiOggi - turniGiaConosciuti);
+                numTurni += turniDaAggiungereDaOggi;
+            }
+
+            alert(`${expandedProject}\n\nTurni contati: ${numTurni}\nTarget per turno: ${targetOverrides[expandedProject] || 0}\nTarget cumulativo: ${(targetOverrides[expandedProject] || 0) * numTurni}`);
+        }
+    }, [expandedProject, viewMode, matrixData, wDate, targetOverrides]);
+
     const [fermiByProject, setFermiByProject] = useState({});
     const [motiviFermoList, setMotiviFermoList] = useState([]);
     const [fermoModal, setFermoModal] = useState(null); // { project }
@@ -702,7 +730,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                             </div>
                                         );
                                         const data = matrixData[proj]?.[comp]?.[step.id];
-                                        const qty = data?.value || 0;
+                                        let qty = data?.value || 0;
                                         let isHardExcluded = COMPONENT_EXCLUSIONS[comp]?.includes(step.id);
 
                                         if (proj === "DCT300" && ["SG7", "SGR", "RG"].includes(comp) && step.id === "grinding_cone") isHardExcluded = true;
@@ -759,12 +787,46 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                             </div>
                                         );
 
-                                        const currentTarget = (() => {
+                                        // === CALCOLO TARGET E COLORE CUMULATIVO PER TURNI ===
+                                        let currentTarget = 0;
+                                        if (viewMode === "weekly") {
+                                            // Calcola il cumulativo fino a wDate (oggi) e il target cumulativo atteso
                                             const base = targetOverrides[proj] || 0;
-                                            if (viewMode === "weekly") return base * 6;
-                                            if (localTurno !== "ALL") return Math.round(base / 3);
-                                            return base;
-                                        })();
+
+                                            // Cumulativo reale fino a wDate
+                                            const recordsUpToday = (data?.records || []).filter(r => r.data <= wDate);
+                                            qty = recordsUpToday.reduce((sum, r) => sum + (r.qta_ottenuta || 0), 0);
+
+                                            // Conta turni unici (turno_id) nei record fino a oggi
+                                            const turniLavorati = new Set(recordsUpToday.map(r => r.turno_id).filter(Boolean));
+                                            let numTurni = turniLavorati.size || 0;
+
+                                            // Se oggi (wDate) è il giorno corrente, aggiungi i turni completati oggi basato sull'ora
+                                            const today = new Date().toISOString().split("T")[0];
+                                            if (wDate === today) {
+                                                const now = new Date();
+                                                const currentHour = now.getHours();
+                                                // Turni da 6 ore: 0-6, 6-12, 12-18, 18-24
+                                                const turniCompletatiOggi = Math.floor(currentHour / 6);
+                                                // Se currentHour === 23, sono nel turno 3 (18-24), quindi ho completato 3 turni (0, 1, 2)
+                                                // Se currentHour === 12, sono nel turno 2 (12-18), quindi ho completato 2 turni (0, 1)
+                                                const turniGiaConosciuti = recordsUpToday.filter(r => r.data === today).map(r => r.turno_id).filter(Boolean).length;
+                                                const turniDaAggiungereDaOggi = Math.max(0, turniCompletatiOggi - turniGiaConosciuti);
+                                                numTurni += turniDaAggiungereDaOggi;
+                                            }
+
+                                            // Target cumulativo: target per turno × numero di turni lavorati
+                                            currentTarget = base * numTurni;
+                                        } else {
+                                            // Modalità giornaliera
+                                            const base = targetOverrides[proj] || 0;
+                                            if (localTurno !== "ALL") {
+                                                currentTarget = Math.round(base / 3);
+                                            } else {
+                                                currentTarget = base;
+                                            }
+                                        }
+
                                         const isSuccess = qty >= currentTarget && qty > 0;
                                         const hasProduction = qty > 0;
 
@@ -1067,9 +1129,66 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 </div>
             </div>
 
+            {/* Banner: Stato aggiornamento dati settimanali */}
+            <div style={{
+                background: "linear-gradient(90deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%)",
+                border: "1px solid rgba(59, 130, 246, 0.3)",
+                borderRadius: "8px",
+                padding: "12px 16px",
+                margin: "12px 16px 0",
+                display: viewMode === "weekly" ? "flex" : "none",
+                alignItems: "center",
+                gap: "12px",
+                fontSize: "13px"
+            }}>
+                    {(() => {
+                        // Calcola turni contati fino a oggi
+                        const allRecords = Object.values(matrixData).flatMap(proj =>
+                            Object.values(proj).flatMap(comp =>
+                                Object.values(comp).flatMap(cell => cell?.records || [])
+                            )
+                        ).filter(r => r.data <= wDate);
 
+                        // Conta shift unici (data + turno_id combination)
+                        const turniSet = new Set(allRecords.map(r => r.data && r.turno_id ? `${r.data}#${r.turno_id}` : null).filter(Boolean));
+                        const turniLavorati = turniSet.size || 0;
 
-{/* Sleek Mosaic Board (High Efficiency Layout) */}
+                        // Aggiungi turni di oggi in corso
+                        let turniTotali = turniLavorati;
+                        const today = new Date().toISOString().split("T")[0];
+                        if (wDate === today) {
+                            const currentHour = new Date().getHours();
+                            const turniCompletatiOggi = Math.floor(currentHour / 6);
+                            const turniGiaConosciutiSet = new Set(allRecords.filter(r => r.data === today).map(r => r.turno_id).filter(Boolean));
+                            const turniGiaConosciuti = turniGiaConosciutiSet.size;
+                            turniTotali += Math.max(0, turniCompletatiOggi - turniGiaConosciuti);
+                        }
+
+                        const turniSettimanaliTotali = 20; // 5 giorni × 4 turni
+                        const turniMancanti = Math.max(0, turniSettimanaliTotali - turniTotali);
+
+                        // Determina quale giorno è stato aggiornato
+                        const wDateObj = new Date(wDate + "T12:00:00");
+                        const giornoNome = wDateObj.toLocaleDateString("it-IT", { weekday: "long" });
+
+                        return (
+                            <>
+                                <div style={{ fontSize: "16px" }}>📊</div>
+                                <div>
+                                    <div style={{ fontWeight: "700", color: "var(--text-primary)" }}>
+                                        ✓ Dati aggiornati fino a: <span style={{ color: "var(--accent)" }}>{giornoNome}</span>
+                                    </div>
+                                    <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
+                                        Turni completati: <span style={{ fontWeight: "700", color: "var(--accent)" }}>{turniTotali}</span> / {turniSettimanaliTotali}
+                                        {turniMancanti > 0 && <span style={{ marginLeft: "12px" }}>— Mancano <span style={{ fontWeight: "700", color: "#f59e0b" }}>{turniMancanti} turni</span></span>}
+                                    </div>
+                                </div>
+                            </>
+                        );
+                    })()}
+                </div>
+
+            {/* Sleek Mosaic Board (High Efficiency Layout) */}
             {!loading && (
                 <div
                     data-print-area="boxes"
