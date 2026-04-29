@@ -75,6 +75,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     const refreshTick = 0;
     const [cellExclusions, setCellExclusions] = useState({});
     const [cellInclusions, setCellInclusions] = useState({});
+    const [ultimoImportato, setUltimoImportato] = useState(null);
 
     // Throughput calcolato una volta sola
     const throughputCfg = useMemo(() => loadThroughputConfig(), [showThroughput, selectedDetail]);
@@ -315,8 +316,8 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
             });
             setCompMappings(compToMats);
 
-            // Fetch dati produzione con join a storico_produzione per importato_il
-            const selectFields = "data, materiale, work_center_sap, macchina_id, qta_ottenuta, turno_id, fino, storico_produzione(importato_il)";
+            // Fetch dati produzione
+            const selectFields = "data, materiale, work_center_sap, macchina_id, qta_ottenuta, turno_id, fino";
             const queryFactory = () => {
                 let q = supabase.from("conferme_sap").select(selectFields);
                 if (viewMode === "weekly") {
@@ -338,6 +339,25 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 return;
             }
 
+            // Fetch timestamp dall'archivio storico_produzione
+            const stororicoQueryFactory = () => {
+                let q = supabase.from("storico_produzione").select("importato_il");
+                if (viewMode === "weekly") {
+                    const [y, mo, d] = wWeek.split("-").map(Number);
+                    const mon = new Date(y, mo - 1, d);
+                    const sun = new Date(y, mo - 1, d + 6);
+                    q = q.gte("data", toLocalDateStr(mon)).lte("data", toLocalDateStr(sun));
+                } else {
+                    q = q.eq("data", wDate);
+                }
+                return q.order("importato_il", { ascending: false }).limit(1);
+            };
+            const { data: storicoRes } = await fetchAllRows(stororicoQueryFactory);
+            if (storicoRes && storicoRes.length > 0 && storicoRes[0].importato_il) {
+                setUltimoImportato(storicoRes[0].importato_il);
+            } else {
+                setUltimoImportato(null);
+            }
 
             const newMatrix = {};
             const projComponentSets = {};
@@ -1171,26 +1191,11 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
 
                         // Trova la data/ora più recente dei dati scaricati
                         let ultimoScarico = "—";
-                        if (allRecords.length > 0) {
-                            const recordsConImportato = allRecords.filter(r => r.importato_il);
-                            const recordiDaUsare = recordsConImportato.length > 0 ? recordsConImportato : allRecords;
-
-                            const ultimoRecord = recordiDaUsare.sort((a, b) => {
-                                const dateA = a.importato_il ? new Date(a.importato_il) : new Date(a.data || "2000-01-01");
-                                const dateB = b.importato_il ? new Date(b.importato_il) : new Date(b.data || "2000-01-01");
-                                return dateB - dateA;
-                            })[0];
-
-                            if (ultimoRecord.importato_il) {
-                                const dataOra = new Date(ultimoRecord.importato_il);
-                                const giorno = dataOra.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
-                                const ora = dataOra.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
-                                ultimoScarico = `${giorno} ${ora}`;
-                            } else if (ultimoRecord.data) {
-                                const dataObj = new Date(ultimoRecord.data + "T12:00:00");
-                                const giorno = dataObj.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
-                                ultimoScarico = giorno;
-                            }
+                        if (ultimoImportato) {
+                            const dataOra = new Date(ultimoImportato);
+                            const giorno = dataOra.toLocaleDateString("it-IT", { day: "2-digit", month: "2-digit" });
+                            const ora = dataOra.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+                            ultimoScarico = `${giorno} ${ora}`;
                         }
 
                         return (
