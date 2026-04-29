@@ -317,7 +317,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
             setCompMappings(compToMats);
 
             // Fetch dati produzione
-            const selectFields = "data, materiale, work_center_sap, macchina_id, qta_ottenuta, turno_id, fino";
+            const selectFields = "data, materiale, work_center_sap, macchina_id, qta_ottenuta, turno_id, fino, importato_il";
             const queryFactory = () => {
                 let q = supabase.from("conferme_sap").select(selectFields);
                 if (viewMode === "weekly") {
@@ -339,22 +339,17 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 return;
             }
 
-            // Fetch timestamp dall'archivio storico_produzione
-            const stororicoQueryFactory = () => {
-                let q = supabase.from("storico_produzione").select("importato_il");
-                if (viewMode === "weekly") {
-                    const [y, mo, d] = wWeek.split("-").map(Number);
-                    const mon = new Date(y, mo - 1, d);
-                    const sun = new Date(y, mo - 1, d + 6);
-                    q = q.gte("data", toLocalDateStr(mon)).lte("data", toLocalDateStr(sun));
+            // Estrai il timestamp più recente dai dati scaricati
+            if (prodRes && prodRes.length > 0) {
+                const recordsConImportato = prodRes.filter(r => r.importato_il);
+                if (recordsConImportato.length > 0) {
+                    const ultimoRecord = recordsConImportato.sort((a, b) =>
+                        new Date(b.importato_il) - new Date(a.importato_il)
+                    )[0];
+                    setUltimoImportato(ultimoRecord.importato_il);
                 } else {
-                    q = q.eq("data", wDate);
+                    setUltimoImportato(null);
                 }
-                return q.order("importato_il", { ascending: false }).limit(1);
-            };
-            const { data: storicoRes } = await fetchAllRows(stororicoQueryFactory);
-            if (storicoRes && storicoRes.length > 0 && storicoRes[0].importato_il) {
-                setUltimoImportato(storicoRes[0].importato_il);
             } else {
                 setUltimoImportato(null);
             }

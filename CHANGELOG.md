@@ -6,10 +6,14 @@ Tutte le modifiche significative di Turno App sono documentate in questo file.
 
 ## [1.2.0] — 2026-04-29 — Data e Ora Ultimo Scarico SAP
 
-### 🔧 Fix
+### 🆕 Nuove Funzionalità
 - **Banner settimanale**: Aggiunto timestamp completo (data + ora) dell'ultimo scarico SAP
-- Fetch separato da `storico_produzione` per ottenere `importato_il`
-- Mostra formato: "29/04 00:48" invece della sola data
+- Nuovo campo `importato_il` in `conferme_sap` traccia quando i dati sono stati importati da SAP
+- Mostra formato: "29/04 00:48" quando è disponibile il timestamp
+
+### 🔧 Fix
+- Semplificato il fetching dei dati eliminando query separata a storico_produzione
+- Timestamp `importato_il` deve essere settato esplicitamente durante l'importazione SAP
 
 ---
 
