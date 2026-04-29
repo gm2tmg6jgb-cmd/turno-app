@@ -621,7 +621,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                         <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
                             <div style={{ width: isExpanded ? "20px" : "15px", height: isExpanded ? "20px" : "15px", borderRadius: "50%", background: theme.main }} />
                             <h3 style={{ fontSize: isExpanded ? "42px" : "32px", fontWeight: "900", color: "var(--text-primary)", margin: 0 }}>
-                                {proj === "RG + DH" ? "8Fe RG + DH" : proj}
+                                {proj === "RG + DH" ? "8Fe - RG + DH" : proj}
                             </h3>
                         </div>
 
