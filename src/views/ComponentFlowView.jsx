@@ -1179,8 +1179,8 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                         ✓ Dati aggiornati fino a: <span style={{ color: "var(--accent)" }}>{giornoNome}</span>
                                     </div>
                                     <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
-                                        Turni completati: <span style={{ fontWeight: "700", color: "var(--accent)" }}>{turniTotali}</span> / {turniSettimanaliTotali}
-                                        {turniMancanti > 0 && <span style={{ marginLeft: "12px" }}>— Mancano <span style={{ fontWeight: "700", color: "#f59e0b" }}>{turniMancanti} turni</span></span>}
+                                        Dati SAP: <span style={{ fontWeight: "700", color: "var(--accent)" }}>{turniLavorati}</span> turni
+                                        {turniMancanti > 0 && <span style={{ marginLeft: "16px" }}>— Mancano: <span style={{ fontWeight: "700", color: "#f59e0b" }}>{turniMancanti}</span></span>}
                                     </div>
                                 </div>
                             </>
