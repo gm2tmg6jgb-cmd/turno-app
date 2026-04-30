@@ -31,7 +31,6 @@ const ComponentFlowView = lazy(() => import("./views/ComponentFlowView"));
 const ComponentFlowViewBackup = lazy(() => import("./views/ComponentFlowViewBackup"));
 const PrioritaView = lazy(() => import("./views/PrioritaView"));
 const AnagraficaView = lazy(() => import("./views/AnagraficaView"));
-const MotiviView = lazy(() => import("./views/MotiviView"));
 const ProductionDelaysView = lazy(() => import("./views/ProductionDelaysView"));
 const ProductionScheduleView = lazy(() => import("./views/ProductionScheduleView"));
 const NuovaPianificazioneView = lazy(() => import("./views/NuovaPianificazioneView"));
@@ -251,7 +250,6 @@ function AppContent({ session, onLogout }) {
     { id: "zones", label: "Anagrafica Zone", icon: Icons.settings, adminOnly: true },
     { id: "anagrafica", label: "Anagrafica Dipendenti", icon: Icons.users, adminOnly: true },
     { id: "anagraficaSap", label: "Anagrafica SAP", icon: Icons.settings, adminOnly: true },
-    { id: "motivi", label: "Gestione Motivi", icon: Icons.settings, adminOnly: true },
     { id: "inventory", label: "Inventario", icon: Icons.report },
   ].filter(item => !item.adminOnly || isAdmin);
 
@@ -275,7 +273,6 @@ function AppContent({ session, onLogout }) {
     anagrafica: "Anagrafica Dipendenti",
     anagraficaFermi: "Anagrafica Fermi Macchine",
     anagraficaMacchine: "Anagrafica Macchine",
-    motivi: "Gestione Motivi Assenza",
     zones: "Anagrafica Zone",
     planning: "Pianificazione Turni",
     lpaPlan: "Piano LPA 2026",
@@ -381,7 +378,6 @@ function AppContent({ session, onLogout }) {
               <>
                 <div className="nav-section-label">Operatività</div>
                 {renderItem(ni("dashboard"))}
-                {renderItem(ni("motivi"))}
                 {renderItem(ni("assegnazioni"))}
                 {renderItem(ni("planning"))}
 
@@ -727,11 +723,6 @@ function AppContent({ session, onLogout }) {
             </AdminSecurityWrapper>
           )}
 
-          {currentView === "motivi" && isAdmin && (
-            <AdminSecurityWrapper title="Gestione Motivi">
-              <MotiviView motivi={motivi} setMotivi={setMotivi} showToast={showToast} />
-            </AdminSecurityWrapper>
-          )}
 
           {currentView === "inventory" && <InventoryView showToast={showToast} macchine={macchine} />}
         </div>
