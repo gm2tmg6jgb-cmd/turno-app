@@ -381,6 +381,7 @@ function AppContent({ session, onLogout }) {
               <>
                 <div className="nav-section-label">Operatività</div>
                 {renderItem(ni("dashboard"))}
+                {renderItem(ni("motivi"))}
                 {renderItem(ni("assegnazioni"))}
                 {renderItem(ni("planning"))}
 
@@ -407,7 +408,6 @@ function AppContent({ session, onLogout }) {
                 {renderItem(ni("anagraficaFermi"))}
                 {renderItem(ni("anagrafica"))}
                 {renderItem(ni("anagraficaSap"))}
-                {renderItem(ni("motivi"))}
 
               </>
             );
