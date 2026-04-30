@@ -289,7 +289,7 @@ export const EXCLUDED_PHASES = {
 
 // Fasi standard di default (uguali per tutti i componenti, personalizzabili via ⚙️)
 // I codici SAP (sapMat, sapOp) vengono da Supabase (anagrafica_sap), non qui
-const STD_PHASES = [
+export const STD_PHASES = [
     { phaseId: "laser_welding",  label: "Saldatura Soft", pzH: 130 },
     { phaseId: "hobbing",        label: "Dentatura",       pzH: 86  },
     { phaseId: "ht",             label: "Tratt. Termico",  fixedH: 8, chargeSize: 176, noChangeOver: true },
