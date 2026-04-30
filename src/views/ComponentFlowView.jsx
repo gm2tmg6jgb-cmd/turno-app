@@ -5,6 +5,7 @@ import { TURNI, PROCESS_STEPS, PROJECTS, PROJECT_COMPONENTS, EXCLUDED_PHASES, TH
 import { getSlotForGroup } from "../lib/shiftRotation";
 import Modal from "../components/Modal";
 import { computeThroughput, loadThroughputConfig } from "../utils/throughput";
+import { loadComponentPhases } from "../utils/componentiPhases";
 
 // Parsing 100% manuale: solo material_fino_overrides (configurazione utente su Supabase)
 
@@ -77,9 +78,26 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     const [cellInclusions, setCellInclusions] = useState({});
     const [ultimoImportato, setUltimoImportato] = useState(null);
 
-    // Throughput calcolato una volta sola
     const throughputCfg = useMemo(() => loadThroughputConfig(), [showThroughput, selectedDetail]);
-    const throughputPhases = useMemo(() => computeThroughput("DCT300::SGR", throughputCfg), [throughputCfg]);
+
+    // Fasi del componente selezionato, caricate da Supabase
+    const [detailPhases, setDetailPhases] = useState([]);
+    useEffect(() => {
+        if (!selectedDetail?.proj || !selectedDetail?.comp) {
+            setDetailPhases([]);
+            return;
+        }
+        loadComponentPhases(selectedDetail.proj, selectedDetail.comp).then(setDetailPhases);
+    }, [selectedDetail?.proj, selectedDetail?.comp]);
+
+    const detailCompKey = selectedDetail ? `${selectedDetail.proj}::${selectedDetail.comp}` : null;
+    const detailCompBase = detailCompKey ? (throughputCfg.components?.[detailCompKey] ?? {}) : {};
+    const throughputPhases = useMemo(() => {
+        if (!detailCompKey || detailPhases.length === 0) return [];
+        return computeThroughput(detailCompKey, {
+            components: { [detailCompKey]: { ...detailCompBase, phases: detailPhases } }
+        });
+    }, [detailPhases, detailCompKey]);
     const throughputTotalH = throughputPhases.at(-1)?.cumH || 0;
 
     const handlePrint = () => {
@@ -876,7 +894,9 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                                 setSelectedDetail({
                                                                     title: `${comp} · ${step.label}`,
                                                                     records: cellData.records,
-                                                                    phaseId: step.id
+                                                                    phaseId: step.id,
+                                                                    proj,
+                                                                    comp,
                                                                 });
                                                             }
                                                         }
@@ -1334,7 +1354,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                 /* Tab Throughput */
                                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                                     <p style={{ margin: "0 0 12px", fontSize: 12, color: "var(--text-muted)" }}>
-                                        Tempo stimato per fase · Lotto {throughputCfg.lotto} pz · OEE {Math.round(throughputCfg.oee * 100)}%
+                                        Tempo stimato per fase · Lotto {detailCompBase.lotto ?? 1200} pz · OEE {Math.round((detailCompBase.oee ?? 0.85) * 100)}%
                                     </p>
                                     {throughputPhases.map(p => {
                                         const isCurrent = p.phaseId === selectedDetail.phaseId;
