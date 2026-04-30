@@ -390,6 +390,7 @@ function AppContent({ session, onLogout }) {
 
                 <div className="nav-section-label">Report & Dati</div>
                 {renderItem(ni("componentFlow"))}
+                {renderItem(ni("componentFlowBackup"))}
                 {renderItem(ni("throughput"))}
                 {renderItem(ni("priorita"))}
                 {renderItem(ni("productionFlowReport"))}

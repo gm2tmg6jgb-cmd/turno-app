@@ -3,6 +3,28 @@ import Modal from "./Modal";
 
 const CHANGELOG = [
     {
+        version: "1.3.0",
+        data: "30 Aprile 2026",
+        label: "Fasi Componente da DB + Vista Backup",
+        modifiche: [
+            {
+                categoria: "🆕 Novità",
+                voci: [
+                    "Aggiunta vista 'Avanzamento Backup' nel menu Report & Dati",
+                    "Nuova tabella Supabase componente_fasi per configurare fasi per progetto/componente",
+                    "Nuova utility componentiPhases.js per caricare fasi da DB con fallback a STD_PHASES",
+                ]
+            },
+            {
+                categoria: "🔧 Tecnico",
+                voci: [
+                    "Migration 20260429_create_componente_fasi.sql con RLS e dati iniziali per tutti i progetti",
+                    "Funzioni loadComponentPhases, loadProjectPhases, saveComponentPhase esposte dalla utility",
+                ]
+            }
+        ]
+    },
+    {
         version: "1.2.0",
         data: "29 Aprile 2026",
         label: "Data e Ora Ultimo Scarico SAP",
