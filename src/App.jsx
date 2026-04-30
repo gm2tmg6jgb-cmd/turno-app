@@ -30,7 +30,6 @@ const Op10View = lazy(() => import("./views/Op10View"));
 const ComponentFlowView = lazy(() => import("./views/ComponentFlowView"));
 const ComponentFlowViewBackup = lazy(() => import("./views/ComponentFlowViewBackup"));
 const PrioritaView = lazy(() => import("./views/PrioritaView"));
-const AnagraficaView = lazy(() => import("./views/AnagraficaView"));
 const ProductionDelaysView = lazy(() => import("./views/ProductionDelaysView"));
 const ProductionScheduleView = lazy(() => import("./views/ProductionScheduleView"));
 const NuovaPianificazioneView = lazy(() => import("./views/NuovaPianificazioneView"));
@@ -248,7 +247,6 @@ function AppContent({ session, onLogout }) {
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine, adminOnly: true },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings, adminOnly: true },
     { id: "zones", label: "Anagrafica Zone", icon: Icons.settings, adminOnly: true },
-    { id: "anagrafica", label: "Anagrafica Dipendenti", icon: Icons.users, adminOnly: true },
     { id: "anagraficaSap", label: "Anagrafica SAP", icon: Icons.settings, adminOnly: true },
     { id: "inventory", label: "Inventario", icon: Icons.report },
   ].filter(item => !item.adminOnly || isAdmin);
@@ -270,7 +268,6 @@ function AppContent({ session, onLogout }) {
     productionSchedule: "Programma Produzione",
     nuovaPianificazione: "Nuova Pianificazione Produzione",
     fermi: "Report Fermi",
-    anagrafica: "Anagrafica Dipendenti",
     anagraficaFermi: "Anagrafica Fermi Macchine",
     anagraficaMacchine: "Anagrafica Macchine",
     zones: "Anagrafica Zone",
@@ -402,7 +399,6 @@ function AppContent({ session, onLogout }) {
                 {renderItem(ni("anagraficaMacchine"))}
                 {renderItem(ni("zones"))}
                 {renderItem(ni("anagraficaFermi"))}
-                {renderItem(ni("anagrafica"))}
                 {renderItem(ni("anagraficaSap"))}
 
               </>
@@ -711,17 +707,6 @@ function AppContent({ session, onLogout }) {
             />
           )}
 
-          {currentView === "anagrafica" && isAdmin && (
-            <AdminSecurityWrapper title="Anagrafica Dipendenti">
-              <AnagraficaView
-                dipendenti={dipendenti}
-                setDipendenti={setDipendenti}
-                macchine={macchine}
-                showToast={showToast}
-                turnoCorrente={turnoCorrente}
-              />
-            </AdminSecurityWrapper>
-          )}
 
 
           {currentView === "inventory" && <InventoryView showToast={showToast} macchine={macchine} />}
