@@ -5,14 +5,17 @@ const CHANGELOG = [
     {
         version: "1.4.0",
         data: "30 Aprile 2026",
-        label: "Fix Fermi + Fasi DCT300 + Target Ad Oggi",
+        label: "Fix Fermi + Fasi DCT300 + Target + Riorganizzazione Sidebar",
         modifiche: [
             {
                 categoria: "🔧 Fix",
                 voci: [
                     "Modale fermo: macchina pre-compilata dalla configurazione cella (material_fino_overrides)",
-                    "Modale fermo: dropdown motivi ora filtra per tecnologia fase con fallback universale",
-                    "Motivi automazione: filtro corretto con is_automazione=true invece di tecnologia_id='automazione'",
+                    "Modale fermo: dropdown motivi filtra per tecnologia fase con fallback universale",
+                    "Motivi automazione: filtro corretto con is_automazione=true",
+                    "Target settimanale: corretto calcolo per giorni lavorati (non turni distinti)",
+                    "Target turno singolo: base / 4 invece di base / 3",
+                    "Tabella dettagli cella: macchina da overrides mostrata come fallback se SAP vuota",
                 ]
             },
             {
@@ -20,7 +23,9 @@ const CHANGELOG = [
                 voci: [
                     "DCT300: aggiunta fase Rettifica Denti 2 (SLW) dopo Tornitura Hard (TH)",
                     "DCT300: rimossa fase MZA Soft (ut_soft) dal flusso",
-                    "Header target settimanale: mostra 'target ad oggi / target settimanale' in modalità weekly",
+                    "Header target settimanale: mostra 'target ad oggi / target settimanale'",
+                    "Anagrafica SAP spostata come tab in Hub SAP",
+                    "Anagrafica Zone spostata come tab in Assegnazioni",
                 ]
             }
         ]
