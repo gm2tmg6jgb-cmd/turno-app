@@ -965,8 +965,8 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                             );
                                                         })()}
 
-                                                        {/* Bottone aggiungi fermo — integrato dentro la cella */}
-                                                        {!isConfigMode && !NO_FERMO_PHASES.includes(step.id) && (
+                                                        {/* Bottone aggiungi fermo — solo in modalità turno singolo */}
+                                                        {!isConfigMode && !NO_FERMO_PHASES.includes(step.id) && localTurno !== "ALL" && (
                                                             <button
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
