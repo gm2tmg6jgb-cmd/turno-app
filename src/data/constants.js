@@ -248,6 +248,29 @@ export const PROCESS_STEPS = [
     { id: "baa", label: "BAA", code: "BAA" }
 ];
 
+// Fasi senza gestione fermi (ht, pallinatura, lavaggio, baa)
+export const NO_FERMO_PHASES = ["ht", "shot_peening", "washing", "baa"];
+
+// Mapping fase → tecnologia_fermo (per filtrare motivi nel modale fermo)
+export const FASE_TECNOLOGIA_MAP = {
+    "start_soft":          "tornitura_soft",
+    "dmc":                 "marcatura_laser_dmc",
+    "laser_welding":       "saldatrici",
+    "laser_welding_soft_2":"saldatrici",
+    "laser_welding_2":     "saldatrici",
+    "shaping":             "stozzatrici",
+    "milling":             "tascatrice",
+    "broaching":           "brocciatura",
+    "hobbing":             "dentatrici",
+    "deburring":           "smussatrici",
+    "start_hard":          "tornitura_hard",
+    "ut_soft":             "controllo_ut",
+    "ut":                  "controllo_ut",
+    "grinding_cone":       "tornitura_rettifica_cono",
+    "grinding_cone_2":     "tornitura_rettifica_cono",
+    "teeth_grinding":      "rettifiche denti",
+};
+
 export const PROJECTS = ["DCT300", "DCT ECO", "8Fe", "RG + DH"];
 
 export const PROJECT_COMPONENTS = {

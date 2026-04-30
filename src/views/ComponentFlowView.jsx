@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase, fetchAllRows } from "../lib/supabase";
 import { getCurrentWeekRange } from "../lib/dateUtils";
-import { TURNI, PROCESS_STEPS, PROJECTS, PROJECT_COMPONENTS, EXCLUDED_PHASES, THROUGHPUT_CONFIG } from "../data/constants";
+import { TURNI, PROCESS_STEPS, PROJECTS, PROJECT_COMPONENTS, EXCLUDED_PHASES, THROUGHPUT_CONFIG, NO_FERMO_PHASES, FASE_TECNOLOGIA_MAP } from "../data/constants";
 import { getSlotForGroup } from "../lib/shiftRotation";
 import Modal from "../components/Modal";
 import { computeThroughput, loadThroughputConfig } from "../utils/throughput";
@@ -943,7 +943,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                         )}
 
                                                         {/* Badge fermo — pallino rosso se ci sono fermi per questa cella */}
-                                                        {!isConfigMode && (() => {
+                                                        {!isConfigMode && !NO_FERMO_PHASES.includes(step.id) && (() => {
                                                             const cellFermi = fermiByProject[`${proj}:${comp}:${step.id}`] || [];
                                                             if (cellFermi.length === 0) return null;
                                                             const totMin = cellFermi.reduce((s, f) => s + (f.durata_minuti || 0), 0);
@@ -963,7 +963,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                         })()}
 
                                                         {/* Bottone aggiungi fermo — integrato dentro la cella */}
-                                                        {!isConfigMode && (
+                                                        {!isConfigMode && !NO_FERMO_PHASES.includes(step.id) && (
                                                             <button
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
@@ -1475,11 +1475,28 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                     className="select-input"
                                     value={fermoForm.motivo}
                                     onChange={e => setFermoForm(f => ({ ...f, motivo: e.target.value }))}
-                                >
-                                    <option value="">— Seleziona —</option>
-                                    {motiviFermoList.map(m => (
-                                        <option key={m.id} value={m.label}>{m.icona ? m.icona + " " : ""}{m.label}</option>
-                                    ))}
+                                >{(() => {
+                                    const tecId = fermoModal ? FASE_TECNOLOGIA_MAP[fermoModal.fase] : null;
+                                    const macchina = motiviFermoList.filter(m => m.tecnologia_id === tecId && !m.is_automazione);
+                                    const automazione = motiviFermoList.filter(m => m.tecnologia_id === "automazione");
+                                    return (<>
+                                        <option value="">— Seleziona —</option>
+                                        {macchina.length > 0 && (
+                                            <optgroup label="🔧 Macchina">
+                                                {macchina.map(m => (
+                                                    <option key={m.id} value={m.label}>{m.icona ? m.icona + " " : ""}{m.label}</option>
+                                                ))}
+                                            </optgroup>
+                                        )}
+                                        {automazione.length > 0 && (
+                                            <optgroup label="🤖 Automazione">
+                                                {automazione.map(m => (
+                                                    <option key={m.id} value={m.label}>{m.icona ? m.icona + " " : ""}{m.label}</option>
+                                                ))}
+                                            </optgroup>
+                                        )}
+                                    </>);
+                                })()}
                                 </select>
                             </div>
                             <div>
