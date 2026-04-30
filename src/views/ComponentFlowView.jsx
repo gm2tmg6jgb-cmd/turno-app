@@ -242,6 +242,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
 
     const [fermiByProject, setFermiByProject] = useState({});
     const [motiviFermoList, setMotiviFermoList] = useState([]);
+    const [cellMachineMap, setCellMachineMap] = useState({});
     const [fermoModal, setFermoModal] = useState(null); // { project }
     const [fermoForm, setFermoForm] = useState({ macchinaId: "", motivo: "", durata: "", note: "" });
     const [savingFermo, setSavingFermo] = useState(false);
@@ -316,6 +317,12 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 proj: (r.progetto || "").trim(),
                 macchina_id: (r.macchina_id || "").toUpperCase()
             }));
+
+            const machineMap = {};
+            dbMaterialOverrides.forEach(o => {
+                if (o.macchina_id) machineMap[`${o.proj}:${o.comp}:${o.phase}`] = o.macchina_id;
+            });
+            setCellMachineMap(machineMap);
 
             const cfgSet = new Set();
             (matOverridesErr ? [] : (matOverridesRes || [])).forEach(r => {
@@ -688,14 +695,34 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                 gap: "8px"
                             }}>
                                 <span>Target {viewMode === "weekly" ? "Settimanale" : (localTurno !== "ALL" ? `Turno ${localTurno}` : "Giorno")}</span>
-                                <span style={{ fontSize: isExpanded ? "32px" : "24px", color: "var(--text-primary)" }}>
-                                    {(() => {
-                                        const base = targetOverrides[proj] || 0;
-                                        if (viewMode === "weekly") return base * 6;
-                                        if (localTurno !== "ALL") return Math.round(base / 3);
-                                        return base;
-                                    })()}
-                                </span>
+                                {viewMode === "weekly" ? (() => {
+                                    const base = targetOverrides[proj] || 0;
+                                    const allProjRecords = Object.values(matrixData[proj] || {})
+                                        .flatMap(c => Object.values(c).flatMap(cell => (cell?.records || []).filter(r => r.data <= wDate)));
+                                    const turniSet = new Set(allProjRecords.map(r => r.data && r.turno_id ? `${r.data}#${r.turno_id}` : null).filter(Boolean));
+                                    let numTurni = turniSet.size;
+                                    const today = new Date().toISOString().split("T")[0];
+                                    if (wDate === today) {
+                                        const currentHour = new Date().getHours();
+                                        const turniCompletatiOggi = Math.floor(currentHour / 6);
+                                        const turniOggiConosciuti = new Set(allProjRecords.filter(r => r.data === today).map(r => r.turno_id).filter(Boolean)).size;
+                                        numTurni += Math.max(0, turniCompletatiOggi - turniOggiConosciuti);
+                                    }
+                                    return (
+                                        <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
+                                            <span style={{ fontSize: isExpanded ? "32px" : "24px", color: "var(--text-primary)" }}>{base * numTurni}</span>
+                                            <span style={{ fontSize: isExpanded ? "16px" : "13px", color: "var(--text-muted)", fontWeight: 700 }}>/ {base * 20}</span>
+                                        </div>
+                                    );
+                                })() : (
+                                    <span style={{ fontSize: isExpanded ? "32px" : "24px", color: "var(--text-primary)" }}>
+                                        {(() => {
+                                            const base = targetOverrides[proj] || 0;
+                                            if (localTurno !== "ALL") return Math.round(base / 3);
+                                            return base;
+                                        })()}
+                                    </span>
+                                )}
                             </div>
                             <button
                                 onClick={() => setTargetModal({ proj, value: targetOverrides[proj] || 0 })}
@@ -968,7 +995,8 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     setFermoModal({ project: proj, comp, fase: step.id, phaseLabel: step.label });
-                                                                    setFermoForm({ macchinaId: "", motivo: "", durata: "", note: "" });
+                                                                    const macchinaId = cellMachineMap[`${proj}:${comp}:${step.id}`] || "";
+                                                                    setFermoForm({ macchinaId, motivo: "", durata: "", note: "" });
                                                                 }}
                                                                 data-fermo-btn
                                                                 title="Aggiungi fermo"
@@ -1477,8 +1505,10 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                     onChange={e => setFermoForm(f => ({ ...f, motivo: e.target.value }))}
                                 >{(() => {
                                     const tecId = fermoModal ? FASE_TECNOLOGIA_MAP[fermoModal.fase] : null;
-                                    const macchina = motiviFermoList.filter(m => m.tecnologia_id === tecId && !m.is_automazione);
-                                    const automazione = motiviFermoList.filter(m => m.tecnologia_id === "automazione");
+                                    const macchina = motiviFermoList.filter(m =>
+                                        !m.is_automazione && (tecId ? m.tecnologia_id === tecId : true)
+                                    );
+                                    const automazione = motiviFermoList.filter(m => m.is_automazione === true);
                                     return (<>
                                         <option value="">— Seleziona —</option>
                                         {macchina.length > 0 && (

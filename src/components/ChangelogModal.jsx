@@ -3,6 +3,29 @@ import Modal from "./Modal";
 
 const CHANGELOG = [
     {
+        version: "1.4.0",
+        data: "30 Aprile 2026",
+        label: "Fix Fermi + Fasi DCT300 + Target Ad Oggi",
+        modifiche: [
+            {
+                categoria: "🔧 Fix",
+                voci: [
+                    "Modale fermo: macchina pre-compilata dalla configurazione cella (material_fino_overrides)",
+                    "Modale fermo: dropdown motivi ora filtra per tecnologia fase con fallback universale",
+                    "Motivi automazione: filtro corretto con is_automazione=true invece di tecnologia_id='automazione'",
+                ]
+            },
+            {
+                categoria: "🆕 Novità",
+                voci: [
+                    "DCT300: aggiunta fase Rettifica Denti 2 (SLW) dopo Tornitura Hard (TH)",
+                    "DCT300: rimossa fase MZA Soft (ut_soft) dal flusso",
+                    "Header target settimanale: mostra 'target ad oggi / target settimanale' in modalità weekly",
+                ]
+            }
+        ]
+    },
+    {
         version: "1.3.0",
         data: "30 Aprile 2026",
         label: "Fasi Componente da DB + Vista Backup",
