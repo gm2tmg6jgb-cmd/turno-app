@@ -1038,11 +1038,11 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                         background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)",
                                         borderRadius: 8, padding: "6px 12px", fontSize: 12
                                     }}>
-                                        <span style={{ fontWeight: 800, color: "var(--text-muted)", marginRight: 4 }}>{f.componente} · {PHASE_CODE[f.fase] || f.fase}</span>
-                                        <span style={{ fontWeight: 800, color: "#ef4444" }}>{f.durata_minuti}min</span>
-                                        <span style={{ color: "var(--text-primary)", marginLeft: 6 }}>{f.motivo}</span>
-                                        {f.macchina_id && <span style={{ color: "var(--text-muted)", marginLeft: 6 }}>· {f.macchina_id}</span>}
-                                        {f.note && <span style={{ color: "var(--text-muted)", marginLeft: 6, fontStyle: "italic" }}>"{f.note}"</span>}
+                                        <span style={{ fontWeight: 800, color: "var(--text-primary)" }}>
+                                            {f.macchina_id && `${f.macchina_id} - `}
+                                            {f.componente} - {f.progetto} - {f.motivo} - {f.durata_minuti}min
+                                        </span>
+                                        {f.note && <span style={{ color: "var(--text-muted)", marginLeft: 6, fontStyle: "italic", display: "block" }}>"{f.note}"</span>}
                                     </div>
                                 ))}
                             </div>
