@@ -25,7 +25,6 @@ const ProductionFlowReportView = lazy(() => import("./views/ProductionFlowReport
 const AnagraficaFermiView = lazy(() => import("./views/AnagraficaFermiView"));
 const SkillsView = lazy(() => import("./views/SkillsView"));
 const FormazioneView = lazy(() => import("./views/FormazioneView"));
-const ZoneView = lazy(() => import("./views/ZoneView"));
 const Op10View = lazy(() => import("./views/Op10View"));
 const ComponentFlowView = lazy(() => import("./views/ComponentFlowView"));
 const ComponentFlowViewBackup = lazy(() => import("./views/ComponentFlowViewBackup"));
@@ -245,7 +244,6 @@ function AppContent({ session, onLogout }) {
     { id: "nuovaPianificazione", label: "Nuova Pianificazione Produzione", icon: Icons.calendar, status: "new" },
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine, adminOnly: true },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings, adminOnly: true },
-    { id: "zones", label: "Anagrafica Zone", icon: Icons.settings, adminOnly: true },
     { id: "inventory", label: "Inventario", icon: Icons.report },
   ].filter(item => !item.adminOnly || isAdmin);
 
@@ -676,12 +674,6 @@ function AppContent({ session, onLogout }) {
               tecnologie={tecnologie}
               showToast={showToast}
             />
-          )}
-
-          {currentView === "zones" && isAdmin && (
-            <AdminSecurityWrapper title="Anagrafica Zone">
-              <ZoneView zones={zone} setZones={setZone} macchine={macchine} setMacchine={setMacchine} showToast={showToast} />
-            </AdminSecurityWrapper>
           )}
 
           {currentView === "op10" && <Op10View globalDate={globalDate} setGlobalDate={setGlobalDate} turnoCorrente={turnoCorrente} />}

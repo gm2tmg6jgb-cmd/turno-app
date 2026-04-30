@@ -4,12 +4,14 @@ import { LIVELLI_COMPETENZA, ATTIVITA } from "../data/constants";
 import { Icons } from "../components/ui/Icons";
 import { Modal } from "../components/ui/Modal";
 import { getLocalDate } from "../lib/dateUtils";
+import AnagraficaZoneView from "./AnagraficaZoneView";
 
 export default function AssegnazioniView({
     dipendenti, presenze, assegnazioni, setAssegnazioni,
     macchine, attivita, setAttivita,
     repartoCorrente, turnoCorrente, showToast, zones, globalDate
 }) {
+    const [activeTab, setActiveTab] = useState("assegnazioni"); // "assegnazioni" | "zone"
     const [showModal, setShowModal] = useState(null); // { id, type: 'machine' | 'activity' }
     const [selectedDip, setSelectedDip] = useState("");
     const [newActivityName, setNewActivityName] = useState("");
@@ -231,16 +233,48 @@ export default function AssegnazioniView({
 
     return (
         <div className="fade-in" style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-            <div style={{ flex: 1, overflowY: "auto", paddingRight: 8, paddingBottom: 20 }}>
-                {/* Local Header */}
-                <div style={{ marginBottom: 24 }}>
+            {/* Header con Tab Navigation */}
+            <div style={{ marginBottom: 16, paddingBottom: 12, borderBottom: "1px solid var(--border-light)" }}>
+                <div style={{ marginBottom: 16 }}>
                     <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: "-0.02em" }}>
-                        Pianificazione Postazioni
+                        Assegnazioni
                     </h1>
-                    <p style={{ margin: "4px 0 0 0", color: "var(--text-secondary)", fontSize: 14 }}>
-                        Assegna gli operatori presenti alle macchine e alle attività del turno corrente.
-                    </p>
                 </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                    {[
+                        { id: "assegnazioni", label: "📍 Pianificazione Postazioni" },
+                        { id: "zone", label: "🗺️ Anagrafica Zone" }
+                    ].map(tab => (
+                        <button
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id)}
+                            style={{
+                                padding: "8px 16px",
+                                borderRadius: 6,
+                                border: "1px solid var(--border)",
+                                background: activeTab === tab.id ? "var(--accent)" : "var(--bg-tertiary)",
+                                color: activeTab === tab.id ? "white" : "var(--text-secondary)",
+                                fontWeight: activeTab === tab.id ? 700 : 600,
+                                fontSize: 12,
+                                cursor: "pointer",
+                                transition: "all 0.2s"
+                            }}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
+            <div style={{ flex: 1, overflowY: "auto", paddingRight: 8, paddingBottom: 20 }}>
+                {activeTab === "assegnazioni" ? (
+                    <>
+                        {/* Local Header - solo per assegnazioni */}
+                        <div style={{ marginBottom: 24 }}>
+                            <p style={{ margin: "0", color: "var(--text-secondary)", fontSize: 14 }}>
+                                Assegna gli operatori presenti alle macchine e alle attività del turno corrente.
+                            </p>
+                        </div>
 
                 <div className="alert alert-info" style={{ marginBottom: 20 }}>
                     <span style={{ flexShrink: 0 }}>{Icons.clock}</span>
@@ -612,7 +646,11 @@ export default function AssegnazioniView({
                         </div>
                     )}
                 </Modal>
-            )}
+                    </>
+                ) : activeTab === "zone" ? (
+                    <AnagraficaZoneView showToast={showToast} />
+                ) : null}
+            </div>
         </div>
     );
 }
