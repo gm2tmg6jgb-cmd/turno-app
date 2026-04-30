@@ -699,19 +699,11 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                     const base = targetOverrides[proj] || 0;
                                     const allProjRecords = Object.values(matrixData[proj] || {})
                                         .flatMap(c => Object.values(c).flatMap(cell => (cell?.records || []).filter(r => r.data <= wDate)));
-                                    const turniSet = new Set(allProjRecords.map(r => r.data && r.turno_id ? `${r.data}#${r.turno_id}` : null).filter(Boolean));
-                                    let numTurni = turniSet.size;
-                                    const today = new Date().toISOString().split("T")[0];
-                                    if (wDate === today) {
-                                        const currentHour = new Date().getHours();
-                                        const turniCompletatiOggi = Math.floor(currentHour / 6);
-                                        const turniOggiConosciuti = new Set(allProjRecords.filter(r => r.data === today).map(r => r.turno_id).filter(Boolean)).size;
-                                        numTurni += Math.max(0, turniCompletatiOggi - turniOggiConosciuti);
-                                    }
+                                    const numGiorni = new Set(allProjRecords.map(r => r.data).filter(Boolean)).size;
                                     return (
                                         <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
-                                            <span style={{ fontSize: isExpanded ? "32px" : "24px", color: "var(--text-primary)" }}>{base * numTurni}</span>
-                                            <span style={{ fontSize: isExpanded ? "16px" : "13px", color: "var(--text-muted)", fontWeight: 700 }}>/ {base * 20}</span>
+                                            <span style={{ fontSize: isExpanded ? "32px" : "24px", color: "var(--text-primary)" }}>{base * numGiorni}</span>
+                                            <span style={{ fontSize: isExpanded ? "16px" : "13px", color: "var(--text-muted)", fontWeight: 700 }}>/ {base * 5}</span>
                                         </div>
                                     );
                                 })() : (
@@ -850,41 +842,19 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                             </div>
                                         );
 
-                                        // === CALCOLO TARGET E COLORE CUMULATIVO PER TURNI ===
+                                        // === CALCOLO TARGET E COLORE CUMULATIVO ===
                                         let currentTarget = 0;
                                         if (viewMode === "weekly") {
-                                            // Calcola il cumulativo fino a wDate (oggi) e il target cumulativo atteso
                                             const base = targetOverrides[proj] || 0;
-
-                                            // Cumulativo reale fino a wDate
                                             const recordsUpToday = (data?.records || []).filter(r => r.data <= wDate);
                                             qty = recordsUpToday.reduce((sum, r) => sum + (r.qta_ottenuta || 0), 0);
-
-                                            // Conta turni unici (turno_id) nei record fino a oggi
-                                            const turniLavorati = new Set(recordsUpToday.map(r => r.turno_id).filter(Boolean));
-                                            let numTurni = turniLavorati.size || 0;
-
-                                            // Se oggi (wDate) è il giorno corrente, aggiungi i turni completati oggi basato sull'ora
-                                            const today = new Date().toISOString().split("T")[0];
-                                            if (wDate === today) {
-                                                const now = new Date();
-                                                const currentHour = now.getHours();
-                                                // Turni da 6 ore: 0-6, 6-12, 12-18, 18-24
-                                                const turniCompletatiOggi = Math.floor(currentHour / 6);
-                                                // Se currentHour === 23, sono nel turno 3 (18-24), quindi ho completato 3 turni (0, 1, 2)
-                                                // Se currentHour === 12, sono nel turno 2 (12-18), quindi ho completato 2 turni (0, 1)
-                                                const turniGiaConosciuti = recordsUpToday.filter(r => r.data === today).map(r => r.turno_id).filter(Boolean).length;
-                                                const turniDaAggiungereDaOggi = Math.max(0, turniCompletatiOggi - turniGiaConosciuti);
-                                                numTurni += turniDaAggiungereDaOggi;
-                                            }
-
-                                            // Target cumulativo: target per turno × numero di turni lavorati
-                                            currentTarget = base * numTurni;
+                                            // base = target giornaliero → moltiplica per giorni lavorati
+                                            const numGiorni = new Set(recordsUpToday.map(r => r.data).filter(Boolean)).size;
+                                            currentTarget = base * numGiorni;
                                         } else {
-                                            // Modalità giornaliera
                                             const base = targetOverrides[proj] || 0;
                                             if (localTurno !== "ALL") {
-                                                currentTarget = Math.round(base / 3);
+                                                currentTarget = Math.round(base / 4);
                                             } else {
                                                 currentTarget = base;
                                             }
