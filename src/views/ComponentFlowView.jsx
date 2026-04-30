@@ -533,7 +533,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 componente: fermoModal.comp || null,
                 fase: fermoModal.fase || null,
                 data: wDate,
-                turno_id: localTurno !== "ALL" ? localTurno : null,
+                turno_id: fermoModal.turno,
                 macchina_id: fermoForm.macchinaId.trim() || null,
                 motivo: fermoForm.motivo,
                 durata_minuti: parseInt(fermoForm.durata) || 0,
@@ -970,7 +970,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                             <button
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    setFermoModal({ project: proj, comp, fase: step.id, phaseLabel: step.label });
+                                                                    setFermoModal({ project: proj, comp, fase: step.id, phaseLabel: step.label, turno: localTurno });
                                                                     const macchinaId = cellMachineMap[`${proj}:${comp}:${step.id}`] || "";
                                                                     setFermoForm({ macchinaId, motivo: "", durata: "", note: "" });
                                                                 }}
@@ -1036,13 +1036,51 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                 {projFermi.map((f, i) => (
                                     <div key={i} style={{
                                         background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)",
-                                        borderRadius: 8, padding: "6px 12px", fontSize: 12
+                                        borderRadius: 8, padding: "8px 12px", fontSize: 12,
+                                        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8
                                     }}>
-                                        <span style={{ fontWeight: 800, color: "var(--text-primary)" }}>
-                                            {f.macchina_id && `${f.macchina_id} - `}
-                                            {f.componente} - {f.progetto} - {f.motivo} - {f.durata_minuti}min
-                                        </span>
-                                        {f.note && <span style={{ color: "var(--text-muted)", marginLeft: 6, fontStyle: "italic", display: "block" }}>"{f.note}"</span>}
+                                        <div>
+                                            <span style={{ fontWeight: 800, color: "var(--text-primary)" }}>
+                                                {f.macchina_id && `${f.macchina_id} - `}
+                                                {f.componente} - {f.progetto} - {f.motivo} - {f.durata_minuti}min
+                                            </span>
+                                            {f.note && <span style={{ color: "var(--text-muted)", marginLeft: 6, fontStyle: "italic", display: "block" }}>"{f.note}"</span>}
+                                        </div>
+                                        <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                                            <button
+                                                onClick={async () => {
+                                                    const durata = prompt("Nuova durata (minuti):", f.durata_minuti);
+                                                    if (durata === null) return;
+                                                    try {
+                                                        const { error } = await supabase.from("fermi_flusso").update({ durata_minuti: parseInt(durata) }).eq("id", f.id);
+                                                        if (error) throw error;
+                                                        showToast?.("Fermo aggiornato", "success");
+                                                        fetchData();
+                                                    } catch (err) {
+                                                        showToast?.("Errore aggiornamento: " + err.message, "error");
+                                                    }
+                                                }}
+                                                style={{ padding: "4px 8px", fontSize: 11, border: "none", background: "transparent", cursor: "pointer", color: "#3b82f6", fontWeight: 700 }}
+                                            >
+                                                ✏️
+                                            </button>
+                                            <button
+                                                onClick={async () => {
+                                                    if (!confirm("Elimina questo fermo?")) return;
+                                                    try {
+                                                        const { error } = await supabase.from("fermi_flusso").delete().eq("id", f.id);
+                                                        if (error) throw error;
+                                                        showToast?.("Fermo eliminato", "success");
+                                                        fetchData();
+                                                    } catch (err) {
+                                                        showToast?.("Errore eliminazione: " + err.message, "error");
+                                                    }
+                                                }}
+                                                style={{ padding: "4px 8px", fontSize: 11, border: "none", background: "transparent", cursor: "pointer", color: "#ef4444", fontWeight: 700 }}
+                                            >
+                                                🗑️
+                                            </button>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
