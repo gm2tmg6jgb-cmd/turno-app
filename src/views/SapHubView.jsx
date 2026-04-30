@@ -4,6 +4,7 @@ import ImportView from "./ImportView";
 import SapDataView from "./SapDataView";
 import SapFermiView from "./SapFermiView";
 import SapSummaryView from "./SapSummaryView";
+import AnagraficaSapView from "./AnagraficaSapView";
 
 /**
  * SapHubView
@@ -19,13 +20,14 @@ export default function SapHubView({
     setCurrentView,
     globalDate
 }) {
-    const [activeTab, setActiveTab] = useState("import"); // "import" | "produzione" | "fermi" | "analisi"
+    const [activeTab, setActiveTab] = useState("import"); // "import" | "produzione" | "fermi" | "analisi" | "anagrafica"
 
     const tabs = [
         { id: "import", label: "Importazione SAP", icon: Icons.upload },
         { id: "produzione", label: "Storico Produzione", icon: Icons.report },
         { id: "fermi", label: "Storico Fermi", icon: Icons.alert },
         { id: "analisi", label: "Analisi Performance", icon: Icons.dashboard },
+        { id: "anagrafica", label: "Anagrafica SAP", icon: Icons.settings },
     ];
 
     return (
@@ -98,8 +100,13 @@ export default function SapHubView({
                     />
                 )}
                 {activeTab === "analisi" && (
-                    <SapSummaryView 
-                        macchine={macchine} 
+                    <SapSummaryView
+                        macchine={macchine}
+                    />
+                )}
+                {activeTab === "anagrafica" && (
+                    <AnagraficaSapView
+                        showToast={showToast}
                     />
                 )}
             </div>

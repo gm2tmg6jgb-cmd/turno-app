@@ -889,9 +889,15 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                             // Normal mode: show SAP production details
                                                             const cellData = matrixData[proj]?.[comp]?.[step.id];
                                                             if (cellData?.records?.length > 0) {
+                                                                // Enrichisci record con macchina configurata se assente
+                                                                const configuredMachine = cellMachineMap[`${proj}:${comp}:${step.id}`] || null;
+                                                                const enrichedRecords = cellData.records.map(r => ({
+                                                                    ...r,
+                                                                    macchinaConfigured: configuredMachine
+                                                                }));
                                                                 setSelectedDetail({
                                                                     title: `${comp} · ${step.label}`,
-                                                                    records: cellData.records,
+                                                                    records: enrichedRecords,
                                                                     phaseId: step.id,
                                                                     proj,
                                                                     comp,
@@ -1333,7 +1339,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                     {selectedDetail.phaseId === "baa"
                                                         ? <td style={{ padding: "10px", fontSize: "13px" }}>{r.orario || "—"}</td>
                                                         : <><td style={{ padding: "10px", fontSize: "13px" }}>{r.turno_id}</td>
-                                                           <td style={{ padding: "10px", fontSize: "13px", fontWeight: "bold" }}>{r.macchina || r.macchina_id || r.work_center_sap || "—"}</td></>
+                                                           <td style={{ padding: "10px", fontSize: "13px", fontWeight: "bold" }}>{r.macchina || r.macchina_id || r.work_center_sap || r.macchinaConfigured || "—"}</td></>
                                                     }
                                                     <td style={{ padding: "10px", fontSize: "14px", fontWeight: "bold", textAlign: "right", color: "#3c6ef0" }}>
                                                         {selectedDetail.phaseId === "baa" ? Math.abs(r.quantita || 0) : r.qta_ottenuta}
