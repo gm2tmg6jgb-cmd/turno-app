@@ -27,7 +27,8 @@ export default function DashboardView({
     const [editingRichiamo, setEditingRichiamo] = useState(null);
     const [rFormData, setRFormData] = useState({ data_richiamo: "", motivo_id: "", numero_scarti: 0, descrizione: "" });
     const [allegatiTemp, setAllegatiTemp] = useState([]);
-    const [filtroMotivo, setFiltroMotivo] = useState("all");
+    const [filtroTurno, setFiltroTurno] = useState("");
+    const [searchRichiami, setSearchRichiami] = useState("");
 
     const today = globalDate || getLocalDate(new Date());
 
@@ -751,6 +752,18 @@ export default function DashboardView({
                             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                                 <select
                                     className="select-input"
+                                    style={{ width: 200 }}
+                                    value={filtroTurno}
+                                    onChange={(e) => setFiltroTurno(e.target.value)}
+                                >
+                                    <option value="">Tutti i turni</option>
+                                    <option value="A">Turno A</option>
+                                    <option value="B">Turno B</option>
+                                    <option value="C">Turno C</option>
+                                    <option value="D">Turno D</option>
+                                </select>
+                                <select
+                                    className="select-input"
                                     style={{ width: 300 }}
                                     value={selectedDipendente?.id || ""}
                                     onChange={(e) => {
@@ -759,22 +772,19 @@ export default function DashboardView({
                                     }}
                                 >
                                     <option value="">Seleziona dipendente...</option>
-                                    {dipendenti.filter(d => d.attivo !== false).map(d => (
+                                    {dipendenti.filter(d => d.attivo !== false && (!filtroTurno || d.turno_default === filtroTurno)).map(d => (
                                         <option key={d.id} value={d.id}>{d.cognome} {d.nome}</option>
                                     ))}
                                 </select>
                                 {selectedDipendente && (
-                                    <select
-                                        className="select-input"
-                                        style={{ width: 200 }}
-                                        value={filtroMotivo}
-                                        onChange={(e) => setFiltroMotivo(e.target.value)}
-                                    >
-                                        <option value="all">Tutti i motivi</option>
-                                        {motivi.map(m => (
-                                            <option key={m.id} value={m.id}>{m.label}</option>
-                                        ))}
-                                    </select>
+                                    <input
+                                        type="text"
+                                        className="input"
+                                        style={{ width: 250 }}
+                                        placeholder="Cerca richiami..."
+                                        value={searchRichiami}
+                                        onChange={(e) => setSearchRichiami(e.target.value)}
+                                    />
                                 )}
                             </div>
                             {selectedDipendente && (
@@ -805,7 +815,16 @@ export default function DashboardView({
                                             <tbody>
                                                 {(() => {
                                                     const aggregato = {};
-                                                    richiami.forEach(r => {
+                                                    const filteredBySearch = richiami.filter(r => {
+                                                        const motivo = motivi.find(m => m.id === r.motivo_id);
+                                                        const motivoLabel = motivo?.label || "";
+                                                        const searchTerm = searchRichiami.toLowerCase();
+                                                        return (
+                                                            (r.descrizione || "").toLowerCase().includes(searchTerm) ||
+                                                            motivoLabel.toLowerCase().includes(searchTerm)
+                                                        );
+                                                    });
+                                                    filteredBySearch.forEach(r => {
                                                         if (!aggregato[r.motivo_id]) {
                                                             aggregato[r.motivo_id] = { scarti: 0, count: 0 };
                                                         }
@@ -831,9 +850,15 @@ export default function DashboardView({
 
                                 {/* FILTERED RICHIAMI LIST */}
                                 {(() => {
-                                    const filteredRichiami = filtroMotivo === "all"
-                                        ? richiami
-                                        : richiami.filter(r => r.motivo_id === filtroMotivo);
+                                    const filteredRichiami = richiami.filter(r => {
+                                        const motivo = motivi.find(m => m.id === r.motivo_id);
+                                        const motivoLabel = motivo?.label || "";
+                                        const searchTerm = searchRichiami.toLowerCase();
+                                        return (
+                                            (r.descrizione || "").toLowerCase().includes(searchTerm) ||
+                                            motivoLabel.toLowerCase().includes(searchTerm)
+                                        );
+                                    });
 
                                     return filteredRichiami.length > 0 ? (
                                         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -893,7 +918,7 @@ export default function DashboardView({
                                     </div>
                                 ) : (
                                     <div style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>
-                                        {filtroMotivo === "all" ? "Nessun richiamo registrato" : "Nessun richiamo per il motivo selezionato"}
+                                        {searchRichiami ? "Nessun richiamo corrisponde alla ricerca" : "Nessun richiamo registrato"}
                                     </div>
                                 );
                                 })()}
