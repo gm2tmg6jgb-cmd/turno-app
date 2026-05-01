@@ -38,6 +38,8 @@ const COMPONENT_EXCLUSIONS = {
     "PG": ["shaping", "laser_welding", "laser_welding_2", "ut", "deburring", "milling", "laser_welding_soft_2", "start_hard", "grinding_cone", "shot_peening"],
     "FG5/7": ["shaping", "laser_welding", "laser_welding_2", "ut", "milling", "laser_welding_soft_2", "start_hard", "grinding_cone", "broaching"], // shot_peening VISIBILE
     "SG8": ["milling", "broaching", "shaping", "deburring", "shot_peening", "start_hard", "laser_welding_2", "ut"],
+    "DH TORNITURA": ["start_hard", "spherical_turning", "labor_hours"],
+    "DH ASSEMBLAGGIO": ["assembly", "sca_post_deburring", "mza_pre_ht"],
     "DH SALDATURA": ["start_hard"],
     "RG FD1": ["laser_welding", "shaping", "milling", "broaching", "laser_welding_2", "ut", "grinding_cone"],
     "RG FD2": ["laser_welding", "shaping", "milling", "broaching", "laser_welding_2", "ut", "grinding_cone"]
