@@ -39,7 +39,7 @@ const COMPONENT_EXCLUSIONS = {
     "FG5/7": ["shaping", "laser_welding", "laser_welding_2", "ut", "milling", "laser_welding_soft_2", "start_hard", "grinding_cone", "broaching"], // shot_peening VISIBILE
     "SG8": ["milling", "broaching", "shaping", "deburring", "shot_peening", "start_hard", "laser_welding_2", "ut"],
     "DH TORNITURA": ["start_hard", "spherical_turning", "labor_hours"],
-    "DH ASSEMBLAGGIO": ["assembly", "sca_post_deburring", "mza_pre_ht"],
+    "DH ASSEMBLAGGIO": ["assembly", "sca_post_deburring"],
     "DH SALDATURA": ["start_hard"],
     "RG FD1": ["laser_welding", "shaping", "milling", "broaching", "laser_welding_2", "ut", "grinding_cone"],
     "RG FD2": ["laser_welding", "shaping", "milling", "broaching", "laser_welding_2", "ut", "grinding_cone"]
@@ -597,6 +597,9 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
             projectVisibleSteps.splice(baaIdx, 0, { id: "__sep__", label: "", code: "", separator: true });
         }
         if (proj === "RG + DH") {
+            // Rimuovi MZA e start_hard_2 (TH prima di SLW)
+            projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "mza_pre_ht" && s.id !== "start_hard_2");
+
             // DRA Soft (start_soft) prima di ZSA (dmc)
             const draSoftStep = projectVisibleSteps.find(s => s.id === "start_soft");
             if (draSoftStep) {
@@ -604,12 +607,15 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 const zsaIdx = projectVisibleSteps.findIndex(s => s.id === "dmc");
                 projectVisibleSteps.splice(zsaIdx !== -1 ? zsaIdx : 0, 0, draSoftStep);
             }
-            // DRA Hard (start_hard) dopo OKU (shot_peening)
+            // DRA Hard (start_hard) dopo OKU (shot_peening), seguito da TSF, ORE, ASM, SCA
             const draHardStep = projectVisibleSteps.find(s => s.id === "start_hard");
             if (draHardStep) {
-                projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "start_hard");
+                projectVisibleSteps = projectVisibleSteps.filter(s => !["start_hard", "spherical_turning", "labor_hours", "assembly", "sca_post_deburring", "mza_pre_ht"].includes(s.id));
                 const okuIdx = projectVisibleSteps.findIndex(s => s.id === "shot_peening");
-                projectVisibleSteps.splice(okuIdx !== -1 ? okuIdx + 1 : projectVisibleSteps.length, 0, draHardStep);
+                const insertIdx = okuIdx !== -1 ? okuIdx + 1 : projectVisibleSteps.length;
+                const phaseIds = ["start_hard", "spherical_turning", "labor_hours", "assembly", "sca_post_deburring"];
+                const phasesToInsert = phaseIds.map(id => PROCESS_STEPS.find(s => s.id === id)).filter(Boolean);
+                projectVisibleSteps.splice(insertIdx, 0, ...phasesToInsert);
             }
         }
 

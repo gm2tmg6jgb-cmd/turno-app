@@ -235,20 +235,21 @@ export const PROCESS_STEPS = [
     { id: "broaching", label: "Brocciatura", code: "RAA" },
     { id: "hobbing", label: "Dentatura", code: "FRW" },
     { id: "deburring", label: "Sbavatura", code: "EGW" },
-    { id: "start_hard", label: "Tornitura Hard", code: "TH" },
-    { id: "spherical_turning", label: "Tornitura Sferico", code: "TSF" },
-    { id: "labor_hours", label: "Ore", code: "ORE" },
     { id: "sca_post_deburring", label: "SCA", code: "SCA" },
-    { id: "assembly", label: "Assembly", code: "ASM" },
     { id: "mza_pre_ht", label: "MZA", code: "MZA" },
     { id: "ht", label: "Trattamento Termico", code: "HOK" },
     { id: "shot_peening", label: "Pallinatura", code: "OKU" },
+    { id: "start_hard", label: "Tornitura Hard", code: "TH" },
+    { id: "spherical_turning", label: "Tornitura Sferico", code: "TSF" },
+    { id: "labor_hours", label: "Ore", code: "ORE" },
+    { id: "assembly", label: "Assembly", code: "ASM" },
     { id: "slw_post_th", label: "SLW", code: "SLW" },
     { id: "teeth_grinding_2", label: "Rettifica Denti 2", code: "SLW" },
     { id: "laser_welding_2", label: "Saldatura Hard", code: "SCA" },
     { id: "ut_soft", label: "MZA Soft", code: "MZA" },
     { id: "ut", label: "MZA Hard", code: "MZA" },
     { id: "grinding_cone", label: "Rettifica Cono", code: "SLA" },
+    { id: "start_hard_2", label: "Tornitura Hard", code: "TH" },
     { id: "grinding_cone_2", label: "Rettifica Cono 2", code: "SLA" },
     { id: "teeth_grinding", label: "Rettifica Denti", code: "SLW" },
     { id: "washing", label: "Lavaggio", code: "WSH" },
@@ -272,6 +273,7 @@ export const FASE_TECNOLOGIA_MAP = {
     "deburring":           "smussatrici",
     "sca_post_deburring":  "saldatrici",
     "start_hard":          "tornitura_hard",
+    "start_hard_2":        "tornitura_hard",
     "spherical_turning":   "tornitura_hard",
     "labor_hours":         "tornitura_hard",
     "assembly":            "assemblaggio",
@@ -293,10 +295,10 @@ export const PROJECT_COMPONENTS = {
 };
 
 export const EXCLUDED_PHASES = {
-    "DCT300": ["dmc", "broaching", "milling", "laser_welding_soft_2", "grinding_cone_2", "ut_soft", "sca_post_deburring", "mza_pre_ht", "slw_post_th"],
-    "8Fe": ["laser_welding_2", "ut", "ut_soft", "grinding_cone_2", "teeth_grinding_2", "slw_post_th"],
-    "DCT ECO": ["dmc", "broaching", "laser_welding_soft_2", "start_soft", "teeth_grinding_2", "sca_post_deburring", "mza_pre_ht"],
-    "RG + DH": ["shaping", "broaching", "laser_welding_soft_2", "milling", "ut", "grinding_cone", "laser_welding", "grinding_cone_2", "teeth_grinding_2", "sca_post_deburring", "laser_welding_2", "mza_pre_ht", "slw_post_th"]
+    "DCT300": ["dmc", "broaching", "milling", "laser_welding_soft_2", "grinding_cone_2", "ut_soft", "sca_post_deburring", "mza_pre_ht", "slw_post_th", "spherical_turning", "labor_hours", "assembly"],
+    "8Fe": ["laser_welding_2", "ut", "ut_soft", "grinding_cone_2", "teeth_grinding_2", "slw_post_th", "spherical_turning", "labor_hours", "assembly"],
+    "DCT ECO": ["dmc", "broaching", "laser_welding_soft_2", "start_soft", "teeth_grinding_2", "sca_post_deburring", "mza_pre_ht", "spherical_turning", "labor_hours", "assembly"],
+    "RG + DH": ["dmc", "shaping", "broaching", "laser_welding_soft_2", "milling", "ut", "grinding_cone", "laser_welding", "grinding_cone_2", "teeth_grinding_2", "sca_post_deburring", "laser_welding_2", "slw_post_th", "mza_pre_ht", "ut_soft"]
 };
 
 // Fasi standard di default (uguali per tutti i componenti, personalizzabili via ⚙️)
