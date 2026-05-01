@@ -935,7 +935,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                     >
                                                         {qty}
 
-                                                        {step.id !== "baa" && !configuredCells.has(`${proj}::${comp}::${step.id}`) && (
+                                                        {step.id !== "baa" && !configuredCells.has(`${proj}::${comp.replace(/\s*-\s*(1A|21A)$/i, "").trim()}::${step.id}`) && (
                                                             <div style={{
                                                                 position: "absolute", top: 2, right: 2,
                                                                 fontSize: 10, lineHeight: 1,
