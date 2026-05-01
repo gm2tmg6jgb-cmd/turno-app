@@ -25,8 +25,9 @@ export default function DashboardView({
     const [richiami, setRichiami] = useState([]);
     const [showRichiamModal, setShowRichiamModal] = useState(false);
     const [editingRichiamo, setEditingRichiamo] = useState(null);
-    const [rFormData, setRFormData] = useState({ data_richiamo: "", motivo: "", descrizione: "" });
+    const [rFormData, setRFormData] = useState({ data_richiamo: "", motivo_id: "", numero_scarti: 0, descrizione: "" });
     const [allegatiTemp, setAllegatiTemp] = useState([]);
+    const [filtroMotivo, setFiltroMotivo] = useState("all");
 
     const today = globalDate || getLocalDate(new Date());
 
@@ -316,13 +317,14 @@ export default function DashboardView({
         setActiveTab("richiami");
         fetchRichiami(dip.id);
         setEditingRichiamo(null);
-        setRFormData({ data_richiamo: "", motivo: "", descrizione: "" });
+        setRFormData({ data_richiamo: "", motivo_id: "", numero_scarti: 0, descrizione: "" });
         setAllegatiTemp([]);
+        setFiltroMotivo("all");
     };
 
     // Salva richiamo (nuovo o modifica)
     const handleSaveRichiamo = async () => {
-        if (!rFormData.data_richiamo || !rFormData.motivo || !selectedDipendente) {
+        if (!rFormData.data_richiamo || !rFormData.motivo_id || !selectedDipendente) {
             showToast("Compila i campi obbligatori", "error");
             return;
         }
@@ -331,7 +333,8 @@ export default function DashboardView({
             const payload = {
                 dipendente_id: selectedDipendente.id,
                 data_richiamo: rFormData.data_richiamo,
-                motivo: rFormData.motivo,
+                motivo_id: rFormData.motivo_id,
+                numero_scarti: parseInt(rFormData.numero_scarti) || 0,
                 descrizione: rFormData.descrizione || null
             };
 
@@ -356,7 +359,7 @@ export default function DashboardView({
 
             setShowRichiamModal(false);
             setEditingRichiamo(null);
-            setRFormData({ data_richiamo: "", motivo: "", descrizione: "" });
+            setRFormData({ data_richiamo: "", motivo_id: "", numero_scarti: 0, descrizione: "" });
             setAllegatiTemp([]);
             await fetchRichiami(selectedDipendente.id);
         } catch (error) {
@@ -745,7 +748,7 @@ export default function DashboardView({
                 {activeTab === "richiami" && (
                     <div className="fade-in">
                         <div style={{ display: "flex", gap: 12, marginBottom: 20, alignItems: "center", justifyContent: "space-between" }}>
-                            <div>
+                            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
                                 <select
                                     className="select-input"
                                     style={{ width: 300 }}
@@ -760,12 +763,25 @@ export default function DashboardView({
                                         <option key={d.id} value={d.id}>{d.cognome} {d.nome}</option>
                                     ))}
                                 </select>
+                                {selectedDipendente && (
+                                    <select
+                                        className="select-input"
+                                        style={{ width: 200 }}
+                                        value={filtroMotivo}
+                                        onChange={(e) => setFiltroMotivo(e.target.value)}
+                                    >
+                                        <option value="all">Tutti i motivi</option>
+                                        {motivi.map(m => (
+                                            <option key={m.id} value={m.id}>{m.label}</option>
+                                        ))}
+                                    </select>
+                                )}
                             </div>
                             {selectedDipendente && (
                                 <button className="btn btn-primary" onClick={() => {
                                     setShowRichiamModal(true);
                                     setEditingRichiamo(null);
-                                    setRFormData({ data_richiamo: "", motivo: "", descrizione: "" });
+                                    setRFormData({ data_richiamo: "", motivo_id: "", numero_scarti: 0, descrizione: "" });
                                 }}>
                                     {Icons.plus} Aggiungi Richiamo
                                 </button>
@@ -774,22 +790,72 @@ export default function DashboardView({
 
                         {selectedDipendente && (
                             <div>
-                                {richiami.length > 0 ? (
-                                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                                        {richiami.map(r => (
-                                            <div key={r.id} style={{ padding: 16, border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-secondary)" }}>
-                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 8 }}>
-                                                    <div>
-                                                        <div style={{ fontWeight: 700, fontSize: 14 }}>{new Date(r.data_richiamo).toLocaleDateString()}</div>
-                                                        <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>Motivo: {r.motivo}</div>
-                                                    </div>
+                                {/* AGGREGATION TABLE */}
+                                {richiami.length > 0 && (
+                                    <div style={{ marginBottom: 24, padding: 16, background: "var(--bg-secondary)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                                        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12, color: "var(--text-muted)" }}>RIEPILOGO SCARTI PER MOTIVO</div>
+                                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                                            <thead>
+                                                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                                                    <th style={{ textAlign: "left", padding: "8px 0", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>Motivo</th>
+                                                    <th style={{ textAlign: "center", padding: "8px 0", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>Totale Scarti</th>
+                                                    <th style={{ textAlign: "center", padding: "8px 0", fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>N. Richiami</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {(() => {
+                                                    const aggregato = {};
+                                                    richiami.forEach(r => {
+                                                        if (!aggregato[r.motivo_id]) {
+                                                            aggregato[r.motivo_id] = { scarti: 0, count: 0 };
+                                                        }
+                                                        aggregato[r.motivo_id].scarti += r.numero_scarti || 0;
+                                                        aggregato[r.motivo_id].count += 1;
+                                                    });
+
+                                                    return Object.entries(aggregato).map(([motivoId, stats]) => {
+                                                        const motivo = motivi.find(m => m.id === motivoId);
+                                                        return (
+                                                            <tr key={motivoId} style={{ borderBottom: "1px solid var(--border)" }}>
+                                                                <td style={{ padding: "8px 0", fontSize: 12 }}>{motivo?.label || motivoId}</td>
+                                                                <td style={{ textAlign: "center", padding: "8px 0", fontSize: 12, fontWeight: 600 }}>{stats.scarti}</td>
+                                                                <td style={{ textAlign: "center", padding: "8px 0", fontSize: 12 }}>{stats.count}</td>
+                                                            </tr>
+                                                        );
+                                                    });
+                                                })()}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                )}
+
+                                {/* FILTERED RICHIAMI LIST */}
+                                {(() => {
+                                    const filteredRichiami = filtroMotivo === "all"
+                                        ? richiami
+                                        : richiami.filter(r => r.motivo_id === filtroMotivo);
+
+                                    return filteredRichiami.length > 0 ? (
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                            {filteredRichiami.map(r => {
+                                                const motivo = motivi.find(m => m.id === r.motivo_id);
+                                                return (
+                                                    <div key={r.id} style={{ padding: 16, border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-secondary)" }}>
+                                                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 8 }}>
+                                                            <div>
+                                                                <div style={{ fontWeight: 700, fontSize: 14 }}>{new Date(r.data_richiamo).toLocaleDateString()}</div>
+                                                                <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>Motivo: {motivo?.label || r.motivo_id}</div>
+                                                                {r.numero_scarti > 0 && (
+                                                                    <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>Scarti: {r.numero_scarti}</div>
+                                                                )}
+                                                            </div>
                                                     <div style={{ display: "flex", gap: 6 }}>
                                                         <button
                                                             className="btn btn-secondary"
                                                             style={{ padding: "4px 8px", fontSize: 12 }}
                                                             onClick={() => {
                                                                 setEditingRichiamo(r);
-                                                                setRFormData({ data_richiamo: r.data_richiamo, motivo: r.motivo, descrizione: r.descrizione || "" });
+                                                                setRFormData({ data_richiamo: r.data_richiamo, motivo_id: r.motivo_id, numero_scarti: r.numero_scarti || 0, descrizione: r.descrizione || "" });
                                                                 setShowRichiamModal(true);
                                                             }}
                                                         >
@@ -822,13 +888,15 @@ export default function DashboardView({
                                                     </div>
                                                 )}
                                             </div>
-                                        ))}
+                                        );
+                                            })}
                                     </div>
                                 ) : (
                                     <div style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>
-                                        Nessun richiamo registrato
+                                        {filtroMotivo === "all" ? "Nessun richiamo registrato" : "Nessun richiamo per il motivo selezionato"}
                                     </div>
-                                )}
+                                );
+                                })()}
                             </div>
                         )}
 
@@ -845,7 +913,7 @@ export default function DashboardView({
                                 onClose={() => {
                                     setShowRichiamModal(false);
                                     setEditingRichiamo(null);
-                                    setRFormData({ data_richiamo: "", motivo: "", descrizione: "" });
+                                    setRFormData({ data_richiamo: "", motivo_id: "", numero_scarti: 0, descrizione: "" });
                                     setAllegatiTemp([]);
                                 }}
                                 footer={
@@ -866,7 +934,16 @@ export default function DashboardView({
                                     </div>
                                     <div className="form-group">
                                         <label className="form-label">Motivo</label>
-                                        <input className="input" placeholder="Es: Assenza ingiustificata" value={rFormData.motivo} onChange={(e) => setRFormData({ ...rFormData, motivo: e.target.value })} />
+                                        <select className="select-input" value={rFormData.motivo_id} onChange={(e) => setRFormData({ ...rFormData, motivo_id: e.target.value })}>
+                                            <option value="">Seleziona motivo...</option>
+                                            {motivi.map(m => (
+                                                <option key={m.id} value={m.id}>{m.label}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Numero Scarti</label>
+                                        <input className="input" type="number" min="0" value={rFormData.numero_scarti} onChange={(e) => setRFormData({ ...rFormData, numero_scarti: parseInt(e.target.value) || 0 })} />
                                     </div>
                                     <div className="form-group" style={{ gridColumn: "1 / -1" }}>
                                         <label className="form-label">Descrizione</label>
