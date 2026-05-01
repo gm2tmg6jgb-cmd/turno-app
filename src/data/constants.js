@@ -295,9 +295,9 @@ export const PROJECT_COMPONENTS = {
 };
 
 export const EXCLUDED_PHASES = {
-    "DCT300": ["dmc", "broaching", "milling", "laser_welding_soft_2", "grinding_cone_2", "ut_soft", "sca_post_deburring", "mza_pre_ht", "slw_post_th", "spherical_turning", "labor_hours", "assembly"],
+    "DCT300": ["dmc", "broaching", "milling", "laser_welding_soft_2", "grinding_cone_2", "ut_soft", "sca_post_deburring", "mza_pre_ht", "slw_post_th", "spherical_turning", "labor_hours", "assembly", "start_hard_2"],
     "8Fe": ["laser_welding_2", "ut", "ut_soft", "grinding_cone_2", "teeth_grinding_2", "slw_post_th", "spherical_turning", "labor_hours", "assembly"],
-    "DCT ECO": ["dmc", "broaching", "laser_welding_soft_2", "start_soft", "teeth_grinding_2", "sca_post_deburring", "mza_pre_ht", "spherical_turning", "labor_hours", "assembly"],
+    "DCT ECO": ["dmc", "broaching", "laser_welding_soft_2", "start_soft", "teeth_grinding_2", "sca_post_deburring", "mza_pre_ht", "spherical_turning", "labor_hours", "assembly", "start_hard_2"],
     "RG + DH": ["dmc", "shaping", "broaching", "laser_welding_soft_2", "milling", "ut", "grinding_cone", "laser_welding", "grinding_cone_2", "teeth_grinding_2", "sca_post_deburring", "laser_welding_2", "slw_post_th", "mza_pre_ht", "ut_soft"]
 };
 

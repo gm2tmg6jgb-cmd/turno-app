@@ -724,12 +724,14 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                     </span>
                                 )}
                             </div>
-                            <button
-                                onClick={() => setTargetModal({ proj, value: targetOverrides[proj] || 0 })}
-                                style={{ border: "none", background: "none", cursor: "pointer", fontSize: isExpanded ? "24px" : "16px", padding: 0, opacity: 0.5 }}
-                            >
-                                ⚙️
-                            </button>
+                            {proj !== "RG + DH" && (
+                                <button
+                                    onClick={() => setTargetModal({ proj, value: targetOverrides[proj] || 0 })}
+                                    style={{ border: "none", background: "none", cursor: "pointer", fontSize: isExpanded ? "24px" : "16px", padding: 0, opacity: 0.5 }}
+                                >
+                                    ⚙️
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
