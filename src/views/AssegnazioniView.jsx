@@ -4,7 +4,7 @@ import { LIVELLI_COMPETENZA, ATTIVITA } from "../data/constants";
 import { Icons } from "../components/ui/Icons";
 import { Modal } from "../components/ui/Modal";
 import { getLocalDate } from "../lib/dateUtils";
-import AnagraficaZoneView from "./AnagraficaZoneView";
+import AnagraficaZoneView from "./ZoneView";
 
 export default function AssegnazioniView({
     dipendenti, presenze, assegnazioni, setAssegnazioni,
