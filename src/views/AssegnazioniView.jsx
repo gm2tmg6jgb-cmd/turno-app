@@ -582,7 +582,6 @@ export default function AssegnazioniView({
                         );
                     })}
                 </div>
-            </div>
 
             {showModal && (
                 <Modal
