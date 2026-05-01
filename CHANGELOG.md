@@ -4,6 +4,24 @@ Tutte le modifiche significative di Turno App sono documentate in questo file.
 
 ---
 
+## [1.5.0] — 2026-05-01 — Configurazione Fasi RG + DH
+
+### 🆕 Nuove Funzionalità
+- **Fasi specifiche RG + DH**: Aggiunte nuove fasi operative (TSF, ORE, ASM) solo per progetto RG + DH
+  - TSF (Tornitura Sferico): Operazione di tornithura sferica
+  - ORE: Tracciamento ore lavoro
+  - ASM (Assembly): Operazioni di assemblaggio
+- **Nuovo TH secondario**: Aggiunto start_hard_2 dopo grinding_cone per sequenze specifiche
+
+### 🔧 Fix e Miglioramenti
+- Rimosso MZA da DH ASSEMBLAGGIO in RG + DH
+- DMC (marcatura) aggiunto dopo EGW solo in progetto 8Fe
+- Riposizionamento start_hard (TH) dopo OKU (shot_peening) per sequenza corretta
+- Escluse TSF, ORE, ASM dai progetti DCT300, 8Fe e DCT ECO per evitare duplicati
+- Configurazione corretta delle fasi per visualizzazione griglia RG + DH: TH → TSF → ORE → ASM → SCA
+
+---
+
 ## [1.2.0] — 2026-04-29 — Data e Ora Ultimo Scarico SAP
 
 ### 🆕 Nuove Funzionalità
