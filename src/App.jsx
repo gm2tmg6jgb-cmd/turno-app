@@ -224,7 +224,6 @@ function AppContent({ session, onLogout }) {
 
   const navItems = [
     { id: "dashboard", label: "Gestione Dipendenti", icon: Icons.dashboard },
-    { id: "planning", label: "Pianificazione", icon: Icons.calendar },
     { id: "assegnazioni", label: "Assegnazioni", icon: Icons.machine, badge: alertCount || null },
     { id: "sapHub", label: "Hub SAP", icon: Icons.settings, status: "new" },
     { id: "op10", label: "Asservimento OP10", icon: Icons.check },
@@ -267,7 +266,6 @@ function AppContent({ session, onLogout }) {
     anagraficaFermi: "Anagrafica Fermi Macchine",
     anagraficaMacchine: "Anagrafica Macchine",
     zones: "Anagrafica Zone",
-    planning: "Pianificazione Turni",
     lpaPlan: "Piano LPA 2026",
     skills: "Matrice Competenze",
     formazione: "Gestione Formazione Operatori",
@@ -564,19 +562,6 @@ function AppContent({ session, onLogout }) {
               setMotivi={setMotivi}
               zones={zone}
               globalDate={globalDate}
-            />
-          )}
-          {currentView === "planning" && (
-            <PlanningView
-              dipendenti={dipendenti}
-              setDipendenti={setDipendenti}
-              presenze={presenze}
-              pianificazione={pianificazione}
-              setPianificazione={setPianificazione}
-              turnoCorrente={turnoCorrente}
-              globalDate={globalDate}
-              motivi={motivi}
-              showToast={showToast}
             />
           )}
           {currentView === "assegnazioni" && (
