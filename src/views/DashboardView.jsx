@@ -533,10 +533,7 @@ export default function DashboardView({
                                                             }}>
                                                                 {isPresent ? (
                                                                     (() => {
-                                                                        const key = `${d.id}-${day.date}`;
-                                                                        const p = presenceMap[key];
-                                                                        const tId = p?.turno_id || d.turno_default || "D";
-                                                                        return tId === "D" ? "1" : tId;
+                                                                        return "1";
                                                                     })()
                                                                 ) : sigla}
                                                             </div>
