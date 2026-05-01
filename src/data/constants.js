@@ -235,6 +235,8 @@ export const PROCESS_STEPS = [
     { id: "broaching", label: "Brocciatura", code: "RAA" },
     { id: "hobbing", label: "Dentatura", code: "FRW" },
     { id: "deburring", label: "Sbavatura", code: "EGW" },
+    { id: "sca_post_deburring", label: "SCA", code: "SCA" },
+    { id: "mza_pre_ht", label: "MZA", code: "MZA" },
     { id: "ht", label: "Trattamento Termico", code: "HOK" },
     { id: "shot_peening", label: "Pallinatura", code: "OKU" },
     { id: "start_hard", label: "Tornitura Hard", code: "TH" },
@@ -264,6 +266,7 @@ export const FASE_TECNOLOGIA_MAP = {
     "broaching":           "brocciatura",
     "hobbing":             "dentatrici",
     "deburring":           "smussatrici",
+    "sca_post_deburring":  "saldatrici",
     "start_hard":          "tornitura_hard",
     "ut_soft":             "controllo_ut",
     "ut":                  "controllo_ut",
@@ -283,10 +286,10 @@ export const PROJECT_COMPONENTS = {
 };
 
 export const EXCLUDED_PHASES = {
-    "DCT300": ["dmc", "broaching", "milling", "laser_welding_soft_2", "grinding_cone_2", "ut_soft"],
+    "DCT300": ["dmc", "broaching", "milling", "laser_welding_soft_2", "grinding_cone_2", "ut_soft", "sca_post_deburring", "mza_pre_ht"],
     "8Fe": ["laser_welding_2", "ut", "ut_soft", "grinding_cone_2", "teeth_grinding_2"],
-    "DCT ECO": ["dmc", "broaching", "laser_welding_soft_2", "start_soft", "teeth_grinding_2"],
-    "RG + DH": ["shaping", "broaching", "laser_welding_soft_2", "milling", "ut", "grinding_cone", "laser_welding", "grinding_cone_2", "teeth_grinding_2"]
+    "DCT ECO": ["dmc", "broaching", "laser_welding_soft_2", "start_soft", "teeth_grinding_2", "sca_post_deburring", "mza_pre_ht"],
+    "RG + DH": ["shaping", "broaching", "laser_welding_soft_2", "milling", "ut", "grinding_cone", "laser_welding", "grinding_cone_2", "teeth_grinding_2", "sca_post_deburring", "laser_welding_2", "mza_pre_ht"]
 };
 
 // Fasi standard di default (uguali per tutti i componenti, personalizzabili via ⚙️)
