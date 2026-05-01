@@ -249,7 +249,7 @@ body {
   padding: 1px 4px;
   border-radius: 4px;
   text-transform: uppercase;
-  margin-left: 6px;
+  margin-left: auto;
   letter-spacing: 0.5px;
   line-height: 1.2;
   display: inline-block;
