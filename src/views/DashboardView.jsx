@@ -19,7 +19,13 @@ export default function DashboardView({
     zones, globalDate,
     pianificazione, setPianificazione
 }) {
-    const [activeTab, setActiveTab] = useState("presenze"); // presenze, anagrafica, motivi, analisi
+    const [activeTab, setActiveTab] = useState("presenze"); // presenze, anagrafica, motivi, analisi, richiami
+    const [selectedDipendente, setSelectedDipendente] = useState(null);
+    const [richiami, setRichiami] = useState([]);
+    const [showRichiamModal, setShowRichiamModal] = useState(false);
+    const [editingRichiamo, setEditingRichiamo] = useState(null);
+    const [rFormData, setRFormData] = useState({ data_richiamo: "", motivo: "", descrizione: "" });
+    const [allegatiTemp, setAllegatiTemp] = useState([]);
 
     const today = globalDate || getLocalDate(new Date());
 
@@ -285,6 +291,98 @@ export default function DashboardView({
         return alerts;
     }, [presenze, sortedDip]);
 
+    // Fetch richiami per dipendente
+    const fetchRichiami = async (dipId) => {
+        try {
+            const { data, error } = await supabase
+                .from('richiami')
+                .select('*, richiami_allegati(*)')
+                .eq('dipendente_id', dipId)
+                .is('deleted_at', null)
+                .order('data_richiamo', { ascending: false });
+
+            if (error) throw error;
+            setRichiami(data || []);
+        } catch (error) {
+            console.error("Errore caricamento richiami:", error);
+            showToast("Errore caricamento richiami", "error");
+        }
+    };
+
+    // Cambio dipendente selezionato
+    const handleSelectDipendente = (dip) => {
+        setSelectedDipendente(dip);
+        setActiveTab("richiami");
+        fetchRichiami(dip.id);
+        setEditingRichiamo(null);
+        setRFormData({ data_richiamo: "", motivo: "", descrizione: "" });
+        setAllegatiTemp([]);
+    };
+
+    // Salva richiamo (nuovo o modifica)
+    const handleSaveRichiamo = async () => {
+        if (!rFormData.data_richiamo || !rFormData.motivo || !selectedDipendente) {
+            showToast("Compila i campi obbligatori", "error");
+            return;
+        }
+
+        try {
+            const payload = {
+                dipendente_id: selectedDipendente.id,
+                data_richiamo: rFormData.data_richiamo,
+                motivo: rFormData.motivo,
+                descrizione: rFormData.descrizione || null
+            };
+
+            if (editingRichiamo) {
+                const { error } = await supabase
+                    .from('richiami')
+                    .update(payload)
+                    .eq('id', editingRichiamo.id);
+
+                if (error) throw error;
+                showToast("Richiamo modificato", "success");
+            } else {
+                const { data, error } = await supabase
+                    .from('richiami')
+                    .insert([payload])
+                    .select();
+
+                if (error) throw error;
+                setRichiami([data[0], ...richiami]);
+                showToast("Richiamo aggiunto", "success");
+            }
+
+            setShowRichiamModal(false);
+            setEditingRichiamo(null);
+            setRFormData({ data_richiamo: "", motivo: "", descrizione: "" });
+            setAllegatiTemp([]);
+            await fetchRichiami(selectedDipendente.id);
+        } catch (error) {
+            console.error("Errore salvataggio richiamo:", error);
+            showToast("Errore salvataggio", "error");
+        }
+    };
+
+    // Soft delete richiamo
+    const handleDeleteRichiamo = async (richiamo) => {
+        if (!confirm("Confermi l'eliminazione del richiamo?")) return;
+
+        try {
+            const { error } = await supabase
+                .from('richiami')
+                .update({ deleted_at: new Date().toISOString() })
+                .eq('id', richiamo.id);
+
+            if (error) throw error;
+            setRichiami(richiami.filter(r => r.id !== richiamo.id));
+            showToast("Richiamo eliminato", "success");
+        } catch (error) {
+            console.error("Errore eliminazione:", error);
+            showToast("Errore eliminazione", "error");
+        }
+    };
+
     if (!dipendenti) return <div className="p-4 text-center">Caricamento dipendenti...</div>;
 
     let lastReparto = "";
@@ -334,6 +432,13 @@ export default function DashboardView({
                     style={{ display: "flex", alignItems: "center", gap: 8 }}
                 >
                     {Icons.analytics} Analisi Avanzata
+                </button>
+                <button
+                    className={`tab ${activeTab === "richiami" ? "active" : ""}`}
+                    onClick={() => setActiveTab("richiami")}
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                >
+                    ⚠️ Richiami
                 </button>
             </div>
 
@@ -634,6 +739,164 @@ export default function DashboardView({
                             presenze={presenze}
                         />
                     </AdminSecurityWrapper>
+                )}
+
+                {activeTab === "richiami" && (
+                    <div className="fade-in">
+                        <div style={{ display: "flex", gap: 12, marginBottom: 20, alignItems: "center", justifyContent: "space-between" }}>
+                            <div>
+                                <select
+                                    className="select-input"
+                                    style={{ width: 300 }}
+                                    value={selectedDipendente?.id || ""}
+                                    onChange={(e) => {
+                                        const dip = dipendenti.find(d => d.id === e.target.value);
+                                        if (dip) handleSelectDipendente(dip);
+                                    }}
+                                >
+                                    <option value="">Seleziona dipendente...</option>
+                                    {dipendenti.filter(d => d.attivo !== false).map(d => (
+                                        <option key={d.id} value={d.id}>{d.cognome} {d.nome}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            {selectedDipendente && (
+                                <button className="btn btn-primary" onClick={() => {
+                                    setShowRichiamModal(true);
+                                    setEditingRichiamo(null);
+                                    setRFormData({ data_richiamo: "", motivo: "", descrizione: "" });
+                                }}>
+                                    {Icons.plus} Aggiungi Richiamo
+                                </button>
+                            )}
+                        </div>
+
+                        {selectedDipendente && (
+                            <div>
+                                {richiami.length > 0 ? (
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                                        {richiami.map(r => (
+                                            <div key={r.id} style={{ padding: 16, border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-secondary)" }}>
+                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 8 }}>
+                                                    <div>
+                                                        <div style={{ fontWeight: 700, fontSize: 14 }}>{new Date(r.data_richiamo).toLocaleDateString()}</div>
+                                                        <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>Motivo: {r.motivo}</div>
+                                                    </div>
+                                                    <div style={{ display: "flex", gap: 6 }}>
+                                                        <button
+                                                            className="btn btn-secondary"
+                                                            style={{ padding: "4px 8px", fontSize: 12 }}
+                                                            onClick={() => {
+                                                                setEditingRichiamo(r);
+                                                                setRFormData({ data_richiamo: r.data_richiamo, motivo: r.motivo, descrizione: r.descrizione || "" });
+                                                                setShowRichiamModal(true);
+                                                            }}
+                                                        >
+                                                            Modifica
+                                                        </button>
+                                                        <button
+                                                            className="btn btn-danger"
+                                                            style={{ padding: "4px 8px", fontSize: 12 }}
+                                                            onClick={() => handleDeleteRichiamo(r)}
+                                                        >
+                                                            Elimina
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                {r.descrizione && (
+                                                    <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 8, padding: 8, background: "var(--bg-card)", borderRadius: 4 }}>
+                                                        {r.descrizione}
+                                                    </div>
+                                                )}
+                                                {r.richiami_allegati?.length > 0 && (
+                                                    <div style={{ marginTop: 8, fontSize: 11 }}>
+                                                        <div style={{ fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>Allegati ({r.richiami_allegati.length}):</div>
+                                                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                                            {r.richiami_allegati.map(a => (
+                                                                <a key={a.id} href={a.url_file} target="_blank" rel="noopener noreferrer" style={{ padding: "4px 8px", background: "var(--bg-tertiary)", borderRadius: 4, fontSize: 11, color: "var(--primary)", textDecoration: "none", border: "1px solid var(--border)" }}>
+                                                                    📎 {a.nome_file}
+                                                                </a>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>
+                                        Nessun richiamo registrato
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {!selectedDipendente && (
+                            <div style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>
+                                Seleziona un dipendente per visualizzare i richiami
+                            </div>
+                        )}
+
+                        {/* MODAL RICHIAMO */}
+                        {showRichiamModal && selectedDipendente && (
+                            <Modal
+                                title={editingRichiamo ? "Modifica Richiamo" : "Nuovo Richiamo"}
+                                onClose={() => {
+                                    setShowRichiamModal(false);
+                                    setEditingRichiamo(null);
+                                    setRFormData({ data_richiamo: "", motivo: "", descrizione: "" });
+                                    setAllegatiTemp([]);
+                                }}
+                                footer={
+                                    <>
+                                        <button className="btn btn-secondary" onClick={() => setShowRichiamModal(false)}>Annulla</button>
+                                        <button className="btn btn-primary" onClick={handleSaveRichiamo}>Salva</button>
+                                    </>
+                                }
+                            >
+                                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                                    <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                                        <label className="form-label">Dipendente</label>
+                                        <input className="input" disabled value={`${selectedDipendente.cognome} ${selectedDipendente.nome}`} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Data Richiamo</label>
+                                        <input className="input" type="date" value={rFormData.data_richiamo} onChange={(e) => setRFormData({ ...rFormData, data_richiamo: e.target.value })} />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Motivo</label>
+                                        <input className="input" placeholder="Es: Assenza ingiustificata" value={rFormData.motivo} onChange={(e) => setRFormData({ ...rFormData, motivo: e.target.value })} />
+                                    </div>
+                                    <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                                        <label className="form-label">Descrizione</label>
+                                        <textarea className="input" style={{ minHeight: 80, resize: "vertical" }} placeholder="Dettagli aggiuntivi..." value={rFormData.descrizione} onChange={(e) => setRFormData({ ...rFormData, descrizione: e.target.value })}></textarea>
+                                    </div>
+                                    <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                                        <label className="form-label">Allegati</label>
+                                        <div style={{ padding: 12, border: "2px dashed var(--border)", borderRadius: 8, textAlign: "center", cursor: "pointer", background: "var(--bg-secondary)" }}>
+                                            <input type="file" multiple style={{ display: "none" }} id="file-input" onChange={(e) => {
+                                                const files = Array.from(e.target.files || []);
+                                                setAllegatiTemp([...allegatiTemp, ...files.map(f => ({ file: f, name: f.name, size: f.size }))]);
+                                            }} />
+                                            <label htmlFor="file-input" style={{ cursor: "pointer", display: "block" }}>
+                                                📁 Clicca per selezionare file o trascinali qui
+                                            </label>
+                                        </div>
+                                        {allegatiTemp.length > 0 && (
+                                            <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                                {allegatiTemp.map((a, i) => (
+                                                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 8px", background: "var(--bg-tertiary)", borderRadius: 4, fontSize: 11 }}>
+                                                        <span>{a.name}</span>
+                                                        <button className="btn-ghost" style={{ padding: 0, width: 16, height: 16 }} onClick={() => setAllegatiTemp(allegatiTemp.filter((_, idx) => idx !== i))}>✕</button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </Modal>
+                        )}
+                    </div>
                 )}
             </div>
 
