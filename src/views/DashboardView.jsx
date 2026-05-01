@@ -3,6 +3,7 @@ import { REPARTI } from "../data/constants";
 import { supabase } from "../lib/supabase";
 import { getLocalDate } from "../lib/dateUtils";
 import { Icons } from "../components/ui/Icons";
+import { Modal } from "../components/ui/Modal";
 import AnagraficaView from "./AnagraficaView";
 import MotiviView from "./MotiviView";
 import AnalisiAvanzataView from "./AnalisiAvanzataView";
