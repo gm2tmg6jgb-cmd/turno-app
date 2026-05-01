@@ -645,7 +645,8 @@ export default function AssegnazioniView({
                         </div>
                     )}
                 </Modal>
-                    </>
+            )}
+            </>
                 ) : activeTab === "zone" ? (
                     <AnagraficaZoneView showToast={showToast} />
                 ) : null}
