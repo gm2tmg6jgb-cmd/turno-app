@@ -136,6 +136,9 @@ export default function PrioritaView({ showToast, globalDate }) {
     const [resetConfirmModal, setResetConfirmModal] = useState(false); // Modal reset
     const [isResetting, setIsResetting] = useState(false); // Loading durante reset
     const [inventarioOraInizio, setInventarioOraInizio] = useState(null); // Timestamp inizio inventario fisico
+    const [resetDate, setResetDate] = useState(new Date().toISOString().split("T")[0]); // Data reset editabile
+    const [resetTime, setResetTime] = useState("00:00"); // Ora reset editabile
+    const [refreshKey, setRefreshKey] = useState(0); // Forza reload fetchData anche se le date non cambiano
 
     useEffect(() => {
         localStorage.setItem("lab_inv_date", inventarioDate);
@@ -257,21 +260,23 @@ export default function PrioritaView({ showToast, globalDate }) {
             // 3. Inventario fisico da Supabase
             const { data: invRes } = await supabase
                 .from("inventario_fisico")
-                .select("componente,fino,quantita,data_inventario,data_ora_inventario");
+                .select("componente,fino,quantita,data_inventario,data_ora_inventario")
+                .eq("data_inventario", inventarioDate);
             const invMap = {}; // {comp: {fino: qty}}
-            let maxDataOra = null;
+            let markerDataOra = null;
             if (invRes) {
                 invRes.forEach(r => {
                     const comp = (r.componente || "").toUpperCase();
                     const fino = String(r.fino || "").padStart(4, "0");
+                    // Il MARKER segna l'inizio inventario — leggi solo da lui
+                    if (comp === "MARKER_INIZIO_INVENTARIO") {
+                        markerDataOra = r.data_ora_inventario;
+                        return; // non aggiungere alla mappa dati
+                    }
                     if (!invMap[comp]) invMap[comp] = {};
                     invMap[comp][fino] = r.quantita || 0;
-                    // Traccia il timestamp più recente
-                    if (r.data_ora_inventario && (!maxDataOra || new Date(r.data_ora_inventario) > new Date(maxDataOra))) {
-                        maxDataOra = r.data_ora_inventario;
-                    }
                 });
-                setInventarioOraInizio(maxDataOra);
+                setInventarioOraInizio(markerDataOra);
             }
             // 4. SAP conferme nel periodo inventario
             const { data: sapRes } = await fetchAllRows(() =>
@@ -433,7 +438,7 @@ export default function PrioritaView({ showToast, globalDate }) {
         }
     };
 
-    useEffect(() => { fetchData(); }, [inventarioDate, inventarioDateFine]);
+    useEffect(() => { fetchData(); }, [inventarioDate, inventarioDateFine, refreshKey]);
 
     const toggleCellVisibility = async (comp, fase) => {
         const normC = comp; // già normalizzato dal chiamante
@@ -574,40 +579,45 @@ export default function PrioritaView({ showToast, globalDate }) {
     };
 
     const resetInventarioPeriod = async () => {
-        // Reset alle date odierne - non cancella dati, solo resetta il filtro visualizzazione
-        const today = new Date().toISOString().split("T")[0];
-        const nowTimestamp = new Date().toISOString();
+        const selectedDate = resetDate; // YYYY-MM-DD
+        const [hours, minutes] = resetTime.split(":").map(Number); // HH:MM
 
-        setInventarioDate(today);
-        setInventarioDateFine(today);
+        // Costruisce timestamp locale preciso (orario selezionato dall'utente)
+        const d = new Date(selectedDate + "T00:00:00");
+        d.setHours(hours, minutes, 0, 0);
+        const resetTimestampWithTime = d.toISOString();
 
-        // Resetta anche le esclusioni di celle e filtri
+        setInventarioDate(selectedDate);
+        setInventarioDateFine(selectedDate);
         setCellExclusions({});
         setCellInclusions({});
 
-        // Aggiorna data_ora_inventario per i record di oggi
         try {
-            // Crea un record di inventario fisico per marcare l'inizio del nuovo inventario
-            await supabase.from("inventario_fisico").insert({
+            const { error } = await supabase.from("inventario_fisico").upsert({
                 componente: "MARKER_INIZIO_INVENTARIO",
                 fino: "0000",
                 quantita: 0,
-                data_inventario: today,
-                data_ora_inventario: nowTimestamp,
-                updated_at: nowTimestamp
+                data_inventario: selectedDate,
+                data_ora_inventario: resetTimestampWithTime,
+                updated_at: resetTimestampWithTime
+            }, {
+                onConflict: "componente,fino"
             });
 
-            setInventarioOraInizio(nowTimestamp);
-            showToast?.("✓ Periodo resettato a " + new Date(today).toLocaleDateString("it-IT") + " ore " + new Date(nowTimestamp).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) + ". Inventario precedente rimane nel database.", "success");
+            if (error) throw error;
+
+            // Aggiorna subito il display
+            setInventarioOraInizio(resetTimestampWithTime);
+            const formattedDate = new Date(selectedDate).toLocaleDateString("it-IT");
+            showToast?.("✓ Periodo resettato a " + formattedDate + " ore " + resetTime, "success");
         } catch (err) {
-            console.error("[PrioritaView] Errore nel setto timestamp reset:", err);
-            showToast?.("Errore nell'aggiornamento timestamp", "error");
+            console.error("[Reset] Errore upsert:", err);
+            showToast?.("Errore: " + err.message, "error");
         }
 
         setResetConfirmModal(false);
-
-        // Ricarica i dati con le nuove date
-        setTimeout(() => fetchData(), 0);
+        // Forza fetchData anche se le date non sono cambiate (refreshKey cambia sempre)
+        setRefreshKey(k => k + 1);
     };
 
     const startEditing = (comp, fino, currentInv, proj, faseHint) => {
@@ -693,22 +703,29 @@ export default function PrioritaView({ showToast, globalDate }) {
                     })()}
                 </div>
 
-                    <button
-                        onClick={() => fetchData()}
-                        className="btn btn-secondary btn-sm"
-                        style={{ display: "flex", alignItems: "center", gap: 6 }}
-                    >
-                        {Icons.refresh} Aggiorna
-                    </button>
+                <button
+                    onClick={() => fetchData()}
+                    className="btn btn-secondary btn-sm"
+                    style={{ display: "flex", alignItems: "center", gap: 6 }}
+                >
+                    {Icons.refresh} Aggiorna
+                </button>
 
-                    <button
-                        onClick={() => setResetConfirmModal(true)}
-                        className="btn btn-secondary btn-sm"
-                        style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(239, 68, 68, 0.1)", color: "#ef4444", border: "1px solid #ef444433" }}
-                        title="Resetta il periodo a oggi. L'inventario fisico non viene cancellato, solo escluso dalla vista"
-                    >
-                        🔄 Reset Periodo
-                    </button>
+                <button
+                    onClick={() => {
+                        const now = new Date();
+                        const todayStr = now.toISOString().split("T")[0];
+                        const timeStr = now.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+                        setResetDate(todayStr);
+                        setResetTime(timeStr);
+                        setResetConfirmModal(true);
+                    }}
+                    className="btn btn-secondary btn-sm"
+                    style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(239, 68, 68, 0.1)", color: "#ef4444", border: "1px solid #ef444433" }}
+                    title="Seleziona data e ora inizio inventario fisico. L'inventario precedente rimane nel database."
+                >
+                    🔄 Reset Periodo
+                </button>
 
                 <button
                     onClick={() => setShowDetails(!showDetails)}
@@ -724,22 +741,21 @@ export default function PrioritaView({ showToast, globalDate }) {
                     {showDetails ? "Nascondi Dettagli" : "Mostra Dettagli"}
                 </button>
 
-                    <button
-                        onClick={() => setIsConfigMode(!isConfigMode)}
-                        className="btn"
-                        title={isConfigMode ? "Esci dalla configurazione" : "Configura celle"}
-                        style={{
-                            padding: "8px 14px", display: "flex", alignItems: "center", gap: 6,
-                            fontWeight: 700, fontSize: 16,
-                            background: isConfigMode ? "var(--accent)" : "var(--bg-tertiary)",
-                            color: isConfigMode ? "white" : "var(--text-secondary)",
-                            border: "1px solid var(--border)",
-                            boxShadow: isConfigMode ? "0 0 10px var(--accent)" : "none"
-                        }}
-                    >
-                        {isConfigMode ? "✓" : "⚙️"}
-                    </button>
-                </div>
+                <button
+                    onClick={() => setIsConfigMode(!isConfigMode)}
+                    className="btn"
+                    title={isConfigMode ? "Esci dalla configurazione" : "Configura celle"}
+                    style={{
+                        padding: "8px 14px", display: "flex", alignItems: "center", gap: 6,
+                        fontWeight: 700, fontSize: 16,
+                        background: isConfigMode ? "var(--accent)" : "var(--bg-tertiary)",
+                        color: isConfigMode ? "white" : "var(--text-secondary)",
+                        border: "1px solid var(--border)",
+                        boxShadow: isConfigMode ? "0 0 10px var(--accent)" : "none"
+                    }}
+                >
+                    {isConfigMode ? "✓" : "⚙️"}
+                </button>
             </div>
 
             {/* Legenda */}
@@ -1195,18 +1211,53 @@ export default function PrioritaView({ showToast, globalDate }) {
                         </div>
                         <div style={{ padding: 20 }}>
                             <p style={{ fontSize: 14, color: "var(--text-primary)", margin: "0 0 16px 0" }}>
-                                Resettare il periodo dell'inventario fisico a oggi? I dati precedenti rimangono salvati nel database.
+                                Seleziona data e ora inizio inventario fisico. I dati precedenti rimangono salvati nel database.
                             </p>
+
+                            {/* Data input */}
+                            <div style={{ marginBottom: 16 }}>
+                                <label style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>
+                                    Data inizio
+                                </label>
+                                <input
+                                    type="date"
+                                    value={resetDate}
+                                    onChange={(e) => setResetDate(e.target.value)}
+                                    style={{
+                                        width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)",
+                                        background: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: 14,
+                                        boxSizing: "border-box"
+                                    }}
+                                />
+                            </div>
+
+                            {/* Time input */}
+                            <div style={{ marginBottom: 16 }}>
+                                <label style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>
+                                    Ora inizio
+                                </label>
+                                <input
+                                    type="time"
+                                    value={resetTime}
+                                    onChange={(e) => setResetTime(e.target.value)}
+                                    style={{
+                                        width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)",
+                                        background: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: 14,
+                                        boxSizing: "border-box"
+                                    }}
+                                />
+                            </div>
+
                             <div style={{
-                                background: "var(--bg-tertiary)", padding: 12, borderRadius: 10, marginBottom: 20,
-                                border: "1px solid var(--border)", display: "flex", gap: 8, alignItems: "center", justifyContent: "center"
+                                background: "rgba(96, 165, 250, 0.08)", padding: 12, borderRadius: 10, marginBottom: 16,
+                                border: "1px solid rgba(96, 165, 250, 0.2)"
                             }}>
-                                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>
-                                    Nuovo inizio: {new Date().toLocaleDateString("it-IT")}
+                                <span style={{ fontSize: 13, fontWeight: 700, color: "#60a5fa" }}>
+                                    ✓ {new Date(resetDate).toLocaleDateString("it-IT")} ore {resetTime}
                                 </span>
                             </div>
                             <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0 }}>
-                                ℹ️ Resetta il filtro date all'oggi. L'inventario precedente rimane nel database e i dati SAP ripartiranno da questa data.
+                                ℹ️ L'inventario precedente rimane nel database. I dati SAP ripartiranno da questa data/ora.
                             </p>
                         </div>
                         <div style={{
