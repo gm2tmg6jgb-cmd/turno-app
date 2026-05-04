@@ -114,12 +114,27 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
 
     const detailCompKey = selectedDetail ? `${selectedDetail.proj}::${selectedDetail.comp}` : null;
     const detailCompBase = detailCompKey ? (throughputCfg.components?.[detailCompKey] ?? {}) : {};
+
+    // Fasi finali da escludere dal throughput (saldatura, assembly, ecc.)
+    const FINAL_PHASES_TO_EXCLUDE = [
+        "assembly",
+        "laser_welding",
+        "laser_welding_2",
+        "laser_welding_soft_2",
+        "sca_post_deburring",
+        "welding",
+        "quality"
+    ];
+
     const throughputPhases = useMemo(() => {
         if (!detailCompKey || detailPhases.length === 0) return [];
-        return computeThroughput(detailCompKey, {
-            components: { [detailCompKey]: { ...detailCompBase, phases: detailPhases } }
-        });
-    }, [detailPhases, detailCompKey]);
+        return computeThroughput(
+            detailCompKey,
+            { components: { [detailCompKey]: { ...detailCompBase, phases: detailPhases } } },
+            selectedDetail?.phaseId || null,  // Usa la fase selezionata come punto di inizio
+            FINAL_PHASES_TO_EXCLUDE  // Escludi le fasi finali
+        );
+    }, [detailPhases, detailCompKey, selectedDetail?.phaseId]);
     const throughputTotalH = throughputPhases.at(-1)?.cumH || 0;
 
     const handlePrint = () => {
@@ -578,10 +593,11 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     }, [rawMatrixData, filterExcludeSto, filterExcludeOperators]);
 
     // Calcola le celle affettate da ogni operatore (Opzione 3: Report operatori)
+    // USA rawMatrixData per mostrare TUTTI gli operatori indipendentemente dai filtri attivi
     useMemo(() => {
         const operatorStats = {};
 
-        Object.entries(matrixData).forEach(([proj, comps]) => {
+        Object.entries(rawMatrixData).forEach(([proj, comps]) => {
             Object.entries(comps).forEach(([comp, phases]) => {
                 Object.entries(phases).forEach(([phase, cellData]) => {
                     if (cellData?.records?.length > 0) {
@@ -611,7 +627,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
         });
 
         setCellsAffectedByOperator(finalStats);
-    }, [matrixData]);
+    }, [rawMatrixData]);
 
     const saveFermo = async () => {
         if (!fermoForm.motivo) { showToast?.("Seleziona un motivo", "error"); return; }

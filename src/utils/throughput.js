@@ -94,10 +94,26 @@ export function phaseHours(phase, compCfg) {
 /**
  * Calcola tutte le fasi con ore per fase e cumulate.
  * cfg.components[componentKey] = { lotto, oee, changeOverH, rackSize, phases }
+ * startPhaseId (opzionale): se fornito, il calcolo parte da questa fase (escludendo quelle precedenti)
+ * excludePhaseIds (opzionale): array di phase IDs da escludere (es. ["assembly", "laser_welding_2"])
  */
-export function computeThroughput(componentKey, cfg) {
+export function computeThroughput(componentKey, cfg, startPhaseId = null, excludePhaseIds = []) {
     const compCfg = cfg.components[componentKey] || {};
-    const phases = compCfg.phases || [];
+    let phases = compCfg.phases || [];
+
+    // Se startPhaseId è fornito, filtra le fasi da startPhaseId in poi
+    if (startPhaseId) {
+        const startIndex = phases.findIndex(p => p.phaseId === startPhaseId);
+        if (startIndex !== -1) {
+            phases = phases.slice(startIndex);
+        }
+    }
+
+    // Escludiili phase specifici
+    if (excludePhaseIds && excludePhaseIds.length > 0) {
+        phases = phases.filter(p => !excludePhaseIds.includes(p.phaseId));
+    }
+
     let cumH = 0;
     return phases.map(p => {
         const h = phaseHours(p, compCfg);
