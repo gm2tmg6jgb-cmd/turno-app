@@ -566,43 +566,22 @@ export default function PrioritaView({ showToast, globalDate }) {
         }
     };
 
-    const resetInventarioPeriod = async () => {
-        if (!inventarioDate || !inventarioDateFine) {
-            showToast?.("Seleziona il periodo prima di resettare", "error");
-            return;
-        }
+    const resetInventarioPeriod = () => {
+        // Reset alle date odierne - non cancella dati, solo resetta il filtro visualizzazione
+        const today = new Date().toISOString().split("T")[0];
 
-        // Validazione date
-        if (inventarioDateFine < inventarioDate) {
-            showToast?.("La data fine deve essere maggiore o uguale a quella inizio", "error");
-            return;
-        }
+        setInventarioDate(today);
+        setInventarioDateFine(today);
 
-        const daysDiff = Math.ceil((new Date(inventarioDateFine) - new Date(inventarioDate)) / (1000 * 60 * 60 * 24));
-        if (daysDiff > 7) {
-            showToast?.("Attenzione: stai per cancellare un periodo di " + daysDiff + " giorni", "warning");
-        }
+        // Resetta anche le esclusioni di celle e filtri
+        setCellExclusions({});
+        setCellInclusions({});
 
-        setIsResetting(true);
-        try {
-            const { error } = await supabase.from("inventario_fisico")
-                .delete()
-                .gte("data_inventario", inventarioDate)
-                .lte("data_inventario", inventarioDateFine);
+        showToast?.("✓ Periodo resettato a " + new Date(today).toLocaleDateString("it-IT") + ". Inventario precedente rimane nel database.", "success");
+        setResetConfirmModal(false);
 
-            if (error) throw error;
-
-            showToast?.("✓ Inventario resettato per il periodo " + new Date(inventarioDate).toLocaleDateString("it-IT") + " — " + new Date(inventarioDateFine).toLocaleDateString("it-IT"), "success");
-            setResetConfirmModal(false);
-
-            // Ricarica i dati
-            await fetchData();
-        } catch (err) {
-            console.error("[PrioritaView] Errore reset inventario:", err);
-            showToast?.("Errore durante il reset", "error");
-        } finally {
-            setIsResetting(false);
-        }
+        // Ricarica i dati con le nuove date
+        setTimeout(() => fetchData(), 0);
     };
 
     const startEditing = (comp, fino, currentInv, proj, faseHint) => {
@@ -687,7 +666,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                         onClick={() => setResetConfirmModal(true)}
                         className="btn btn-secondary btn-sm"
                         style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(239, 68, 68, 0.1)", color: "#ef4444", border: "1px solid #ef444433" }}
-                        title="Reset inventario fisico per il periodo selezionato"
+                        title="Resetta il periodo a oggi. L'inventario fisico non viene cancellato, solo escluso dalla vista"
                     >
                         🔄 Reset Periodo
                     </button>
@@ -1177,18 +1156,18 @@ export default function PrioritaView({ showToast, globalDate }) {
                         </div>
                         <div style={{ padding: 20 }}>
                             <p style={{ fontSize: 14, color: "var(--text-primary)", margin: "0 0 16px 0" }}>
-                                Sei sicuro di voler cancellare tutti i dati dell'inventario fisico per il periodo:
+                                Resettare il periodo dell'inventario fisico a oggi? I dati precedenti rimangono salvati nel database.
                             </p>
                             <div style={{
                                 background: "var(--bg-tertiary)", padding: 12, borderRadius: 10, marginBottom: 20,
                                 border: "1px solid var(--border)", display: "flex", gap: 8, alignItems: "center", justifyContent: "center"
                             }}>
                                 <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>
-                                    {new Date(inventarioDate).toLocaleDateString("it-IT")} — {new Date(inventarioDateFine).toLocaleDateString("it-IT")}
+                                    Nuovo inizio: {new Date().toLocaleDateString("it-IT")}
                                 </span>
                             </div>
                             <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0 }}>
-                                ⚠️ Questa azione non può essere annullata. I dati SAP non saranno modificati.
+                                ℹ️ Resetta il filtro date all'oggi. L'inventario precedente rimane nel database e i dati SAP ripartiranno da questa data.
                             </p>
                         </div>
                         <div style={{

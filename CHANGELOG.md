@@ -8,19 +8,18 @@ Tutte le modifiche significative di Turno App sono documentate in questo file.
 
 ### 🆕 Nuove Funzionalità
 - **Reset Inventario Periodo**: Aggiunto bottone "🔄 Reset Periodo" in Laboratorio Inventario
-  - Cancella tutti i dati dell'inventario fisico per il periodo selezionato
-  - Modifica della data inizio/fine tramite date picker
-  - Dialogo di conferma con warning irreversibilità
-  - Validazione date (fine >= inizio)
-  - Avvertimento se periodo > 7 giorni
-  - Solo dati inventario fisico cancellati, SAP rimane intatto
+  - Resetta il periodo dell'inventario fisico al giorno odierno
+  - Esclude dalla vista i dati della settimana precedente (rimangono nel DB)
+  - I dati SAP ripartiranno dalla nuova data di inizio inventario
+  - Dialogo di conferma per evitare reset accidentali
+  - Resetta anche le esclusioni di celle applicate
 
 ### 🎨 UI/UX
 - Modal di conferma reset con design coerente
-- Bottone rosso per indicare azione distruttiva
-- Visualizzazione del periodo selezionato nel dialog
-- Loading state durante reset ("Resetting...")
-- Toast notification con conferma dell'operazione
+- Bottone rosso per indicare azione critica
+- Visualizzazione della nuova data di inizio nel dialog
+- Toast notification con conferma del reset
+- Messaggio informativo che i dati non vengono cancellati
 
 ---
 
