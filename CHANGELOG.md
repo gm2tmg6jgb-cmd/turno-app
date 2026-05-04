@@ -4,6 +4,19 @@ Tutte le modifiche significative di Turno App sono documentate in questo file.
 
 ---
 
+## [1.6.2] — 2026-05-05 — Fix Evidenziazione Operatori e Throughput Intelligente
+
+### 🐛 Bug Fix
+- **Evidenziazione operatori**: Ripristinato il report che mostra gli operatori
+  - Usa `rawMatrixData` (non filtrato) per mostrare TUTTI gli operatori indipendentemente dai filtri attivi
+  - L'evidenziazione delle celle con bordo rosso ora funziona correttamente
+- **Throughput da fase selezionata**: Quando clicchi su una fase, il tempo di throughput parte da lì
+  - Esclude automaticamente le fasi precedenti
+  - Esclude le fasi finali (assembly, saldatura, ecc.)
+  - Ore cumulative ricalcolate da 0 partendo dalla fase selezionata
+
+---
+
 ## [1.6.1] — 2026-05-05 — Fix Totale Cella e Miglioramenti Filtri Istantanei
 
 ### 🐛 Bug Fix
