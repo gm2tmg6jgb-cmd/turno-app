@@ -65,7 +65,8 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     const activeProject = "DCT300";
     const [localTurno, setLocalTurno] = useState(turnoCorrente || "ALL");
     const [loading, setLoading] = useState(false);
-    const [matrixData, setMatrixData] = useState({});
+    const [rawMatrixData, setRawMatrixData] = useState({}); // Dati non filtrati da database
+    const [matrixData, setMatrixData] = useState({}); // Dati filtrati visualizzati
     const [componentsByProject, setComponentsByProject] = useState({});
     const [, setCompMappings] = useState({});
     const [selectedDetail, setSelectedDetail] = useState(null);
@@ -407,9 +408,6 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
             if (prodRes) {
                 prodRes.forEach(r => {
                     const matCode = (r.materiale || "").toUpperCase();
-                    // Applica filtri
-                    if (filterExcludeSto && r.sto === "X") return;
-                    if (filterExcludeOperators.length > 0 && filterExcludeOperators.includes(r.acq_da)) return;
 
                     const fino = String(r.fino || "").padStart(4, "0");
 
@@ -505,7 +503,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
             }
 
 
-            setMatrixData(newMatrix);
+            setRawMatrixData(newMatrix);
 
             // Fetch motivi fermo e fermi del giorno
             const [{ data: motiviRes }, { data: fermiRes }] = await Promise.all([
@@ -546,7 +544,38 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
 
     useEffect(() => {
         fetchData();
-    }, [wWeek, wDate, viewMode, activeProject, localTurno, dynamicOverrides, refreshTick, filterExcludeSto, filterExcludeOperators]);
+    }, [wWeek, wDate, viewMode, activeProject, localTurno, dynamicOverrides, refreshTick]);
+
+    // Applica filtri ai dati grezzi e calcola matrixData (istantaneo, senza ricaricare)
+    useMemo(() => {
+        const filteredMatrix = {};
+        PROJECTS.forEach(p => { filteredMatrix[p] = {}; });
+
+        Object.entries(rawMatrixData).forEach(([proj, comps]) => {
+            Object.entries(comps).forEach(([comp, phases]) => {
+                Object.entries(phases).forEach(([phase, cellData]) => {
+                    if (cellData?.records?.length > 0) {
+                        // Applica filtri ai record
+                        const filteredRecords = cellData.records.filter(r => {
+                            if (filterExcludeSto && r.sto === "X") return false;
+                            if (filterExcludeOperators.length > 0 && filterExcludeOperators.includes(r.acq_da)) return false;
+                            return true;
+                        });
+
+                        if (filteredRecords.length > 0) {
+                            if (!filteredMatrix[proj][comp]) filteredMatrix[proj][comp] = {};
+                            filteredMatrix[proj][comp][phase] = {
+                                value: filteredRecords.reduce((sum, r) => sum + (r.qta_ottenuta || 0), 0),
+                                records: filteredRecords
+                            };
+                        }
+                    }
+                });
+            });
+        });
+
+        setMatrixData(filteredMatrix);
+    }, [rawMatrixData, filterExcludeSto, filterExcludeOperators]);
 
     // Calcola le celle affettate da ogni operatore (Opzione 3: Report operatori)
     useMemo(() => {
@@ -1701,7 +1730,6 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                     onChange={e => {
                                         setFilterExcludeSto(e.target.checked);
                                         localStorage.setItem("componentflow_filter_exclude_sto", JSON.stringify(e.target.checked));
-                                        setTimeout(() => fetchData(), 0);
                                     }}
                                 />
                                 Escludi storni (sto = "X")
@@ -1718,7 +1746,6 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                     const ops = e.target.value.split("\n").map(o => o.trim()).filter(o => o);
                                     setFilterExcludeOperators(ops);
                                     localStorage.setItem("componentflow_filter_exclude_operators", JSON.stringify(ops));
-                                    setTimeout(() => fetchData(), 0);
                                 }}
                                 style={{ minHeight: "100px", fontFamily: "monospace", fontSize: "13px" }}
                             />
@@ -1733,7 +1760,6 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                         setFilterExcludeOperators([]);
                                         localStorage.setItem("componentflow_filter_exclude_sto", JSON.stringify(false));
                                         localStorage.setItem("componentflow_filter_exclude_operators", JSON.stringify([]));
-                                        setTimeout(() => fetchData(), 0);
                                     }}
                                     style={{
                                         padding: "4px 8px",
@@ -1826,12 +1852,10 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                                     const newOps = filterExcludeOperators.filter(o => o !== operator);
                                                                     setFilterExcludeOperators(newOps);
                                                                     localStorage.setItem("componentflow_filter_exclude_operators", JSON.stringify(newOps));
-                                                                    setTimeout(() => fetchData(), 0);
                                                                 } else {
                                                                     const newOps = [...filterExcludeOperators, operator];
                                                                     setFilterExcludeOperators(newOps);
                                                                     localStorage.setItem("componentflow_filter_exclude_operators", JSON.stringify(newOps));
-                                                                    setTimeout(() => fetchData(), 0);
                                                                 }
                                                             }}
                                                             title={isExcluded ? "Includi questo operatore" : "Escludi questo operatore"}
