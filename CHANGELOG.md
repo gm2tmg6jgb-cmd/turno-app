@@ -4,13 +4,22 @@ Tutte le modifiche significative di Turno App sono documentate in questo file.
 
 ---
 
-## [1.6.1] — 2026-05-04 — Fix Totale Cella con Filtri Attivi
+## [1.6.1] — 2026-05-05 — Fix Totale Cella e Miglioramenti Filtri
 
 ### 🐛 Bug Fix
 - **Totale cella griglia**: Risolto problema dove il totale della cella non rifletteva i filtri attivi
   - Prima: cella mostrava 677 (lordo con storni), dettaglio mostrava 351 (netto senza storni) — inconsistente
   - Dopo: cella e dettaglio mostrano lo stesso totale quando i filtri sono attivi — coerente
   - Causa: `filterExcludeSto` e `filterExcludeOperators` non erano nelle dipendenze dell'useEffect di caricamento dati
+
+### 🆕 Nuove Funzionalità
+- **Ricerca nel report operatori**: Aggiunto input per cercare operatori in tempo reale
+  - Filtra case-insensitive mentre digiti
+  - Resetta automaticamente quando chiudi il modal
+- **Bottone "Resetta filtri"**: Azzera tutti i filtri attivi in un click
+  - Resetta `Escludi storni` a false
+  - Resetta `Escludi operatori` a lista vuota
+  - Pulisce il localStorage e ricarica i dati
 
 ---
 
