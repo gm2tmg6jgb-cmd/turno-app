@@ -135,6 +135,7 @@ export default function PrioritaView({ showToast, globalDate }) {
     const [unconfiguredSap, setUnconfiguredSap] = useState([]); // [{materiale, fino, qty}]
     const [resetConfirmModal, setResetConfirmModal] = useState(false); // Modal reset
     const [isResetting, setIsResetting] = useState(false); // Loading durante reset
+    const [inventarioOraInizio, setInventarioOraInizio] = useState(null); // Timestamp inizio inventario fisico
 
     useEffect(() => {
         localStorage.setItem("lab_inv_date", inventarioDate);
@@ -256,15 +257,21 @@ export default function PrioritaView({ showToast, globalDate }) {
             // 3. Inventario fisico da Supabase
             const { data: invRes } = await supabase
                 .from("inventario_fisico")
-                .select("componente,fino,quantita,data_inventario");
+                .select("componente,fino,quantita,data_inventario,data_ora_inventario");
             const invMap = {}; // {comp: {fino: qty}}
+            let maxDataOra = null;
             if (invRes) {
                 invRes.forEach(r => {
                     const comp = (r.componente || "").toUpperCase();
                     const fino = String(r.fino || "").padStart(4, "0");
                     if (!invMap[comp]) invMap[comp] = {};
                     invMap[comp][fino] = r.quantita || 0;
+                    // Traccia il timestamp più recente
+                    if (r.data_ora_inventario && (!maxDataOra || new Date(r.data_ora_inventario) > new Date(maxDataOra))) {
+                        maxDataOra = r.data_ora_inventario;
+                    }
                 });
+                setInventarioOraInizio(maxDataOra);
             }
             // 4. SAP conferme nel periodo inventario
             const { data: sapRes } = await fetchAllRows(() =>
@@ -566,9 +573,10 @@ export default function PrioritaView({ showToast, globalDate }) {
         }
     };
 
-    const resetInventarioPeriod = () => {
+    const resetInventarioPeriod = async () => {
         // Reset alle date odierne - non cancella dati, solo resetta il filtro visualizzazione
         const today = new Date().toISOString().split("T")[0];
+        const nowTimestamp = new Date().toISOString();
 
         setInventarioDate(today);
         setInventarioDateFine(today);
@@ -577,7 +585,25 @@ export default function PrioritaView({ showToast, globalDate }) {
         setCellExclusions({});
         setCellInclusions({});
 
-        showToast?.("✓ Periodo resettato a " + new Date(today).toLocaleDateString("it-IT") + ". Inventario precedente rimane nel database.", "success");
+        // Aggiorna data_ora_inventario per i record di oggi
+        try {
+            // Crea un record di inventario fisico per marcare l'inizio del nuovo inventario
+            await supabase.from("inventario_fisico").insert({
+                componente: "MARKER_INIZIO_INVENTARIO",
+                fino: "0000",
+                quantita: 0,
+                data_inventario: today,
+                data_ora_inventario: nowTimestamp,
+                updated_at: nowTimestamp
+            });
+
+            setInventarioOraInizio(nowTimestamp);
+            showToast?.("✓ Periodo resettato a " + new Date(today).toLocaleDateString("it-IT") + " ore " + new Date(nowTimestamp).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) + ". Inventario precedente rimane nel database.", "success");
+        } catch (err) {
+            console.error("[PrioritaView] Errore nel setto timestamp reset:", err);
+            showToast?.("Errore nell'aggiornamento timestamp", "error");
+        }
+
         setResetConfirmModal(false);
 
         // Ricarica i dati con le nuove date
@@ -635,7 +661,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                     </div>
                 </div>
 
-                <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {/* Periodo inventario */}
                     <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--bg-tertiary)", padding: "6px 14px", borderRadius: 10, border: "1px solid var(--border)" }}>
                         <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", whiteSpace: "nowrap" }}>Dal</span>
@@ -653,6 +679,14 @@ export default function PrioritaView({ showToast, globalDate }) {
                             style={{ border: "none", background: "transparent", fontSize: 13, fontWeight: 800, color: "var(--accent)", cursor: "pointer", outline: "none" }}
                         />
                     </div>
+
+                    {/* Orario inizio inventario */}
+                    {inventarioOraInizio && (
+                        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", paddingLeft: 12 }}>
+                            📋 Inventario fisico del {new Date(inventarioOraInizio + "Z").toLocaleDateString("it-IT")} ore {new Date(inventarioOraInizio + "Z").toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+                        </div>
+                    )}
+                </div>
 
                     <button
                         onClick={() => fetchData()}
