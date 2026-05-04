@@ -683,7 +683,12 @@ export default function PrioritaView({ showToast, globalDate }) {
                     {/* Orario inizio inventario */}
                     {inventarioOraInizio && (
                         <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", paddingLeft: 12 }}>
-                            📋 Inventario fisico del {new Date(inventarioOraInizio + "Z").toLocaleDateString("it-IT")} ore {new Date(inventarioOraInizio + "Z").toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+                            📋 Inventario fisico del {(() => {
+                                const d = new Date(inventarioOraInizio);
+                                const data = d.toLocaleDateString("it-IT");
+                                const ora = d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
+                                return data + " ore " + ora;
+                            })()}
                         </div>
                     )}
                 </div>
