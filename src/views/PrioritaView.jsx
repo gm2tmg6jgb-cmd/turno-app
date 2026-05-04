@@ -21,6 +21,8 @@ const LOCAL_ANAGRAFICA = {
     "M0192963": { comp: "SG3", proj: "DCT ECO" },
     "M0140997/S": { comp: "SG2", proj: "DCT ECO" },
     "M0140997": { comp: "SG2", proj: "DCT ECO" },
+    "M0162644/S": { comp: "SG2", proj: "DCT ECO" },
+    "M0162644": { comp: "SG2", proj: "DCT ECO" },
     "2516272835": { comp: "SG1", proj: "DCT300" },
     "2516107836": { comp: "SG1", proj: "DCT300" },
     "M0162583/S": { comp: "SG4", proj: "8Fe" },
@@ -81,16 +83,23 @@ const SAP_PREV_SOURCE = {
     }
 };
 
+// Fasi per cui non si usa sapPrev (OP10 non disponibile → solo scarichi SAP)
+const NO_SAP_PREV_PHASES = {
+    "DCT ECO": ["laser_welding", "laser_welding_2", "shaping"]
+};
+
 // Fasi non editabili per progetto
 const NON_EDITABLE_PHASES = {
     "DCT300": ["shot_peening"] // OKU
 };
 
-const normalizeComp = (c) => {
+const normalizeComp = (c, proj = null) => {
     if (!c) return "";
     const s = String(c).toUpperCase();
-    const eco = ["SG2", "SG3", "SG4", "SG5", "SGR", "RG FD1", "RG FD2"];
-    if (eco.includes(s)) return s + " ECO";
+    if (proj === null || proj === "DCT ECO") {
+        const eco = ["SG2", "SG3", "SG4", "SG5", "SGR", "RG FD1", "RG FD2"];
+        if (eco.includes(s)) return s + " ECO";
+    }
     return s;
 };
 
@@ -99,6 +108,10 @@ export default function PrioritaView({ showToast, globalDate }) {
     const [inventarioDate, setInventarioDate] = useState(() =>
         localStorage.getItem("lab_inv_date") || new Date().toISOString().split("T")[0]
     );
+    const [inventarioDateFine, setInventarioDateFine] = useState(() =>
+        localStorage.getItem("lab_inv_date_fine") || new Date().toISOString().split("T")[0]
+    );
+    const noSapPrevRef = React.useRef({});
     const [finoSequences, setFinoSequences] = useState({}); // {comp: [{fino, fase}]}
     const [matrixData, setMatrixData] = useState({}); // {comp: {fino: {inv, sap, sapPrev, remaining, records}}}
     const [componentsByProject, setComponentsByProject] = useState({});
@@ -108,14 +121,26 @@ export default function PrioritaView({ showToast, globalDate }) {
     const [savingCell, setSavingCell] = useState(null); // {comp, fino}
     const [cellExclusions, setCellExclusions] = useState({});
     const [cellInclusions, setCellInclusions] = useState({});
+    const [noSapPrevCells, setNoSapPrevCells] = useState(() => {
+        try {
+            const v = JSON.parse(localStorage.getItem("lab_no_sap_prev") || "{}");
+            noSapPrevRef.current = v;
+            return v;
+        } catch { return {}; }
+    });
     const [isConfigMode, setIsConfigMode] = useState(false);
     const [quickConfigModal, setQuickConfigModal] = useState(null);
     const [showDetails, setShowDetails] = useState(true);
     const [activeTab, setActiveTab] = useState("DCT ECO");
+    const [unconfiguredSap, setUnconfiguredSap] = useState([]); // [{materiale, fino, qty}]
 
     useEffect(() => {
         localStorage.setItem("lab_inv_date", inventarioDate);
     }, [inventarioDate]);
+
+    useEffect(() => {
+        localStorage.setItem("lab_inv_date_fine", inventarioDateFine);
+    }, [inventarioDateFine]);
 
     useEffect(() => {
         if (globalDate) setInventarioDate(globalDate);
@@ -142,6 +167,7 @@ export default function PrioritaView({ showToast, globalDate }) {
     }, [isConfigMode]);
 
     const fetchData = async () => {
+        if (!inventarioDate || !inventarioDateFine) return;
         setLoading(true);
         try {
             // 1. Anagrafica materiali
@@ -208,7 +234,7 @@ export default function PrioritaView({ showToast, globalDate }) {
             PROJECTS.forEach(proj => {
                 const comps = PROJECT_COMPONENTS_LAB[proj] || [];
                 comps.forEach(comp => {
-                    const normComp = normalizeComp(comp);
+                    const normComp = normalizeComp(comp, proj);
                     // Create sequence with sample fino values to ensure components always display
                     const finoPrefix = String((Object.keys(finoSeqSorted).length % 99) + 1).padStart(2, "0");
                     let finoCounter = 0;
@@ -216,7 +242,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                     finoSeqSorted[normComp] = LAB_SEQUENCE.map(fase => {
                         finoCounter++;
                         const override = dbOverrides.find(o =>
-                            normalizeComp(o.comp) === normComp && o.proj === proj && o.fase === fase
+                            normalizeComp(o.comp, o.proj) === normComp && o.proj === proj && o.fase === fase
                         );
                         return {
                             fino: override ? override.fino : String(finoCounter).padStart(4, "0"),
@@ -238,42 +264,49 @@ export default function PrioritaView({ showToast, globalDate }) {
                     invMap[comp][fino] = r.quantita || 0;
                 });
             }
-            // 4. SAP conferme dal inventarioDate in poi
+            // 4. SAP conferme nel periodo inventario
             const { data: sapRes } = await fetchAllRows(() =>
                 supabase.from("conferme_sap")
                     .select("data,materiale,fino,qta_ottenuta,work_center_sap,macchina_id,turno_id")
                     .gte("data", inventarioDate)
+                    .lte("data", inventarioDateFine)
             );
 
             // Aggrega SAP per comp+fino
             const sapMap = {}; // {comp: {fino: {qty, records}}}
 
             // Filtro materiali e progetto stretti
-            const validConfigMap = {};
+            // Match esatto mat+fino ha priorità, mat senza fino è fallback generico (come ComponentFlowView)
+            const validConfigMap = {};  // {mat_fino: {comp, fase}}
+            const genericMatMap = {};   // {mat: {comp, fase}} per override con fino=null
             dbOverrides.forEach(o => {
                 if (!PROJECTS.includes(o.proj)) return;
-                const key = `${o.mat}_${o.fino}`;
-                validConfigMap[key] = { comp: normalizeComp(o.comp), fase: o.fase };
+                if (o.fino) {
+                    validConfigMap[`${o.mat}_${o.fino}`] = { comp: normalizeComp(o.comp, o.proj), fase: o.fase };
+                } else {
+                    genericMatMap[o.mat] = { comp: normalizeComp(o.comp, o.proj), fase: o.fase };
+                }
             });
 
+            const unconfigured = {}; // {materiale_fino: {materiale, fino, qty}}
             if (sapRes) {
                 sapRes.forEach(r => {
                     const matCode = (r.materiale || "").toUpperCase();
                     const fino = String(r.fino || "").padStart(4, "0");
                     if (!fino || fino === "0000") return;
 
-                    // Primo tentativo: match esatto material_fino_overrides
-                    let comp = null;
-                    const config = validConfigMap[`${matCode}_${fino}`];
-                    if (config) {
-                        comp = config.comp;
-                    } else {
-                        // Fallback: usa anagrafica (LOCAL o DB) per componente, fino reale da SAP
+                    const config = validConfigMap[`${matCode}_${fino}`] || genericMatMap[matCode];
+                    if (!config) {
+                        // Raccogli solo materiali che appartengono a progetti configurati
                         const anagEntry = anagrafica[matCode];
                         if (!anagEntry || !PROJECTS.includes(anagEntry.proj)) return;
-                        comp = normalizeComp(anagEntry.comp);
+                        const key = `${matCode}_${fino}`;
+                        if (!unconfigured[key]) unconfigured[key] = { materiale: matCode, fino, qty: 0 };
+                        unconfigured[key].qty += (r.qta_ottenuta || 0);
+                        return;
                     }
 
+                    const comp = config.comp;
                     if (!sapMap[comp]) sapMap[comp] = {};
                     if (!sapMap[comp][fino]) sapMap[comp][fino] = { qty: 0, records: [] };
                     sapMap[comp][fino].qty += (r.qta_ottenuta || 0);
@@ -284,13 +317,14 @@ export default function PrioritaView({ showToast, globalDate }) {
                     });
                 });
             }
+            setUnconfiguredSap(Object.values(unconfigured));
 
             // Per componenti senza material_fino_overrides, aggiorna finoSeqSorted
             // usando i finos reali trovati in sapMap (invece dei placeholder)
             PROJECTS.forEach(proj => {
                 const LAB_SEQUENCE = LAB_SEQUENCE_BY_PROJ[proj] || LAB_SEQUENCE_DEFAULT;
                 (PROJECT_COMPONENTS_LAB[proj] || []).forEach(comp => {
-                    const normComp = normalizeComp(comp);
+                    const normComp = normalizeComp(comp, proj);
                     const seq = finoSeqSorted[normComp] || [];
                     const compSapFinos = Object.keys(sapMap[normComp] || {}).sort();
                     if (compSapFinos.length === 0) return;
@@ -298,7 +332,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                     // Conta quante celle hanno finos reali da dbOverrides
                     const configuredFinos = new Set(
                         dbOverrides
-                            .filter(o => normalizeComp(o.comp) === normComp && o.proj === proj)
+                            .filter(o => normalizeComp(o.comp, o.proj) === normComp && o.proj === proj)
                             .map(o => o.fino)
                     );
                     const hasFullConfig = seq.every(s => configuredFinos.has(s.fino));
@@ -309,7 +343,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                     finoSeqSorted[normComp] = LAB_SEQUENCE.map((fase, i) => {
                         // Se esiste un override DB per questa fase, usalo
                         const override = dbOverrides.find(o =>
-                            normalizeComp(o.comp) === normComp && o.proj === proj && o.fase === fase
+                            normalizeComp(o.comp, o.proj) === normComp && o.proj === proj && o.fase === fase
                         );
                         if (override) return { fino: override.fino, fase };
                         // Altrimenti usa il prossimo fino reale da SAP
@@ -325,7 +359,7 @@ export default function PrioritaView({ showToast, globalDate }) {
             PROJECTS.forEach(proj => {
                 const comps = PROJECT_COMPONENTS_LAB[proj] || [];
                 comps.forEach(comp => {
-                    const normComp = normalizeComp(comp);
+                    const normComp = normalizeComp(comp, proj);
                     const seq = finoSeqSorted[normComp] || [];
                     newMatrix[normComp] = {};
 
@@ -339,23 +373,27 @@ export default function PrioritaView({ showToast, globalDate }) {
                         // Se c'è una fonte sapPrev specifica (es. DCT300 WIP←FRW), cerca da quella fase
                         // in poi verso il basso saltando le escluse
                         const sapPrevSourceFase = SAP_PREV_SOURCE[proj]?.[fase];
+                        // XOR: toggle inverte il default (NO_SAP_PREV_PHASES = disabilitato di default)
+                        const noSapPrev = !!(NO_SAP_PREV_PHASES[proj]?.includes(fase)) !== !!noSapPrevRef.current[`${normComp}:${fase}`];
                         let sapPrevFino = null;
 
-                        if (sapPrevSourceFase) {
-                            // Cerca la fase sorgente specificata, poi se esclusa cerca la precedente attiva
-                            const sourceIdx = seq.findIndex(s => s.fase === sapPrevSourceFase);
-                            for (let i = sourceIdx; i >= 0; i--) {
-                                if (!excl[`${normComp}:${seq[i].fase}`]) {
-                                    sapPrevFino = seq[i].fino;
-                                    break;
+                        if (!noSapPrev) {
+                            if (sapPrevSourceFase) {
+                                // Cerca la fase sorgente specificata, poi se esclusa cerca la precedente attiva
+                                const sourceIdx = seq.findIndex(s => s.fase === sapPrevSourceFase);
+                                for (let i = sourceIdx; i >= 0; i--) {
+                                    if (!excl[`${normComp}:${seq[i].fase}`]) {
+                                        sapPrevFino = seq[i].fino;
+                                        break;
+                                    }
                                 }
-                            }
-                        } else {
-                            // Risali la sequenza saltando le celle escluse
-                            for (let i = idx - 1; i >= 0; i--) {
-                                if (!excl[`${normComp}:${seq[i].fase}`]) {
-                                    sapPrevFino = seq[i].fino;
-                                    break;
+                            } else {
+                                // Risali la sequenza saltando le celle escluse
+                                for (let i = idx - 1; i >= 0; i--) {
+                                    if (!excl[`${normComp}:${seq[i].fase}`]) {
+                                        sapPrevFino = seq[i].fino;
+                                        break;
+                                    }
                                 }
                             }
                         }
@@ -386,10 +424,10 @@ export default function PrioritaView({ showToast, globalDate }) {
         }
     };
 
-    useEffect(() => { fetchData(); }, [inventarioDate]);
+    useEffect(() => { fetchData(); }, [inventarioDate, inventarioDateFine]);
 
     const toggleCellVisibility = async (comp, fase) => {
-        const normC = normalizeComp(comp);
+        const normC = comp; // già normalizzato dal chiamante
         const key = `${normC}:${fase}`;
         const isExcluded = !!cellExclusions[key];
 
@@ -413,7 +451,7 @@ export default function PrioritaView({ showToast, globalDate }) {
     };
 
     const toggleCellExclusion = async (comp, fase) => {
-        const normC = normalizeComp(comp);
+        const normC = comp; // già normalizzato dal chiamante
         const key = `${normC}:${fase}`;
         const isCurrentlyExcluded = !!cellExclusions[key];
         try {
@@ -436,7 +474,7 @@ export default function PrioritaView({ showToast, globalDate }) {
     };
 
     const toggleCellInclusion = async (comp, fase) => {
-        const normC = normalizeComp(comp);
+        const normC = comp; // già normalizzato dal chiamante
         const key = `${normC}:${fase}`;
         const isCurrentlyIncluded = !!cellInclusions[key];
         try {
@@ -456,6 +494,19 @@ export default function PrioritaView({ showToast, globalDate }) {
             console.error("Errore toggle inclusione:", err);
             showToast?.("Errore salvataggio", "error");
         }
+    };
+
+    const toggleNoSapPrev = (comp, fase) => {
+        const key = `${comp}:${fase}`;
+        setNoSapPrevCells(prev => {
+            const updated = { ...prev };
+            if (updated[key]) delete updated[key];
+            else updated[key] = true;
+            localStorage.setItem("lab_no_sap_prev", JSON.stringify(updated));
+            noSapPrevRef.current = updated;
+            return updated;
+        });
+        setTimeout(() => fetchData(), 0);
     };
 
     const saveInventory = async (comp, fino, qty) => {
@@ -565,18 +616,21 @@ export default function PrioritaView({ showToast, globalDate }) {
                 </div>
 
                 <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                    {/* Data inventario */}
+                    {/* Periodo inventario */}
                     <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--bg-tertiary)", padding: "6px 14px", borderRadius: 10, border: "1px solid var(--border)" }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", whiteSpace: "nowrap" }}>Inventario dal</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", whiteSpace: "nowrap" }}>Dal</span>
                         <input
                             type="date"
                             value={inventarioDate}
                             onChange={e => setInventarioDate(e.target.value)}
-                            style={{
-                                border: "none", background: "transparent", fontSize: 13,
-                                fontWeight: 800, color: "var(--accent)", cursor: "pointer",
-                                outline: "none"
-                            }}
+                            style={{ border: "none", background: "transparent", fontSize: 13, fontWeight: 800, color: "var(--accent)", cursor: "pointer", outline: "none" }}
+                        />
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", whiteSpace: "nowrap" }}>al</span>
+                        <input
+                            type="date"
+                            value={inventarioDateFine}
+                            onChange={e => setInventarioDateFine(e.target.value)}
+                            style={{ border: "none", background: "transparent", fontSize: 13, fontWeight: 800, color: "var(--accent)", cursor: "pointer", outline: "none" }}
                         />
                     </div>
 
@@ -624,7 +678,7 @@ export default function PrioritaView({ showToast, globalDate }) {
             <div style={{ display: "flex", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
                 {[
                     { color: "var(--accent)", label: "Inv", desc: "Inventario fisico (editabile)" },
-                    { color: "#60a5fa", label: "SAP ↓", desc: "Scarichi SAP dal " + new Date(inventarioDate + "T12:00:00").toLocaleDateString("it-IT") },
+                    { color: "#60a5fa", label: "SAP ↓", desc: "Scarichi SAP dal " + new Date(inventarioDate + "T12:00:00").toLocaleDateString("it-IT") + " al " + new Date(inventarioDateFine + "T12:00:00").toLocaleDateString("it-IT") },
                     { color: "#a78bfa", label: "SAP ↑", desc: "Entrate dalla fase precedente" },
                     { color: "var(--text-primary)", label: "=", desc: "Rimanenza = Inv - SAP↓ + SAP↑" },
                 ].map(item => (
@@ -712,7 +766,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                             <div style={{ minWidth: "max-content" }}>
                                 {/* Intestazione colonne — solo una volta */}
                                 {(() => {
-                                    const firstSeq = finoSequences[normalizeComp(comps[0])] || [];
+                                    const firstSeq = finoSequences[normalizeComp(comps[0], proj)] || [];
                                     if (firstSeq.length === 0) return null;
                                     return (
                                         <div style={{ display: "flex", marginBottom: 6, paddingLeft: 120, position: "sticky", top: 0, background: "var(--bg-card)", zIndex: 2 }}>
@@ -724,9 +778,6 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                     <div style={{ fontSize: 14, fontWeight: 800, color: theme.main }}>
                                                         {PHASE_CODE[fase] || fase}
                                                     </div>
-                                                    <div style={{ fontSize: 9, color: "var(--text-muted)", fontWeight: 600 }}>
-                                                        op.{fino}
-                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
@@ -734,7 +785,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                 })()}
 
                                 {comps.map(comp => {
-                                    const normComp = normalizeComp(comp);
+                                    const normComp = normalizeComp(comp, proj);
                                     const seq = finoSequences[normComp] || [];
                                     const compMatrix = matrixData[normComp] || {};
 
@@ -884,6 +935,29 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                         >
                                                                             ✕
                                                                         </div>
+                                                                        {/* Toggle SAP ↑ (entrata da fase precedente) - top right */}
+                                                                        {idx > 0 && (() => {
+                                                                            const sapPrevDisabled = !!(NO_SAP_PREV_PHASES[proj]?.includes(fase)) !== !!noSapPrevCells[`${normComp}:${fase}`];
+                                                                            return (
+                                                                                <div
+                                                                                    onClick={(e) => { e.stopPropagation(); toggleNoSapPrev(normComp, fase); }}
+                                                                                    title={sapPrevDisabled ? "Abilita entrata da fase precedente" : "Disabilita entrata da fase precedente"}
+                                                                                    style={{
+                                                                                        position: "absolute", top: -6, right: -6,
+                                                                                        background: sapPrevDisabled ? "#6b7280" : "#a78bfa",
+                                                                                        borderRadius: "50%",
+                                                                                        width: "20px", height: "20px", display: "flex",
+                                                                                        alignItems: "center", justifyContent: "center",
+                                                                                        fontSize: "10px", fontWeight: "bold",
+                                                                                        color: "white", cursor: "pointer",
+                                                                                        boxShadow: sapPrevDisabled ? "0 2px 5px rgba(107,114,128,0.4)" : "0 2px 5px rgba(167,139,250,0.5)",
+                                                                                        transition: "all 0.2s"
+                                                                                    }}
+                                                                                >
+                                                                                    ↑
+                                                                                </div>
+                                                                            );
+                                                                        })()}
                                                                     </>
                                                                 )}
                                                             </div>
@@ -935,7 +1009,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                 )}
 
                                                                 {/* Entrate dalla fase precedente */}
-                                                                {!isFirstFino && true && (
+                                                                {!isFirstFino && !(!!(NO_SAP_PREV_PHASES[proj]?.includes(fase)) !== !!noSapPrevCells[`${normComp}:${fase}`]) && (
                                                                     <div
                                                                         title="Pezzi entrati dalla fase precedente"
                                                                         style={{
@@ -987,7 +1061,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                             <div>
                                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{selectedDetail.title}</h3>
                                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
-                                    Scarichi SAP dal {new Date(inventarioDate + "T12:00:00").toLocaleDateString("it-IT")} — {selectedDetail.records.length} record
+                                    Scarichi SAP dal {new Date(inventarioDate + "T12:00:00").toLocaleDateString("it-IT")} al {new Date(inventarioDateFine + "T12:00:00").toLocaleDateString("it-IT")} — {selectedDetail.records.length} record
                                 </div>
                             </div>
                             <button onClick={() => setSelectedDetail(null)}

@@ -79,6 +79,24 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     const [cellExclusions, setCellExclusions] = useState({});
     const [cellInclusions, setCellInclusions] = useState({});
     const [ultimoImportato, setUltimoImportato] = useState(null);
+    const [filterExcludeSto, setFilterExcludeSto] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem("componentflow_filter_exclude_sto")) ?? false;
+        } catch {
+            return false;
+        }
+    });
+    const [filterExcludeOperators, setFilterExcludeOperators] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem("componentflow_filter_exclude_operators")) ?? [];
+        } catch {
+            return [];
+        }
+    });
+    const [showFilterModal, setShowFilterModal] = useState(false);
+    const [cellsAffectedByOperator, setCellsAffectedByOperator] = useState({});
+    const [showOperatorReport, setShowOperatorReport] = useState(false);
+    const [highlightOperator, setHighlightOperator] = useState(null); // operatore da evidenziare
 
     const throughputCfg = useMemo(() => loadThroughputConfig(), [showThroughput, selectedDetail]);
 
@@ -344,7 +362,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
             setCompMappings(compToMats);
 
             // Fetch dati produzione
-            const selectFields = "data, materiale, work_center_sap, macchina_id, qta_ottenuta, turno_id, fino, importato_il";
+            const selectFields = "data, materiale, work_center_sap, macchina_id, qta_ottenuta, turno_id, fino, importato_il, acq_da, sto";
             const queryFactory = () => {
                 let q = supabase.from("conferme_sap").select(selectFields);
                 if (viewMode === "weekly") {
@@ -388,6 +406,10 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
             if (prodRes) {
                 prodRes.forEach(r => {
                     const matCode = (r.materiale || "").toUpperCase();
+                    // Applica filtri
+                    if (filterExcludeSto && r.sto === "X") return;
+                    if (filterExcludeOperators.length > 0 && filterExcludeOperators.includes(r.acq_da)) return;
+
                     const fino = String(r.fino || "").padStart(4, "0");
 
                     // SOLO configurazione manuale — match specifico (fino esatto) ha priorità su match generico (fino null)
@@ -524,6 +546,42 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     useEffect(() => {
         fetchData();
     }, [wWeek, wDate, viewMode, activeProject, localTurno, dynamicOverrides, refreshTick]);
+
+    // Calcola le celle affettate da ogni operatore (Opzione 3: Report operatori)
+    useMemo(() => {
+        const operatorStats = {};
+
+        Object.entries(matrixData).forEach(([proj, comps]) => {
+            Object.entries(comps).forEach(([comp, phases]) => {
+                Object.entries(phases).forEach(([phase, cellData]) => {
+                    if (cellData?.records?.length > 0) {
+                        cellData.records.forEach(r => {
+                            const op = r.acq_da || "unknown";
+                            if (!operatorStats[op]) {
+                                operatorStats[op] = { cells: new Set(), totalPieces: 0, records: [] };
+                            }
+                            const cellKey = `${proj}:${comp}:${phase}`;
+                            operatorStats[op].cells.add(cellKey);
+                            operatorStats[op].totalPieces += (r.qta_ottenuta || 0);
+                            operatorStats[op].records.push({ ...r, proj, comp, phase, cellKey });
+                        });
+                    }
+                });
+            });
+        });
+
+        // Converti Set a Array per uso nel report
+        const finalStats = {};
+        Object.entries(operatorStats).forEach(([op, data]) => {
+            finalStats[op] = {
+                cellCount: data.cells.size,
+                totalPieces: data.totalPieces,
+                records: data.records
+            };
+        });
+
+        setCellsAffectedByOperator(finalStats);
+    }, [matrixData]);
 
     const saveFermo = async () => {
         if (!fermoForm.motivo) { showToast?.("Seleziona un motivo", "error"); return; }
@@ -873,15 +931,19 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                         const isSuccess = qty >= currentTarget && qty > 0;
                                         const hasProduction = qty > 0;
 
+                                        // Opzione 2: Evidenziazione - controlla se la cella contiene record da highlightOperator
+                                        const cellRecords = data?.records || [];
+                                        const hasHighlightedOperator = highlightOperator && cellRecords.some(r => r.acq_da === highlightOperator);
+
                                         return (
                                             <div key={idx} style={{
                                                 width: "85px",
                                                 display: "flex",
                                                 justifyContent: "center",
                                                 flexShrink: 0,
-                                                background: step.id === "ht" ? "rgba(0, 212, 255, 0.15)" : "transparent",
-                                                borderLeft: step.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none",
-                                                borderRight: step.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none"
+                                                background: hasHighlightedOperator ? "rgba(239, 68, 68, 0.15)" : (step.id === "ht" ? "rgba(0, 212, 255, 0.15)" : "transparent"),
+                                                borderLeft: hasHighlightedOperator ? "3px solid #ef4444" : (step.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none"),
+                                                borderRight: hasHighlightedOperator ? "3px solid #ef4444" : (step.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none")
                                             }}>
                                                 <div
                                                     className="production-cell-container"
@@ -1189,6 +1251,33 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     </select>
 
                     <button
+                        onClick={() => setShowFilterModal(!showFilterModal)}
+                        className="btn"
+                        style={{
+                            padding: "8px 12px", display: "flex", alignItems: "center", gap: "6px", fontWeight: "700",
+                            background: (filterExcludeSto || filterExcludeOperators.length > 0) ? "var(--accent-muted)" : "var(--bg-tertiary)",
+                            color: (filterExcludeSto || filterExcludeOperators.length > 0) ? "var(--accent)" : "var(--text-secondary)",
+                            border: "1px solid var(--border)"
+                        }}
+                    >
+                        🔽 Filtra
+                    </button>
+
+                    <button
+                        onClick={() => setShowOperatorReport(true)}
+                        className="btn"
+                        title="Report: mostra quali celle sono state modificate da ogni operatore"
+                        style={{
+                            padding: "8px 12px", display: "flex", alignItems: "center", gap: "6px", fontWeight: "700",
+                            background: "var(--bg-tertiary)",
+                            color: "var(--text-secondary)",
+                            border: "1px solid var(--border)"
+                        }}
+                    >
+                        📊 Operatori
+                    </button>
+
+                    <button
                         onClick={() => setIsConfigMode(!isConfigMode)}
                         className="btn"
                         style={{
@@ -1378,29 +1467,36 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {selectedDetail.records.length > 0 ? (
-                                            selectedDetail.records.map((r, i) => (
-                                                <tr key={i} style={{ borderBottom: "1px solid var(--border-light)" }}>
-                                                    <td style={{ padding: "10px", fontSize: "13px" }}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
-                                                    <td style={{ padding: "10px", fontSize: "13px", color: "var(--accent)", fontWeight: "600" }}>{r.materiale}</td>
-                                                    <td style={{ padding: "10px", fontSize: "13px", fontWeight: "600" }}>{r.fino || "—"}</td>
-                                                    {selectedDetail.phaseId === "baa"
-                                                        ? <td style={{ padding: "10px", fontSize: "13px" }}>{r.orario || "—"}</td>
-                                                        : <><td style={{ padding: "10px", fontSize: "13px" }}>{r.turno_id}</td>
-                                                           <td style={{ padding: "10px", fontSize: "13px", fontWeight: "bold" }}>{r.macchina || r.macchina_id || r.work_center_sap || r.macchinaConfigured || "—"}</td></>
-                                                    }
-                                                    <td style={{ padding: "10px", fontSize: "14px", fontWeight: "bold", textAlign: "right", color: "#3c6ef0" }}>
-                                                        {selectedDetail.phaseId === "baa" ? Math.abs(r.quantita || 0) : r.qta_ottenuta}
+                                        {(() => {
+                                            const filtered = selectedDetail.records.filter(r => {
+                                                if (filterExcludeSto && r.sto === "X") return false;
+                                                if (filterExcludeOperators.length > 0 && filterExcludeOperators.includes(r.acq_da)) return false;
+                                                return true;
+                                            });
+                                            return filtered.length > 0 ? (
+                                                filtered.map((r, i) => (
+                                                    <tr key={i} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                                        <td style={{ padding: "10px", fontSize: "13px" }}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
+                                                        <td style={{ padding: "10px", fontSize: "13px", color: "var(--accent)", fontWeight: "600" }}>{r.materiale}</td>
+                                                        <td style={{ padding: "10px", fontSize: "13px", fontWeight: "600" }}>{r.fino || "—"}</td>
+                                                        {selectedDetail.phaseId === "baa"
+                                                            ? <td style={{ padding: "10px", fontSize: "13px" }}>{r.orario || "—"}</td>
+                                                            : <><td style={{ padding: "10px", fontSize: "13px" }}>{r.turno_id}</td>
+                                                               <td style={{ padding: "10px", fontSize: "13px", fontWeight: "bold" }}>{r.macchina || r.macchina_id || r.work_center_sap || r.macchinaConfigured || "—"}</td></>
+                                                        }
+                                                        <td style={{ padding: "10px", fontSize: "14px", fontWeight: "bold", textAlign: "right", color: "#3c6ef0" }}>
+                                                            {selectedDetail.phaseId === "baa" ? Math.abs(r.quantita || 0) : r.qta_ottenuta}
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan="7" style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>
+                                                        Nessun record trovato{filterExcludeSto || filterExcludeOperators.length > 0 ? " con i filtri attuali" : ""}.
                                                     </td>
                                                 </tr>
-                                            ))
-                                        ) : (
-                                            <tr>
-                                                <td colSpan="7" style={{ padding: "40px", textAlign: "center", color: "var(--text-muted)" }}>
-                                                    Nessun record trovato in questa fase.
-                                                </td>
-                                            </tr>
-                                        )}
+                                            );
+                                        })()}
                                     </tbody>
                                 </table>
                             ) : (
@@ -1587,6 +1683,154 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                         </div>
                     </div>
                 </div>
+            )}
+
+            {showFilterModal && (
+                <Modal
+                    title="🔽 Filtra Dati"
+                    onClose={() => setShowFilterModal(false)}
+                    width={400}
+                >
+                    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                        <div className="form-group">
+                            <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontWeight: 700 }}>
+                                <input
+                                    type="checkbox"
+                                    checked={filterExcludeSto}
+                                    onChange={e => {
+                                        setFilterExcludeSto(e.target.checked);
+                                        localStorage.setItem("componentflow_filter_exclude_sto", JSON.stringify(e.target.checked));
+                                        setTimeout(() => fetchData(), 0);
+                                    }}
+                                />
+                                Escludi storni (sto = "X")
+                            </label>
+                        </div>
+
+                        <div className="form-group">
+                            <label className="form-label">Escludi operatori</label>
+                            <textarea
+                                className="input"
+                                placeholder="Un operatore per riga (es. STEFPUTR)"
+                                value={filterExcludeOperators.join("\n")}
+                                onChange={e => {
+                                    const ops = e.target.value.split("\n").map(o => o.trim()).filter(o => o);
+                                    setFilterExcludeOperators(ops);
+                                    localStorage.setItem("componentflow_filter_exclude_operators", JSON.stringify(ops));
+                                    setTimeout(() => fetchData(), 0);
+                                }}
+                                style={{ minHeight: "100px", fontFamily: "monospace", fontSize: "13px" }}
+                            />
+                        </div>
+
+                        {(filterExcludeSto || filterExcludeOperators.length > 0) && (
+                            <div style={{ padding: "8px", background: "var(--accent-muted)", borderRadius: "6px", fontSize: "12px" }}>
+                                Filtri attivi: {filterExcludeSto && "Storni"} {filterExcludeSto && filterExcludeOperators.length > 0 ? "+" : ""} {filterExcludeOperators.length > 0 && `${filterExcludeOperators.length} operatore(i)`}
+                            </div>
+                        )}
+                    </div>
+                </Modal>
+            )}
+
+            {showOperatorReport && (
+                <Modal
+                    title="📊 Report Operatori"
+                    onClose={() => setShowOperatorReport(false)}
+                    width={600}
+                >
+                    <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                        <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                            Mostra quali celle sono state modificate da ogni operatore e l'impatto del filtro
+                        </div>
+
+                        {Object.entries(cellsAffectedByOperator).length === 0 ? (
+                            <div style={{ padding: "16px", textAlign: "center", color: "var(--text-muted)" }}>
+                                Nessun operatore trovato nei dati
+                            </div>
+                        ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "400px", overflowY: "auto" }}>
+                                {Object.entries(cellsAffectedByOperator)
+                                    .filter(([op]) => op !== "null" && op !== "unknown")
+                                    .sort(([, a], [, b]) => b.totalPieces - a.totalPieces)
+                                    .map(([operator, stats]) => {
+                                        const isExcluded = filterExcludeOperators.includes(operator);
+                                        return (
+                                            <div key={operator} style={{
+                                                padding: "12px",
+                                                background: isExcluded ? "rgba(239, 68, 68, 0.1)" : (highlightOperator === operator ? "rgba(59, 130, 246, 0.1)" : "var(--bg-secondary)"),
+                                                border: isExcluded ? "2px solid #ef4444" : (highlightOperator === operator ? "2px solid #3b82f6" : "1px solid var(--border)"),
+                                                borderRadius: "8px",
+                                                transition: "all 0.2s",
+                                            }}>
+                                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", gap: "8px" }}>
+                                                    <div style={{ fontWeight: "700", fontSize: "14px", flex: 1 }}>
+                                                        {operator} {isExcluded && "🚫"}
+                                                    </div>
+                                                    <div style={{ display: "flex", gap: "6px" }}>
+                                                        <button
+                                                            onClick={() => setHighlightOperator(highlightOperator === operator ? null : operator)}
+                                                            title="Evidenzia le celle di questo operatore"
+                                                            style={{
+                                                                padding: "4px 8px",
+                                                                fontSize: "11px",
+                                                                background: highlightOperator === operator ? "#3b82f6" : "var(--bg-tertiary)",
+                                                                color: highlightOperator === operator ? "white" : "var(--text-secondary)",
+                                                                border: "1px solid var(--border)",
+                                                                borderRadius: "4px",
+                                                                cursor: "pointer"
+                                                            }}
+                                                        >
+                                                            {highlightOperator === operator ? "✓ Evidenziato" : "Evidenzia"}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                if (isExcluded) {
+                                                                    const newOps = filterExcludeOperators.filter(o => o !== operator);
+                                                                    setFilterExcludeOperators(newOps);
+                                                                    localStorage.setItem("componentflow_filter_exclude_operators", JSON.stringify(newOps));
+                                                                    setTimeout(() => fetchData(), 0);
+                                                                } else {
+                                                                    const newOps = [...filterExcludeOperators, operator];
+                                                                    setFilterExcludeOperators(newOps);
+                                                                    localStorage.setItem("componentflow_filter_exclude_operators", JSON.stringify(newOps));
+                                                                    setTimeout(() => fetchData(), 0);
+                                                                }
+                                                            }}
+                                                            title={isExcluded ? "Includi questo operatore" : "Escludi questo operatore"}
+                                                            style={{
+                                                                padding: "4px 8px",
+                                                                fontSize: "11px",
+                                                                background: isExcluded ? "#ef4444" : "var(--bg-tertiary)",
+                                                                color: isExcluded ? "white" : "var(--text-secondary)",
+                                                                border: "1px solid var(--border)",
+                                                                borderRadius: "4px",
+                                                                cursor: "pointer"
+                                                            }}
+                                                        >
+                                                            {isExcluded ? "Includi" : "Escludi"}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: "flex", gap: "24px", fontSize: "12px" }}>
+                                                    <div>
+                                                        <span style={{ color: "var(--text-muted)" }}>Celle modificate:</span> <strong>{stats.cellCount}</strong>
+                                                    </div>
+                                                    <div>
+                                                        <span style={{ color: "var(--text-muted)" }}>Pezzi:</span> <strong>{stats.totalPieces}</strong>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                            </div>
+                        )}
+
+                        <div style={{ fontSize: "11px", color: "var(--text-muted)", paddingTop: "8px", borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: "6px" }}>
+                            <div>💡 <strong>Evidenzia:</strong> Mostra con bordo rosso quali celle contengono modifiche di questo operatore</div>
+                            <div>💡 <strong>Escludi:</strong> Rimuove tutti i record di questo operatore dal calcolo (griglia e dati)</div>
+                        </div>
+                    </div>
+                </Modal>
             )}
         </div>
     );

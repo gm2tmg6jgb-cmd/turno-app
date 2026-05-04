@@ -4,6 +4,40 @@ Tutte le modifiche significative di Turno App sono documentate in questo file.
 
 ---
 
+## [1.6.0] — 2026-05-04 — Filtri Operatori e Report Storni in Avanzamento Componenti
+
+### 🆕 Nuove Funzionalità
+- **Filtro Storni e Operatori**: Aggiunto bottone "🔽 Filtra" in Avanzamento Componenti per:
+  - Escludere automaticamente storni (righe dove colonna "sto" = "X")
+  - Escludere operazioni di specifici operatori (basato su colonna "acq. da")
+  - Persistenza filtri in localStorage
+- **Report Operatori (📊)**: Nuovo bottone che mostra:
+  - Elenco di tutti gli operatori che hanno effettuato modifiche
+  - Numero di celle interessate per ogni operatore
+  - Numero totale di pezzi modificati per operatore
+  - Impatto immediato del filtro (quante celle sarebbero eliminate)
+- **Evidenziazione Celle**: Quando attivi un operatore nel report, le celle che contengono le sue modifiche si evidenziano con bordo rosso per individuazione visiva immediata
+
+### 🔧 Miglioramenti
+- Aggiunte colonne `acq_da` (TEXT) e `sto` (TEXT) alla tabella `conferme_sap` con relativi indici
+- Aggiornati pattern di riconoscimento SAP per includere varianti di "Acq. da" e "Sto"
+- Corretto mapping delle colonne SAP durante l'importazione (acq_da e sto ora vengono estratti correttamente)
+- Expanded SelectFields in ComponentFlowView per includere le nuove colonne
+
+### 🐛 Bug Fix
+- Risolto problema di non riconoscimento delle colonne "Acq. da" e "Sto" durante l'anteprima importazione
+- Fixed data extraction for acq_da and sto fields in handlePreview function
+
+### 📊 Database
+```sql
+ALTER TABLE conferme_sap ADD COLUMN IF NOT EXISTS acq_da TEXT;
+ALTER TABLE conferme_sap ADD COLUMN IF NOT EXISTS sto TEXT;
+CREATE INDEX idx_conferme_sap_acq_da ON conferme_sap (acq_da);
+CREATE INDEX idx_conferme_sap_sto ON conferme_sap (sto);
+```
+
+---
+
 ## [1.5.0] — 2026-05-01 — Configurazione Fasi RG + DH
 
 ### 🆕 Nuove Funzionalità

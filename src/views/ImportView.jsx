@@ -21,6 +21,8 @@ const COL_DEFS_PROD = [
     { key: "turno", label: "Turno", patterns: ["turno", "shift", "turn"] },
     { key: "ora", label: "Ora Time", patterns: ["time", "ora", "orario", "time of confirmation"] },
     { key: "fino", label: "Fino (N. Op.)", patterns: ["fino"] },
+    { key: "acq_da", label: "Acquisito da", patterns: ["acq. da", "acq.da", "acquisito da", "acq_da", "operatore", "operator", "acq"] },
+    { key: "sto", label: "Storno", patterns: ["sto", "storno", "reversal"] },
 ];
 
 const COL_DEFS_FERMI = [
@@ -319,10 +321,12 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                 const turno_id = mapTurno(get(row, mapping.turno)) || "Sconosciuto";
                 const materiale = String(get(row, mapping.materiale) || "").trim() || "Sconosciuto";
                 const fino = String(get(row, mapping.fino) || "").trim() || "Sconosciuto";
-                
+                const acq_da = String(get(row, mapping.acq_da) || "").trim() || null;
+                const sto = String(get(row, mapping.sto) || "").trim() || null;
+
                 // create a key based on the grouping criteria
                 const key = `${data_val}_${turno_id}_${materiale}_${fino}`;
-                
+
                 if (!prodAgg[key]) {
                     prodAgg[key] = {
                         work_center_sap: null,
@@ -336,13 +340,15 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                         turno_id,
                         ora: formatTime(get(row, mapping.ora)),
                         fino,
+                        acq_da,
+                        sto,
                     };
                 }
                 const qta_ott = parseFloat(get(row, mapping.qta_ottenuta)) || 0;
                 const qta_scarto = parseFloat(get(row, mapping.qta_scarto)) || 0;
                 prodAgg[key].qta_ottenuta += qta_ott;
                 prodAgg[key].qta_scarto += qta_scarto;
-                
+
                 return null;
             } else {
                 const wc = String(get(row, mapping.work_center) || "").trim().toUpperCase();
