@@ -97,6 +97,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     const [cellsAffectedByOperator, setCellsAffectedByOperator] = useState({});
     const [showOperatorReport, setShowOperatorReport] = useState(false);
     const [highlightOperator, setHighlightOperator] = useState(null); // operatore da evidenziare
+    const [searchOperator, setSearchOperator] = useState(""); // ricerca nel report operatori
 
     const throughputCfg = useMemo(() => loadThroughputConfig(), [showThroughput, selectedDetail]);
 
@@ -1735,13 +1736,28 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
             {showOperatorReport && (
                 <Modal
                     title="📊 Report Operatori"
-                    onClose={() => setShowOperatorReport(false)}
+                    onClose={() => { setShowOperatorReport(false); setSearchOperator(""); }}
                     width={600}
                 >
                     <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                         <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
                             Mostra quali celle sono state modificate da ogni operatore e l'impatto del filtro
                         </div>
+
+                        <input
+                            type="text"
+                            placeholder="Cerca operatore..."
+                            value={searchOperator}
+                            onChange={e => setSearchOperator(e.target.value.toUpperCase())}
+                            style={{
+                                padding: "8px 12px",
+                                border: "1px solid var(--border)",
+                                borderRadius: "6px",
+                                fontSize: "13px",
+                                background: "var(--bg-secondary)",
+                                color: "var(--text-primary)"
+                            }}
+                        />
 
                         {Object.entries(cellsAffectedByOperator).length === 0 ? (
                             <div style={{ padding: "16px", textAlign: "center", color: "var(--text-muted)" }}>
@@ -1751,6 +1767,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                             <div style={{ display: "flex", flexDirection: "column", gap: "8px", maxHeight: "400px", overflowY: "auto" }}>
                                 {Object.entries(cellsAffectedByOperator)
                                     .filter(([op]) => op !== "null" && op !== "unknown")
+                                    .filter(([op]) => op.includes(searchOperator))
                                     .sort(([, a], [, b]) => b.totalPieces - a.totalPieces)
                                     .map(([operator, stats]) => {
                                         const isExcluded = filterExcludeOperators.includes(operator);
