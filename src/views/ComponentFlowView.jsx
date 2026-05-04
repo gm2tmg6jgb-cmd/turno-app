@@ -1725,8 +1725,29 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                         </div>
 
                         {(filterExcludeSto || filterExcludeOperators.length > 0) && (
-                            <div style={{ padding: "8px", background: "var(--accent-muted)", borderRadius: "6px", fontSize: "12px" }}>
-                                Filtri attivi: {filterExcludeSto && "Storni"} {filterExcludeSto && filterExcludeOperators.length > 0 ? "+" : ""} {filterExcludeOperators.length > 0 && `${filterExcludeOperators.length} operatore(i)`}
+                            <div style={{ padding: "8px", background: "var(--accent-muted)", borderRadius: "6px", fontSize: "12px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
+                                <span>Filtri attivi: {filterExcludeSto && "Storni"} {filterExcludeSto && filterExcludeOperators.length > 0 ? "+" : ""} {filterExcludeOperators.length > 0 && `${filterExcludeOperators.length} operatore(i)`}</span>
+                                <button
+                                    onClick={() => {
+                                        setFilterExcludeSto(false);
+                                        setFilterExcludeOperators([]);
+                                        localStorage.setItem("componentflow_filter_exclude_sto", JSON.stringify(false));
+                                        localStorage.setItem("componentflow_filter_exclude_operators", JSON.stringify([]));
+                                        setTimeout(() => fetchData(), 0);
+                                    }}
+                                    style={{
+                                        padding: "4px 8px",
+                                        fontSize: "11px",
+                                        background: "#ef4444",
+                                        color: "white",
+                                        border: "none",
+                                        borderRadius: "4px",
+                                        cursor: "pointer",
+                                        whiteSpace: "nowrap"
+                                    }}
+                                >
+                                    Resetta
+                                </button>
                             </div>
                         )}
                     </div>
