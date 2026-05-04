@@ -4,7 +4,7 @@ import { getCurrentWeekRange } from "../lib/dateUtils";
 import { TURNI, PROCESS_STEPS, PROJECTS, PROJECT_COMPONENTS, EXCLUDED_PHASES, THROUGHPUT_CONFIG, NO_FERMO_PHASES, FASE_TECNOLOGIA_MAP } from "../data/constants";
 import { getSlotForGroup } from "../lib/shiftRotation";
 import Modal from "../components/Modal";
-import { computeThroughput, loadThroughputConfig } from "../utils/throughput";
+import { computeThroughput, loadThroughputConfig, saveThroughputConfig } from "../utils/throughput";
 import { loadComponentPhases } from "../utils/componentiPhases";
 
 // Parsing 100% manuale: solo material_fino_overrides (configurazione utente su Supabase)
@@ -99,6 +99,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     const [showOperatorReport, setShowOperatorReport] = useState(false);
     const [highlightOperator, setHighlightOperator] = useState(null); // operatore da evidenziare
     const [searchOperator, setSearchOperator] = useState(""); // ricerca nel report operatori
+    const [throughputConfigModal, setThroughputConfigModal] = useState(null); // { proj, comp, lotto, oee }
 
     const throughputCfg = useMemo(() => loadThroughputConfig(), [showThroughput, selectedDetail]);
 
@@ -1548,9 +1549,32 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                             ) : (
                                 /* Tab Throughput */
                                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                    <p style={{ margin: "0 0 12px", fontSize: 12, color: "var(--text-muted)" }}>
-                                        Tempo stimato per fase · Lotto {detailCompBase.lotto ?? 1200} pz · OEE {Math.round((detailCompBase.oee ?? 0.85) * 100)}%
-                                    </p>
+                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                                        <p style={{ margin: 0, fontSize: 12, color: "var(--text-muted)" }}>
+                                            Tempo stimato per fase · Lotto {detailCompBase.lotto ?? 1200} pz · OEE {Math.round((detailCompBase.oee ?? 0.85) * 100)}%
+                                        </p>
+                                        <button
+                                            onClick={() => setThroughputConfigModal({
+                                                proj: selectedDetail.proj,
+                                                comp: selectedDetail.comp,
+                                                lotto: detailCompBase.lotto ?? 1200,
+                                                oee: detailCompBase.oee ?? 0.85
+                                            })}
+                                            style={{
+                                                padding: "4px 8px",
+                                                fontSize: "12px",
+                                                background: "var(--bg-tertiary)",
+                                                color: "var(--text-secondary)",
+                                                border: "1px solid var(--border)",
+                                                borderRadius: "4px",
+                                                cursor: "pointer",
+                                                whiteSpace: "nowrap"
+                                            }}
+                                            title="Configura lotto e OEE"
+                                        >
+                                            ⚙️ Configura
+                                        </button>
+                                    </div>
                                     {throughputPhases.map(p => {
                                         const isCurrent = p.phaseId === selectedDetail.phaseId;
                                         const isPast = throughputPhases.findIndex(x => x.phaseId === selectedDetail.phaseId) >
@@ -1907,6 +1931,72 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                             <div>💡 <strong>Evidenzia:</strong> Mostra con bordo rosso quali celle contengono modifiche di questo operatore</div>
                             <div>💡 <strong>Escludi:</strong> Rimuove tutti i record di questo operatore dal calcolo (griglia e dati)</div>
                         </div>
+                    </div>
+                </Modal>
+            )}
+
+            {/* Throughput Config Modal */}
+            {throughputConfigModal && (
+                <Modal
+                    title="⚙️ Configura Throughput"
+                    subtitle={`${throughputConfigModal.comp} — ${throughputConfigModal.proj}`}
+                    onClose={() => setThroughputConfigModal(null)}
+                    width={400}
+                >
+                    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                        <div className="form-group">
+                            <label className="form-label">Lotto (pezzi)</label>
+                            <input
+                                type="number"
+                                className="input"
+                                value={throughputConfigModal.lotto}
+                                onChange={e => setThroughputConfigModal({ ...throughputConfigModal, lotto: parseInt(e.target.value) || 0 })}
+                                min="1"
+                            />
+                        </div>
+
+                        <div className="form-group">
+                            <label className="form-label">OEE (efficienza)</label>
+                            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                <input
+                                    type="number"
+                                    className="input"
+                                    value={Math.round(throughputConfigModal.oee * 100)}
+                                    onChange={e => setThroughputConfigModal({ ...throughputConfigModal, oee: parseInt(e.target.value) / 100 || 0.85 })}
+                                    min="1"
+                                    max="100"
+                                    style={{ flex: 1 }}
+                                />
+                                <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>%</span>
+                            </div>
+                        </div>
+
+                        <div style={{ padding: "12px", background: "var(--bg-secondary)", borderRadius: "6px", fontSize: "12px" }}>
+                            <div>📊 Valori attuali:</div>
+                            <div>• Lotto: <strong>{throughputConfigModal.lotto}</strong> pz</div>
+                            <div>• OEE: <strong>{Math.round(throughputConfigModal.oee * 100)}%</strong></div>
+                        </div>
+                    </div>
+
+                    <div className="modal-footer">
+                        <button className="btn btn-secondary" onClick={() => setThroughputConfigModal(null)}>Annulla</button>
+                        <button
+                            className="btn btn-primary"
+                            onClick={() => {
+                                const cfg = loadThroughputConfig();
+                                const compKey = `${throughputConfigModal.proj}::${throughputConfigModal.comp}`;
+                                if (!cfg.components[compKey]) {
+                                    cfg.components[compKey] = { lotto: 1200, oee: 0.85, changeOverH: 1, rackSize: 25, phases: [] };
+                                }
+                                cfg.components[compKey].lotto = throughputConfigModal.lotto;
+                                cfg.components[compKey].oee = throughputConfigModal.oee;
+                                saveThroughputConfig(cfg);
+                                setThroughputConfigModal(null);
+                                showToast("Configurazione throughput salvata!", "success");
+                            }}
+                        >
+                            Salva Configurazione
+                        </button>
                     </div>
                 </Modal>
             )}
