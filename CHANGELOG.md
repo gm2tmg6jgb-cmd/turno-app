@@ -4,6 +4,17 @@ Tutte le modifiche significative di Turno App sono documentate in questo file.
 
 ---
 
+## [1.6.3] — 2026-05-05 — Throughput Configurabile
+
+### 🆕 Nuove Funzionalità
+- **Configurazione Throughput**: Bottone "⚙️ Configura" nel tab Throughput
+  - Modifica Lotto (numero di pezzi) per il componente selezionato
+  - Modifica OEE (efficienza %) da 1 a 100%
+  - La configurazione si salva nel localStorage per ogni componente
+  - L'aggiornamento è istantaneo e ricalcola il throughput in tempo reale
+
+---
+
 ## [1.6.2] — 2026-05-05 — Fix Evidenziazione Operatori e Throughput Intelligente
 
 ### 🐛 Bug Fix
