@@ -545,7 +545,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
 
     useEffect(() => {
         fetchData();
-    }, [wWeek, wDate, viewMode, activeProject, localTurno, dynamicOverrides, refreshTick]);
+    }, [wWeek, wDate, viewMode, activeProject, localTurno, dynamicOverrides, refreshTick, filterExcludeSto, filterExcludeOperators]);
 
     // Calcola le celle affettate da ogni operatore (Opzione 3: Report operatori)
     useMemo(() => {
