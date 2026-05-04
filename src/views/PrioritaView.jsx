@@ -133,6 +133,8 @@ export default function PrioritaView({ showToast, globalDate }) {
     const [showDetails, setShowDetails] = useState(true);
     const [activeTab, setActiveTab] = useState("DCT ECO");
     const [unconfiguredSap, setUnconfiguredSap] = useState([]); // [{materiale, fino, qty}]
+    const [resetConfirmModal, setResetConfirmModal] = useState(false); // Modal reset
+    const [isResetting, setIsResetting] = useState(false); // Loading durante reset
 
     useEffect(() => {
         localStorage.setItem("lab_inv_date", inventarioDate);
@@ -564,6 +566,45 @@ export default function PrioritaView({ showToast, globalDate }) {
         }
     };
 
+    const resetInventarioPeriod = async () => {
+        if (!inventarioDate || !inventarioDateFine) {
+            showToast?.("Seleziona il periodo prima di resettare", "error");
+            return;
+        }
+
+        // Validazione date
+        if (inventarioDateFine < inventarioDate) {
+            showToast?.("La data fine deve essere maggiore o uguale a quella inizio", "error");
+            return;
+        }
+
+        const daysDiff = Math.ceil((new Date(inventarioDateFine) - new Date(inventarioDate)) / (1000 * 60 * 60 * 24));
+        if (daysDiff > 7) {
+            showToast?.("Attenzione: stai per cancellare un periodo di " + daysDiff + " giorni", "warning");
+        }
+
+        setIsResetting(true);
+        try {
+            const { error } = await supabase.from("inventario_fisico")
+                .delete()
+                .gte("data_inventario", inventarioDate)
+                .lte("data_inventario", inventarioDateFine);
+
+            if (error) throw error;
+
+            showToast?.("✓ Inventario resettato per il periodo " + new Date(inventarioDate).toLocaleDateString("it-IT") + " — " + new Date(inventarioDateFine).toLocaleDateString("it-IT"), "success");
+            setResetConfirmModal(false);
+
+            // Ricarica i dati
+            await fetchData();
+        } catch (err) {
+            console.error("[PrioritaView] Errore reset inventario:", err);
+            showToast?.("Errore durante il reset", "error");
+        } finally {
+            setIsResetting(false);
+        }
+    };
+
     const startEditing = (comp, fino, currentInv, proj, faseHint) => {
         if (isConfigMode) {
             // Use faseHint when provided (avoids ambiguity when fino="0000" appears multiple times)
@@ -640,6 +681,15 @@ export default function PrioritaView({ showToast, globalDate }) {
                         style={{ display: "flex", alignItems: "center", gap: 6 }}
                     >
                         {Icons.refresh} Aggiorna
+                    </button>
+
+                    <button
+                        onClick={() => setResetConfirmModal(true)}
+                        className="btn btn-secondary btn-sm"
+                        style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(239, 68, 68, 0.1)", color: "#ef4444", border: "1px solid #ef444433" }}
+                        title="Reset inventario fisico per il periodo selezionato"
+                    >
+                        🔄 Reset Periodo
                     </button>
 
                 <button
@@ -1101,6 +1151,70 @@ export default function PrioritaView({ showToast, globalDate }) {
                     onSave={() => { setQuickConfigModal(null); fetchData(); }}
                     showToast={showToast}
                 />
+            )}
+
+            {/* Reset Confirmation Modal */}
+            {resetConfirmModal && (
+                <div style={{
+                    position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1000,
+                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)"
+                }} onClick={() => setResetConfirmModal(false)}>
+                    <div style={{
+                        background: "var(--bg-card)", borderRadius: 16,
+                        width: "90%", maxWidth: 420,
+                        display: "flex", flexDirection: "column",
+                        boxShadow: "0 20px 40px rgba(0,0,0,0.5)", border: "1px solid var(--border)",
+                        overflow: "hidden"
+                    }} onClick={e => e.stopPropagation()}>
+                        <div style={{
+                            padding: "16px 20px", borderBottom: "1px solid var(--border)",
+                            display: "flex", justifyContent: "space-between", alignItems: "center",
+                            background: "rgba(239, 68, 68, 0.08)"
+                        }}>
+                            <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#ef4444" }}>🔄 Reset Inventario</h3>
+                            <button onClick={() => setResetConfirmModal(false)}
+                                style={{ background: "rgba(255,255,255,0.05)", border: "none", width: 32, height: 32, borderRadius: "50%", cursor: "pointer", color: "var(--text-muted)", fontSize: 16 }}>✕</button>
+                        </div>
+                        <div style={{ padding: 20 }}>
+                            <p style={{ fontSize: 14, color: "var(--text-primary)", margin: "0 0 16px 0" }}>
+                                Sei sicuro di voler cancellare tutti i dati dell'inventario fisico per il periodo:
+                            </p>
+                            <div style={{
+                                background: "var(--bg-tertiary)", padding: 12, borderRadius: 10, marginBottom: 20,
+                                border: "1px solid var(--border)", display: "flex", gap: 8, alignItems: "center", justifyContent: "center"
+                            }}>
+                                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>
+                                    {new Date(inventarioDate).toLocaleDateString("it-IT")} — {new Date(inventarioDateFine).toLocaleDateString("it-IT")}
+                                </span>
+                            </div>
+                            <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0 }}>
+                                ⚠️ Questa azione non può essere annullata. I dati SAP non saranno modificati.
+                            </p>
+                        </div>
+                        <div style={{
+                            display: "flex", gap: 10, padding: 16, borderTop: "1px solid var(--border)",
+                            background: "var(--bg-tertiary)", justifyContent: "flex-end"
+                        }}>
+                            <button
+                                onClick={() => setResetConfirmModal(false)}
+                                className="btn btn-secondary"
+                                disabled={isResetting}
+                            >
+                                Annulla
+                            </button>
+                            <button
+                                onClick={resetInventarioPeriod}
+                                className="btn"
+                                style={{
+                                    background: "#ef4444", color: "white", border: "none"
+                                }}
+                                disabled={isResetting}
+                            >
+                                {isResetting ? "Resetting..." : "Confirma Reset"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );
