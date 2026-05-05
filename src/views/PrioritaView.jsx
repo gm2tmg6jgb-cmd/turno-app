@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { supabase, fetchAllRows } from "../lib/supabase";
 import { Icons } from "../components/ui/Icons";
 import Modal from "../components/Modal";
@@ -113,7 +113,16 @@ export default function PrioritaView({ showToast, globalDate }) {
     );
     const noSapPrevRef = React.useRef({});
     const [finoSequences, setFinoSequences] = useState({}); // {comp: [{fino, fase}]}
-    const [matrixData, setMatrixData] = useState({}); // {comp: {fino: {inv, sap, sapPrev, remaining, records}}}
+    const [rawMatrixData, setRawMatrixData] = useState({}); // dati non filtrati
+    const [filterExcludeSto, setFilterExcludeSto] = useState(() => {
+        try { return JSON.parse(localStorage.getItem("lab_filter_exclude_sto")) ?? false; } catch { return false; }
+    });
+    const [filterExcludeOperators, setFilterExcludeOperators] = useState(() => {
+        try { return JSON.parse(localStorage.getItem("lab_filter_exclude_operators")) ?? []; } catch { return []; }
+    });
+    const [highlightOperator, setHighlightOperator] = useState(null);
+    const [showFilterPanel, setShowFilterPanel] = useState(false);
+    const [showOperatorReport, setShowOperatorReport] = useState(false);
     const [componentsByProject, setComponentsByProject] = useState({});
     const [loading, setLoading] = useState(false);
     const [editingCell, setEditingCell] = useState(null); // {comp, fino, value}
@@ -147,6 +156,30 @@ export default function PrioritaView({ showToast, globalDate }) {
     useEffect(() => {
         localStorage.setItem("lab_inv_date_fine", inventarioDateFine);
     }, [inventarioDateFine]);
+
+    // Applica filtri storni/operatori in tempo reale senza ricaricare dal DB
+    const matrixData = useMemo(() => {
+        if (!filterExcludeSto && filterExcludeOperators.length === 0) return rawMatrixData;
+        const filtered = {};
+        for (const [comp, finos] of Object.entries(rawMatrixData)) {
+            filtered[comp] = {};
+            for (const [fino, cell] of Object.entries(finos)) {
+                const filteredRecords = (cell.records || []).filter(r => {
+                    if (filterExcludeSto && r.sto === "X") return false;
+                    if (filterExcludeOperators.length > 0 && filterExcludeOperators.includes(r.acq_da)) return false;
+                    return true;
+                });
+                const filteredSap = filteredRecords.reduce((sum, r) => sum + (r.qta_ottenuta || 0), 0);
+                filtered[comp][fino] = {
+                    ...cell,
+                    sap: filteredSap,
+                    remaining: (cell.inv || 0) - filteredSap + (cell.sapPrev || 0),
+                    records: filteredRecords
+                };
+            }
+        }
+        return filtered;
+    }, [rawMatrixData, filterExcludeSto, filterExcludeOperators]);
 
     useEffect(() => {
         if (globalDate) setInventarioDate(globalDate);
@@ -281,7 +314,7 @@ export default function PrioritaView({ showToast, globalDate }) {
             // 4. SAP conferme nel periodo inventario
             const { data: sapRes } = await fetchAllRows(() =>
                 supabase.from("conferme_sap")
-                    .select("data,materiale,fino,qta_ottenuta,work_center_sap,macchina_id,turno_id")
+                    .select("data,materiale,fino,qta_ottenuta,work_center_sap,macchina_id,turno_id,acq_da,sto")
                     .gte("data", inventarioDate)
                     .lte("data", inventarioDateFine)
             );
@@ -427,7 +460,7 @@ export default function PrioritaView({ showToast, globalDate }) {
 
             // Imposta sequenze DOPO la riassegnazione, così render e matrix usano gli stessi finos
             setFinoSequences({ ...finoSeqSorted });
-            setMatrixData(newMatrix);
+            setRawMatrixData(newMatrix);
             setComponentsByProject(PROJECT_COMPONENTS_LAB);
 
         } catch (err) {
@@ -542,8 +575,8 @@ export default function PrioritaView({ showToast, globalDate }) {
 
             if (error) throw error;
 
-            // Ricalcola rimanenza per questo fino e il successivo
-            setMatrixData(prev => {
+            // Ricalcola rimanenza per questo fino e il successivo (aggiorna rawMatrixData)
+            setRawMatrixData(prev => {
                 const updated = { ...prev };
                 if (!updated[normComp]) return prev;
                 const seq = finoSequences[normComp] || [];
@@ -709,6 +742,27 @@ export default function PrioritaView({ showToast, globalDate }) {
                     style={{ display: "flex", alignItems: "center", gap: 6 }}
                 >
                     {Icons.refresh} Aggiorna
+                </button>
+
+                <button
+                    onClick={() => setShowFilterPanel(true)}
+                    className="btn btn-secondary btn-sm"
+                    style={{
+                        display: "flex", alignItems: "center", gap: 6,
+                        background: (filterExcludeSto || filterExcludeOperators.length > 0) ? "rgba(96,165,250,0.12)" : undefined,
+                        color: (filterExcludeSto || filterExcludeOperators.length > 0) ? "#60a5fa" : undefined,
+                        border: (filterExcludeSto || filterExcludeOperators.length > 0) ? "1px solid #60a5fa55" : undefined
+                    }}
+                >
+                    🔽 Filtra {(filterExcludeSto || filterExcludeOperators.length > 0) ? "●" : ""}
+                </button>
+
+                <button
+                    onClick={() => setShowOperatorReport(true)}
+                    className="btn btn-secondary btn-sm"
+                    style={{ display: "flex", alignItems: "center", gap: 6 }}
+                >
+                    📊 Operatori
                 </button>
 
                 <button
@@ -937,6 +991,12 @@ export default function PrioritaView({ showToast, globalDate }) {
 
                                                     const isEditable = !(NON_EDITABLE_PHASES[proj] || []).includes(fase);
 
+                                                    // Highlight operator & storno
+                                                    const rawCell = rawMatrixData[normComp]?.[fino];
+                                                    const allRecords = rawCell?.records || [];
+                                                    const hasHighlightedOperator = highlightOperator && allRecords.some(r => r.acq_da === highlightOperator);
+                                                    const hasSto = allRecords.some(r => r.sto === "X");
+
                                                     return (
                                                         <div key={fase + "_" + fino} style={{
                                                             width: 90, flexShrink: 0, padding: "0 4px",
@@ -959,14 +1019,14 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                 style={{
                                                                     width: "100%",
                                                                     height: 50,
-                                                                    background: remainingBg(cell.remaining),
+                                                                    background: hasHighlightedOperator ? "rgba(239,68,68,0.15)" : remainingBg(cell.remaining),
                                                                     borderRadius: 10,
                                                                     display: "flex",
                                                                     flexDirection: "column",
                                                                     alignItems: "center",
                                                                     justifyContent: "center",
                                                                     cursor: isConfigMode ? "pointer" : cell.records?.length > 0 ? "pointer" : "default",
-                                                                    border: isConfigMode ? "2px dashed var(--accent)" : `1px solid ${cell.remaining !== 0 ? theme.main + "33" : "transparent"}`,
+                                                                    border: isConfigMode ? "2px dashed var(--accent)" : hasHighlightedOperator ? "2px solid #ef4444" : `1px solid ${cell.remaining !== 0 ? theme.main + "33" : "transparent"}`,
                                                                     position: "relative",
                                                                     transition: "all 0.15s"
                                                                 }}
@@ -997,6 +1057,17 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                     }}>
                                                                         {cell.remaining !== 0 ? cell.remaining : "—"}
                                                                     </div>
+                                                                )}
+
+                                                                {/* Badge storno — visibile quando ci sono record con sto="X" */}
+                                                                {hasSto && !isConfigMode && (
+                                                                    <div title="Contiene storni (sto=X)" style={{
+                                                                        position: "absolute", top: -5, right: -5,
+                                                                        background: "#f59e0b", color: "white",
+                                                                        borderRadius: "50%", width: 14, height: 14,
+                                                                        fontSize: 8, fontWeight: 900,
+                                                                        display: "flex", alignItems: "center", justifyContent: "center"
+                                                                    }}>S</div>
                                                                 )}
 
                                                                 {isConfigMode && (
@@ -1186,6 +1257,123 @@ export default function PrioritaView({ showToast, globalDate }) {
                     showToast={showToast}
                 />
             )}
+
+            {/* Filter Panel Modal */}
+            {showFilterPanel && (
+                <div style={{ position:"fixed",inset:0,backgroundColor:"rgba(0,0,0,0.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(4px)" }}
+                    onClick={() => setShowFilterPanel(false)}>
+                    <div style={{ background:"var(--bg-card)",borderRadius:16,width:"90%",maxWidth:420,boxShadow:"0 20px 40px rgba(0,0,0,0.5)",border:"1px solid var(--border)",overflow:"hidden" }}
+                        onClick={e => e.stopPropagation()}>
+                        <div style={{ padding:"16px 20px",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                            <h3 style={{ margin:0,fontSize:16,fontWeight:800 }}>🔽 Filtri SAP</h3>
+                            <button onClick={() => setShowFilterPanel(false)} style={{ background:"rgba(255,255,255,0.05)",border:"none",width:32,height:32,borderRadius:"50%",cursor:"pointer",color:"var(--text-muted)",fontSize:16 }}>✕</button>
+                        </div>
+                        <div style={{ padding:20,display:"flex",flexDirection:"column",gap:16 }}>
+                            <label style={{ display:"flex",alignItems:"center",gap:10,cursor:"pointer",fontSize:14 }}>
+                                <input type="checkbox" checked={filterExcludeSto} onChange={e => {
+                                    setFilterExcludeSto(e.target.checked);
+                                    localStorage.setItem("lab_filter_exclude_sto", JSON.stringify(e.target.checked));
+                                }} style={{ width:16,height:16,cursor:"pointer" }} />
+                                <span>Escludi storni <span style={{ color:"#f59e0b",fontWeight:700 }}>(sto = "X")</span></span>
+                            </label>
+                            <div>
+                                <div style={{ fontSize:12,fontWeight:700,color:"var(--text-secondary)",marginBottom:6 }}>Escludi operatori (uno per riga):</div>
+                                <textarea
+                                    value={filterExcludeOperators.join("\n")}
+                                    onChange={e => {
+                                        const ops = e.target.value.split("\n").map(s => s.trim()).filter(Boolean);
+                                        setFilterExcludeOperators(ops);
+                                        localStorage.setItem("lab_filter_exclude_operators", JSON.stringify(ops));
+                                    }}
+                                    placeholder="es: ROSSI&#10;BIANCHI"
+                                    style={{ width:"100%",height:80,padding:"8px 10px",borderRadius:8,border:"1px solid var(--border)",background:"var(--bg-secondary)",color:"var(--text-primary)",fontSize:13,resize:"vertical",boxSizing:"border-box" }}
+                                />
+                            </div>
+                            {(filterExcludeSto || filterExcludeOperators.length > 0) && (
+                                <button onClick={() => {
+                                    setFilterExcludeSto(false);
+                                    setFilterExcludeOperators([]);
+                                    localStorage.setItem("lab_filter_exclude_sto", JSON.stringify(false));
+                                    localStorage.setItem("lab_filter_exclude_operators", JSON.stringify([]));
+                                }} className="btn btn-secondary" style={{ fontSize:13 }}>
+                                    ✕ Resetta filtri
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Operator Report Modal */}
+            {showOperatorReport && (() => {
+                // Aggrega operatori dai record raw (non filtrati)
+                const opStats = {};
+                for (const finos of Object.values(rawMatrixData)) {
+                    for (const cell of Object.values(finos)) {
+                        for (const r of (cell.records || [])) {
+                            const op = r.acq_da;
+                            if (!op) continue;
+                            if (!opStats[op]) opStats[op] = { celle: 0, pezzi: 0 };
+                            opStats[op].celle++;
+                            opStats[op].pezzi += (r.qta_ottenuta || 0);
+                        }
+                    }
+                }
+                const operators = Object.entries(opStats).sort((a, b) => b[1].pezzi - a[1].pezzi);
+                return (
+                    <div style={{ position:"fixed",inset:0,backgroundColor:"rgba(0,0,0,0.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",backdropFilter:"blur(4px)" }}
+                        onClick={() => setShowOperatorReport(false)}>
+                        <div style={{ background:"var(--bg-card)",borderRadius:16,width:"90%",maxWidth:480,maxHeight:"80vh",display:"flex",flexDirection:"column",boxShadow:"0 20px 40px rgba(0,0,0,0.5)",border:"1px solid var(--border)",overflow:"hidden" }}
+                            onClick={e => e.stopPropagation()}>
+                            <div style={{ padding:"16px 20px",borderBottom:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0 }}>
+                                <h3 style={{ margin:0,fontSize:16,fontWeight:800 }}>📊 Operatori SAP</h3>
+                                <button onClick={() => setShowOperatorReport(false)} style={{ background:"rgba(255,255,255,0.05)",border:"none",width:32,height:32,borderRadius:"50%",cursor:"pointer",color:"var(--text-muted)",fontSize:16 }}>✕</button>
+                            </div>
+                            <div style={{ overflowY:"auto",flex:1 }}>
+                                {operators.length === 0 ? (
+                                    <div style={{ padding:24,textAlign:"center",color:"var(--text-muted)",fontSize:14 }}>Nessun operatore trovato nei dati SAP</div>
+                                ) : operators.map(([op, stats]) => {
+                                    const isExcluded = filterExcludeOperators.includes(op);
+                                    const isHighlighted = highlightOperator === op;
+                                    return (
+                                        <div key={op} style={{ padding:"12px 16px",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:10,
+                                            background: isExcluded ? "rgba(239,68,68,0.06)" : isHighlighted ? "rgba(59,130,246,0.06)" : "transparent",
+                                            border: isExcluded ? "1px solid #ef444422" : isHighlighted ? "1px solid #3b82f622" : "transparent" }}>
+                                            <div style={{ flex:1,minWidth:0 }}>
+                                                <div style={{ fontSize:13,fontWeight:700,color:"var(--text-primary)",truncate:true }}>{op}</div>
+                                                <div style={{ fontSize:11,color:"var(--text-muted)" }}>{stats.celle} record · {stats.pezzi} pz</div>
+                                            </div>
+                                            <button
+                                                onClick={() => setHighlightOperator(isHighlighted ? null : op)}
+                                                style={{ padding:"4px 10px",fontSize:11,borderRadius:6,border:"1px solid var(--border)",cursor:"pointer",
+                                                    background: isHighlighted ? "#3b82f6" : "var(--bg-tertiary)",
+                                                    color: isHighlighted ? "white" : "var(--text-secondary)" }}>
+                                                {isHighlighted ? "✓ Evidenziato" : "Evidenzia"}
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    const newOps = isExcluded
+                                                        ? filterExcludeOperators.filter(o => o !== op)
+                                                        : [...filterExcludeOperators, op];
+                                                    setFilterExcludeOperators(newOps);
+                                                    localStorage.setItem("lab_filter_exclude_operators", JSON.stringify(newOps));
+                                                }}
+                                                style={{ padding:"4px 10px",fontSize:11,borderRadius:6,border: isExcluded ? "1px solid #ef4444" : "1px solid var(--border)",cursor:"pointer",
+                                                    background: isExcluded ? "rgba(239,68,68,0.1)" : "var(--bg-tertiary)",
+                                                    color: isExcluded ? "#ef4444" : "var(--text-secondary)" }}>
+                                                {isExcluded ? "✓ Escluso" : "Escludi"}
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <div style={{ padding:"12px 16px",borderTop:"1px solid var(--border)",fontSize:11,color:"var(--text-muted)",flexShrink:0 }}>
+                                💡 <strong>Evidenzia:</strong> Bordo rosso sulle celle · <strong>Escludi:</strong> Rimuove dal calcolo SAP
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {/* Reset Confirmation Modal */}
             {resetConfirmModal && (
