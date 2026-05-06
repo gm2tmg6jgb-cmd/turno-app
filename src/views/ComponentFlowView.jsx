@@ -1554,12 +1554,19 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                             Tempo stimato per fase · Lotto {detailCompBase.lotto ?? 1200} pz · OEE {Math.round((detailCompBase.oee ?? 0.85) * 100)}%
                                         </p>
                                         <button
-                                            onClick={() => setThroughputConfigModal({
-                                                proj: selectedDetail.proj,
-                                                comp: selectedDetail.comp,
-                                                lotto: detailCompBase.lotto ?? 1200,
-                                                oee: detailCompBase.oee ?? 0.85
-                                            })}
+                                            onClick={() => {
+                                                const cfg = loadThroughputConfig();
+                                                const compKey = `${selectedDetail.proj}::${selectedDetail.comp}`;
+                                                const compCfg = cfg.components[compKey] || {};
+                                                setThroughputConfigModal({
+                                                    proj: selectedDetail.proj,
+                                                    comp: selectedDetail.comp,
+                                                    lotto: detailCompBase.lotto ?? 1200,
+                                                    oee: detailCompBase.oee ?? 0.85,
+                                                    changeOverH: compCfg.changeOverH ?? 1,
+                                                    phases: (compCfg.phases || []).map(p => ({ ...p }))
+                                                });
+                                            }}
                                             style={{
                                                 padding: "4px 8px",
                                                 fontSize: "12px",
@@ -1941,40 +1948,98 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     title="⚙️ Configura Throughput"
                     subtitle={`${throughputConfigModal.comp} — ${throughputConfigModal.proj}`}
                     onClose={() => setThroughputConfigModal(null)}
-                    width={400}
+                    width={560}
                 >
-                    <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                        <div className="form-group">
-                            <label className="form-label">Lotto (pezzi)</label>
-                            <input
-                                type="number"
-                                className="input"
-                                value={throughputConfigModal.lotto}
-                                onChange={e => setThroughputConfigModal({ ...throughputConfigModal, lotto: parseInt(e.target.value) || 0 })}
-                                min="1"
-                            />
-                        </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-                        <div className="form-group">
-                            <label className="form-label">OEE (efficienza)</label>
-                            <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                                <input
-                                    type="number"
-                                    className="input"
-                                    value={Math.round(throughputConfigModal.oee * 100)}
-                                    onChange={e => setThroughputConfigModal({ ...throughputConfigModal, oee: parseInt(e.target.value) / 100 || 0.85 })}
-                                    min="1"
-                                    max="100"
-                                    style={{ flex: 1 }}
-                                />
-                                <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>%</span>
+                        {/* Parametri componente */}
+                        <div style={{ background: "var(--bg-secondary)", borderRadius: 10, padding: "14px 16px" }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>Parametri Componente</div>
+                            <div style={{ display: "flex", gap: 12 }}>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Lotto (pz)</label>
+                                    <input type="number" className="input" value={throughputConfigModal.lotto}
+                                        onChange={e => setThroughputConfigModal({ ...throughputConfigModal, lotto: parseInt(e.target.value) || 0 })}
+                                        min="1" style={{ width: "100%", boxSizing: "border-box" }} />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>OEE (%)</label>
+                                    <input type="number" className="input" value={Math.round(throughputConfigModal.oee * 100)}
+                                        onChange={e => setThroughputConfigModal({ ...throughputConfigModal, oee: Math.min(100, Math.max(1, parseInt(e.target.value) || 85)) / 100 })}
+                                        min="1" max="100" style={{ width: "100%", boxSizing: "border-box" }} />
+                                </div>
+                                <div style={{ flex: 1 }}>
+                                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Cambio produz. (h)</label>
+                                    <input type="number" className="input" value={throughputConfigModal.changeOverH ?? 1}
+                                        onChange={e => setThroughputConfigModal({ ...throughputConfigModal, changeOverH: parseFloat(e.target.value) || 1 })}
+                                        min="0" step="0.5" style={{ width: "100%", boxSizing: "border-box" }} />
+                                </div>
                             </div>
                         </div>
 
-                        <div style={{ padding: "12px", background: "var(--bg-secondary)", borderRadius: "6px", fontSize: "12px" }}>
-                            <div>📊 Valori attuali:</div>
-                            <div>• Lotto: <strong>{throughputConfigModal.lotto}</strong> pz</div>
-                            <div>• OEE: <strong>{Math.round(throughputConfigModal.oee * 100)}%</strong></div>
+                        {/* Parametri per fase */}
+                        <div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Parametri per Fase</div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                {(throughputConfigModal.phases || []).map((phase, i) => {
+                                    const updatePhase = (field, value) => {
+                                        const newPhases = throughputConfigModal.phases.map((p, idx) =>
+                                            idx === i ? { ...p, [field]: value } : p
+                                        );
+                                        setThroughputConfigModal({ ...throughputConfigModal, phases: newPhases });
+                                    };
+                                    const isFixed = phase.fixedH != null;
+                                    return (
+                                        <div key={phase.phaseId} style={{
+                                            background: "var(--bg-secondary)", borderRadius: 8, padding: "10px 14px",
+                                            border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 8
+                                        }}>
+                                            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>{phase.label}</div>
+                                            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                                                {isFixed ? (<>
+                                                    <div>
+                                                        <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 2 }}>Ore fisse (h)</label>
+                                                        <input type="number" value={phase.fixedH ?? ""} min="0" step="0.5"
+                                                            onChange={e => updatePhase("fixedH", parseFloat(e.target.value) || 0)}
+                                                            style={{ width: 70, padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)", fontSize: 13 }} />
+                                                    </div>
+                                                    {phase.chargeSize != null && (
+                                                        <div>
+                                                            <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 2 }}>Dimensione carica (pz)</label>
+                                                            <input type="number" value={phase.chargeSize ?? ""} min="1"
+                                                                onChange={e => updatePhase("chargeSize", parseInt(e.target.value) || 1)}
+                                                                style={{ width: 90, padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)", fontSize: 13 }} />
+                                                        </div>
+                                                    )}
+                                                </>) : (
+                                                    <div>
+                                                        <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 2 }}>Pz/h</label>
+                                                        <input type="number" value={phase.pzH ?? ""} min="1"
+                                                            onChange={e => updatePhase("pzH", parseInt(e.target.value) || 1)}
+                                                            style={{ width: 80, padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)", fontSize: 13 }} />
+                                                    </div>
+                                                )}
+                                                <div>
+                                                    <label style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginBottom: 2 }}>Cambio prod. (h)</label>
+                                                    <input type="number" value={phase.changeOverH ?? ""}
+                                                        placeholder={`default ${throughputConfigModal.changeOverH ?? 1}`}
+                                                        min="0" step="0.5"
+                                                        onChange={e => updatePhase("changeOverH", e.target.value === "" ? undefined : parseFloat(e.target.value))}
+                                                        style={{ width: 90, padding: "4px 8px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg-card)", color: "var(--text-primary)", fontSize: 13 }} />
+                                                </div>
+                                                <div style={{ display: "flex", alignItems: "flex-end", paddingBottom: 2 }}>
+                                                    <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, cursor: "pointer", color: "var(--text-secondary)" }}>
+                                                        <input type="checkbox" checked={!!phase.noChangeOver}
+                                                            onChange={e => updatePhase("noChangeOver", e.target.checked || undefined)}
+                                                            style={{ cursor: "pointer" }} />
+                                                        No cambio produz.
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
                     </div>
 
@@ -1990,12 +2055,14 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                 }
                                 cfg.components[compKey].lotto = throughputConfigModal.lotto;
                                 cfg.components[compKey].oee = throughputConfigModal.oee;
+                                cfg.components[compKey].changeOverH = throughputConfigModal.changeOverH ?? 1;
+                                cfg.components[compKey].phases = throughputConfigModal.phases;
                                 saveThroughputConfig(cfg);
                                 setThroughputConfigModal(null);
                                 showToast("Configurazione throughput salvata!", "success");
                             }}
                         >
-                            Salva Configurazione
+                            Salva
                         </button>
                     </div>
                 </Modal>
