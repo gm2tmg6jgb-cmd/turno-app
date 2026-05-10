@@ -68,6 +68,8 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     const [loading, setLoading] = useState(false);
     const [rawMatrixData, setRawMatrixData] = useState({}); // Dati non filtrati da database
     const [matrixData, setMatrixData] = useState({}); // Dati filtrati visualizzati
+    const [rawScartiData, setRawScartiData] = useState({}); // Scarti non filtrati da database
+    const [scartiData, setScartiData] = useState({}); // Scarti filtrati visualizzati
     const [componentsByProject, setComponentsByProject] = useState({});
     const [, setCompMappings] = useState({});
     const [selectedDetail, setSelectedDetail] = useState(null);
@@ -379,7 +381,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
             setCompMappings(compToMats);
 
             // Fetch dati produzione
-            const selectFields = "data, materiale, work_center_sap, macchina_id, qta_ottenuta, turno_id, fino, importato_il, acq_da, sto";
+            const selectFields = "data, materiale, work_center_sap, macchina_id, qta_ottenuta, qta_scarto, turno_id, fino, importato_il, acq_da, sto";
             const queryFactory = () => {
                 let q = supabase.from("conferme_sap").select(selectFields);
                 if (viewMode === "weekly") {
@@ -417,8 +419,9 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
             }
 
             const newMatrix = {};
+            const newScartiMatrix = {};
             const projComponentSets = {};
-            PROJECTS.forEach(p => { newMatrix[p] = {}; projComponentSets[p] = new Set(); });
+            PROJECTS.forEach(p => { newMatrix[p] = {}; newScartiMatrix[p] = {}; projComponentSets[p] = new Set(); });
 
             if (prodRes) {
                 prodRes.forEach(r => {
@@ -447,6 +450,10 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     if (!newMatrix[proj][comp][phase]) newMatrix[proj][comp][phase] = { value: 0, records: [] };
                     newMatrix[proj][comp][phase].value += (r.qta_ottenuta || 0);
                     newMatrix[proj][comp][phase].records.push({ ...r, matCode, macchina: wc });
+
+                    if (!newScartiMatrix[proj][comp]) newScartiMatrix[proj][comp] = {};
+                    if (!newScartiMatrix[proj][comp][phase]) newScartiMatrix[proj][comp][phase] = { value: 0 };
+                    newScartiMatrix[proj][comp][phase].value += (r.qta_scarto || 0);
                 });
             }
 
@@ -513,6 +520,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
 
 
             setRawMatrixData(newMatrix);
+            setRawScartiData(newScartiMatrix);
 
             // Fetch motivi fermo e fermi del giorno
             const [{ data: motiviRes }, { data: fermiRes }] = await Promise.all([
@@ -585,6 +593,29 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
 
         setMatrixData(filteredMatrix);
     }, [rawMatrixData, filterExcludeSto, filterExcludeOperators]);
+
+    // Applica filtri ai dati scarti
+    useMemo(() => {
+        const filteredScarti = {};
+        PROJECTS.forEach(p => { filteredScarti[p] = {}; });
+
+        Object.entries(rawScartiData).forEach(([proj, comps]) => {
+            Object.entries(comps).forEach(([comp, phases]) => {
+                Object.entries(phases).forEach(([phase, cellData]) => {
+                    // Get the corresponding filtered records from matrixData to apply same filters
+                    const matrixCell = matrixData[proj]?.[comp]?.[phase];
+                    if (matrixCell?.records?.length > 0) {
+                        // Calculate scarti from the same filtered records
+                        const scartiValue = matrixCell.records.reduce((sum, r) => sum + (r.qta_scarto || 0), 0);
+                        if (!filteredScarti[proj][comp]) filteredScarti[proj][comp] = {};
+                        filteredScarti[proj][comp][phase] = { value: scartiValue };
+                    }
+                });
+            });
+        });
+
+        setScartiData(filteredScarti);
+    }, [matrixData, rawScartiData]);
 
     // Calcola le celle affettate da ogni operatore (Opzione 3: Report operatori)
     // USA rawMatrixData per mostrare TUTTI gli operatori indipendentemente dai filtri attivi
@@ -894,6 +925,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                         );
                                         const data = matrixData[proj]?.[comp]?.[step.id];
                                         let qty = data?.value || 0;
+                                        const scartiValue = scartiData[proj]?.[comp]?.[step.id]?.value || 0;
                                         let isHardExcluded = COMPONENT_EXCLUSIONS[comp]?.includes(step.id);
 
                                         if (proj === "DCT300" && ["SG7", "SGR", "RG"].includes(comp) && step.id === "grinding_cone") isHardExcluded = true;
@@ -1045,7 +1077,10 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                             if (btn) btn.style.opacity = "0.3";
                                                         }}
                                                     >
-                                                        {qty}
+                                                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
+                                                            <div>{qty}</div>
+                                                            {scartiValue > 0 && <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.7)" }}>s:{scartiValue}</div>}
+                                                        </div>
 
                                                         {step.id !== "baa" && !configuredCells.has(`${proj}::${comp.replace(/\s*-\s*(1A|21A)$/i, "").trim()}::${step.id}`) && (
                                                             <div style={{
