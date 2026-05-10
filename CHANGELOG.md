@@ -4,6 +4,63 @@ Tutte le modifiche significative di Turno App sono documentate in questo file.
 
 ---
 
+## [1.8.0] — 2026-05-06 — Gantt Pianificazione v2 "La Vista più Importante"
+
+### 🆕 Nuove Funzionalità
+- **Tab 1 — Stato Settimana**: avanzamento reale da SAP vs target
+  - KPI cards: componenti totali, in linea (≥70%), critici (<30%), % media completamento
+  - Tabella con progressbar e badge stato per ogni fase di ogni componente
+  - Fonte: `conferme_sap` aggregata per progetto+componente+fase tramite `material_fino_overrides`
+  - Timestamp ultimo scarico SAP in header
+- **Tab 2 — Gantt Pianificazione**: schedula solo il **rimanente** (target − SAP)
+  - Zona grigia = ore già trascorse questa settimana (orizzonte reale)
+  - Bundle DG+DG-REV: job unico in fase Saldatura, zero changeover tra loro
+  - Tabella job con target/prodotto/rimanente prima del Gantt
+  - Legenda colori + "Ore passate" + suggerimento changeover giornaliero
+- **Tab 3 — Configurazione**:
+  - Sub-tab Target: tabella editabile con bottone "💾 Salva nel DB" → upsert `component_weekly_targets`
+  - Sub-tab Ore Changeover: modifica ore changeover per fase in tempo reale
+  - Sub-tab Bundle: visualizza i bundle configurati (DG+DG-REV)
+
+### 📊 Architettura
+- **Multi-progetto nativo**: macchine fisiche lavorano componenti di tutti i progetti
+- **Aggregazione SAP**: nuovo `src/utils/sapMapping.js` con `aggregateSapByPhase()` (logica estratta da ComponentFlowView)
+- **Throughput priority**: DB (`componente_fasi`) → localStorage → `THROUGHPUT_CONFIG` costanti
+- **Scheduler**: greedy EarliestDueDate su ore rimanenti (non full week)
+- **WEEK_HOURS = 144**: 4 turni × 6h × 6 giorni lun–sab
+
+### 🗃️ Query DB
+- `macchine` (attivo=true)
+- `material_fino_overrides` (per aggregare SAP)
+- `componente_fasi` (throughput da DB)
+- `component_weekly_targets` filtrato per settimana
+- `conferme_sap` filtrato per range settimana (via `fetchAllRows`)
+
+---
+
+## [1.7.0] — 2026-05-05 — Gantt Pianificazione Changeover
+
+### 🆕 Nuove Funzionalità
+- **Pianificazione Changeover (Gantt)**: Nuova vista "Pianificazione Changeover" nella sidebar
+  - Seleziona settimana e progetto (DCT300, 8Fe, DCT ECO, RG+DH)
+  - Tab per fase critica: Dentatura (FRW), Tornitura Hard (DRA), Tratt. Termico (HOK), Rettifica Denti (SLW), Saldatura (SCA)
+  - **Gantt per macchina**: visualizza la sequenza ottimale di lotti per ogni macchina con changeover evidenziati
+  - **Algoritmo greedy EarliestDueDate**: assegna lotti alle macchine con minor tempo libero, minimizzando i changeover
+  - **Cards capacità**: macchine disponibili, ore totali, utilizzo %, changeover totali
+  - **Avviso overload**: alert visivo se la domanda supera la capacità disponibile
+  - **Tabella target editabile**: modifica i target settimanali in tempo reale per simulare scenari diversi
+  - **Suggerimento Changeover**: per ogni componente mostra target/giorno, ore/giorno, ritmo changeover consigliato
+  - **Schema giornaliero**: timeline visiva proporzionale che mostra la ripartizione di una macchina condivisa in 24h
+
+### 📊 Algoritmo
+- Carica macchine da DB (`macchine` dove `attivo=true`)
+- Mappa macchine → fase tramite `tecnologia_id` + prefisso ID (HOK→ht, SLW→teeth_grinding, ecc.)
+- Carica target da `component_weekly_targets`
+- Per ogni componente calcola: `ore/lotto = phaseHours(phase, cfg)`, `lotti = ceil(target/lotto)`
+- Scheduling greedy: ordina per lavoro totale desc, assegna alla macchina con `freeAt` minore, aggiunge 1h changeover quando cambia componente
+
+---
+
 ## [1.6.4] — 2026-05-05 — Reset Inventario Settimanale
 
 ### 🆕 Nuove Funzionalità

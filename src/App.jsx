@@ -33,6 +33,7 @@ const ProductionDelaysView = lazy(() => import("./views/ProductionDelaysView"));
 const ProductionScheduleView = lazy(() => import("./views/ProductionScheduleView"));
 const NuovaPianificazioneView = lazy(() => import("./views/NuovaPianificazioneView"));
 const ThroughputView = lazy(() => import("./views/ThroughputView"));
+const GanttPianificazioneView = lazy(() => import("./views/GanttPianificazioneView"));
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 function AppContent({ session, onLogout }) {
@@ -232,7 +233,7 @@ function AppContent({ session, onLogout }) {
     { id: "lpaPlan", label: "Piano LPA", icon: Icons.calendar },
     { id: "componentFlow", label: "Avanzamento Componenti", icon: Icons.report, status: "new" },
     { id: "componentFlowBackup", label: "⚙ Avanzamento Backup", icon: Icons.report },
-    { id: "throughput", label: "Tempi Attraversamento", icon: Icons.report },
+    { id: "ganttPianificazione", label: "Pianificazione Changeover", icon: Icons.calendar, status: "new" },
     { id: "priorita", label: "Laboratorio Attualizzato Beta", icon: Icons.filter },
     { id: "weisserPriorities", label: "Priorità Macchine", icon: Icons.filter },
     { id: "prioritiesSummary", label: "Riepilogo Priorità", icon: Icons.dashboard, status: "new" },
@@ -254,6 +255,7 @@ function AppContent({ session, onLogout }) {
     componentFlow: "Avanzamento Componenti",
     componentFlowBackup: "Avanzamento Componenti - Backup",
     throughput: "Tempi di Attraversamento",
+    ganttPianificazione: "Pianificazione Changeover — Gantt",
     priorita: "Laboratorio Attualizzato Beta",
     weisserPriorities: "Priorità Macchine",
     prioritiesSummary: "Riepilogo Priorità Macchine",
@@ -379,7 +381,7 @@ function AppContent({ session, onLogout }) {
                 <div className="nav-section-label">Report & Dati</div>
                 {renderItem(ni("componentFlow"))}
                 {renderItem(ni("componentFlowBackup"))}
-                {renderItem(ni("throughput"))}
+                {renderItem(ni("ganttPianificazione"))}
                 {renderItem(ni("priorita"))}
                 {renderItem(ni("productionFlowReport"))}
                 {renderItem(ni("productionReport"))}
@@ -602,6 +604,9 @@ function AppContent({ session, onLogout }) {
           )}
           {currentView === "throughput" && (
             <ThroughputView showToast={showToast} />
+          )}
+          {currentView === "ganttPianificazione" && (
+            <GanttPianificazioneView showToast={showToast} />
           )}
           {currentView === "priorita" && (
             <PrioritaView showToast={showToast} globalDate={globalDate} turnoCorrente={turnoCorrente} />
