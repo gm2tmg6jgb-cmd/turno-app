@@ -26,6 +26,13 @@ const LS_STOCK_OVERRIDES_KEY = "gantt_stock_overrides";      // Record<"proj::co
 const LS_UPSTREAM_MACHINE_KEY = "gantt_upstream_machines";   // Record<"machineId::compKey", upstreamMachineId>
 const LS_UPSTREAM_PHASE_KEY   = "gantt_upstream_phases";     // Record<"machineId::compKey", phaseId>
 
+// Macchine per le quali nascondere il bottone "configura flusso"
+const MACHINES_NO_FLOW_CONFIG = new Set([
+    "dra10060", "dra10061", "dra10062", "dra10063", "dra10064",
+    "dra10065", "dra10066", "dra10067", "dra10068", "dra10070",
+    "dra10071", "dra10072", "dra11042"
+]);
+
 // Mappa completa fase → label (superset per tutte le fasi in material_fino_overrides)
 const PHASE_LABELS = {
     start_soft:          "Tornitura Soft",
@@ -221,7 +228,7 @@ export default function GanttPianificazioneView({ showToast }) {
     // ── Navigation state ──
     const [weekStart,     setWeekStart]     = useState(thisMonday);
     const [activeTab,     setActiveTab]     = useState("status");  // "status" | "gantt" | "report" | "config"
-    const [projectFilter, setProjectFilter] = useState("all");
+    const projectFilter = "all"; // Filter removed — always show all projects
     const [configSubTab,  setConfigSubTab]  = useState("targets"); // "targets"|"changeover"
 
     // ── Target per progetto (stessa fonte di ComponentFlowView: localStorage) ──
@@ -599,6 +606,13 @@ export default function GanttPianificazioneView({ showToast }) {
                 const lotsNeeded = (hPerLot > 0 && remaining > 0) ? Math.ceil(remaining / lotto) : 0;
                 const totalH    = +(lotsNeeded * hPerLot).toFixed(1);
 
+                // JPH: pezzi per ora (throughput)
+                const jph = hPerLot > 0 ? +(lotto / hPerLot).toFixed(1) : 0;
+                // Urgency: ore rimanenti / ore disponibili (quanto critico è questo componente)
+                const remainingH = hPerLot > 0 && remaining > 0 ? remaining / jph : 0;
+                const availableH = Math.max(WEEK_HOURS - consumedH, 1);
+                const urgencyScore = availableH > 0 ? (remainingH / availableH).toFixed(2) : 0;
+
                 items.push({
                     compKey, proj, comp, ps,
                     label:      comp,
@@ -606,6 +620,7 @@ export default function GanttPianificazioneView({ showToast }) {
                     color:      keyColor(compKey),
                     target, produced, remaining, pct,
                     lotto, hPerLot, lotsNeeded, totalH,
+                    jph, remainingH, urgencyScore,
                     upstreamPhaseId, upstreamProduced, upstreamConstrained,
                     upstreamMachineId, isManualOverride, grezzoStock,
                     changeOverH: coH,
@@ -614,8 +629,8 @@ export default function GanttPianificazioneView({ showToast }) {
                 });
             }
 
-            // Ordina: più urgente prima (% avanzamento ASC = meno prodotto prima)
-            items.sort((a, b) => a.pct - b.pct || b.totalH - a.totalH);
+            // Ordina: più urgente prima (urgency DESC = più ore richieste rispetto al tempo rimasto)
+            items.sort((a, b) => b.urgencyScore - a.urgencyScore || a.pct - b.pct);
 
             // Risali al componente attualmente in produzione da SAP:
             // cerca in rawConferme la conferma più recente per i materiali di questa macchina
@@ -690,8 +705,8 @@ export default function GanttPianificazioneView({ showToast }) {
                     const active = lotQueue.filter(i => i.lotsLeft > 0);
                     if (!active.length) break;
 
-                    // Sort: più in ritardo prima (pct ASC)
-                    active.sort((a, b) => a.pct - b.pct);
+                    // Sort: più urgente prima (urgencyScore DESC = richiede più ore rispetto al tempo rimasto)
+                    active.sort((a, b) => b.urgencyScore - a.urgencyScore);
 
                     // Calcola ore totali rimanenti per proporzione
                     const totalWorkH = active.reduce((s, i) => s + i.lotsLeft * i.hPerLot, 0);
@@ -790,11 +805,6 @@ export default function GanttPianificazioneView({ showToast }) {
                 )}
                 {loadingConferme && <span style={{ fontSize: 11, color: "var(--text-muted)" }}>⟳ aggiornamento...</span>}
                 <div style={{ flex: 1 }} />
-                <select value={projectFilter} onChange={e => setProjectFilter(e.target.value)}
-                    style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: 13 }}>
-                    <option value="all">Tutti i progetti</option>
-                    {PROJECTS.map(p => <option key={p} value={p}>{p}</option>)}
-                </select>
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                     <span style={{ fontSize: 13, color: "var(--text-muted)" }}>Settimana:</span>
                     <input type="date" value={weekStart}
@@ -834,43 +844,18 @@ export default function GanttPianificazioneView({ showToast }) {
             />}
 
             {/* ══════════════════════════ TAB 2: GANTT ══════════════════════════ */}
-            {activeTab === "gantt" && <>
-                <StatusTab
-                    sharedMachines={sharedMachines}
-                    weeklyTargets={weeklyTargets}
-                    sapByKey={sapByKey}
-                    sapByVariant={sapByVariant}
-                    lastSapByMachine={lastSapByMachine}
-                    consumedH={consumedH}
-                    weekStart={weekStart}
-                    weekEnd={weekEnd}
-                    cfg={cfg}
-                    stockOverrides={stockOverrides}
-                    saveStockOverride={saveStockOverride}
-                    upstreamMachineConfig={upstreamMachineConfig}
-                    saveUpstreamMachine={saveUpstreamMachine}
-                    upstreamPhaseConfig={upstreamPhaseConfig}
-                    saveUpstreamPhase={saveUpstreamPhase}
-                    onRefreshOverrides={loadOverrides}
-                    showToast={showToast}
-                    cardStyle={cardStyle}
-                />
-                <div style={{ margin: "24px 0 12px", borderTop: "1px solid var(--border)", paddingTop: 24 }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: "var(--text-primary)", marginBottom: 16 }}>
-                        📅 Gantt Pianificazione
-                    </div>
-                </div>
-                <GanttTab
-                    sharedMachines={sharedMachines}
-                    weekStart={weekStart}
-                    consumedH={consumedH}
-                    cardStyle={cardStyle}
-                />
-            </>}
+            {activeTab === "gantt" && <GanttTab
+                sharedMachines={sharedMachines}
+                weekStart={weekStart}
+                consumedH={consumedH}
+                cardStyle={cardStyle}
+            />}
 
             {/* ══════════════════════════ TAB 3: REPORT MANCATO TARGET ══════════════════════════ */}
             {activeTab === "report" && <MancatoTargetTab
                 sharedMachines={sharedMachines}
+                weeklyTargets={weeklyTargets}
+                sapByKey={sapByKey}
                 rawConferme={rawConferme}
                 weekStart={weekStart}
                 weekEnd={weekEnd}
@@ -1478,6 +1463,7 @@ function StatusTab({ sharedMachines, weeklyTargets, sapByKey, sapByVariant, last
                                         const showBlock = item.upstreamConstrained || item.isManualOverride || !!configuredMachine;
                                         if (!showBlock) return (
                                             // Nessun dato upstream: mostra bottone per configurare fase + macchina
+                                            !MACHINES_NO_FLOW_CONFIG.has(machine.machineId) && (
                                             <div style={{ marginTop: 2 }}>
                                                 {!isEditingMachine
                                                     ? <button onClick={() => setEditingUpstream({ key: upstreamMachineKey, machineValue: configuredMachine || "", phaseValue: item.upstreamPhaseId || "" })}
@@ -1487,6 +1473,7 @@ function StatusTab({ sharedMachines, weeklyTargets, sapByKey, sapByVariant, last
                                                     : <UpstreamEditForm machineId={machine.machineId} compKey={item.compKey} showReset={false} />
                                                 }
                                             </div>
+                                            )
                                         );
                                         return (
                                             <div style={{ marginTop: -2 }}>
@@ -1607,10 +1594,12 @@ function StatusTab({ sharedMachines, weeklyTargets, sapByKey, sapByVariant, last
                                                             style={{ padding: "1px 7px", borderRadius: 3, border: "1px solid #9b59b640", background: "#9b59b610", color: "#9b59b6", cursor: "pointer", fontSize: 10, fontWeight: 600 }}>
                                                             📦 Inserisci grezzo
                                                         </button>
+                                                        {!MACHINES_NO_FLOW_CONFIG.has(machine.machineId) && (
                                                         <button onClick={() => setEditingUpstream({ key: `${machine.machineId}::${item.compKey}`, machineValue: "", phaseValue: "" })}
                                                             style={{ padding: "1px 7px", borderRadius: 3, border: "1px solid var(--accent-dim)", background: "var(--accent-dim)", color: "var(--accent)", cursor: "pointer", fontSize: 10 }}>
                                                             🔗 configura flusso
                                                         </button>
+                                                        )}
                                                     </div>
                                                 )}
                                                 <UpstreamEditForm machineId={machine.machineId} compKey={item.compKey} showReset={false} />
@@ -1926,9 +1915,17 @@ function GanttTab({ sharedMachines, weekStart, consumedH, cardStyle }) {
                                             <span style={{ color: "#10b981" }}>{item.produced.toLocaleString("it-IT")}</span>
                                             <span> / {item.target.toLocaleString("it-IT")} pz</span>
                                             {item.remaining > 0 && (
-                                                <span style={{ color: "#f59e0b", marginLeft: 4 }}>
-                                                    ({item.remaining.toLocaleString("it-IT")} rim.)
-                                                </span>
+                                                <>
+                                                    <span style={{ color: "#f59e0b", marginLeft: 4 }}>
+                                                        ({item.remaining.toLocaleString("it-IT")} rim.)
+                                                    </span>
+                                                    <span style={{ marginLeft: 6, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                                                        <span style={{ fontSize: 10, background: item.urgencyScore >= 0.8 ? "#ef444422" : item.urgencyScore >= 0.5 ? "#f59e0b22" : "#10b98122", color: item.urgencyScore >= 0.8 ? "#ef4444" : item.urgencyScore >= 0.5 ? "#f59e0b" : "#10b981", padding: "1px 6px", borderRadius: 8, fontWeight: 600 }}>
+                                                            Urg: {item.urgencyScore}
+                                                        </span>
+                                                        <span style={{ fontSize: 10, color: "var(--text-muted)" }}>({item.jph.toLocaleString("it-IT")} pz/h)</span>
+                                                    </span>
+                                                </>
                                             )}
                                             {item.remaining === 0 && (
                                                 <span style={{ color: "#10b981", marginLeft: 4 }}>✓ completato</span>
@@ -2533,15 +2530,22 @@ function Op10SubTab({ sharedMachines, upstreamMachineConfig, saveUpstreamMachine
 // ─── Report Mancato Target ────────────────────────────────────────────────────
 
 const MOTIVI = [
-    { value: "", label: "— seleziona motivo —" },
-    { value: "mancanza_grezzo", label: "Mancanza grezzo" },
-    { value: "mancanza_cestelli", label: "Mancanza cestelli" },
-    { value: "guasto_macchina", label: "Guasto macchina" },
-    { value: "setup_lungo", label: "Setup lungo" },
-    { value: "priorita_cambio", label: "Cambio priorità" },
+    { value: "mancanza_grezzo",    label: "Mancanza grezzo" },
+    { value: "mancanza_cestelli",  label: "Mancanza cestelli" },
+    { value: "guasto_macchina",    label: "Guasto macchina" },
+    { value: "setup_lungo",        label: "Setup lungo" },
+    { value: "priorita_cambio",    label: "Cambio priorità" },
     { value: "mancanza_operatore", label: "Mancanza operatore" },
-    { value: "altro", label: "Altro" },
+    { value: "altro",              label: "Altro" },
 ];
+
+/** Serialise/deserialise motivi array ↔ JSON string stored in DB */
+function motiviToDb(arr) { return arr?.length ? JSON.stringify(arr) : null; }
+function motiviFromDb(str) {
+    if (!str) return [];
+    try { const p = JSON.parse(str); return Array.isArray(p) ? p : [str]; }
+    catch { return str ? [str] : []; }
+}
 
 function getMonday2(d) {
     const dt = new Date(d);
@@ -2552,292 +2556,278 @@ function getMonday2(d) {
     return dt;
 }
 
-function MancatoTargetTab({ sharedMachines, rawConferme, weekStart, weekEnd, materialOverrides, showToast, cardStyle }) {
-    const [viewMode, setViewMode] = React.useState("week"); // "day" | "week"
+function MancatoTargetTab({ sharedMachines, weeklyTargets, sapByKey, rawConferme, weekStart, weekEnd, materialOverrides, showToast }) {
+    const [viewMode, setViewMode] = React.useState("week");
     const [selectedDay, setSelectedDay] = React.useState(() => {
-        const t = new Date();
-        t.setHours(0, 0, 0, 0);
-        return t;
+        const t = new Date(); t.setHours(0, 0, 0, 0); return t;
     });
-    const [notes, setNotes] = React.useState({}); // key: "date::machineId::comp::fase" → { motivo, note_libere }
+    const [notes, setNotes] = React.useState({});
     const [saving, setSaving] = React.useState({});
-    const [dbNotes, setDbNotes] = React.useState([]);
 
-    // Load existing notes from DB
-    React.useEffect(() => {
-        if (!weekStart || !weekEnd) return;
-        const wStart = weekStart instanceof Date ? weekStart.toISOString().slice(0, 10)
-            : String(weekStart).slice(0, 10);
-        const wEnd = weekEnd instanceof Date ? weekEnd.toISOString().slice(0, 10)
-            : String(weekEnd).slice(0, 10);
-        supabase
-            .from("mancato_target_note")
-            .select("*")
-            .gte("data", wStart)
-            .lte("data", wEnd)
-            .then(({ data, error }) => {
-                if (error) { console.error("mancato_target_note load error", error); return; }
-                setDbNotes(data || []);
-                const map = {};
-                for (const row of (data || [])) {
-                    const k = `${row.data}::${row.macchina_id}::${row.componente}::${row.fase}`;
-                    map[k] = { motivo: row.motivo || "", note_libere: row.note_libere || "", causa_comp: row.causa_comp || "", causa_pezzi: row.causa_pezzi ?? null };
-                }
-                setNotes(map);
-            });
-    }, [weekStart, weekEnd]);
-
-    // Build rows: for each shared machine, find components below target
-    const rows = React.useMemo(() => {
-        if (!sharedMachines?.length) return [];
-        const result = [];
-
-        for (const machine of sharedMachines) {
-            if (!machine.itemsWithProgress?.length) continue;
-
-            // Find which comp used most machine time (the "cause")
-            const totalProd = machine.itemsWithProgress.reduce((s, it) => s + (it.produced || 0), 0);
-
-            for (const item of machine.itemsWithProgress) {
-                const target = item.weeklyTarget || 0;
-                const produced = item.produced || 0;
-                if (target <= 0 || produced >= target) continue; // only show misses
-
-                const mancante = target - produced;
-
-                // Find other components that ran on this machine (causes)
-                const otherItems = machine.itemsWithProgress.filter(oi => oi !== item && (oi.produced || 0) > 0);
-
-                // Per-day breakdown from rawConferme
-                const daysInWeek = [];
-                if (weekStart) {
-                    for (let i = 0; i < 5; i++) {
-                        const d = new Date(weekStart instanceof Date ? weekStart : new Date(weekStart));
-                        d.setDate(d.getDate() + i);
-                        daysInWeek.push(d);
-                    }
-                }
-
-                // For day mode, compute day-level data
-                const dayRows = daysInWeek.map(day => {
-                    const dayStr = day.toISOString().slice(0, 10);
-                    return {
-                        date: dayStr,
-                        day,
-                        machineId: machine.machineId,
-                        phaseLabel: machine.phaseLabel,
-                        phaseId: machine.phaseId,
-                        comp: item.comp,
-                        proj: item.proj,
-                        compKey: item.compKey,
-                        target: Math.round(target / 5), // daily target approximation
-                        produced: 0, // simplified — no daily breakdown available yet
-                        mancante: Math.round(mancante / 5),
-                        otherItems,
-                    };
-                });
-
-                const weekStr = weekStart
-                    ? (weekStart instanceof Date ? weekStart : new Date(weekStart)).toISOString().slice(0, 10)
-                    : "";
-
-                result.push({
-                    machineId: machine.machineId,
-                    phaseLabel: machine.phaseLabel,
-                    phaseId: machine.phaseId,
-                    phaseColor: machine.phaseColor,
-                    comp: item.comp,
-                    proj: item.proj,
-                    compKey: item.compKey,
-                    target,
-                    produced,
-                    mancante,
-                    otherItems,
-                    weekStr,
-                    dayRows,
-                });
-            }
-        }
-        return result;
-    }, [sharedMachines, weekStart]);
-
-    const visibleRows = React.useMemo(() => {
-        if (viewMode === "week") return rows;
-        const dayStr = selectedDay.toISOString().slice(0, 10);
-        return rows.map(r => ({
-            ...r,
-            dayStr,
-            target: r.dayRows.find(d => d.date === dayStr)?.target ?? Math.round(r.target / 5),
-            mancante: r.dayRows.find(d => d.date === dayStr)?.mancante ?? Math.round(r.mancante / 5),
-        }));
-    }, [rows, viewMode, selectedDay]);
-
-    const getNoteKey = (dateStr, machineId, comp, fase) => `${dateStr}::${machineId}::${comp}::${fase}`;
-
-    async function saveNote(row) {
-        const dateStr = viewMode === "week" ? row.weekStr : row.dayStr;
-        if (!dateStr) return;
-        const settimana = viewMode === "week" ? row.weekStr
-            : getMonday2(new Date(dateStr)).toISOString().slice(0, 10);
-        const key = getNoteKey(dateStr, row.machineId, row.comp, row.phaseId);
-        const noteData = notes[key] || {};
-
-        setSaving(prev => ({ ...prev, [key]: true }));
-        const causeComp = noteData.causa_comp || (row.otherItems[0]?.comp || null);
-        const causePezzi = noteData.causa_pezzi != null ? noteData.causa_pezzi
-            : (row.otherItems[0]?.produced ?? null);
-
-        const { error } = await supabase.from("mancato_target_note").upsert({
-            data: dateStr,
-            settimana,
-            macchina_id: row.machineId,
-            componente: row.comp,
-            progetto: row.proj,
-            fase: row.phaseId,
-            target: row.target,
-            prodotto: row.produced,
-            mancante: row.mancante,
-            causa_comp: causeComp,
-            causa_pezzi: causePezzi,
-            motivo: noteData.motivo || null,
-            note_libere: noteData.note_libere || null,
-            updated_at: new Date().toISOString(),
-        }, { onConflict: "data,macchina_id,componente,fase" });
-
-        setSaving(prev => ({ ...prev, [key]: false }));
-        if (error) { showToast?.("Errore salvataggio: " + error.message, "error"); }
-        else { showToast?.("Nota salvata ✓", "success"); }
-    }
+    const weekStr = React.useMemo(() => weekStart
+        ? (weekStart instanceof Date ? weekStart : new Date(weekStart)).toISOString().slice(0, 10)
+        : "", [weekStart]);
 
     const weekDays = React.useMemo(() => {
         if (!weekStart) return [];
-        const days = [];
-        for (let i = 0; i < 5; i++) {
+        return Array.from({ length: 5 }, (_, i) => {
             const d = new Date(weekStart instanceof Date ? weekStart : new Date(weekStart));
             d.setDate(d.getDate() + i);
-            days.push(d);
-        }
-        return days;
+            return d;
+        });
     }, [weekStart]);
 
-    const inputStyle = {
-        padding: "3px 6px", borderRadius: 4,
+    // Load saved notes from DB for this week
+    React.useEffect(() => {
+        if (!weekStr) return;
+        const wEnd = weekEnd instanceof Date ? weekEnd.toISOString().slice(0, 10) : String(weekEnd || "").slice(0, 10);
+        supabase.from("mancato_target_note").select("*").gte("data", weekStr).lte("data", wEnd || weekStr)
+            .then(({ data, error }) => {
+                if (error) { console.error("mancato_target_note load error", error); return; }
+                const map = {};
+                for (const row of (data || [])) {
+                    map[`${row.data}::${row.macchina_id}::${row.componente}::${row.fase}`] =
+                        { motivi: motiviFromDb(row.motivo), note_libere: row.note_libere || "" };
+                }
+                setNotes(map);
+            });
+    }, [weekStr, weekEnd]);
+
+    // Cards: one per machine that has ≥1 component below target
+    const machineCards = React.useMemo(() => {
+        if (!sharedMachines?.length) return [];
+        const cards = [];
+        for (const machine of sharedMachines) {
+            if (!machine.items?.length) continue;
+            // machine.items already has target+produced computed in sharedMachines useMemo
+            const missedItems = machine.items.filter(it => (it.target || 0) > 0 && (it.produced || 0) < (it.target || 0));
+            if (!missedItems.length) continue;
+            const runningItems = machine.items.filter(it => (it.produced || 0) > 0);
+            cards.push({ machine, missedItems, runningItems });
+        }
+        return cards;
+    }, [sharedMachines]);
+
+    const getNoteKey = (dateStr, machineId, comp, fase) => `${dateStr}::${machineId}::${comp}::${fase}`;
+
+    async function saveNote(machine, item, dateStr) {
+        if (!dateStr) return;
+        const settimana = viewMode === "week" ? dateStr
+            : getMonday2(new Date(dateStr)).toISOString().slice(0, 10);
+        const key = getNoteKey(dateStr, machine.machineId, item.comp, machine.phase);
+        const nd = notes[key] || {};
+        setSaving(prev => ({ ...prev, [key]: true }));
+        const { error } = await supabase.from("mancato_target_note").upsert({
+            data: dateStr,
+            settimana,
+            macchina_id: machine.machineId,
+            componente: item.comp,
+            progetto: item.proj,
+            fase: machine.phase,
+            target: item.target,
+            prodotto: item.produced,
+            mancante: item.target - item.produced,
+            motivo: motiviToDb(nd.motivi),
+            note_libere: nd.note_libere || null,
+            updated_at: new Date().toISOString(),
+        }, { onConflict: "data,macchina_id,componente,fase" });
+        setSaving(prev => ({ ...prev, [key]: false }));
+        if (error) showToast?.("Errore: " + error.message, "error");
+        else showToast?.("Nota salvata ✓", "success");
+    }
+
+    const dayStr = selectedDay.toISOString().slice(0, 10);
+    const activeDateStr = viewMode === "week" ? weekStr : dayStr;
+
+    // KPI aggregates
+    const totalMissed = machineCards.reduce((s, { missedItems }) =>
+        s + missedItems.reduce((ss, it) => ss + (it.target - it.produced), 0), 0);
+    const totalMachines = machineCards.length;
+    const worstCard = machineCards.reduce((w, c) => {
+        const gap = c.missedItems.reduce((s, it) => s + (it.target - it.produced), 0);
+        return gap > (w?.gap || 0) ? { ...c, gap } : w;
+    }, null);
+
+    const s = { // compact input style
+        padding: "3px 7px", borderRadius: 5,
         border: "1px solid var(--border)",
         background: "var(--bg-primary)", color: "var(--text-primary)",
         fontSize: 12,
     };
 
     return (
-        <div style={{ padding: "16px 0" }}>
-            {/* Header controls */}
-            <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
-                <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>📉 Report Mancato Target</span>
-                <div style={{ display: "flex", gap: 0, borderRadius: 6, overflow: "hidden", border: "1px solid var(--border)" }}>
+        <div style={{ padding: "12px 0" }}>
+
+            {/* ── Toolbar ── */}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", borderRadius: 5, overflow: "hidden", border: "1px solid var(--border)" }}>
                     {[["week", "Settimana"], ["day", "Giorno"]].map(([v, label]) => (
                         <button key={v} onClick={() => setViewMode(v)}
                             style={{ padding: "4px 12px", border: "none", cursor: "pointer", fontSize: 12,
                                 background: viewMode === v ? "var(--accent)" : "var(--bg-secondary)",
-                                color: viewMode === v ? "#fff" : "var(--text-muted)" }}>
+                                color: viewMode === v ? "#fff" : "var(--text-muted)", fontWeight: viewMode === v ? 600 : 400 }}>
                             {label}
                         </button>
                     ))}
                 </div>
-                {viewMode === "day" && (
-                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                        {weekDays.map(d => {
-                            const str = d.toISOString().slice(0, 10);
-                            const isSel = selectedDay.toISOString().slice(0, 10) === str;
-                            return (
-                                <button key={str} onClick={() => setSelectedDay(d)}
-                                    style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid var(--border)", cursor: "pointer", fontSize: 11,
-                                        background: isSel ? "var(--accent)" : "var(--bg-secondary)",
-                                        color: isSel ? "#fff" : "var(--text-muted)" }}>
-                                    {d.toLocaleDateString("it-IT", { weekday: "short", day: "numeric" })}
-                                </button>
-                            );
-                        })}
-                    </div>
-                )}
+                {viewMode === "day" && weekDays.map(d => {
+                    const ds = d.toISOString().slice(0, 10);
+                    const sel = dayStr === ds;
+                    return (
+                        <button key={ds} onClick={() => setSelectedDay(d)}
+                            style={{ padding: "4px 9px", borderRadius: 5, fontSize: 11, cursor: "pointer",
+                                border: `1px solid ${sel ? "var(--accent)" : "var(--border)"}`,
+                                background: sel ? "var(--accent)" : "var(--bg-secondary)",
+                                color: sel ? "#fff" : "var(--text-muted)", fontWeight: sel ? 600 : 400 }}>
+                            {d.toLocaleDateString("it-IT", { weekday: "short", day: "numeric" })}
+                        </button>
+                    );
+                })}
             </div>
 
-            {visibleRows.length === 0 ? (
-                <div style={{ color: "var(--text-muted)", textAlign: "center", padding: 32 }}>
-                    ✅ Nessun mancato target questa settimana.
+            {machineCards.length === 0 ? (
+                <div style={{ textAlign: "center", padding: 48, color: "var(--text-muted)" }}>
+                    <div style={{ fontSize: 28, marginBottom: 6 }}>✅</div>
+                    <div style={{ fontSize: 14, fontWeight: 500 }}>Nessun mancato target</div>
                 </div>
-            ) : (
-                <div style={{ overflowX: "auto" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                        <thead>
-                            <tr style={{ background: "var(--bg-secondary)", color: "var(--text-muted)", fontSize: 11 }}>
-                                <th style={{ padding: "6px 10px", textAlign: "left", whiteSpace: "nowrap" }}>Macchina</th>
-                                <th style={{ padding: "6px 10px", textAlign: "left" }}>Componente</th>
-                                <th style={{ padding: "6px 10px", textAlign: "right" }}>Target</th>
-                                <th style={{ padding: "6px 10px", textAlign: "right" }}>Fatto</th>
-                                <th style={{ padding: "6px 10px", textAlign: "right", color: "#ef4444" }}>Mancante</th>
-                                <th style={{ padding: "6px 10px", textAlign: "left" }}>Lavorava su...</th>
-                                <th style={{ padding: "6px 10px", textAlign: "left" }}>Motivo</th>
-                                <th style={{ padding: "6px 10px", textAlign: "left" }}>Note</th>
-                                <th style={{ padding: "6px 10px" }}></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {visibleRows.map((row, idx) => {
-                                const dateStr = viewMode === "week" ? row.weekStr : row.dayStr;
-                                const key = getNoteKey(dateStr, row.machineId, row.comp, row.phaseId);
-                                const noteData = notes[key] || {};
-                                const isSaving = saving[key];
-                                const causeLabel = row.otherItems.map(oi =>
-                                    `${oi.comp} (${oi.proj}) — ${oi.produced ?? 0} pz`
-                                ).join(", ") || "—";
+            ) : (<>
 
-                                return (
-                                    <tr key={key + idx}
-                                        style={{ borderBottom: "1px solid var(--border)", background: idx % 2 === 0 ? "transparent" : "var(--bg-secondary)" }}>
-                                        <td style={{ padding: "8px 10px", fontFamily: "monospace", fontWeight: 600 }}>
-                                            <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%",
-                                                background: row.phaseColor || "#888", marginRight: 6 }} />
-                                            {row.machineId}
-                                            <div style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "sans-serif", fontWeight: 400 }}>
-                                                {row.phaseLabel}
+                {/* ── KPI bar ── */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 16 }}>
+                    {[
+                        { label: "Macchine sotto target", value: totalMachines, color: "#f59e0b", icon: "⚙️" },
+                        { label: "Pezzi mancanti", value: totalMissed.toLocaleString("it-IT"), color: "#ef4444", icon: "📦" },
+                        { label: "Macchina critica", value: worstCard?.machine.machineId || "—", color: "#8b5cf6", icon: "⚠️", sub: worstCard ? `−${worstCard.gap.toLocaleString("it-IT")} pz` : "" },
+                    ].map(kpi => (
+                        <div key={kpi.label} style={{ borderRadius: 8, border: `1px solid ${kpi.color}33`,
+                            background: kpi.color + "0d", padding: "10px 14px" }}>
+                            <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 3 }}>{kpi.icon} {kpi.label}</div>
+                            <div style={{ fontSize: 20, fontWeight: 700, color: kpi.color, fontFamily: "monospace", lineHeight: 1 }}>
+                                {kpi.value}
+                            </div>
+                            {kpi.sub && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{kpi.sub}</div>}
+                        </div>
+                    ))}
+                </div>
+
+                {/* ── Card grid ── */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(420px, 1fr))", gap: 10 }}>
+                    {machineCards.map(({ machine, missedItems, runningItems }) =>
+                        missedItems.map(item => {
+                            const pct = item.target > 0 ? Math.round((item.produced / item.target) * 100) : 0;
+                            const div = viewMode === "week" ? 1 : 5;
+                            const tgt = Math.round(item.target / div);
+                            const prod = Math.round(item.produced / div);
+                            const diff = tgt - prod;
+                            const key = getNoteKey(activeDateStr, machine.machineId, item.comp, machine.phase);
+                            const nd = notes[key] || {};
+                            const selectedMotivi = nd.motivi || [];
+                            const isSaving = saving[key];
+                            const barColor = pct >= 80 ? "#f59e0b" : pct >= 50 ? "#f97316" : "#ef4444";
+                            const causes = runningItems.filter(r => r.compKey !== item.compKey && (r.produced || 0) > 0);
+                            const toggleMotivo = (val) => setNotes(prev => {
+                                const cur = prev[key]?.motivi || [];
+                                const next = cur.includes(val) ? cur.filter(v => v !== val) : [...cur, val];
+                                return { ...prev, [key]: { ...prev[key], motivi: next } };
+                            });
+
+                            return (
+                                <div key={key} style={{ borderRadius: 8, border: "1px solid var(--border)",
+                                    background: "var(--bg-secondary)", overflow: "hidden", fontSize: 12 }}>
+
+                                    {/* Row 1: machine + comp + %badge */}
+                                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px",
+                                        borderBottom: "1px solid var(--border)", background: "var(--bg-tertiary, var(--bg-secondary))" }}>
+                                        <span style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
+                                            background: machine.phaseColor || "#888", display: "inline-block" }} />
+                                        <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 13, color: "var(--text-primary)" }}>
+                                            {machine.machineId}
+                                        </span>
+                                        <span style={{ fontSize: 10, color: "var(--text-muted)", padding: "1px 6px",
+                                            background: (machine.phaseColor || "#888") + "22", borderRadius: 8 }}>
+                                            {machine.phaseLabel}
+                                        </span>
+                                        <span style={{ marginLeft: 4, fontWeight: 700, fontSize: 13, color: "var(--text-primary)" }}>
+                                            {item.comp}
+                                        </span>
+                                        <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{item.proj}</span>
+                                        <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700,
+                                            color: barColor, background: barColor + "18",
+                                            padding: "1px 7px", borderRadius: 8, border: `1px solid ${barColor}44` }}>
+                                            {pct}%
+                                        </span>
+                                    </div>
+
+                                    <div style={{ padding: "8px 12px", display: "flex", flexDirection: "column", gap: 7 }}>
+                                        {/* Row 2: progress bar + numbers */}
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                            <div style={{ flex: 1, height: 6, borderRadius: 3, background: "var(--border)", overflow: "hidden" }}>
+                                                <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 3 }} />
                                             </div>
-                                        </td>
-                                        <td style={{ padding: "8px 10px" }}>
-                                            <strong>{row.comp}</strong>
-                                            <span style={{ color: "var(--text-muted)", marginLeft: 5, fontSize: 11 }}>{row.proj}</span>
-                                        </td>
-                                        <td style={{ padding: "8px 10px", textAlign: "right", fontFamily: "monospace" }}>{row.target}</td>
-                                        <td style={{ padding: "8px 10px", textAlign: "right", fontFamily: "monospace" }}>{row.produced}</td>
-                                        <td style={{ padding: "8px 10px", textAlign: "right", fontFamily: "monospace", color: "#ef4444", fontWeight: 700 }}>
-                                            -{row.mancante}
-                                        </td>
-                                        <td style={{ padding: "8px 10px", fontSize: 12, color: "var(--text-muted)", maxWidth: 200 }}>
-                                            {causeLabel}
-                                        </td>
-                                        <td style={{ padding: "8px 10px" }}>
-                                            <select value={noteData.motivo || ""} style={{ ...inputStyle, minWidth: 160 }}
-                                                onChange={e => setNotes(prev => ({ ...prev, [key]: { ...prev[key], motivo: e.target.value } }))}>
-                                                {MOTIVI.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-                                            </select>
-                                        </td>
-                                        <td style={{ padding: "8px 10px" }}>
-                                            <input type="text" value={noteData.note_libere || ""} placeholder="Note libere..."
-                                                style={{ ...inputStyle, width: 180 }}
+                                            <span style={{ fontSize: 11, color: "var(--text-muted)", whiteSpace: "nowrap" }}>
+                                                <strong style={{ color: "var(--text-primary)" }}>{prod.toLocaleString("it-IT")}</strong>
+                                                {" / "}{tgt.toLocaleString("it-IT")}
+                                            </span>
+                                            <span style={{ fontSize: 11, fontWeight: 700, color: "#ef4444", whiteSpace: "nowrap" }}>
+                                                −{diff.toLocaleString("it-IT")} pz
+                                            </span>
+                                        </div>
+
+                                        {/* Row 3: cause chips */}
+                                        {causes.length > 0 && (
+                                            <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                                                <span style={{ fontSize: 10, color: "var(--text-muted)" }}>Occupata da:</span>
+                                                {causes.map(r => (
+                                                    <span key={r.compKey} style={{ fontSize: 10, padding: "1px 7px", borderRadius: 8,
+                                                        background: (r.color || "#888") + "20",
+                                                        border: `1px solid ${r.color || "#888"}44`,
+                                                        color: "var(--text-primary)", fontWeight: 600 }}>
+                                                        {r.comp}
+                                                        <span style={{ fontWeight: 400, opacity: 0.6, marginLeft: 3 }}>
+                                                            {r.produced.toLocaleString("it-IT")} pz
+                                                        </span>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Row 4: motivi chip-toggle */}
+                                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                                            {MOTIVI.map(m => {
+                                                const on = selectedMotivi.includes(m.value);
+                                                return (
+                                                    <button key={m.value} onClick={() => toggleMotivo(m.value)}
+                                                        style={{ padding: "2px 8px", borderRadius: 10, border: `1px solid ${on ? "var(--accent)" : "var(--border)"}`,
+                                                            background: on ? "var(--accent)" : "transparent",
+                                                            color: on ? "#fff" : "var(--text-muted)",
+                                                            fontSize: 10, cursor: "pointer", fontWeight: on ? 600 : 400,
+                                                            transition: "all 0.12s" }}>
+                                                        {on ? "✓ " : ""}{m.label}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+
+                                        {/* Row 5: note + save */}
+                                        <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                                            <input type="text" value={nd.note_libere || ""} placeholder="Note libere..."
+                                                style={{ ...s, flex: 1, minWidth: 0 }}
                                                 onChange={e => setNotes(prev => ({ ...prev, [key]: { ...prev[key], note_libere: e.target.value } }))} />
-                                        </td>
-                                        <td style={{ padding: "8px 10px" }}>
-                                            <button disabled={isSaving} onClick={() => saveNote(row)}
-                                                style={{ padding: "4px 10px", borderRadius: 4, border: "none", cursor: isSaving ? "default" : "pointer",
-                                                    background: isSaving ? "var(--bg-tertiary)" : "var(--accent)", color: "#fff", fontSize: 12 }}>
+                                            <button disabled={isSaving} onClick={() => saveNote(machine, item, activeDateStr)}
+                                                style={{ padding: "3px 10px", borderRadius: 5, border: "none", fontSize: 11,
+                                                    cursor: isSaving ? "default" : "pointer", fontWeight: 600,
+                                                    background: selectedMotivi.length || nd.note_libere ? "var(--accent)" : "var(--bg-tertiary, var(--border))",
+                                                    color: selectedMotivi.length || nd.note_libere ? "#fff" : "var(--text-muted)", whiteSpace: "nowrap" }}>
                                                 {isSaving ? "…" : "Salva"}
                                             </button>
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })
+                    )}
                 </div>
-            )}
+            </>)}
         </div>
     );
 }
