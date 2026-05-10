@@ -4,6 +4,58 @@ Tutte le modifiche significative di Turno App sono documentate in questo file.
 
 ---
 
+## [1.8.2] — 2026-05-11 — Bugfix Alert Pianificazione Changeover
+
+### 🐛 Bugfix Critici
+- **Alert scope fix**: L'`useEffect` degli alert era dentro la funzione `StatusTab` ma referenziava
+  `lastAlertTime`/`setLastAlertTime` definiti nel componente padre `GanttPianificazioneView` → errore
+  runtime `lastAlertTime is not defined`. Fix: spostati `machineStatus` useMemo e alert `useEffect`
+  nel componente principale dove lo stato è definito.
+- **Forma dati changeover errata** (Check 1 – CO scaduto): l'alert usava `co.compKey` e `co.proj`
+  che non esistono sull'oggetto changeover. Gli oggetti changeover hanno `toCompKey` e `toLabel`.
+  Fix: `co.compKey` → `co.toCompKey`, messaggio usa direttamente `co.toLabel`.
+- **startH/endH inesistenti su changeover** (Check 2 – CO in corso): il codice cercava
+  `co.startH <= consumedH && co.endH > consumedH` su `machine.changeovers`, ma gli oggetti
+  changeover hanno solo `at` (inizio). Solo i `blocks` hanno `startH`/`endH`.
+  Fix: Check 2 ora usa `machine.blocks.find(b => b.type === "co" && b.startH <= ...)`.
+- **Campi `proj`/`compKey` errati** (Check 3 – CO imminente): stessa forma sbagliata del Check 1.
+  Fix: usa `machine.nextCO.toCompKey` e `machine.nextCO.toLabel`.
+- **Dipendenza mancante nel useMemo** (`machineStatus`): `upstreamPhaseConfig` era usato nel
+  calcolo ma assente dal dependency array → gli override upstream non triggheravano il ricalcolo.
+  Fix: aggiunto `upstreamPhaseConfig` al dep array.
+- **`Math.min()` su array vuoto** (Check 5 – ritardo produzione): se nessun item aveva target > 0,
+  `Math.min(...[])` restituisce `Infinity`, generando alert `"Sei Infinity% dietro"`.
+  Fix: guard `if (withTarget.length > 0)` prima di calcolare `worstDelta`.
+
+### 🛡️ Guardie Aggiuntive
+- Alert `useEffect`: aggiunto early-return se `machineStatus.length === 0` o `showToast` non
+  definito, per evitare iterazioni a vuoto al primo render prima del caricamento dati.
+- Check 4 (componente completato): il `nextLabel` ora usa `nextItem.shortLabel` (già formattato
+  come `"DG·DCT"`) invece di ricostruire manualmente `PROJ_SHORT[proj]::compKey`.
+
+---
+
+## [1.8.1] — 2026-05-11 — Smart Changeover Alerts
+
+### 🆕 Nuove Funzionalità
+- **Sistema Alert Operatore** in Pianificazione Changeover (Tab "Stato Settimana"):
+  - **🔴 CO Scaduto** — quando il changeover pianificato è già passato: `"CAMBIO SCADUTO: dovevi passare a DG·DCT 2.3h fa"`
+  - **🔄 CO In Corso** — quando il blocco changeover è attivo in questo momento: `"IN CORSO: changeover → SG2·ECO (fine in 0.8h)"`
+  - **⏳ CO Imminente** — quando il prossimo changeover è entro 4h: `"Tra 3.5h: cambia a SG2·ECO"`
+  - **✅ Componente Completato** — quando `prodotto >= target`: `"DG·DCT completato! Prossimo: SG2·ECO"`
+  - **⚠ Ritardo Produzione** — quando `prodUrgency >= 1` (≥15% sotto ritmo): `"HOB10001: Sei 22% dietro al ritmo previsto"`
+- **Debounce 60 secondi**: ogni combinazione `machineId::evento` è tracciata in `lastAlertTime`
+  per evitare toast ripetuti ad ogni re-render. Lo stesso alert non riparte prima di 60s.
+- Gli alert usano il sistema toast esistente di `App.jsx` (nessun nuovo componente).
+
+### 📐 Architettura
+- `lastAlertTime` (stato) definito in `GanttPianificazioneView` — oggetto `Record<string, timestamp>`
+- `machineStatus` useMemo spostato dal figlio `StatusTab` al padre `GanttPianificazioneView`
+  per essere condiviso con l'`useEffect` degli alert
+- `StatusTab` ora riceve `machineStatus` come prop invece di calcolarlo internamente
+
+---
+
 ## [1.8.0] — 2026-05-06 — Gantt Pianificazione v2 "La Vista più Importante"
 
 ### 🆕 Nuove Funzionalità

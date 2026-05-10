@@ -844,10 +844,12 @@ export default function GanttPianificazioneView({ showToast }) {
 
             return { ...machine, itemsWithProgress, currentBlock, nextCO, overdueCOs, urgency, prodUrgency };
         }).sort((a, b) => b.urgency - a.urgency || a.machineId.localeCompare(b.machineId));
-    }, [sharedMachines, weeklyTargets, sapByKey, stockOverrides, consumedH]);
+    }, [sharedMachines, weeklyTargets, sapByKey, stockOverrides, upstreamPhaseConfig, consumedH]);
 
     // ── Alert system: triggers operator-guidance alerts ──
     useEffect(() => {
+        if (!machineStatus.length || !showToast) return;
+
         const shouldAlert = (machineId, eventKey, cooldown = 60) => {
             const key = `${machineId}::${eventKey}`;
             const lastTime = lastAlertTime[key] || 0;
@@ -860,57 +862,57 @@ export default function GanttPianificazioneView({ showToast }) {
         };
 
         for (const machine of machineStatus) {
-            // Check 1: Overdue changeovers (urgency=3)
+            // Check 1: Overdue changeovers — changeover.toCompKey/toLabel are the correct fields
             if (machine.overdueCOs.length > 0) {
                 const co = machine.overdueCOs[0];
                 const timeAgo = (consumedH - co.at).toFixed(1);
-                if (shouldAlert(machine.machineId, `overdue_${co.compKey}`)) {
-                    const compLabel = PROJ_SHORT[co.proj] || co.proj;
-                    showToast(`🔴 CAMBIO SCADUTO: dovevi passare a ${compLabel}::${co.compKey} ${timeAgo}h fa`, "error");
+                if (shouldAlert(machine.machineId, `overdue_${co.toCompKey}`)) {
+                    showToast(`🔴 CAMBIO SCADUTO: dovevi passare a ${co.toLabel} ${timeAgo}h fa`, "error");
                 }
             }
 
-            // Check 2: Changeover in progress
-            const activeChangeover = machine.changeovers.find(
-                co => co.startH <= consumedH && co.endH > consumedH
+            // Check 2: Changeover in progress — use blocks (have startH/endH), not changeovers (only have `at`)
+            const activeCOBlock = machine.blocks.find(
+                b => b.type === "co" && b.startH <= consumedH && b.endH > consumedH
             );
-            if (activeChangeover) {
-                const timeLeft = (activeChangeover.endH - consumedH).toFixed(1);
-                const compLabel = PROJ_SHORT[activeChangeover.proj] || activeChangeover.proj;
-                if (shouldAlert(machine.machineId, `in_progress_${activeChangeover.compKey}`)) {
-                    showToast(`🔄 IN CORSO: changeover → ${compLabel}::${activeChangeover.compKey} (fine in ${timeLeft}h)`, "info");
+            if (activeCOBlock) {
+                const toItem = machine.itemsWithProgress.find(i => i.compKey === activeCOBlock.toCompKey);
+                const timeLeft = (activeCOBlock.endH - consumedH).toFixed(1);
+                const label = toItem?.shortLabel || activeCOBlock.toCompKey;
+                if (shouldAlert(machine.machineId, `in_progress_${activeCOBlock.toCompKey}`)) {
+                    showToast(`🔄 IN CORSO: changeover → ${label} (fine in ${timeLeft}h)`, "info");
                 }
             }
 
-            // Check 3: Imminent changeover (0-4h before)
+            // Check 3: Imminent changeover (0-4h before) — use toCompKey/toLabel
             if (machine.nextCO && machine.nextCO.at > consumedH && (machine.nextCO.at - consumedH) <= 4) {
                 const timeLeft = (machine.nextCO.at - consumedH).toFixed(1);
-                const compLabel = PROJ_SHORT[machine.nextCO.proj] || machine.nextCO.proj;
-                if (shouldAlert(machine.machineId, `imminent_${machine.nextCO.compKey}`)) {
-                    showToast(`⏳ Tra ${timeLeft}h: cambia a ${compLabel}::${machine.nextCO.compKey}`, "warning");
+                if (shouldAlert(machine.machineId, `imminent_${machine.nextCO.toCompKey}`)) {
+                    showToast(`⏳ Tra ${timeLeft}h: cambia a ${machine.nextCO.toLabel}`, "warning");
                 }
             }
 
-            // Check 4: Component complete
+            // Check 4: Component complete — item.proj and item.compKey come from sharedMachines items spread
             for (const item of machine.itemsWithProgress) {
                 if (item.produced >= item.target && item.target > 0) {
                     const nextItem = machine.itemsWithProgress.find(i => i.produced < i.target && i.target > 0);
-                    const nextLabel = nextItem ? `${PROJ_SHORT[nextItem.proj] || nextItem.proj}::${nextItem.compKey}` : "fine turno";
+                    const nextLabel = nextItem ? nextItem.shortLabel : "fine turno";
                     if (shouldAlert(machine.machineId, `complete_${item.compKey}`)) {
-                        showToast(`✅ ${PROJ_SHORT[item.proj] || item.proj}::${item.compKey} completato! Prossimo: ${nextLabel}`, "success");
+                        showToast(`✅ ${item.shortLabel} completato! Prossimo: ${nextLabel}`, "success");
                     }
                 }
             }
 
-            // Check 5: Behind schedule
+            // Check 5: Behind schedule — guard against empty itemsWithProgress
             if (machine.prodUrgency >= 1) {
-                const expectedPct = Math.round((consumedH / WEEK_HOURS) * 100);
-                const worstDelta = Math.min(...machine.itemsWithProgress
-                    .filter(i => i.target > 0)
-                    .map(i => i.pct - expectedPct));
-                const delta = Math.abs(worstDelta);
-                if (shouldAlert(machine.machineId, `behind_schedule_${Math.floor(delta / 10)}`)) {
-                    showToast(`⚠ ${machine.machineId}: Sei ${delta}% dietro al ritmo previsto`, "warning");
+                const withTarget = machine.itemsWithProgress.filter(i => i.target > 0);
+                if (withTarget.length > 0) {
+                    const expectedPct = Math.round((consumedH / WEEK_HOURS) * 100);
+                    const worstDelta = Math.min(...withTarget.map(i => i.pct - expectedPct));
+                    const delta = Math.abs(worstDelta);
+                    if (shouldAlert(machine.machineId, `behind_schedule_${Math.floor(delta / 10)}`)) {
+                        showToast(`⚠ ${machine.machineId}: Sei ${delta}% dietro al ritmo previsto`, "warning");
+                    }
                 }
             }
         }
