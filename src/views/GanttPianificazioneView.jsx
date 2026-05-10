@@ -299,6 +299,9 @@ export default function GanttPianificazioneView({ showToast }) {
     const [changeoverConfig, setChangeoverConfig] = useState(DEFAULT_CHANGEOVER_H);
     const [bundleConfig,     setBundleConfig]     = useState(DEFAULT_BUNDLES);
 
+    // ── Alert debouncing (prevents duplicate alerts for same event within 60s) ──
+    const [lastAlertTime, setLastAlertTime] = useState({});
+
     // ── Loading ──
     const [loading,         setLoading]         = useState(true);
     const [loadingConferme, setLoadingConferme] = useState(false);
@@ -779,6 +782,140 @@ export default function GanttPianificazioneView({ showToast }) {
         return result;
     }, [materialOverrides, rawConferme, weeklyTargets, sapByKey, stockOverrides, upstreamMachineConfig, upstreamPhaseConfig, cfg, changeoverConfig, consumedH, projectFilter, weekStart]);
 
+    // ─── Compute machineStatus for all shared machines (for alerts) ──
+    const machineStatus = useMemo(() => {
+        return sharedMachines.map(machine => {
+            const itemsWithProgress = machine.items.map(item => {
+                const target   = weeklyTargets[item.compKey] || 0;
+                const produced = (item.relevantPhases || [machine.phase])
+                    .reduce((s, p) => s + (sapByKey[`${item.compKey}::${p}`] || 0), 0);
+                const pct      = target > 0 ? Math.min(Math.round((produced / target) * 100), 100) : 0;
+
+                const upstreamPhaseId = (upstreamPhaseConfig || {})[`${machine.machineId}::${item.compKey}`] || item.upstreamPhaseId || null;
+                let remaining = Math.max(0, target - produced);
+                let upstreamConstrained = false;
+                let upstreamProduced = null;
+                let availableFromUpstream = null;
+                let isManualOverride = false;
+                const grezzoKey = `${item.compKey}::grezzo`;
+                const grezzoStock = !upstreamPhaseId && grezzoKey in (stockOverrides || {}) ? stockOverrides[grezzoKey] : null;
+                if (upstreamPhaseId) {
+                    const overrideKey = `${item.compKey}::${upstreamPhaseId}`;
+                    isManualOverride = overrideKey in (stockOverrides || {});
+                    upstreamProduced = isManualOverride
+                        ? stockOverrides[overrideKey]
+                        : (sapByKey[`${item.compKey}::${upstreamPhaseId}`] || 0);
+                    availableFromUpstream = Math.max(0, upstreamProduced - produced);
+                    const targetRemaining = Math.max(0, target - produced);
+                    remaining = Math.min(targetRemaining, availableFromUpstream);
+                    upstreamConstrained = availableFromUpstream < targetRemaining;
+                } else if (grezzoStock !== null) {
+                    const available = Math.max(0, grezzoStock - produced);
+                    remaining = Math.min(Math.max(0, target - produced), available);
+                }
+
+                const hoursLeft = Math.max(WEEK_HOURS - consumedH, 1);
+                const pzHNeeded = item.hPerLot > 0 ? Math.round((item.lotto / item.hPerLot)) : 0;
+                const onPace    = pzHNeeded > 0 ? (produced / (consumedH || 1)) >= (target / WEEK_HOURS * 0.85) : null;
+                return { ...item, upstreamPhaseId, target, produced, pct, remaining, onPace, hoursLeft, upstreamConstrained, upstreamProduced, availableFromUpstream, isManualOverride, grezzoStock };
+            });
+
+            const currentBlock = machine.blocks.find(b =>
+                b.type === "work" && b.startH <= consumedH && b.endH > consumedH
+            ) || machine.blocks.filter(b => b.type === "work" && b.endH <= consumedH).pop();
+
+            const nextCO = machine.changeovers.find(co => co.at > consumedH);
+            const overdueCOs = machine.changeovers.filter(co => co.at <= consumedH);
+
+            let urgency = 0;
+            if (overdueCOs.length > 0) urgency = 3;
+            else if (nextCO && (nextCO.at - consumedH) <= 6)  urgency = 2;
+            else if (nextCO && (nextCO.at - consumedH) <= 24) urgency = 1;
+
+            let prodUrgency = 0;
+            if (consumedH > 6) {
+                const expectedPct = Math.round((consumedH / WEEK_HOURS) * 100);
+                const worstDelta = Math.min(...itemsWithProgress
+                    .filter(i => i.target > 0)
+                    .map(i => i.pct - expectedPct));
+                if (worstDelta < -30) prodUrgency = 2;
+                else if (worstDelta < -15) prodUrgency = 1;
+            }
+
+            return { ...machine, itemsWithProgress, currentBlock, nextCO, overdueCOs, urgency, prodUrgency };
+        }).sort((a, b) => b.urgency - a.urgency || a.machineId.localeCompare(b.machineId));
+    }, [sharedMachines, weeklyTargets, sapByKey, stockOverrides, consumedH]);
+
+    // ── Alert system: triggers operator-guidance alerts ──
+    useEffect(() => {
+        const shouldAlert = (machineId, eventKey, cooldown = 60) => {
+            const key = `${machineId}::${eventKey}`;
+            const lastTime = lastAlertTime[key] || 0;
+            const now = Date.now();
+            if (now - lastTime >= cooldown * 1000) {
+                setLastAlertTime(prev => ({ ...prev, [key]: now }));
+                return true;
+            }
+            return false;
+        };
+
+        for (const machine of machineStatus) {
+            // Check 1: Overdue changeovers (urgency=3)
+            if (machine.overdueCOs.length > 0) {
+                const co = machine.overdueCOs[0];
+                const timeAgo = (consumedH - co.at).toFixed(1);
+                if (shouldAlert(machine.machineId, `overdue_${co.compKey}`)) {
+                    const compLabel = PROJ_SHORT[co.proj] || co.proj;
+                    showToast(`🔴 CAMBIO SCADUTO: dovevi passare a ${compLabel}::${co.compKey} ${timeAgo}h fa`, "error");
+                }
+            }
+
+            // Check 2: Changeover in progress
+            const activeChangeover = machine.changeovers.find(
+                co => co.startH <= consumedH && co.endH > consumedH
+            );
+            if (activeChangeover) {
+                const timeLeft = (activeChangeover.endH - consumedH).toFixed(1);
+                const compLabel = PROJ_SHORT[activeChangeover.proj] || activeChangeover.proj;
+                if (shouldAlert(machine.machineId, `in_progress_${activeChangeover.compKey}`)) {
+                    showToast(`🔄 IN CORSO: changeover → ${compLabel}::${activeChangeover.compKey} (fine in ${timeLeft}h)`, "info");
+                }
+            }
+
+            // Check 3: Imminent changeover (0-4h before)
+            if (machine.nextCO && machine.nextCO.at > consumedH && (machine.nextCO.at - consumedH) <= 4) {
+                const timeLeft = (machine.nextCO.at - consumedH).toFixed(1);
+                const compLabel = PROJ_SHORT[machine.nextCO.proj] || machine.nextCO.proj;
+                if (shouldAlert(machine.machineId, `imminent_${machine.nextCO.compKey}`)) {
+                    showToast(`⏳ Tra ${timeLeft}h: cambia a ${compLabel}::${machine.nextCO.compKey}`, "warning");
+                }
+            }
+
+            // Check 4: Component complete
+            for (const item of machine.itemsWithProgress) {
+                if (item.produced >= item.target && item.target > 0) {
+                    const nextItem = machine.itemsWithProgress.find(i => i.produced < i.target && i.target > 0);
+                    const nextLabel = nextItem ? `${PROJ_SHORT[nextItem.proj] || nextItem.proj}::${nextItem.compKey}` : "fine turno";
+                    if (shouldAlert(machine.machineId, `complete_${item.compKey}`)) {
+                        showToast(`✅ ${PROJ_SHORT[item.proj] || item.proj}::${item.compKey} completato! Prossimo: ${nextLabel}`, "success");
+                    }
+                }
+            }
+
+            // Check 5: Behind schedule
+            if (machine.prodUrgency >= 1) {
+                const expectedPct = Math.round((consumedH / WEEK_HOURS) * 100);
+                const worstDelta = Math.min(...machine.itemsWithProgress
+                    .filter(i => i.target > 0)
+                    .map(i => i.pct - expectedPct));
+                const delta = Math.abs(worstDelta);
+                if (shouldAlert(machine.machineId, `behind_schedule_${Math.floor(delta / 10)}`)) {
+                    showToast(`⚠ ${machine.machineId}: Sei ${delta}% dietro al ritmo previsto`, "warning");
+                }
+            }
+        }
+    }, [machineStatus, consumedH, lastAlertTime, showToast]);
+
     // ─── Save project targets → localStorage (stessa chiave di ComponentFlowView) ───
     const saveProjectTargets = useCallback((newTargets) => {
         setProjectTargets(newTargets);
@@ -833,7 +970,7 @@ export default function GanttPianificazioneView({ showToast }) {
 
             {/* ══════════════════════════ TAB 1: STATO SETTIMANA ══════════════════════════ */}
             {activeTab === "status" && <StatusTab
-                sharedMachines={sharedMachines}
+                machineStatus={machineStatus}
                 weeklyTargets={weeklyTargets}
                 sapByKey={sapByKey}
                 sapByVariant={sapByVariant}
@@ -906,7 +1043,7 @@ export default function GanttPianificazioneView({ showToast }) {
 const LS_DASHBOARD_KEY   = "gantt_dashboard_machines";   // Set<machineId> visibili
 const LS_DASHBOARD_COLS  = "gantt_dashboard_cols";
 
-function StatusTab({ sharedMachines, weeklyTargets, sapByKey, sapByVariant, lastSapByMachine, consumedH, weekStart, weekEnd, cfg, stockOverrides, saveStockOverride, upstreamMachineConfig, saveUpstreamMachine, upstreamPhaseConfig, saveUpstreamPhase, onRefreshOverrides, showToast, cardStyle }) {
+function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastSapByMachine, consumedH, weekStart, weekEnd, cfg, stockOverrides, saveStockOverride, upstreamMachineConfig, saveUpstreamMachine, upstreamPhaseConfig, saveUpstreamPhase, onRefreshOverrides, showToast, cardStyle }) {
     const [editMachine,       setEditMachine]       = useState(null); // macchina aperta nel modal
     const [editingStock,      setEditingStock]      = useState(null); // { key, value } override stock upstream
     const [editingUpstream,   setEditingUpstream]   = useState(null); // { key: "machineId::compKey", machineValue: string, phaseValue: string }
@@ -963,80 +1100,6 @@ function StatusTab({ sharedMachines, weeklyTargets, sapByKey, sapByVariant, last
     const [filterUrgency, setFilterUrgency] = useState("all");
     const cols = 4;
 
-    // Per ogni macchina condivisa calcola: avanzamento per componente + stato changeover
-    const machineStatus = useMemo(() => {
-        return sharedMachines.map(machine => {
-            // Avanzamento SAP per ogni item della macchina
-            const itemsWithProgress = machine.items.map(item => {
-                const target   = weeklyTargets[item.compKey] || 0;
-                // Usa le fasi rilevanti del componente (non solo la fase primaria della macchina)
-                const produced = (item.relevantPhases || [machine.phase])
-                    .reduce((s, p) => s + (sapByKey[`${item.compKey}::${p}`] || 0), 0);
-                const pct      = target > 0 ? Math.min(Math.round((produced / target) * 100), 100) : 0;
-
-                // Vincolo upstream — usa fase config manuale se disponibile, altrimenti quella dell'item
-                const upstreamPhaseId = (upstreamPhaseConfig || {})[`${machine.machineId}::${item.compKey}`] || item.upstreamPhaseId || null;
-                let remaining = Math.max(0, target - produced);
-                let upstreamConstrained = false;
-                let upstreamProduced = null;
-                let availableFromUpstream = null;
-                let isManualOverride = false;
-                const grezzoKey = `${item.compKey}::grezzo`;
-                const grezzoStock = !upstreamPhaseId && grezzoKey in (stockOverrides || {}) ? stockOverrides[grezzoKey] : null;
-                if (upstreamPhaseId) {
-                    const overrideKey = `${item.compKey}::${upstreamPhaseId}`;
-                    isManualOverride = overrideKey in (stockOverrides || {});
-                    upstreamProduced = isManualOverride
-                        ? stockOverrides[overrideKey]
-                        : (sapByKey[`${item.compKey}::${upstreamPhaseId}`] || 0);
-                    availableFromUpstream = Math.max(0, upstreamProduced - produced);
-                    const targetRemaining = Math.max(0, target - produced);
-                    remaining = Math.min(targetRemaining, availableFromUpstream);
-                    upstreamConstrained = availableFromUpstream < targetRemaining;
-                } else if (grezzoStock !== null) {
-                    const available = Math.max(0, grezzoStock - produced);
-                    remaining = Math.min(Math.max(0, target - produced), available);
-                }
-                // Fase upstream risolta (può essere sovrascritta dalla config manuale)
-
-                // Ritmo necessario: pz/ora rimanenti per finire in tempo
-                const hoursLeft = Math.max(WEEK_HOURS - consumedH, 1);
-                const pzHNeeded = item.hPerLot > 0 ? Math.round((item.lotto / item.hPerLot)) : 0;
-                const onPace    = pzHNeeded > 0 ? (produced / (consumedH || 1)) >= (target / WEEK_HOURS * 0.85) : null;
-                return { ...item, upstreamPhaseId, target, produced, pct, remaining, onPace, hoursLeft, upstreamConstrained, upstreamProduced, availableFromUpstream, isManualOverride, grezzoStock };
-            });
-
-            // Componente attualmente in lavorazione (il blocco work che contiene consumedH)
-            const currentBlock = machine.blocks.find(b =>
-                b.type === "work" && b.startH <= consumedH && b.endH > consumedH
-            ) || machine.blocks.filter(b => b.type === "work" && b.endH <= consumedH).pop();
-
-            // Prossimo changeover futuro
-            const nextCO = machine.changeovers.find(co => co.at > consumedH);
-            // Changeover già scaduti (dovevano avvenire ma non ancora fatti → in ritardo)
-            const overdueCOs = machine.changeovers.filter(co => co.at <= consumedH);
-
-            // Urgenza changeover: 0=ok, 1=entro 24h, 2=entro 6h, 3=scaduto
-            let urgency = 0;
-            if (overdueCOs.length > 0) urgency = 3;
-            else if (nextCO && (nextCO.at - consumedH) <= 6)  urgency = 2;
-            else if (nextCO && (nextCO.at - consumedH) <= 24) urgency = 1;
-
-            // Urgenza produzione: peggiore delta tra i componenti (solo dopo la prima ora)
-            // delta = pct_prodotto - pct_tempo_trascorso
-            let prodUrgency = 0;
-            if (consumedH > 6) {
-                const expectedPct = Math.round((consumedH / WEEK_HOURS) * 100);
-                const worstDelta = Math.min(...itemsWithProgress
-                    .filter(i => i.target > 0)
-                    .map(i => i.pct - expectedPct));
-                if (worstDelta < -30) prodUrgency = 2;      // rosso: >30% sotto ritmo
-                else if (worstDelta < -15) prodUrgency = 1; // giallo: >15% sotto ritmo
-            }
-
-            return { ...machine, itemsWithProgress, currentBlock, nextCO, overdueCOs, urgency, prodUrgency };
-        }).sort((a, b) => b.urgency - a.urgency || a.machineId.localeCompare(b.machineId));
-    }, [sharedMachines, weeklyTargets, sapByKey, stockOverrides, consumedH]);
 
     const visibleMachines = useMemo(() => machineStatus.filter(m => {
         // filterPhase può essere un phaseId singolo o "label:Saldatura" per gruppi
