@@ -3,6 +3,112 @@ import Modal from "./Modal";
 
 const CHANGELOG = [
     {
+        version: "1.8.2",
+        data: "11 Maggio 2026",
+        label: "Bugfix Alert Pianificazione Changeover",
+        modifiche: [
+            {
+                categoria: "🐛 Bugfix",
+                voci: [
+                    "Alert CO scaduto: corretto accesso ai campi changeover (toCompKey/toLabel invece di compKey/proj inesistenti)",
+                    "Alert CO in corso: ora usa machine.blocks invece di machine.changeovers (solo i blocks hanno startH/endH)",
+                    "Alert CO imminente: stessa correzione forma dati del CO scaduto",
+                    "machineStatus useMemo: aggiunto upstreamPhaseConfig al dep array (gli override upstream non triggheravano il ricalcolo)",
+                    "Alert ritardo produzione: guard contro Math.min() su array vuoto che generava 'Sei Infinity% dietro'",
+                ]
+            },
+            {
+                categoria: "🛡️ Robustezza",
+                voci: [
+                    "Alert useEffect: early-return se machineStatus vuoto o showToast non definito al primo render",
+                    "Alert componente completato: usa direttamente item.shortLabel (già formattato) invece di ricostruire proj::comp",
+                ]
+            }
+        ]
+    },
+    {
+        version: "1.8.1",
+        data: "11 Maggio 2026",
+        label: "Smart Changeover Alerts per Operatori",
+        modifiche: [
+            {
+                categoria: "🆕 Novità",
+                voci: [
+                    "🔴 Alert CO Scaduto: avvisa quando il changeover pianificato è già passato (es. 'CAMBIO SCADUTO: dovevi passare a SG2·ECO 2.3h fa')",
+                    "🔄 Alert CO In Corso: notifica quando il blocco changeover è attivo in questo momento con tempo rimanente",
+                    "⏳ Alert CO Imminente: avvisa 0–4h prima del prossimo changeover pianificato",
+                    "✅ Alert Componente Completato: notifica quando prodotto ≥ target con indicazione del prossimo componente",
+                    "⚠ Alert Ritardo Produzione: scatta quando la macchina è ≥15% sotto il ritmo previsto",
+                ]
+            },
+            {
+                categoria: "⚙️ Tecnico",
+                voci: [
+                    "Debounce 60 secondi per alert: ogni evento non si ripete per la stessa macchina prima di 60s",
+                    "machineStatus spostato da StatusTab al componente padre GanttPianificazioneView per condividerlo con il sistema alert",
+                    "StatusTab riceve machineStatus come prop invece di calcolarlo internamente",
+                ]
+            }
+        ]
+    },
+    {
+        version: "1.8.0",
+        data: "6 Maggio 2026",
+        label: "Gantt Pianificazione v2 — Stato Settimana + Raccomandazioni",
+        modifiche: [
+            {
+                categoria: "🆕 Novità",
+                voci: [
+                    "Dashboard macchina con avanzamento SAP reale vs target, badge urgenza CO e produzione",
+                    "Raccomandazione automatica per ogni macchina: azione corrente, prossimo changeover con orario esatto",
+                    "Filtri per fase, urgenza (CO scaduto/imminente/ok) e progetto",
+                    "KPI cards: macchine urgenti, in attenzione, in regola",
+                    "Configurazione vincolo upstream per ogni coppia macchina+componente (fase + ID macchina)",
+                    "Override stock grezzo manuale per simulare disponibilità upstream",
+                    "Report Mancato Target: analisi per macchina delle perdite settimanali",
+                ]
+            },
+            {
+                categoria: "📊 Algoritmo",
+                voci: [
+                    "Scheduler con epoche giornaliere: distribuisce il lavoro proporzionalmente ogni 24h (no big-bang)",
+                    "Urgency score per prioritizzare i componenti più critici nel planning",
+                    "Throughput DB (componente_fasi) → localStorage → costanti con merge per fase",
+                ]
+            }
+        ]
+    },
+    {
+        version: "1.7.0",
+        data: "5 Maggio 2026",
+        label: "Gantt Pianificazione Changeover",
+        modifiche: [
+            {
+                categoria: "🆕 Novità",
+                voci: [
+                    "Nuova vista 'Pianificazione Changeover' con Gantt per macchina e sequenza ottimale lotti",
+                    "Algoritmo greedy EarliestDueDate con changeover giornalieri proporzionali",
+                    "Tab Configurazione: target settimanali, ore changeover per fase, bundle DG+DG-REV",
+                    "Zona grigia = ore già trascorse: visibilità immediata sull'orizzonte reale",
+                ]
+            }
+        ]
+    },
+    {
+        version: "1.6.4",
+        data: "5 Maggio 2026",
+        label: "Reset Inventario Settimanale",
+        modifiche: [
+            {
+                categoria: "🆕 Novità",
+                voci: [
+                    "Bottone 'Reset Periodo' in Laboratorio Inventario per ripartire dalla data odierna",
+                    "Dialog di conferma con nuova data di inizio periodo",
+                ]
+            }
+        ]
+    },
+    {
         version: "1.4.0",
         data: "30 Aprile 2026",
         label: "Fix Fermi + Fasi DCT300 + Target + Riorganizzazione Sidebar",
@@ -208,7 +314,7 @@ export default function ChangelogModal({ onClose }) {
             zIndex={3000}
         >
             {CHANGELOG.map((v, i) => (
-                <div key={v.version} style={{
+                <div key={i} style={{
                     marginBottom: 28,
                     paddingBottom: 28,
                     borderBottom: i < CHANGELOG.length - 1 ? "1px solid var(--border)" : "none"
