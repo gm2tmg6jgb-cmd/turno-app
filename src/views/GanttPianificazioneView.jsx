@@ -26,12 +26,13 @@ const LS_STOCK_OVERRIDES_KEY = "gantt_stock_overrides";      // Record<"proj::co
 const LS_UPSTREAM_MACHINE_KEY = "gantt_upstream_machines";   // Record<"machineId::compKey", upstreamMachineId>
 const LS_UPSTREAM_PHASE_KEY   = "gantt_upstream_phases";     // Record<"machineId::compKey", phaseId>
 
-// Macchine per le quali nascondere il bottone "configura flusso"
+// Macchine/fasi per le quali nascondere il bottone "configura flusso"
 const MACHINES_NO_FLOW_CONFIG = new Set([
     "dra10060", "dra10061", "dra10062", "dra10063", "dra10064",
     "dra10065", "dra10066", "dra10067", "dra10068", "dra10070",
     "dra10071", "dra10072", "dra11042"
 ]);
+const PHASES_NO_FLOW_CONFIG = new Set(["start_soft"]);
 
 // Mappa completa fase → label (superset per tutte le fasi in material_fino_overrides)
 const PHASE_LABELS = {
@@ -568,6 +569,7 @@ export default function GanttPianificazioneView({ showToast }) {
                 let upstreamConstrained = false;
                 let upstreamMachineId = null;
                 let isManualOverride = false;
+                let availableFromUpstream = null;
                 // Grezzo manuale (prima fase — nessuna fase upstream)
                 const grezzoKey = `${compKey}::grezzo`;
                 const grezzoStock = !upstreamPhaseId && grezzoKey in stockOverrides ? stockOverrides[grezzoKey] : null;
@@ -577,7 +579,7 @@ export default function GanttPianificazioneView({ showToast }) {
                     upstreamProduced = isManualOverride
                         ? stockOverrides[overrideKey]
                         : (sapByKey[`${compKey}::${upstreamPhaseId}`] || 0);
-                    const availableFromUpstream = Math.max(0, upstreamProduced - produced);
+                    availableFromUpstream = Math.max(0, upstreamProduced - produced);
                     const targetRemaining = Math.max(0, target - produced);
                     remaining = Math.min(targetRemaining, availableFromUpstream);
                     upstreamConstrained = availableFromUpstream < targetRemaining;
@@ -600,10 +602,17 @@ export default function GanttPianificazioneView({ showToast }) {
                 const ps = PROJ_SHORT[proj] || proj.slice(0, 3);
 
                 const compCfg  = cfg.components[compKey];
-                const phaseFasi = compCfg?.phases?.find(p => p.phaseId === phase);
+                // Cerca il config throughput su tutte le fasi rilevanti del componente su questa macchina
+                // (non solo sulla fase primaria della macchina, che può differire per componente)
+                const phaseFasi = phasesToUse
+                    .map(ph => compCfg?.phases?.find(p => p.phaseId === ph))
+                    .find(Boolean);
                 const lotto     = compCfg?.lotto || 1200;
                 const hPerLot   = phaseFasi ? +phaseHours(phaseFasi, { ...compCfg, changeOverH: coH }).toFixed(2) : 0;
-                const lotsNeeded = (hPerLot > 0 && remaining > 0) ? Math.ceil(remaining / lotto) : 0;
+                // Per il Gantt usiamo targetRemaining (senza vincolo upstream) così il carico pianificato
+                // è sempre visibile anche quando l'upstream non ha ancora prodotto questa settimana.
+                const targetRemainingForPlan = Math.max(0, target - produced);
+                const lotsNeeded = (hPerLot > 0 && targetRemainingForPlan > 0) ? Math.ceil(targetRemainingForPlan / lotto) : 0;
                 const totalH    = +(lotsNeeded * hPerLot).toFixed(1);
 
                 // JPH: pezzi per ora (throughput)
@@ -621,7 +630,7 @@ export default function GanttPianificazioneView({ showToast }) {
                     target, produced, remaining, pct,
                     lotto, hPerLot, lotsNeeded, totalH,
                     jph, remainingH, urgencyScore,
-                    upstreamPhaseId, upstreamProduced, upstreamConstrained,
+                    upstreamPhaseId, upstreamProduced, upstreamConstrained, availableFromUpstream,
                     upstreamMachineId, isManualOverride, grezzoStock,
                     changeOverH: coH,
                     hasConfig:  !!phaseFasi,
@@ -749,7 +758,7 @@ export default function GanttPianificazioneView({ showToast }) {
 
             const totalDemandH  = +items.reduce((s, i) => s + i.totalH, 0).toFixed(1);
             const availableH    = Math.max(WEEK_HOURS - consumedH, 1);
-            const utilPct       = Math.min(Math.round((totalDemandH / availableH) * 100), 999);
+            const utilPct       = Math.min(Math.round((totalDemandH / availableH) * 100), 100);
             const isOverCapacity = totalDemandH > availableH;
 
             result.push({
@@ -949,21 +958,9 @@ function StatusTab({ sharedMachines, weeklyTargets, sapByKey, sapByVariant, last
     };
 
     const [filterPhase,   setFilterPhase]   = useState("all");
-    const [filterProject, setFilterProject] = useState("all");
+    const filterProject = "all";
     const [filterUrgency, setFilterUrgency] = useState("all");
-    const [cols, setCols] = useState(() => {
-        try { return parseInt(localStorage.getItem(LS_DASHBOARD_COLS) || "4", 10); } catch { return 4; }
-    });
-    const [configMode, setConfigMode] = useState(false);
-    // null = mostra tutto; Set<id> = mostra solo queste
-    const [pinnedIds, setPinnedIds] = useState(() => {
-        try {
-            const saved = localStorage.getItem(LS_DASHBOARD_KEY);
-            return saved ? new Set(JSON.parse(saved)) : null;
-        } catch { return null; }
-    });
-    // Selezione temporanea durante il config mode
-    const [draftIds, setDraftIds] = useState(new Set());
+    const cols = 4;
 
     // Per ogni macchina condivisa calcola: avanzamento per componente + stato changeover
     const machineStatus = useMemo(() => {
@@ -981,6 +978,7 @@ function StatusTab({ sharedMachines, weeklyTargets, sapByKey, sapByVariant, last
                 let remaining = Math.max(0, target - produced);
                 let upstreamConstrained = false;
                 let upstreamProduced = null;
+                let availableFromUpstream = null;
                 let isManualOverride = false;
                 const grezzoKey = `${item.compKey}::grezzo`;
                 const grezzoStock = !upstreamPhaseId && grezzoKey in (stockOverrides || {}) ? stockOverrides[grezzoKey] : null;
@@ -990,7 +988,7 @@ function StatusTab({ sharedMachines, weeklyTargets, sapByKey, sapByVariant, last
                     upstreamProduced = isManualOverride
                         ? stockOverrides[overrideKey]
                         : (sapByKey[`${item.compKey}::${upstreamPhaseId}`] || 0);
-                    const availableFromUpstream = Math.max(0, upstreamProduced - produced);
+                    availableFromUpstream = Math.max(0, upstreamProduced - produced);
                     const targetRemaining = Math.max(0, target - produced);
                     remaining = Math.min(targetRemaining, availableFromUpstream);
                     upstreamConstrained = availableFromUpstream < targetRemaining;
@@ -1004,7 +1002,7 @@ function StatusTab({ sharedMachines, weeklyTargets, sapByKey, sapByVariant, last
                 const hoursLeft = Math.max(WEEK_HOURS - consumedH, 1);
                 const pzHNeeded = item.hPerLot > 0 ? Math.round((item.lotto / item.hPerLot)) : 0;
                 const onPace    = pzHNeeded > 0 ? (produced / (consumedH || 1)) >= (target / WEEK_HOURS * 0.85) : null;
-                return { ...item, upstreamPhaseId, target, produced, pct, remaining, onPace, hoursLeft, upstreamConstrained, upstreamProduced, isManualOverride, grezzoStock };
+                return { ...item, upstreamPhaseId, target, produced, pct, remaining, onPace, hoursLeft, upstreamConstrained, upstreamProduced, availableFromUpstream, isManualOverride, grezzoStock };
             });
 
             // Componente attualmente in lavorazione (il blocco work che contiene consumedH)
@@ -1039,32 +1037,7 @@ function StatusTab({ sharedMachines, weeklyTargets, sapByKey, sapByVariant, last
         }).sort((a, b) => b.urgency - a.urgency || a.machineId.localeCompare(b.machineId));
     }, [sharedMachines, weeklyTargets, sapByKey, stockOverrides, consumedH]);
 
-    // Salva cols in localStorage quando cambia
-    const handleSetCols = (n) => {
-        setCols(n);
-        try { localStorage.setItem(LS_DASHBOARD_COLS, String(n)); } catch {}
-    };
-
-    // Entra in config mode: pre-seleziona le macchine già pinnate (o tutte se nessuna pinnata)
-    const enterConfigMode = () => {
-        setDraftIds(pinnedIds ? new Set(pinnedIds) : new Set(machineStatus.map(m => m.machineId)));
-        setConfigMode(true);
-    };
-    const saveConfig = () => {
-        const newPinned = draftIds.size === machineStatus.length ? null : draftIds;
-        setPinnedIds(newPinned);
-        try { localStorage.setItem(LS_DASHBOARD_KEY, JSON.stringify(newPinned ? [...newPinned] : null)); } catch {}
-        setConfigMode(false);
-    };
-    const toggleDraft = (id) => setDraftIds(prev => {
-        const next = new Set(prev);
-        next.has(id) ? next.delete(id) : next.add(id);
-        return next;
-    });
-
-    // Filtro applicato: prima pinnedIds, poi i filtri chips
     const visibleMachines = useMemo(() => machineStatus.filter(m => {
-        if (pinnedIds && !pinnedIds.has(m.machineId))                return false;
         // filterPhase può essere un phaseId singolo o "label:Saldatura" per gruppi
         if (filterPhase !== "all") {
             if (filterPhase.startsWith("label:")) {
@@ -1083,7 +1056,7 @@ function StatusTab({ sharedMachines, weeklyTargets, sapByKey, sapByVariant, last
         if (filterUrgency === "prod_1" && m.prodUrgency !== 1)        return false;
         if (filterProject !== "all" && !m.items.some(i => i.proj === filterProject)) return false;
         return true;
-    }), [machineStatus, pinnedIds, filterPhase, filterUrgency, filterProject]);
+    }), [machineStatus, filterPhase, filterUrgency, filterProject]);
 
     // Fasi presenti tra le macchine condivise — raggruppate per label
     // (es. laser_welding + sca_post_deburring + laser_welding_2 → un solo "Saldatura")
@@ -1189,101 +1162,8 @@ function StatusTab({ sharedMachines, weeklyTargets, sapByKey, sapByVariant, last
                     ))}
                 </div>
 
-                <div style={{ width: 1, height: 20, background: "var(--border)" }} />
-
-                {/* Filtro progetto */}
-                <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600, marginRight: 2 }}>PROGETTO</span>
-                    <button style={chipStyle(filterProject === "all")} onClick={() => setFilterProject("all")}>Tutti</button>
-                    {availableProjects.map(p => (
-                        <button key={p} style={chipStyle(filterProject === p)} onClick={() => setFilterProject(filterProject === p ? "all" : p)}>{p}</button>
-                    ))}
-                </div>
-
-                <div style={{ flex: 1 }} />
-
-                {/* Colonne */}
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600 }}>COL</span>
-                    {[2, 3, 4].map(n => (
-                        <button key={n} style={chipStyle(cols === n)} onClick={() => handleSetCols(n)}>{n}</button>
-                    ))}
-                </div>
-
-                {/* Contatore + configura */}
-                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                    {visibleMachines.length} / {machineStatus.length} macchine
-                    {pinnedIds && <span style={{ color: "var(--accent)", marginLeft: 4 }}>({pinnedIds.size} fissate)</span>}
-                </span>
-                <button onClick={enterConfigMode} style={{
-                    padding: "5px 12px", borderRadius: 6, border: "1px solid var(--accent)",
-                    background: "var(--accent-dim)", color: "var(--accent)", cursor: "pointer", fontSize: 12, fontWeight: 600,
-                }}>
-                    ✏️ Configura dashboard
-                </button>
             </div>
 
-            {/* ── Pannello configurazione macchine ── */}
-            {configMode && (
-                <div style={{ background: "var(--bg-secondary)", border: "2px solid var(--accent)", borderRadius: 10, padding: 16, marginBottom: 16 }}>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 14 }}>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>Seleziona le macchine da mostrare nel dashboard</span>
-                        <div style={{ flex: 1 }} />
-                        <button onClick={() => setDraftIds(new Set(machineStatus.map(m => m.machineId)))}
-                            style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid var(--border)", background: "var(--bg-tertiary)", color: "var(--text-secondary)", cursor: "pointer", fontSize: 12 }}>
-                            Seleziona tutte
-                        </button>
-                        <button onClick={() => setDraftIds(new Set())}
-                            style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid var(--border)", background: "var(--bg-tertiary)", color: "var(--text-secondary)", cursor: "pointer", fontSize: 12 }}>
-                            Deseleziona tutte
-                        </button>
-                        <button onClick={() => setConfigMode(false)}
-                            style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid var(--border)", background: "var(--bg-tertiary)", color: "var(--text-secondary)", cursor: "pointer", fontSize: 12 }}>
-                            Annulla
-                        </button>
-                        <button onClick={saveConfig}
-                            style={{ padding: "5px 14px", borderRadius: 5, border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
-                            💾 Salva
-                        </button>
-                    </div>
-                    {/* Raggruppa per fase */}
-                    {[...new Set(machineStatus.map(m => m.phase))].map(phase => {
-                        const phaseMachines = machineStatus.filter(m => m.phase === phase);
-                        const phaseColor = PHASE_COLORS[phase] || "#888";
-                        const phaseLabel = PHASE_LABELS[phase] || phase;
-                        return (
-                            <div key={phase} style={{ marginBottom: 12 }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: phaseColor, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
-                                    <div style={{ width: 8, height: 8, borderRadius: "50%", background: phaseColor }} />
-                                    {phaseLabel}
-                                    <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>({phaseMachines.length} macchine)</span>
-                                </div>
-                                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                                    {phaseMachines.map(m => {
-                                        const selected = draftIds.has(m.machineId);
-                                        return (
-                                            <label key={m.machineId} style={{
-                                                display: "flex", alignItems: "center", gap: 7, padding: "6px 12px",
-                                                borderRadius: 7, cursor: "pointer",
-                                                border: `1px solid ${selected ? phaseColor : "var(--border)"}`,
-                                                background: selected ? phaseColor + "18" : "var(--bg-tertiary)",
-                                                userSelect: "none",
-                                            }}>
-                                                <input type="checkbox" checked={selected} onChange={() => toggleDraft(m.machineId)}
-                                                    style={{ width: 14, height: 14, cursor: "pointer", accentColor: phaseColor }} />
-                                                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>{m.machineId}</span>
-                                                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                                                    {m.items.map(i => i.shortLabel).join(" · ")}
-                                                </span>
-                                            </label>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            )}
 
             {/* KPI cards */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
@@ -1463,7 +1343,7 @@ function StatusTab({ sharedMachines, weeklyTargets, sapByKey, sapByVariant, last
                                         const showBlock = item.upstreamConstrained || item.isManualOverride || !!configuredMachine;
                                         if (!showBlock) return (
                                             // Nessun dato upstream: mostra bottone per configurare fase + macchina
-                                            !MACHINES_NO_FLOW_CONFIG.has(machine.machineId) && (
+                                            !(MACHINES_NO_FLOW_CONFIG.has(machine.machineId) || PHASES_NO_FLOW_CONFIG.has(machine.phase)) && (
                                             <div style={{ marginTop: 2 }}>
                                                 {!isEditingMachine
                                                     ? <button onClick={() => setEditingUpstream({ key: upstreamMachineKey, machineValue: configuredMachine || "", phaseValue: item.upstreamPhaseId || "" })}
@@ -1481,7 +1361,7 @@ function StatusTab({ sharedMachines, weeklyTargets, sapByKey, sapByVariant, last
                                                     <span>{item.isManualOverride ? "✏️" : "⚠️"}</span>
                                                     <span>
                                                         Attende{" "}
-                                                        <strong>{(item.upstreamProduced || 0).toLocaleString("it-IT")} pz</strong>
+                                                        <strong>{(item.availableFromUpstream ?? 0).toLocaleString("it-IT")} pz</strong>
                                                         {" "}da{" "}
                                                         {configuredMachine
                                                             ? <><button
@@ -1594,7 +1474,7 @@ function StatusTab({ sharedMachines, weeklyTargets, sapByKey, sapByVariant, last
                                                             style={{ padding: "1px 7px", borderRadius: 3, border: "1px solid #9b59b640", background: "#9b59b610", color: "#9b59b6", cursor: "pointer", fontSize: 10, fontWeight: 600 }}>
                                                             📦 Inserisci grezzo
                                                         </button>
-                                                        {!MACHINES_NO_FLOW_CONFIG.has(machine.machineId) && (
+                                                        {!(MACHINES_NO_FLOW_CONFIG.has(machine.machineId) || PHASES_NO_FLOW_CONFIG.has(machine.phase)) && (
                                                         <button onClick={() => setEditingUpstream({ key: `${machine.machineId}::${item.compKey}`, machineValue: "", phaseValue: "" })}
                                                             style={{ padding: "1px 7px", borderRadius: 3, border: "1px solid var(--accent-dim)", background: "var(--accent-dim)", color: "var(--accent)", cursor: "pointer", fontSize: 10 }}>
                                                             🔗 configura flusso
@@ -1927,7 +1807,7 @@ function GanttTab({ sharedMachines, weekStart, consumedH, cardStyle }) {
                                                     </span>
                                                 </>
                                             )}
-                                            {item.remaining === 0 && (
+                                            {item.produced >= item.target && (
                                                 <span style={{ color: "#10b981", marginLeft: 4 }}>✓ completato</span>
                                             )}
                                         </span>
@@ -1945,9 +1825,6 @@ function GanttTab({ sharedMachines, weekStart, consumedH, cardStyle }) {
                     {/* Gantt bar */}
                     <div style={{ padding: "12px 16px" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div style={{ width: 142, flexShrink: 0, fontSize: 11, color: "var(--text-muted)", textAlign: "right", paddingRight: 8 }}>
-                                {machine.machineId}
-                            </div>
                             <div style={{ flex: 1 }}>
                                 <GanttBar blocks={machine.blocks} consumedH={consumedH} />
                             </div>
@@ -1957,7 +1834,7 @@ function GanttTab({ sharedMachines, weekStart, consumedH, cardStyle }) {
                             </div>
                         </div>
                         {/* Mini legend for this machine */}
-                        <div style={{ display: "flex", gap: 10, marginTop: 6, paddingLeft: 150, flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
                             {machine.items.filter(i => i.totalH > 0).map(item => (
                                 <div key={item.compKey} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}>
                                     <div style={{ width: 10, height: 10, borderRadius: 2, background: item.color, flexShrink: 0 }} />
@@ -2001,7 +1878,7 @@ function GanttTab({ sharedMachines, weekStart, consumedH, cardStyle }) {
                     )}
 
                     {/* No remaining work message */}
-                    {machine.items.every(i => !i.remaining) && machine.items.some(i => i.target > 0) && (
+                    {machine.items.every(i => i.target > 0 && i.produced >= i.target) && machine.items.some(i => i.target > 0) && (
                         <div style={{ padding: "10px 16px", borderTop: "1px solid var(--border)", color: "#10b981", fontSize: 12 }}>
                             ✓ Tutti i componenti completati per questa settimana
                         </div>
