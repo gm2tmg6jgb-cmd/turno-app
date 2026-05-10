@@ -220,7 +220,7 @@ export default function GanttPianificazioneView({ showToast }) {
 
     // ── Navigation state ──
     const [weekStart,     setWeekStart]     = useState(thisMonday);
-    const [activeTab,     setActiveTab]     = useState("status");  // "status" | "gantt" | "config"
+    const [activeTab,     setActiveTab]     = useState("status");  // "status" | "gantt" | "report" | "config"
     const [projectFilter, setProjectFilter] = useState("all");
     const [configSubTab,  setConfigSubTab]  = useState("targets"); // "targets"|"changeover"
 
@@ -807,6 +807,7 @@ export default function GanttPianificazioneView({ showToast }) {
             <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
                 <button style={tabBtnStyle(activeTab === "status",  "#10b981")} onClick={() => setActiveTab("status")}>📊 Stato Settimana</button>
                 <button style={tabBtnStyle(activeTab === "gantt",   "#3c6ef0")} onClick={() => setActiveTab("gantt")}>📅 Gantt Pianificazione</button>
+                <button style={tabBtnStyle(activeTab === "report",  "#ef4444")} onClick={() => setActiveTab("report")}>📉 Report Mancato Target</button>
                 <button style={tabBtnStyle(activeTab === "config",  "#9b59b6")} onClick={() => setActiveTab("config")}>⚙️ Configurazione</button>
             </div>
 
@@ -867,7 +868,18 @@ export default function GanttPianificazioneView({ showToast }) {
                 />
             </>}
 
-            {/* ══════════════════════════ TAB 3: CONFIG ══════════════════════════ */}
+            {/* ══════════════════════════ TAB 3: REPORT MANCATO TARGET ══════════════════════════ */}
+            {activeTab === "report" && <MancatoTargetTab
+                sharedMachines={sharedMachines}
+                rawConferme={rawConferme}
+                weekStart={weekStart}
+                weekEnd={weekEnd}
+                materialOverrides={materialOverrides}
+                showToast={showToast}
+                cardStyle={cardStyle}
+            />}
+
+            {/* ══════════════════════════ TAB 4: CONFIG ══════════════════════════ */}
             {activeTab === "config" && <ConfigTab
                 projectTargets={projectTargets}
                 saveProjectTargets={saveProjectTargets}
@@ -2514,6 +2526,318 @@ function Op10SubTab({ sharedMachines, upstreamMachineConfig, saveUpstreamMachine
                     )}
                 </div>
             </div>
+        </div>
+    );
+}
+
+// ─── Report Mancato Target ────────────────────────────────────────────────────
+
+const MOTIVI = [
+    { value: "", label: "— seleziona motivo —" },
+    { value: "mancanza_grezzo", label: "Mancanza grezzo" },
+    { value: "mancanza_cestelli", label: "Mancanza cestelli" },
+    { value: "guasto_macchina", label: "Guasto macchina" },
+    { value: "setup_lungo", label: "Setup lungo" },
+    { value: "priorita_cambio", label: "Cambio priorità" },
+    { value: "mancanza_operatore", label: "Mancanza operatore" },
+    { value: "altro", label: "Altro" },
+];
+
+function getMonday2(d) {
+    const dt = new Date(d);
+    const day = dt.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    dt.setDate(dt.getDate() + diff);
+    dt.setHours(0, 0, 0, 0);
+    return dt;
+}
+
+function MancatoTargetTab({ sharedMachines, rawConferme, weekStart, weekEnd, materialOverrides, showToast, cardStyle }) {
+    const [viewMode, setViewMode] = React.useState("week"); // "day" | "week"
+    const [selectedDay, setSelectedDay] = React.useState(() => {
+        const t = new Date();
+        t.setHours(0, 0, 0, 0);
+        return t;
+    });
+    const [notes, setNotes] = React.useState({}); // key: "date::machineId::comp::fase" → { motivo, note_libere }
+    const [saving, setSaving] = React.useState({});
+    const [dbNotes, setDbNotes] = React.useState([]);
+
+    // Load existing notes from DB
+    React.useEffect(() => {
+        if (!weekStart || !weekEnd) return;
+        const wStart = weekStart instanceof Date ? weekStart.toISOString().slice(0, 10)
+            : String(weekStart).slice(0, 10);
+        const wEnd = weekEnd instanceof Date ? weekEnd.toISOString().slice(0, 10)
+            : String(weekEnd).slice(0, 10);
+        supabase
+            .from("mancato_target_note")
+            .select("*")
+            .gte("data", wStart)
+            .lte("data", wEnd)
+            .then(({ data, error }) => {
+                if (error) { console.error("mancato_target_note load error", error); return; }
+                setDbNotes(data || []);
+                const map = {};
+                for (const row of (data || [])) {
+                    const k = `${row.data}::${row.macchina_id}::${row.componente}::${row.fase}`;
+                    map[k] = { motivo: row.motivo || "", note_libere: row.note_libere || "", causa_comp: row.causa_comp || "", causa_pezzi: row.causa_pezzi ?? null };
+                }
+                setNotes(map);
+            });
+    }, [weekStart, weekEnd]);
+
+    // Build rows: for each shared machine, find components below target
+    const rows = React.useMemo(() => {
+        if (!sharedMachines?.length) return [];
+        const result = [];
+
+        for (const machine of sharedMachines) {
+            if (!machine.itemsWithProgress?.length) continue;
+
+            // Find which comp used most machine time (the "cause")
+            const totalProd = machine.itemsWithProgress.reduce((s, it) => s + (it.produced || 0), 0);
+
+            for (const item of machine.itemsWithProgress) {
+                const target = item.weeklyTarget || 0;
+                const produced = item.produced || 0;
+                if (target <= 0 || produced >= target) continue; // only show misses
+
+                const mancante = target - produced;
+
+                // Find other components that ran on this machine (causes)
+                const otherItems = machine.itemsWithProgress.filter(oi => oi !== item && (oi.produced || 0) > 0);
+
+                // Per-day breakdown from rawConferme
+                const daysInWeek = [];
+                if (weekStart) {
+                    for (let i = 0; i < 5; i++) {
+                        const d = new Date(weekStart instanceof Date ? weekStart : new Date(weekStart));
+                        d.setDate(d.getDate() + i);
+                        daysInWeek.push(d);
+                    }
+                }
+
+                // For day mode, compute day-level data
+                const dayRows = daysInWeek.map(day => {
+                    const dayStr = day.toISOString().slice(0, 10);
+                    return {
+                        date: dayStr,
+                        day,
+                        machineId: machine.machineId,
+                        phaseLabel: machine.phaseLabel,
+                        phaseId: machine.phaseId,
+                        comp: item.comp,
+                        proj: item.proj,
+                        compKey: item.compKey,
+                        target: Math.round(target / 5), // daily target approximation
+                        produced: 0, // simplified — no daily breakdown available yet
+                        mancante: Math.round(mancante / 5),
+                        otherItems,
+                    };
+                });
+
+                const weekStr = weekStart
+                    ? (weekStart instanceof Date ? weekStart : new Date(weekStart)).toISOString().slice(0, 10)
+                    : "";
+
+                result.push({
+                    machineId: machine.machineId,
+                    phaseLabel: machine.phaseLabel,
+                    phaseId: machine.phaseId,
+                    phaseColor: machine.phaseColor,
+                    comp: item.comp,
+                    proj: item.proj,
+                    compKey: item.compKey,
+                    target,
+                    produced,
+                    mancante,
+                    otherItems,
+                    weekStr,
+                    dayRows,
+                });
+            }
+        }
+        return result;
+    }, [sharedMachines, weekStart]);
+
+    const visibleRows = React.useMemo(() => {
+        if (viewMode === "week") return rows;
+        const dayStr = selectedDay.toISOString().slice(0, 10);
+        return rows.map(r => ({
+            ...r,
+            dayStr,
+            target: r.dayRows.find(d => d.date === dayStr)?.target ?? Math.round(r.target / 5),
+            mancante: r.dayRows.find(d => d.date === dayStr)?.mancante ?? Math.round(r.mancante / 5),
+        }));
+    }, [rows, viewMode, selectedDay]);
+
+    const getNoteKey = (dateStr, machineId, comp, fase) => `${dateStr}::${machineId}::${comp}::${fase}`;
+
+    async function saveNote(row) {
+        const dateStr = viewMode === "week" ? row.weekStr : row.dayStr;
+        if (!dateStr) return;
+        const settimana = viewMode === "week" ? row.weekStr
+            : getMonday2(new Date(dateStr)).toISOString().slice(0, 10);
+        const key = getNoteKey(dateStr, row.machineId, row.comp, row.phaseId);
+        const noteData = notes[key] || {};
+
+        setSaving(prev => ({ ...prev, [key]: true }));
+        const causeComp = noteData.causa_comp || (row.otherItems[0]?.comp || null);
+        const causePezzi = noteData.causa_pezzi != null ? noteData.causa_pezzi
+            : (row.otherItems[0]?.produced ?? null);
+
+        const { error } = await supabase.from("mancato_target_note").upsert({
+            data: dateStr,
+            settimana,
+            macchina_id: row.machineId,
+            componente: row.comp,
+            progetto: row.proj,
+            fase: row.phaseId,
+            target: row.target,
+            prodotto: row.produced,
+            mancante: row.mancante,
+            causa_comp: causeComp,
+            causa_pezzi: causePezzi,
+            motivo: noteData.motivo || null,
+            note_libere: noteData.note_libere || null,
+            updated_at: new Date().toISOString(),
+        }, { onConflict: "data,macchina_id,componente,fase" });
+
+        setSaving(prev => ({ ...prev, [key]: false }));
+        if (error) { showToast?.("Errore salvataggio: " + error.message, "error"); }
+        else { showToast?.("Nota salvata ✓", "success"); }
+    }
+
+    const weekDays = React.useMemo(() => {
+        if (!weekStart) return [];
+        const days = [];
+        for (let i = 0; i < 5; i++) {
+            const d = new Date(weekStart instanceof Date ? weekStart : new Date(weekStart));
+            d.setDate(d.getDate() + i);
+            days.push(d);
+        }
+        return days;
+    }, [weekStart]);
+
+    const inputStyle = {
+        padding: "3px 6px", borderRadius: 4,
+        border: "1px solid var(--border)",
+        background: "var(--bg-primary)", color: "var(--text-primary)",
+        fontSize: 12,
+    };
+
+    return (
+        <div style={{ padding: "16px 0" }}>
+            {/* Header controls */}
+            <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
+                <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>📉 Report Mancato Target</span>
+                <div style={{ display: "flex", gap: 0, borderRadius: 6, overflow: "hidden", border: "1px solid var(--border)" }}>
+                    {[["week", "Settimana"], ["day", "Giorno"]].map(([v, label]) => (
+                        <button key={v} onClick={() => setViewMode(v)}
+                            style={{ padding: "4px 12px", border: "none", cursor: "pointer", fontSize: 12,
+                                background: viewMode === v ? "var(--accent)" : "var(--bg-secondary)",
+                                color: viewMode === v ? "#fff" : "var(--text-muted)" }}>
+                            {label}
+                        </button>
+                    ))}
+                </div>
+                {viewMode === "day" && (
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        {weekDays.map(d => {
+                            const str = d.toISOString().slice(0, 10);
+                            const isSel = selectedDay.toISOString().slice(0, 10) === str;
+                            return (
+                                <button key={str} onClick={() => setSelectedDay(d)}
+                                    style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid var(--border)", cursor: "pointer", fontSize: 11,
+                                        background: isSel ? "var(--accent)" : "var(--bg-secondary)",
+                                        color: isSel ? "#fff" : "var(--text-muted)" }}>
+                                    {d.toLocaleDateString("it-IT", { weekday: "short", day: "numeric" })}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
+            {visibleRows.length === 0 ? (
+                <div style={{ color: "var(--text-muted)", textAlign: "center", padding: 32 }}>
+                    ✅ Nessun mancato target questa settimana.
+                </div>
+            ) : (
+                <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                        <thead>
+                            <tr style={{ background: "var(--bg-secondary)", color: "var(--text-muted)", fontSize: 11 }}>
+                                <th style={{ padding: "6px 10px", textAlign: "left", whiteSpace: "nowrap" }}>Macchina</th>
+                                <th style={{ padding: "6px 10px", textAlign: "left" }}>Componente</th>
+                                <th style={{ padding: "6px 10px", textAlign: "right" }}>Target</th>
+                                <th style={{ padding: "6px 10px", textAlign: "right" }}>Fatto</th>
+                                <th style={{ padding: "6px 10px", textAlign: "right", color: "#ef4444" }}>Mancante</th>
+                                <th style={{ padding: "6px 10px", textAlign: "left" }}>Lavorava su...</th>
+                                <th style={{ padding: "6px 10px", textAlign: "left" }}>Motivo</th>
+                                <th style={{ padding: "6px 10px", textAlign: "left" }}>Note</th>
+                                <th style={{ padding: "6px 10px" }}></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {visibleRows.map((row, idx) => {
+                                const dateStr = viewMode === "week" ? row.weekStr : row.dayStr;
+                                const key = getNoteKey(dateStr, row.machineId, row.comp, row.phaseId);
+                                const noteData = notes[key] || {};
+                                const isSaving = saving[key];
+                                const causeLabel = row.otherItems.map(oi =>
+                                    `${oi.comp} (${oi.proj}) — ${oi.produced ?? 0} pz`
+                                ).join(", ") || "—";
+
+                                return (
+                                    <tr key={key + idx}
+                                        style={{ borderBottom: "1px solid var(--border)", background: idx % 2 === 0 ? "transparent" : "var(--bg-secondary)" }}>
+                                        <td style={{ padding: "8px 10px", fontFamily: "monospace", fontWeight: 600 }}>
+                                            <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%",
+                                                background: row.phaseColor || "#888", marginRight: 6 }} />
+                                            {row.machineId}
+                                            <div style={{ fontSize: 10, color: "var(--text-muted)", fontFamily: "sans-serif", fontWeight: 400 }}>
+                                                {row.phaseLabel}
+                                            </div>
+                                        </td>
+                                        <td style={{ padding: "8px 10px" }}>
+                                            <strong>{row.comp}</strong>
+                                            <span style={{ color: "var(--text-muted)", marginLeft: 5, fontSize: 11 }}>{row.proj}</span>
+                                        </td>
+                                        <td style={{ padding: "8px 10px", textAlign: "right", fontFamily: "monospace" }}>{row.target}</td>
+                                        <td style={{ padding: "8px 10px", textAlign: "right", fontFamily: "monospace" }}>{row.produced}</td>
+                                        <td style={{ padding: "8px 10px", textAlign: "right", fontFamily: "monospace", color: "#ef4444", fontWeight: 700 }}>
+                                            -{row.mancante}
+                                        </td>
+                                        <td style={{ padding: "8px 10px", fontSize: 12, color: "var(--text-muted)", maxWidth: 200 }}>
+                                            {causeLabel}
+                                        </td>
+                                        <td style={{ padding: "8px 10px" }}>
+                                            <select value={noteData.motivo || ""} style={{ ...inputStyle, minWidth: 160 }}
+                                                onChange={e => setNotes(prev => ({ ...prev, [key]: { ...prev[key], motivo: e.target.value } }))}>
+                                                {MOTIVI.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                                            </select>
+                                        </td>
+                                        <td style={{ padding: "8px 10px" }}>
+                                            <input type="text" value={noteData.note_libere || ""} placeholder="Note libere..."
+                                                style={{ ...inputStyle, width: 180 }}
+                                                onChange={e => setNotes(prev => ({ ...prev, [key]: { ...prev[key], note_libere: e.target.value } }))} />
+                                        </td>
+                                        <td style={{ padding: "8px 10px" }}>
+                                            <button disabled={isSaving} onClick={() => saveNote(row)}
+                                                style={{ padding: "4px 10px", borderRadius: 4, border: "none", cursor: isSaving ? "default" : "pointer",
+                                                    background: isSaving ? "var(--bg-tertiary)" : "var(--accent)", color: "#fff", fontSize: 12 }}>
+                                                {isSaving ? "…" : "Salva"}
+                                            </button>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            )}
         </div>
     );
 }
