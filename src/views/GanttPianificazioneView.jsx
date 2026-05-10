@@ -47,6 +47,7 @@ const PHASE_LABELS = {
     sca_post_deburring:  "Saldatura",
     shaping:             "Dentatura (Shaping)",
     ut:                  "Ultrasuoni",
+    ut_soft:             "Ultrasuoni",
     deburring:           "Sbavatura",
     shot_peening:        "Pallinatura",
     ecc_grinding:        "Rettifica Cono Ecc.",
