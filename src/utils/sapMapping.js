@@ -15,15 +15,55 @@ export function extractVariant(comp) {
 }
 
 /**
- * Determine variant from material code pattern:
- * - Codes starting with "2511108" → "1A"
- * - Codes starting with "2511122" → "21A"
+ * Determine variant from material code pattern.
+ * WHY: SAP article numbers for DCT300 encode the gear variant in digits 6-7:
+ *   "2511108..." → line 1A (original geometry)
+ *   "2511122..." → line 21A (revised geometry)
+ * This allows automatic variant detection without requiring manual component
+ * name suffixes like "SG5 - 1A" in the configuration.
  */
 export function extractVariantFromMat(matCode) {
     const code = (matCode || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
     if (code.startsWith("2511108")) return "1A";
     if (code.startsWith("2511122")) return "21A";
     return null;
+}
+
+/**
+ * Normalise raw SAP project name variants to canonical keys used across the app.
+ * Returns null if the project is not in the known PROJECTS list.
+ */
+export function normalizeProject(proj) {
+    let p = (proj || "").trim();
+    if (p === "DCT 300")                    p = "DCT300";
+    if (p === "8 FE" || p === "8Fedct")    p = "8Fe";
+    if (p === "DCT Eco" || p === "DCTeco") p = "DCT ECO";
+    return PROJECTS.includes(p) ? p : null;
+}
+
+/**
+ * Build a Map<mat, {specific: Map<fino, override>, generic: override|null}>
+ * from a normalized overrides array for O(1) lookups instead of O(n) .find().
+ */
+export function buildOverrideIndex(materialOverrides) {
+    const index = new Map();
+    for (const o of materialOverrides) {
+        if (!index.has(o.mat)) index.set(o.mat, { specific: new Map(), generic: null });
+        const entry = index.get(o.mat);
+        if (o.fino) {
+            entry.specific.set(o.fino, o);
+        } else {
+            entry.generic = o;
+        }
+    }
+    return index;
+}
+
+/** Resolve an override for a given matCode+fino using a pre-built index. */
+function resolveOverride(index, matCode, fino) {
+    const entry = index.get(matCode);
+    if (!entry) return null;
+    return entry.specific.get(fino) || entry.generic || null;
 }
 
 /**
@@ -36,33 +76,25 @@ export function extractVariantFromMat(matCode) {
  */
 export function aggregateSapByPhase(rawConferme, materialOverrides) {
     const result = {};
-
     if (!rawConferme?.length || !materialOverrides?.length) return result;
+
+    const index = buildOverrideIndex(materialOverrides);
 
     for (const r of rawConferme) {
         const matCode = (r.materiale || "").toUpperCase();
         const fino    = String(r.fino || "").padStart(4, "0");
-
-        // Match specific (exact fino) first, then generic (fino null/empty)
-        const override =
-            materialOverrides.find(o => o.mat === matCode && o.fino === fino) ||
-            materialOverrides.find(o => o.mat === matCode && !o.fino);
-
+        const override = resolveOverride(index, matCode, fino);
         if (!override) continue;
 
         const phase = override.phase;
         if (!phase || phase === "baa") continue;
 
-        // Normalise project names
-        let proj = override.proj || "";
-        if (proj === "DCT 300")                        proj = "DCT300";
-        if (proj === "8 FE" || proj === "8Fedct")      proj = "8Fe";
-        if (proj === "DCT Eco" || proj === "DCTeco")   proj = "DCT ECO";
-        if (!PROJECTS.includes(proj)) continue;
+        const proj = normalizeProject(override.proj);
+        if (!proj) continue;
 
-        // Normalise component names (strip variant suffix for combined totals)
         let comp = override.comp || "";
         if (!comp) continue;
+        // SG2-REV is stored in legacy configs as the old name; canonical name is DG-REV
         if (comp === "SG2-REV") comp = "DG-REV";
         comp = normalizeFlowComp(comp);
 
@@ -82,30 +114,25 @@ export function aggregateSapByPhase(rawConferme, materialOverrides) {
  */
 export function aggregateSapByVariant(rawConferme, materialOverrides) {
     const result = {};
-
     if (!rawConferme?.length || !materialOverrides?.length) return result;
+
+    const index = buildOverrideIndex(materialOverrides);
 
     for (const r of rawConferme) {
         const matCode = (r.materiale || "").toUpperCase();
         const fino    = String(r.fino || "").padStart(4, "0");
-
-        const override =
-            materialOverrides.find(o => o.mat === matCode && o.fino === fino) ||
-            materialOverrides.find(o => o.mat === matCode && !o.fino);
-
-        if (!override?.compVariant) continue; // solo componenti con variante
+        const override = resolveOverride(index, matCode, fino);
+        if (!override?.compVariant) continue;
 
         const phase = override.phase;
         if (!phase || phase === "baa") continue;
 
-        let proj = override.proj || "";
-        if (proj === "DCT 300")                        proj = "DCT300";
-        if (proj === "8 FE" || proj === "8Fedct")      proj = "8Fe";
-        if (proj === "DCT Eco" || proj === "DCTeco")   proj = "DCT ECO";
-        if (!PROJECTS.includes(proj)) continue;
+        const proj = normalizeProject(override.proj);
+        if (!proj) continue;
 
         let comp = override.comp || "";
         if (!comp) continue;
+        // SG2-REV is stored in legacy configs as the old name; canonical name is DG-REV
         if (comp === "SG2-REV") comp = "DG-REV";
         comp = normalizeFlowComp(comp);
 
@@ -125,14 +152,15 @@ export function normalizeMaterialOverrides(dbRows) {
     return dbRows.map(r => {
         const rawComp = (r.componente || r.comp || "");
         const matCode = (r.materiale || r.mat || "").toUpperCase();
-        // Variante dal nome componente (es. "SG5 - 1A"), altrimenti dal codice materiale
+        // Variant from component name (e.g. "SG5 - 1A") takes priority;
+        // fall back to material code pattern when name has no suffix.
         const variant = extractVariant(rawComp) || extractVariantFromMat(matCode);
         return {
             mat:         matCode,
             fino:        r.fino ? String(r.fino).padStart(4, "0") : null,
             phase:       r.fase || r.phase || "",
             comp:        normalizeFlowComp(rawComp.toUpperCase()),
-            compVariant: variant,   // "1A" | "21A" | null
+            compVariant: variant,
             proj:        (r.progetto || r.proj || "").trim(),
             macchina_id: r.macchina_id || "",
         };

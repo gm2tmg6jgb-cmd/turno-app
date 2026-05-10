@@ -6,6 +6,7 @@ import { getSlotForGroup } from "../lib/shiftRotation";
 import Modal from "../components/Modal";
 import { computeThroughput, loadThroughputConfig, saveThroughputConfig } from "../utils/throughput";
 import { loadComponentPhases } from "../utils/componentiPhases";
+import { normalizeFlowComp, normalizeProject } from "../utils/sapMapping";
 
 // Parsing 100% manuale: solo material_fino_overrides (configurazione utente su Supabase)
 
@@ -344,8 +345,6 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
 
             // === SISTEMA MANUALE: solo material_fino_overrides ===
             const { data: matOverridesRes, error: matOverridesErr } = await fetchAllRows(() => supabase.from("material_fino_overrides").select("*"));
-            // Normalizza nomi varianti Lab (es. "DG - 1A" → "DG") per non duplicare righe in flow view
-            const normalizeFlowComp = (comp) => comp.replace(/\s*-\s*(1A|21A)$/i, "").trim();
 
             const dbMaterialOverrides = matOverridesErr ? [] : (matOverridesRes || []).map(r => ({
                 mat: (r.materiale || "").toUpperCase(),
@@ -435,11 +434,8 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     const phase = override.phase;
                     if (!phase || phase === "baa") return;
 
-                    let proj = override.proj;
-                    if (proj === "DCT 300") proj = "DCT300";
-                    if (proj === "8 FE" || proj === "8Fedct") proj = "8Fe";
-                    if (proj === "DCT Eco" || proj === "DCTeco") proj = "DCT ECO";
-                    if (!PROJECTS.includes(proj)) return;
+                    const proj = normalizeProject(override.proj);
+                    if (!proj) return;
 
                     let comp = override.comp;
                     if (!comp) return;
@@ -497,11 +493,8 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     // Usa material_fino_overrides per risolvere comp/proj del materiale BAA
                     const override = dbMaterialOverrides.find(o => o.mat === matCode);
                     if (!override) return;
-                    let proj = override.proj;
-                    if (proj === "DCT 300") proj = "DCT300";
-                    if (proj === "8 FE" || proj === "8Fedct") proj = "8Fe";
-                    if (proj === "DCT Eco" || proj === "DCTeco") proj = "DCT ECO";
-                    if (!PROJECTS.includes(proj)) return;
+                    const proj = normalizeProject(override.proj);
+                    if (!proj) return;
                     let comp = override.comp;
                     if (!comp) return;
                     if (comp === "SG2-REV") comp = "DG-REV";
