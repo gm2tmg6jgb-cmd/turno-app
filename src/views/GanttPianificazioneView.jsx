@@ -1069,7 +1069,11 @@ function StatusTab({ sharedMachines, weeklyTargets, sapByKey, sapByVariant, last
             if (!byLabel[label]) byLabel[label] = { filterId: `label:${label}`, label, color, phaseIds: [] };
             byLabel[label].phaseIds.push(p);
         }
-        return Object.values(byLabel);
+        return Object.values(byLabel).sort((a, b) => {
+            const minIndexA = Math.min(...a.phaseIds.map(pid => PHASE_FLOW_INDEX[pid] ?? 999));
+            const minIndexB = Math.min(...b.phaseIds.map(pid => PHASE_FLOW_INDEX[pid] ?? 999));
+            return minIndexA - minIndexB;
+        });
     }, [machineStatus]);
 
     // Progetti presenti
