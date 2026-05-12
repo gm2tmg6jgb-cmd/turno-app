@@ -1327,20 +1327,17 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                 {/* Changeover già scaduti → azione immediata */}
                                 {machine.overdueCOs.map((co, i) => {
                                     const hoursOverdue = consumedH - co.at;
-                                    const showWhen = hoursOverdue > 2;
+                                    const fromLabel = i === 0 ? nowLabel : machine.overdueCOs[i - 1].toLabel;
+                                    const fromColor = i === 0 ? nowColor : machine.overdueCOs[i - 1].toColor;
                                     return (
                                         <div key={i} style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: hasNext ? 6 : 0 }}>
                                             <span style={{ fontSize: 15, flexShrink: 0 }}>🚨</span>
                                             <div style={{ fontSize: 13 }}>
-                                                {nowLabel && (
-                                                    <span style={{ color: "var(--text-muted)", marginRight: 4 }}>
-                                                        <span style={{ color: nowColor, fontWeight: 600 }}>● {nowLabel}</span> →{" "}
-                                                    </span>
-                                                )}
-                                                <strong style={{ color: "#ef4444" }}>passa a{" "}
+                                                <strong style={{ color: "#ef4444" }}>
+                                                    Adesso —{fromLabel && <>{" "}<span style={{ color: fromColor }}>● {fromLabel}</span> →</>}{" "}
                                                     <span style={{ color: co.toColor }}>● {co.toLabel}</span>
                                                 </strong>
-                                                {showWhen && (
+                                                {hoursOverdue > 2 && (
                                                     <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>
                                                         (era previsto {co.datetime})
                                                     </span>
@@ -1352,21 +1349,42 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
 
                                 {/* Prossimo changeover futuro */}
                                 {hasNext && (() => {
-                                    const hoursLeft = (machine.nextCO.at - consumedH);
-                                    const hRound    = hoursLeft < 1 ? "<1" : Math.round(hoursLeft);
+                                    const hoursLeft  = machine.nextCO.at - consumedH;
+                                    const hRound     = hoursLeft < 1 ? "<1" : Math.round(hoursLeft);
                                     const isImminent = machine.urgency >= 2 && !hasOverdue;
+                                    // "da" component: last overdue CO target (if overdue), or SAP current (if imminent)
+                                    const lastOverdue = machine.overdueCOs[machine.overdueCOs.length - 1];
+                                    const fromLabel   = hasOverdue ? lastOverdue?.toLabel : nowLabel;
+                                    const fromColor   = hasOverdue ? lastOverdue?.toColor : nowColor;
                                     return (
                                         <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
                                             <span style={{ fontSize: 15, flexShrink: 0 }}>
                                                 {isImminent ? "⚠️" : hasOverdue ? "↳" : "📋"}
                                             </span>
                                             <div style={{ fontSize: 13, color: "var(--text-primary)" }}>
-                                                {hasOverdue
-                                                    ? <><span style={{ color: "var(--text-muted)" }}>Poi — </span><strong>{machine.nextCO.datetime}</strong>: passa a{" "}<span style={{ color: machine.nextCO.toColor, fontWeight: 700 }}>● {machine.nextCO.toLabel}</span><span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>(tra {hRound}h)</span></>
-                                                    : isImminent
-                                                        ? <><strong>Adesso — passa a{" "}</strong><span style={{ color: machine.nextCO.toColor, fontWeight: 700 }}>● {machine.nextCO.toLabel}</span><span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>({machine.nextCO.datetime}, tra {hRound}h)</span></>
-                                                        : <>Prossimo changeover: <strong>{machine.nextCO.datetime}</strong> — passa a{" "}<span style={{ color: machine.nextCO.toColor, fontWeight: 700 }}>● {machine.nextCO.toLabel}</span><span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>(tra {hRound}h)</span></>
-                                                }
+                                                {hasOverdue ? (
+                                                    <>
+                                                        <span style={{ color: "var(--text-muted)" }}>Poi — </span>
+                                                        <strong>{machine.nextCO.datetime}</strong>:{" "}
+                                                        {fromLabel && <><span style={{ color: fromColor, fontWeight: 600 }}>● {fromLabel}</span> → </>}
+                                                        <span style={{ color: machine.nextCO.toColor, fontWeight: 700 }}>● {machine.nextCO.toLabel}</span>
+                                                        <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>(tra {hRound}h)</span>
+                                                    </>
+                                                ) : isImminent ? (
+                                                    <>
+                                                        <strong>Adesso —{fromLabel && <>{" "}<span style={{ color: fromColor }}>● {fromLabel}</span> →</>}{" "}</strong>
+                                                        <span style={{ color: machine.nextCO.toColor, fontWeight: 700 }}>● {machine.nextCO.toLabel}</span>
+                                                        <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>({machine.nextCO.datetime}, tra {hRound}h)</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <span style={{ color: "var(--text-muted)" }}>Prossimo CO — </span>
+                                                        <strong>{machine.nextCO.datetime}</strong>:{" "}
+                                                        {fromLabel && <><span style={{ color: fromColor, fontWeight: 600 }}>● {fromLabel}</span> → </>}
+                                                        <span style={{ color: machine.nextCO.toColor, fontWeight: 700 }}>● {machine.nextCO.toLabel}</span>
+                                                        <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>(tra {hRound}h)</span>
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
                                     );
