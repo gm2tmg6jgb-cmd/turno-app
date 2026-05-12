@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import * as XLSX from "xlsx";
 import { supabase, fetchAllRows } from "../lib/supabase";
 import { phaseHours, loadThroughputConfig } from "../utils/throughput";
 import { aggregateSapByPhase, aggregateSapByVariant, normalizeMaterialOverrides } from "../utils/sapMapping";
@@ -25,6 +26,10 @@ const LS_TARGET_KEY = "bap_target_overrides";
 const LS_STOCK_OVERRIDES_KEY = "gantt_stock_overrides";      // Record<"proj::comp::phaseId", number>
 const LS_UPSTREAM_MACHINE_KEY = "gantt_upstream_machines";   // Record<"machineId::compKey", upstreamMachineId>
 const LS_UPSTREAM_PHASE_KEY   = "gantt_upstream_phases";     // Record<"machineId::compKey", phaseId>
+const LS_DCT300_ORDERS        = "gantt_dct300_orders";
+
+// Componenti DCT300 comuni a entrambe le varianti 1A/21A (nessun changeover tra varianti)
+const DCT300_SHARED_COMPS = new Set(["SG1", "SGR", "DG-REV"]);
 
 // Macchine/fasi per le quali nascondere il bottone "configura flusso"
 const MACHINES_NO_FLOW_CONFIG = new Set([
@@ -328,6 +333,23 @@ export default function GanttPianificazioneView({ showToast }) {
         });
     }, [weekStart]);
 
+    // ── Ordini cliente DCT300 (varianti 1A / 21A) ──
+    const [dct300Orders, setDct300Orders] = useState(() => {
+        try {
+            const s = JSON.parse(localStorage.getItem(LS_DCT300_ORDERS) || "{}");
+            return s.weekStart === weekStart ? s : null;
+        } catch { return null; }
+    });
+    const saveDct300Orders = useCallback((data) => {
+        const payload = { weekStart, ...data };
+        localStorage.setItem(LS_DCT300_ORDERS, JSON.stringify(payload));
+        setDct300Orders(payload);
+    }, [weekStart]);
+    const clearDct300Orders = useCallback(() => {
+        localStorage.removeItem(LS_DCT300_ORDERS);
+        setDct300Orders(null);
+    }, []);
+
     // ── Loading ──
     const [loading,         setLoading]         = useState(true);
     const [loadingConferme, setLoadingConferme] = useState(false);
@@ -487,15 +509,27 @@ export default function GanttPianificazioneView({ showToast }) {
 
     // ─── Weekly targets: target giornaliero × 6 giorni, uguale per tutti i componenti del progetto ──
     // RG + DH usa lo stesso target di 8Fe (sono lo stesso progetto fisico)
+    // DCT300 con ordini cliente: target per variante 1A/21A invece del fisso
     const weeklyTargets = useMemo(() => {
         const result = {};
         for (const comp of components) {
             const proj  = PROJECT_TARGET_ALIAS[comp.project] || comp.project;
             const daily = projectTargets[proj] || 0;
-            result[comp.key] = daily * DAYS_WEEK;
+            if (comp.project === "DCT300" && dct300Orders) {
+                if (DCT300_SHARED_COMPS.has(comp.label)) {
+                    // Componenti condivisi: target = somma entrambe le varianti
+                    result[comp.key] = (dct300Orders.tot1a || 0) + (dct300Orders.tot21a || 0);
+                } else {
+                    // Componenti variante-specifici: target separato per variante
+                    result[`${comp.key}::1a`]  = dct300Orders.tot1a  || 0;
+                    result[`${comp.key}::21a`] = dct300Orders.tot21a || 0;
+                }
+            } else {
+                result[comp.key] = daily * DAYS_WEEK;
+            }
         }
         return result;
-    }, [components, projectTargets]);
+    }, [components, projectTargets, dct300Orders]);
 
     // ─── Status data (Tab 1) ──────────────────────────────────────────────
     const statusRows = useMemo(() => {
@@ -573,6 +607,10 @@ export default function GanttPianificazioneView({ showToast }) {
             const items = [];
             for (const compKey of uniqueComps) {
                 if (projectFilter !== "all" && !compKey.startsWith(projectFilter + "::")) continue;
+
+                // DCT300 variante-specifici con ordini cliente: gestiti separatamente sotto
+                const [_ckProj, _ckComp] = [compKey.slice(0, compKey.indexOf("::")), compKey.slice(compKey.indexOf("::") + 2)];
+                if (_ckProj === "DCT300" && dct300Orders && !DCT300_SHARED_COMPS.has(_ckComp)) continue;
 
                 const target    = weeklyTargets[compKey] || 0;
 
@@ -664,8 +702,69 @@ export default function GanttPianificazioneView({ showToast }) {
                     upstreamMachineId, isManualOverride, grezzoStock,
                     changeOverH: coH,
                     hasConfig:  !!phaseFasi,
-                    relevantPhases: phasesToUse, // tutte le fasi rilevanti per il lookup SAP
+                    relevantPhases: phasesToUse,
                 });
+            }
+
+            // DCT300 variante-specifici: due item per variante (1A e 21A) in ordine urgenza
+            if (dct300Orders) {
+                const firstVariant  = (dct300Orders.first21a || "") <= (dct300Orders.first1a || "") ? "21a" : "1a";
+                const secondVariant = firstVariant === "21a" ? "1a" : "21a";
+                const tot1a  = dct300Orders.tot1a  || 0;
+                const tot21a = dct300Orders.tot21a || 0;
+                const sapTotAll = tot1a + tot21a;
+                const availableH = Math.max(WEEK_HOURS - consumedH, 1);
+
+                for (const compKey of uniqueComps) {
+                    if (projectFilter !== "all" && !compKey.startsWith(projectFilter + "::")) continue;
+                    const [proj, comp] = [compKey.slice(0, compKey.indexOf("::")), compKey.slice(compKey.indexOf("::") + 2)];
+                    if (proj !== "DCT300" || DCT300_SHARED_COMPS.has(comp)) continue;
+
+                    const compOverridesForMachine = overrides.filter(o => {
+                        const opj = normProj(o.proj); let oc = o.comp;
+                        if (oc === "SG2-REV") oc = "DG-REV";
+                        return `${opj}::${oc}` === compKey && o.phase && o.phase !== "baa";
+                    });
+                    const relevantPhases = [...new Set(compOverridesForMachine.map(o => o.phase))];
+                    const phasesToUse = relevantPhases.length > 0 ? relevantPhases : [phase];
+                    const ps = PROJ_SHORT[proj] || proj.slice(0, 3);
+                    const compCfg  = cfg.components[compKey];
+                    const phaseFasi = phasesToUse.map(ph => compCfg?.phases?.find(p => p.phaseId === ph)).find(Boolean);
+                    const lotto    = compCfg?.lotto || 1200;
+                    const hPerLot  = phaseFasi ? +phaseHours(phaseFasi, { ...compCfg, changeOverH: coH }).toFixed(2) : 0;
+                    const jph      = hPerLot > 0 ? +(lotto / hPerLot).toFixed(1) : 0;
+                    const sapTotalForComp = phasesToUse.reduce((s, p) => s + (sapByKey[`${compKey}::${p}`] || 0), 0);
+
+                    for (const v of [firstVariant, secondVariant]) {
+                        const vKey      = `${compKey}::${v}`;
+                        const vTarget   = weeklyTargets[vKey] || 0;
+                        const vQty      = v === "1a" ? tot1a : tot21a;
+                        const vProduced = sapTotAll > 0 ? Math.round(sapTotalForComp * vQty / sapTotAll) : 0;
+                        const vPct      = vTarget > 0 ? Math.min(Math.round((vProduced / vTarget) * 100), 100) : 0;
+                        const vRemaining = Math.max(0, vTarget - vProduced);
+                        const vLotsNeeded = (hPerLot > 0 && vRemaining > 0) ? Math.ceil(vRemaining / lotto) : 0;
+                        const vTotalH   = +(vLotsNeeded * hPerLot).toFixed(1);
+                        const vRemainingH = hPerLot > 0 && vRemaining > 0 ? vRemaining / jph : 0;
+                        const vUrgency  = +(vRemainingH / availableH).toFixed(2);
+                        items.push({
+                            compKey: vKey, proj, comp, ps,
+                            label:      `${comp} ${v.toUpperCase()}`,
+                            shortLabel: `${comp}·DCT·${v.toUpperCase()}`,
+                            color:      keyColor(compKey),
+                            target: vTarget, produced: vProduced, remaining: vRemaining, pct: vPct,
+                            lotto, hPerLot, lotsNeeded: vLotsNeeded, totalH: vTotalH,
+                            jph, remainingH: vRemainingH, urgencyScore: vUrgency,
+                            upstreamPhaseId: null, upstreamProduced: null, upstreamConstrained: false,
+                            availableFromUpstream: null, upstreamMachineId: null,
+                            isManualOverride: false, grezzoStock: null,
+                            changeOverH: coH,
+                            hasConfig:  !!phaseFasi,
+                            relevantPhases: phasesToUse,
+                            isVariant: true,
+                            baseCompKey: compKey,
+                        });
+                    }
+                }
             }
 
             // Ordina: più urgente prima (urgency DESC = più ore richieste rispetto al tempo rimasto)
@@ -806,18 +905,28 @@ export default function GanttPianificazioneView({ showToast }) {
         // Ordina: più componenti condivisi prima, poi per machineId
         result.sort((a, b) => b.items.length - a.items.length || a.machineId.localeCompare(b.machineId));
         return result;
-    }, [materialOverrides, rawConferme, weeklyTargets, sapByKey, stockOverrides, upstreamMachineConfig, upstreamPhaseConfig, cfg, changeoverConfig, consumedH, projectFilter, weekStart]);
+    }, [materialOverrides, rawConferme, weeklyTargets, sapByKey, stockOverrides, upstreamMachineConfig, upstreamPhaseConfig, cfg, changeoverConfig, consumedH, projectFilter, weekStart, dct300Orders]);
 
     // ─── Compute machineStatus for all shared machines (for alerts) ──
     const machineStatus = useMemo(() => {
         return sharedMachines.map(machine => {
             const itemsWithProgress = machine.items.map(item => {
                 const target   = weeklyTargets[item.compKey] || 0;
-                const produced = (item.relevantPhases || [machine.phase])
-                    .reduce((s, p) => s + (sapByKey[`${item.compKey}::${p}`] || 0), 0);
+                // Per item variante DCT300 (compKey = "DCT300::SG3::1a"), il SAP è sotto la chiave base
+                const sapKey = item.isVariant && item.baseCompKey ? item.baseCompKey : item.compKey;
+                const baseSapProduced = (item.relevantPhases || [machine.phase])
+                    .reduce((s, p) => s + (sapByKey[`${sapKey}::${p}`] || 0), 0);
+                const produced = item.isVariant && item.baseCompKey
+                    ? (() => {
+                        const tot1a  = weeklyTargets[`${item.baseCompKey}::1a`]  || 0;
+                        const tot21a = weeklyTargets[`${item.baseCompKey}::21a`] || 0;
+                        const sapTotal = tot1a + tot21a;
+                        return sapTotal > 0 ? Math.round(baseSapProduced * target / sapTotal) : 0;
+                    })()
+                    : baseSapProduced;
                 const pct      = target > 0 ? Math.min(Math.round((produced / target) * 100), 100) : 0;
 
-                const upstreamPhaseId = (upstreamPhaseConfig || {})[`${machine.machineId}::${item.compKey}`] || item.upstreamPhaseId || null;
+                const upstreamPhaseId = item.isVariant ? null : ((upstreamPhaseConfig || {})[`${machine.machineId}::${item.compKey}`] || item.upstreamPhaseId || null);
                 let remaining = Math.max(0, target - produced);
                 let upstreamConstrained = false;
                 let upstreamProduced = null;
@@ -1071,6 +1180,10 @@ export default function GanttPianificazioneView({ showToast }) {
                 saveStockOverride={saveStockOverride}
                 showToast={showToast}
                 cardStyle={cardStyle}
+                dct300Orders={dct300Orders}
+                saveDct300Orders={saveDct300Orders}
+                clearDct300Orders={clearDct300Orders}
+                weekStart={weekStart}
             />}
         </div>
     );
@@ -2244,7 +2357,7 @@ function ThroughputSubTab({ sharedMachines, cfg, dbFasi, onRefreshFasi, showToas
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-function ConfigTab({ projectTargets, saveProjectTargets, changeoverConfig, setChangeoverConfig, bundleConfig, configSubTab, setConfigSubTab, sharedMachines, cfg, dbFasi, onRefreshFasi, upstreamMachineConfig, saveUpstreamMachine, stockOverrides, saveStockOverride, showToast, cardStyle }) {
+function ConfigTab({ projectTargets, saveProjectTargets, changeoverConfig, setChangeoverConfig, bundleConfig, configSubTab, setConfigSubTab, sharedMachines, cfg, dbFasi, onRefreshFasi, upstreamMachineConfig, saveUpstreamMachine, stockOverrides, saveStockOverride, showToast, cardStyle, dct300Orders, saveDct300Orders, clearDct300Orders, weekStart }) {
     // Copia locale per editing (non committato finché non si preme Salva)
     const [draft, setDraft] = useState(() => ({ ...projectTargets }));
 
@@ -2263,6 +2376,9 @@ function ConfigTab({ projectTargets, saveProjectTargets, changeoverConfig, setCh
                 <button style={subTabBtn("throughput")} onClick={() => setConfigSubTab("throughput")}>⚡ Throughput (JPH)</button>
                 <button style={subTabBtn("changeover")} onClick={() => setConfigSubTab("changeover")}>⏱ Ore Changeover</button>
                 <button style={subTabBtn("op10")}       onClick={() => setConfigSubTab("op10")}>🔗 Op10 (Stock Upstream)</button>
+                <button style={subTabBtn("dct300orders")} onClick={() => setConfigSubTab("dct300orders")}>
+                    📦 Ordini DCT300{dct300Orders ? " ✓" : ""}
+                </button>
             </div>
 
             {/* Sub-tab: Target per progetto (giornaliero, stessa fonte di ComponentFlowView) */}
@@ -2374,7 +2490,197 @@ function ConfigTab({ projectTargets, saveProjectTargets, changeoverConfig, setCh
                     cardStyle={cardStyle}
                 />
             )}
+
+            {/* Sub-tab: Ordini Cliente DCT300 */}
+            {configSubTab === "dct300orders" && (
+                <Dct300OrdersSubTab
+                    dct300Orders={dct300Orders}
+                    saveDct300Orders={saveDct300Orders}
+                    clearDct300Orders={clearDct300Orders}
+                    weekStart={weekStart}
+                    showToast={showToast}
+                    cardStyle={cardStyle}
+                />
+            )}
         </>
+    );
+}
+
+// ─── Dct300OrdersSubTab ───────────────────────────────────────────────────────
+function Dct300OrdersSubTab({ dct300Orders, saveDct300Orders, clearDct300Orders, weekStart, showToast, cardStyle }) {
+    const fileInputRef = useRef(null);
+
+    const weekEnd = useMemo(() => {
+        const d = new Date(weekStart + "T12:00:00");
+        d.setDate(d.getDate() + 5);
+        return getLocalDate(d);
+    }, [weekStart]);
+
+    const handleFile = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            try {
+                const wb  = XLSX.read(ev.target.result, { type: "array" });
+                const ws  = wb.Sheets[wb.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(ws, { defval: 0 });
+
+                // Trova colonne Data, 1A, 21A (case-insensitive, cerca anche varianti)
+                const sample = rows[0] || {};
+                const keys   = Object.keys(sample);
+                const dataKey = keys.find(k => /^data$/i.test(k.trim()));
+                const key1a   = keys.find(k => /^1a$/i.test(k.trim()));
+                const key21a  = keys.find(k => /^21a$/i.test(k.trim()));
+
+                if (!dataKey || (!key1a && !key21a)) {
+                    showToast?.("❌ Colonne non trovate. Il file deve avere: Data, 1A, 21A", "error");
+                    return;
+                }
+
+                const wStart = new Date(weekStart + "T00:00:00");
+                const wEnd   = new Date(weekEnd   + "T23:59:59");
+
+                let tot1a = 0, tot21a = 0;
+                let first1a = null, first21a = null;
+                const filteredRows = [];
+
+                for (const row of rows) {
+                    const rawDate = row[dataKey];
+                    if (!rawDate) continue;
+                    // XLSX può restituire numeri seriali Excel o stringhe
+                    let dateObj;
+                    if (typeof rawDate === "number") {
+                        dateObj = XLSX.SSF.parse_date_code(rawDate);
+                        dateObj = new Date(dateObj.y, dateObj.m - 1, dateObj.d);
+                    } else {
+                        dateObj = new Date(rawDate);
+                    }
+                    if (isNaN(dateObj)) continue;
+                    if (dateObj < wStart || dateObj > wEnd) continue;
+
+                    const qty1a  = Number(key1a  ? row[key1a]  : 0) || 0;
+                    const qty21a = Number(key21a ? row[key21a] : 0) || 0;
+                    tot1a  += qty1a;
+                    tot21a += qty21a;
+                    const iso = dateObj.toISOString();
+                    if (qty1a  > 0 && (!first1a  || iso < first1a))  first1a  = iso;
+                    if (qty21a > 0 && (!first21a || iso < first21a)) first21a = iso;
+                    filteredRows.push({ date: iso, qty1a, qty21a });
+                }
+
+                if (!filteredRows.length) {
+                    showToast?.(`⚠️ Nessuna riga per la settimana ${weekStart}–${weekEnd}`, "warning");
+                    return;
+                }
+
+                saveDct300Orders({ tot1a, tot21a, first1a, first21a, rows: filteredRows });
+                showToast?.(`✅ Importati ${filteredRows.length} ordini — 1A: ${tot1a.toLocaleString("it-IT")} pz · 21A: ${tot21a.toLocaleString("it-IT")} pz`, "success");
+            } catch (err) {
+                showToast?.("❌ Errore lettura file: " + err.message, "error");
+            }
+            e.target.value = "";
+        };
+        reader.readAsArrayBuffer(file);
+    };
+
+    const firstVariant  = dct300Orders
+        ? ((dct300Orders.first21a || "") <= (dct300Orders.first1a || "") ? "21A" : "1A")
+        : null;
+    const secondVariant = firstVariant === "21A" ? "1A" : "21A";
+
+    const fmtDate = (iso) => {
+        if (!iso) return "—";
+        const d = new Date(iso);
+        return `${d.getDate().toString().padStart(2,"0")}/${(d.getMonth()+1).toString().padStart(2,"0")}`;
+    };
+
+    return (
+        <div style={cardStyle}>
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
+                <div>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>📦 Ordini Cliente DCT300</span>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+                        Settimana {weekStart} – {weekEnd} · Varianti 1A e 21A
+                    </div>
+                </div>
+                <div style={{ flex: 1 }} />
+                <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleFile} />
+                <button
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{ padding: "7px 14px", borderRadius: 6, border: "1px solid var(--accent)", background: "var(--accent-dim)", color: "var(--accent)", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+                    📂 Importa Excel
+                </button>
+                {dct300Orders && (
+                    <button
+                        onClick={() => { if (window.confirm("Rimuovere gli ordini importati?")) clearDct300Orders(); }}
+                        style={{ padding: "7px 14px", borderRadius: 6, border: "1px solid #ef444440", background: "transparent", color: "#ef4444", cursor: "pointer", fontSize: 13 }}>
+                        🗑 Rimuovi
+                    </button>
+                )}
+            </div>
+
+            <div style={{ padding: 20 }}>
+                {!dct300Orders ? (
+                    <div style={{ textAlign: "center", padding: 32, color: "var(--text-muted)", fontSize: 13 }}>
+                        Nessun ordine importato. Clicca <strong>Importa Excel</strong> per caricare il file del cliente.<br />
+                        <span style={{ fontSize: 11, marginTop: 6, display: "block" }}>
+                            Il file deve avere le colonne: <code>Data</code>, <code>1A</code>, <code>21A</code>
+                        </span>
+                    </div>
+                ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                        {/* Riepilogo quantità */}
+                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                            <thead>
+                                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                                    <th style={{ textAlign: "left", padding: "6px 12px", color: "var(--text-muted)", fontWeight: 600, fontSize: 11 }}>VARIANTE</th>
+                                    <th style={{ textAlign: "right", padding: "6px 12px", color: "var(--text-muted)", fontWeight: 600, fontSize: 11 }}>QUANTITÀ</th>
+                                    <th style={{ textAlign: "right", padding: "6px 12px", color: "var(--text-muted)", fontWeight: 600, fontSize: 11 }}>PRIMA RICHIESTA</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                                    <td style={{ padding: "10px 12px", fontWeight: 700, color: "var(--text-primary)" }}>1A</td>
+                                    <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: "var(--text-primary)" }}>{(dct300Orders.tot1a || 0).toLocaleString("it-IT")} pz</td>
+                                    <td style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-secondary)", fontSize: 12 }}>{fmtDate(dct300Orders.first1a)}</td>
+                                </tr>
+                                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                                    <td style={{ padding: "10px 12px", fontWeight: 700, color: "var(--text-primary)" }}>21A</td>
+                                    <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: "var(--text-primary)" }}>{(dct300Orders.tot21a || 0).toLocaleString("it-IT")} pz</td>
+                                    <td style={{ padding: "10px 12px", textAlign: "right", color: "var(--text-secondary)", fontSize: 12 }}>{fmtDate(dct300Orders.first21a)}</td>
+                                </tr>
+                                <tr>
+                                    <td style={{ padding: "10px 12px", fontWeight: 700, color: "var(--text-muted)", fontSize: 12 }}>TOTALE</td>
+                                    <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 800, color: "var(--accent)", fontSize: 15 }}>
+                                        {((dct300Orders.tot1a || 0) + (dct300Orders.tot21a || 0)).toLocaleString("it-IT")} pz
+                                    </td>
+                                    <td />
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        {/* Sequenza produzione */}
+                        {firstVariant && (
+                            <div style={{ background: "var(--bg-tertiary)", borderRadius: 8, padding: "12px 16px", fontSize: 13 }}>
+                                <span style={{ fontWeight: 700, color: "var(--text-primary)", marginRight: 8 }}>Sequenza pianificata:</span>
+                                <span style={{ color: "var(--accent)", fontWeight: 700 }}>{firstVariant}</span>
+                                <span style={{ color: "var(--text-muted)", margin: "0 8px" }}>→ CO →</span>
+                                <span style={{ color: "var(--accent)", fontWeight: 700 }}>{secondVariant}</span>
+                                <span style={{ color: "var(--text-muted)", fontSize: 11, marginLeft: 12 }}>
+                                    ({firstVariant} urgente: prima richiesta {fmtDate(firstVariant === "21A" ? dct300Orders.first21a : dct300Orders.first1a)})
+                                </span>
+                            </div>
+                        )}
+
+                        {/* Info righe importate */}
+                        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                            {(dct300Orders.rows || []).length} righe importate per la settimana selezionata
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
     );
 }
 

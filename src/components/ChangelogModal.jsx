@@ -3,6 +3,25 @@ import Modal from "./Modal";
 
 const CHANGELOG = [
     {
+        version: "1.8.4",
+        data: "12 Maggio 2026",
+        label: "Ordini Cliente DCT300 — Varianti 1A / 21A",
+        modifiche: [
+            {
+                categoria: "🆕 Novità",
+                voci: [
+                    "Import Excel ordini cliente DCT300: carica file con colonne Data, 1A, 21A dalla tab Configurazione → Ordini DCT300",
+                    "Calcolo automatico target settimanale per variante (1A e 21A) in sostituzione del target fisso",
+                    "Sequenza produzione ottimale: la variante con prima consegna più urgente viene pianificata per prima, poi CO, poi l'altra",
+                    "Componenti condivisi (SG1, SGR, DG-REV): target = somma 1A + 21A, nessun changeover tra varianti",
+                    "Componenti variante-specifici (SG3, SG4, SG5, SG6, SG7, DG, RG): due item separati nel Gantt con target e avanzamento proporzionale",
+                    "Stato settimana: macchine DCT300 mostrano 'SG3·DCT·1A' e 'SG3·DCT·21A' con percentuale SAP proporzionale",
+                    "Ordini persistiti in localStorage con reset automatico a cambio settimana",
+                ]
+            }
+        ]
+    },
+    {
         version: "1.8.3",
         data: "12 Maggio 2026",
         label: "Fix Raccomandazione Componente su Tutte le Macchine",
