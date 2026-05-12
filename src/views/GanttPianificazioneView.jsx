@@ -1319,12 +1319,6 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                         {coLabel(machine.urgency)}
                         {prodLabel(machine.prodUrgency)}
                         <div style={{ flex: 1 }} />
-                        <button onClick={() => setEditMachine(machine)}
-                            title="Modifica componenti su questa macchina"
-                            style={{ padding: "4px 10px", borderRadius: 5, border: "1px solid var(--border)", background: "var(--bg-tertiary)", color: "var(--text-secondary)", cursor: "pointer", fontSize: 13 }}>
-                            ✏️
-                        </button>
-                        <div style={{ flex: 1 }} />
                         {/* Ultima conferma SAP reale per questa macchina */}
                         {lastSapByMachine[machine.machineId] ? (
                             <span style={{ fontSize: 13, color: "var(--text-muted)" }}>
