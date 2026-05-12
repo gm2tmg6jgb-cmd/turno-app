@@ -1310,15 +1310,16 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                          : machine.urgency === 1 ? "rgba(245,158,11,0.06)"
                                          : "transparent";
 
-                        // Componente attuale: SAP è fonte di verità (cosa è davvero in macchina ora).
-                        // Il blocco pianificato è usato solo come fallback se SAP non ha dati.
-                        const lastSap    = lastSapByMachine[machine.machineId];
-                        const sapCompKey = lastSap ? `${lastSap.proj}::${lastSap.comp}` : null;
-                        const curBlock   = machine.currentBlock;
-                        const curItem    =
-                            (sapCompKey && machine.itemsWithProgress.find(i => i.compKey === sapCompKey)) ||
-                            (curBlock    && machine.itemsWithProgress.find(i => i.compKey === curBlock.compKey)) ||
+                        // SAP è fonte di verità per il componente attuale. lastSap ha già
+                        // shortLabel e color — non serve cercarlo in itemsWithProgress.
+                        const lastSap  = lastSapByMachine[machine.machineId];
+                        const curBlock = machine.currentBlock;
+                        const curItem  =
+                            (curBlock && machine.itemsWithProgress.find(i => i.compKey === curBlock.compKey)) ||
                             machine.itemsWithProgress[0];
+                        // Cosa mostrare come "in produzione ora"
+                        const nowLabel = lastSap?.shortLabel || curItem?.shortLabel;
+                        const nowColor = lastSap?.color       || curItem?.color;
 
                         return (
                             <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", background: bgColor }}>
@@ -1331,7 +1332,12 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                         <div key={i} style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: hasNext ? 6 : 0 }}>
                                             <span style={{ fontSize: 15, flexShrink: 0 }}>🚨</span>
                                             <div style={{ fontSize: 13 }}>
-                                                <strong style={{ color: "#ef4444" }}>Adesso — passa a{" "}
+                                                {nowLabel && (
+                                                    <span style={{ color: "var(--text-muted)", marginRight: 4 }}>
+                                                        <span style={{ color: nowColor, fontWeight: 600 }}>● {nowLabel}</span> →{" "}
+                                                    </span>
+                                                )}
+                                                <strong style={{ color: "#ef4444" }}>passa a{" "}
                                                     <span style={{ color: co.toColor }}>● {co.toLabel}</span>
                                                 </strong>
                                                 {showWhen && (
@@ -1367,12 +1373,12 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                 })()}
 
                                 {/* Nessun changeover → mostra componente attuale */}
-                                {!hasOverdue && !hasNext && curItem && (
+                                {!hasOverdue && !hasNext && nowLabel && (
                                     <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
                                         <span style={{ fontSize: 15, flexShrink: 0 }}>✅</span>
                                         <div style={{ fontSize: 13, color: "var(--text-primary)" }}>
                                             Adesso — continua con{" "}
-                                            <span style={{ color: curItem.color, fontWeight: 700 }}>● {curItem.shortLabel}</span>
+                                            <span style={{ color: nowColor, fontWeight: 700 }}>● {nowLabel}</span>
                                             <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>nessun changeover previsto</span>
                                         </div>
                                     </div>

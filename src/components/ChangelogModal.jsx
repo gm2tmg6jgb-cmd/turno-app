@@ -3,6 +3,21 @@ import Modal from "./Modal";
 
 const CHANGELOG = [
     {
+        version: "1.8.3",
+        data: "12 Maggio 2026",
+        label: "Fix Raccomandazione Componente su Tutte le Macchine",
+        modifiche: [
+            {
+                categoria: "🐛 Bugfix",
+                voci: [
+                    "Raccomandazione 'continua con': ora usa SAP shortLabel/color direttamente senza cercare il componente in itemsWithProgress (falliva se la macchina era pianificata su un componente diverso da quello SAP)",
+                    "Macchine con CO scaduto: aggiunta visualizzazione '● {comp SAP} → passa a ● {target}' per mostrare cosa è in produzione ora prima dell'istruzione di changeover",
+                    "Fix sistematico per tutte le macchine, non solo per DRA10062",
+                ]
+            }
+        ]
+    },
+    {
         version: "1.8.2",
         data: "11 Maggio 2026",
         label: "Bugfix Alert Pianificazione Changeover",
