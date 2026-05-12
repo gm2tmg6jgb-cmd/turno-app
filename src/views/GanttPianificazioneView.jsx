@@ -1310,11 +1310,15 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                          : machine.urgency === 1 ? "rgba(245,158,11,0.06)"
                                          : "transparent";
 
-                        // Componente attuale dalla pianificazione (blocco work corrente o il più urgente)
-                        const curBlock  = machine.currentBlock;
-                        const curItem   = curBlock
-                            ? machine.itemsWithProgress.find(i => i.compKey === curBlock.compKey)
-                            : machine.itemsWithProgress[0];
+                        // Componente attuale: SAP è fonte di verità (cosa è davvero in macchina ora).
+                        // Il blocco pianificato è usato solo come fallback se SAP non ha dati.
+                        const lastSap    = lastSapByMachine[machine.machineId];
+                        const sapCompKey = lastSap ? `${lastSap.proj}::${lastSap.comp}` : null;
+                        const curBlock   = machine.currentBlock;
+                        const curItem    =
+                            (sapCompKey && machine.itemsWithProgress.find(i => i.compKey === sapCompKey)) ||
+                            (curBlock    && machine.itemsWithProgress.find(i => i.compKey === curBlock.compKey)) ||
+                            machine.itemsWithProgress[0];
 
                         return (
                             <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", background: bgColor }}>
