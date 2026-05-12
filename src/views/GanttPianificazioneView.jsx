@@ -302,6 +302,32 @@ export default function GanttPianificazioneView({ showToast }) {
     // ── Alert debouncing (prevents duplicate alerts for same event within 60s) ──
     const [lastAlertTime, setLastAlertTime] = useState({});
 
+    // ── Changeover non pianificati eseguiti manualmente dall'operatore ──
+    // Reset automatico ad ogni nuova settimana (weekStart cambia)
+    const [executedCOs, setExecutedCOs] = useState(() => {
+        try {
+            const stored = JSON.parse(localStorage.getItem("gantt_executed_cos") || "{}");
+            return stored.weekStart === weekStart ? (stored.cos || {}) : {};
+        } catch { return {}; }
+    });
+    const markCOExecuted = useCallback((machineId, co) => {
+        setExecutedCOs(prev => {
+            const key  = `${machineId}::${co.toCompKey}`;
+            const next = { ...prev, [key]: { toCompKey: co.toCompKey, toLabel: co.toLabel, toColor: co.toColor, executedAt: Date.now() } };
+            localStorage.setItem("gantt_executed_cos", JSON.stringify({ weekStart, cos: next }));
+            return next;
+        });
+    }, [weekStart]);
+    const unmarkCOExecuted = useCallback((machineId, co) => {
+        setExecutedCOs(prev => {
+            const key  = `${machineId}::${co.toCompKey}`;
+            const next = { ...prev };
+            delete next[key];
+            localStorage.setItem("gantt_executed_cos", JSON.stringify({ weekStart, cos: next }));
+            return next;
+        });
+    }, [weekStart]);
+
     // ── Loading ──
     const [loading,         setLoading]         = useState(true);
     const [loadingConferme, setLoadingConferme] = useState(false);
@@ -825,7 +851,15 @@ export default function GanttPianificazioneView({ showToast }) {
             ) || machine.blocks.filter(b => b.type === "work" && b.endH <= consumedH).pop();
 
             const nextCO = machine.changeovers.find(co => co.at > consumedH);
-            const overdueCOs = machine.changeovers.filter(co => co.at <= consumedH);
+            // Escludi i CO già segnati come eseguiti dall'operatore
+            const overdueCOs = machine.changeovers.filter(co =>
+                co.at <= consumedH && !executedCOs[`${machine.machineId}::${co.toCompKey}`]
+            );
+            // Ultimo CO eseguito manualmente (per aggiornare "componente attuale" senza aspettare SAP)
+            const lastExecutedCO = Object.entries(executedCOs)
+                .filter(([k]) => k.startsWith(`${machine.machineId}::`))
+                .map(([, v]) => v)
+                .sort((a, b) => b.executedAt - a.executedAt)[0] || null;
 
             let urgency = 0;
             if (overdueCOs.length > 0) urgency = 3;
@@ -842,9 +876,9 @@ export default function GanttPianificazioneView({ showToast }) {
                 else if (worstDelta < -15) prodUrgency = 1;
             }
 
-            return { ...machine, itemsWithProgress, currentBlock, nextCO, overdueCOs, urgency, prodUrgency };
+            return { ...machine, itemsWithProgress, currentBlock, nextCO, overdueCOs, lastExecutedCO, urgency, prodUrgency };
         }).sort((a, b) => b.urgency - a.urgency || a.machineId.localeCompare(b.machineId));
-    }, [sharedMachines, weeklyTargets, sapByKey, stockOverrides, upstreamPhaseConfig, consumedH]);
+    }, [sharedMachines, weeklyTargets, sapByKey, stockOverrides, upstreamPhaseConfig, consumedH, executedCOs]);
 
     // ── Alert system: triggers operator-guidance alerts ──
     useEffect(() => {
@@ -990,6 +1024,9 @@ export default function GanttPianificazioneView({ showToast }) {
                 onRefreshOverrides={loadOverrides}
                 showToast={showToast}
                 cardStyle={cardStyle}
+                markCOExecuted={markCOExecuted}
+                unmarkCOExecuted={unmarkCOExecuted}
+                executedCOs={executedCOs}
             />}
 
             {/* ══════════════════════════ TAB 2: GANTT ══════════════════════════ */}
@@ -1079,7 +1116,7 @@ function UpstreamEditForm({ machineId, compKey, showReset, editingUpstream, setE
     );
 }
 
-function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastSapByMachine, consumedH, weekStart, weekEnd, cfg, stockOverrides, saveStockOverride, upstreamMachineConfig, saveUpstreamMachine, upstreamPhaseConfig, saveUpstreamPhase, onRefreshOverrides, showToast, cardStyle }) {
+function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastSapByMachine, consumedH, weekStart, weekEnd, cfg, stockOverrides, saveStockOverride, upstreamMachineConfig, saveUpstreamMachine, upstreamPhaseConfig, saveUpstreamPhase, onRefreshOverrides, showToast, cardStyle, markCOExecuted, unmarkCOExecuted, executedCOs }) {
     const [editMachine,       setEditMachine]       = useState(null); // macchina aperta nel modal
     const [editingStock,      setEditingStock]      = useState(null); // { key, value } override stock upstream
     const [editingUpstream,   setEditingUpstream]   = useState(null); // { key: "machineId::compKey", machineValue: string, phaseValue: string }
@@ -1316,16 +1353,15 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                          : machine.urgency === 1 ? "rgba(245,158,11,0.06)"
                                          : "transparent";
 
-                        // SAP è fonte di verità per il componente attuale. lastSap ha già
-                        // shortLabel e color — non serve cercarlo in itemsWithProgress.
+                        // Priorità "componente attuale": CO eseguito manualmente > SAP > piano
                         const lastSap  = lastSapByMachine[machine.machineId];
                         const curBlock = machine.currentBlock;
                         const curItem  =
                             (curBlock && machine.itemsWithProgress.find(i => i.compKey === curBlock.compKey)) ||
                             machine.itemsWithProgress[0];
-                        // Cosa mostrare come "in produzione ora"
-                        const nowLabel = lastSap?.shortLabel || curItem?.shortLabel;
-                        const nowColor = lastSap?.color       || curItem?.color;
+                        const lastExec = machine.lastExecutedCO;
+                        const nowLabel = lastExec?.toLabel  || lastSap?.shortLabel || curItem?.shortLabel;
+                        const nowColor = lastExec?.toColor  || lastSap?.color      || curItem?.color;
 
                         return (
                             <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", background: bgColor }}>
@@ -1336,18 +1372,28 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                     const fromLabel = i === 0 ? nowLabel : machine.overdueCOs[i - 1].toLabel;
                                     const fromColor = i === 0 ? nowColor : machine.overdueCOs[i - 1].toColor;
                                     return (
-                                        <div key={i} style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: hasNext ? 6 : 0 }}>
-                                            <span style={{ fontSize: 15, flexShrink: 0 }}>🚨</span>
-                                            <div style={{ fontSize: 13 }}>
-                                                <strong style={{ color: "#ef4444" }}>
-                                                    Adesso —{fromLabel && <>{" "}<span style={{ color: fromColor }}>● {fromLabel}</span> →</>}{" "}
-                                                    <span style={{ color: co.toColor }}>● {co.toLabel}</span>
-                                                </strong>
-                                                {hoursOverdue > 2 && (
-                                                    <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>
-                                                        (era previsto {co.datetime})
-                                                    </span>
-                                                )}
+                                        <div key={i} style={{ marginBottom: hasNext ? 6 : 0 }}>
+                                            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                                                <span style={{ fontSize: 15, flexShrink: 0 }}>🚨</span>
+                                                <div style={{ fontSize: 13, flex: 1 }}>
+                                                    <strong style={{ color: "#ef4444" }}>
+                                                        Adesso —{fromLabel && <>{" "}<span style={{ color: fromColor }}>● {fromLabel}</span> →</>}{" "}
+                                                        <span style={{ color: co.toColor }}>● {co.toLabel}</span>
+                                                    </strong>
+                                                    {hoursOverdue > 2 && (
+                                                        <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>
+                                                            (era previsto {co.datetime})
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            {/* Bottone conferma CO eseguito */}
+                                            <div style={{ paddingLeft: 22, marginTop: 5 }}>
+                                                <button
+                                                    onClick={() => markCOExecuted(machine.machineId, co)}
+                                                    style={{ padding: "3px 10px", borderRadius: 5, border: "1px solid #10b98140", background: "#10b98115", color: "#10b981", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>
+                                                    ✅ CO eseguito — ora su ● {co.toLabel}
+                                                </button>
                                             </div>
                                         </div>
                                     );
@@ -1403,7 +1449,14 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                         <div style={{ fontSize: 13, color: "var(--text-primary)" }}>
                                             Adesso — continua con{" "}
                                             <span style={{ color: nowColor, fontWeight: 700 }}>● {nowLabel}</span>
-                                            <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>nessun changeover previsto</span>
+                                            {lastExec
+                                                ? <button onClick={() => unmarkCOExecuted(machine.machineId, lastExec)}
+                                                    title="Annulla conferma CO"
+                                                    style={{ marginLeft: 8, padding: "1px 6px", borderRadius: 4, border: "1px solid var(--border)", background: "transparent", color: "var(--text-muted)", cursor: "pointer", fontSize: 10 }}>
+                                                    ↩ annulla CO
+                                                  </button>
+                                                : <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>nessun changeover previsto</span>
+                                            }
                                         </div>
                                     </div>
                                 )}
