@@ -1045,6 +1045,40 @@ export default function GanttPianificazioneView({ showToast }) {
 const LS_DASHBOARD_KEY   = "gantt_dashboard_machines";   // Set<machineId> visibili
 const LS_DASHBOARD_COLS  = "gantt_dashboard_cols";
 
+// Definito fuori da StatusTab: referenza stabile → React non smonta/rimonta l'input ad ogni keystroke
+function UpstreamEditForm({ machineId, compKey, showReset, editingUpstream, setEditingUpstream, saveUpstreamPhase, saveUpstreamMachine }) {
+    if (!editingUpstream || editingUpstream.key !== `${machineId}::${compKey}`) return null;
+    const save = () => {
+        if (editingUpstream.phaseValue) saveUpstreamPhase(machineId, compKey, editingUpstream.phaseValue);
+        saveUpstreamMachine(machineId, compKey, editingUpstream.machineValue || null);
+        setEditingUpstream(null);
+    };
+    return (
+        <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 5, paddingLeft: 18, flexWrap: "wrap" }}>
+            <select value={editingUpstream.phaseValue || ""}
+                onChange={e => setEditingUpstream({ ...editingUpstream, phaseValue: e.target.value })}
+                style={{ padding: "3px 6px", borderRadius: 4, border: "1px solid var(--accent)", background: "var(--bg-primary)", color: "var(--text-primary)", fontSize: 12 }}>
+                <option value="">— fase —</option>
+                {Object.entries(PHASE_LABELS).filter(([id]) => id !== "baa").map(([id, label]) => (
+                    <option key={id} value={id}>{label}</option>
+                ))}
+            </select>
+            <input type="text" value={editingUpstream.machineValue || ""} placeholder="es. STW11002 (opz.)"
+                onChange={e => setEditingUpstream({ ...editingUpstream, machineValue: e.target.value })}
+                onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") setEditingUpstream(null); }}
+                style={{ width: 130, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--accent)", background: "var(--bg-primary)", color: "var(--text-primary)", fontSize: 12, fontFamily: "monospace" }} />
+            <button onClick={save}
+                style={{ padding: "3px 8px", borderRadius: 4, background: "var(--accent)", color: "#fff", border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>Salva</button>
+            {showReset && (
+                <button onClick={() => { saveUpstreamPhase(machineId, compKey, null); saveUpstreamMachine(machineId, compKey, null); setEditingUpstream(null); }}
+                    style={{ padding: "3px 8px", borderRadius: 4, background: "transparent", color: "#ef4444", border: "1px solid #ef444440", cursor: "pointer", fontSize: 11 }}>Reset</button>
+            )}
+            <button onClick={() => setEditingUpstream(null)}
+                style={{ padding: "3px 6px", borderRadius: 4, background: "transparent", color: "var(--text-muted)", border: "1px solid var(--border)", cursor: "pointer", fontSize: 11 }}>✕</button>
+        </div>
+    );
+}
+
 function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastSapByMachine, consumedH, weekStart, weekEnd, cfg, stockOverrides, saveStockOverride, upstreamMachineConfig, saveUpstreamMachine, upstreamPhaseConfig, saveUpstreamPhase, onRefreshOverrides, showToast, cardStyle }) {
     const [editMachine,       setEditMachine]       = useState(null); // macchina aperta nel modal
     const [editingStock,      setEditingStock]      = useState(null); // { key, value } override stock upstream
@@ -1059,43 +1093,6 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
         setHighlightedCard(machineId);
         setTimeout(() => setHighlightedCard(null), 2000);
     }, []);
-
-    // Form inline riutilizzabile per configurare fase + macchina upstream
-    const saveUpstreamEdit = useCallback((machineId, compKey) => {
-        if (!editingUpstream) return;
-        if (editingUpstream.phaseValue) saveUpstreamPhase(machineId, compKey, editingUpstream.phaseValue);
-        saveUpstreamMachine(machineId, compKey, editingUpstream.machineValue || null);
-        setEditingUpstream(null);
-    }, [editingUpstream, saveUpstreamPhase, saveUpstreamMachine]);
-
-    const UpstreamEditForm = ({ machineId, compKey, showReset }) => {
-        if (!editingUpstream || editingUpstream.key !== `${machineId}::${compKey}`) return null;
-        const configKey = `${machineId}::${compKey}`;
-        return (
-            <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 5, paddingLeft: 18, flexWrap: "wrap" }}>
-                <select value={editingUpstream.phaseValue || ""}
-                    onChange={e => setEditingUpstream({ ...editingUpstream, phaseValue: e.target.value })}
-                    style={{ padding: "3px 6px", borderRadius: 4, border: "1px solid var(--accent)", background: "var(--bg-primary)", color: "var(--text-primary)", fontSize: 12 }}>
-                    <option value="">— fase —</option>
-                    {Object.entries(PHASE_LABELS).filter(([id]) => id !== "baa").map(([id, label]) => (
-                        <option key={id} value={id}>{label}</option>
-                    ))}
-                </select>
-                <input type="text" value={editingUpstream.machineValue || ""} placeholder="es. STW11002 (opz.)"
-                    onChange={e => setEditingUpstream({ ...editingUpstream, machineValue: e.target.value })}
-                    onKeyDown={e => { if (e.key === "Enter") saveUpstreamEdit(machineId, compKey); if (e.key === "Escape") setEditingUpstream(null); }}
-                    style={{ width: 130, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--accent)", background: "var(--bg-primary)", color: "var(--text-primary)", fontSize: 12, fontFamily: "monospace" }} />
-                <button onClick={() => saveUpstreamEdit(machineId, compKey)}
-                    style={{ padding: "3px 8px", borderRadius: 4, background: "var(--accent)", color: "#fff", border: "none", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>Salva</button>
-                {showReset && (
-                    <button onClick={() => { saveUpstreamPhase(machineId, compKey, null); saveUpstreamMachine(machineId, compKey, null); setEditingUpstream(null); }}
-                        style={{ padding: "3px 8px", borderRadius: 4, background: "transparent", color: "#ef4444", border: "1px solid #ef444440", cursor: "pointer", fontSize: 11 }}>Reset</button>
-                )}
-                <button onClick={() => setEditingUpstream(null)}
-                    style={{ padding: "3px 6px", borderRadius: 4, background: "transparent", color: "var(--text-muted)", border: "1px solid var(--border)", cursor: "pointer", fontSize: 11 }}>✕</button>
-            </div>
-        );
-    };
 
     const [filterPhase,   setFilterPhase]   = useState("all");
     const filterProject = "all";
@@ -1448,7 +1445,7 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                                         style={{ padding: "1px 7px", borderRadius: 3, border: "1px solid var(--accent-dim)", background: "var(--accent-dim)", color: "var(--accent)", cursor: "pointer", fontSize: 10 }}>
                                                         + configura flusso
                                                       </button>
-                                                    : <UpstreamEditForm machineId={machine.machineId} compKey={item.compKey} showReset={false} />
+                                                    : <UpstreamEditForm machineId={machine.machineId} compKey={item.compKey} showReset={false} editingUpstream={editingUpstream} setEditingUpstream={setEditingUpstream} saveUpstreamPhase={saveUpstreamPhase} saveUpstreamMachine={saveUpstreamMachine} />
                                                 }
                                             </div>
                                             )
@@ -1503,6 +1500,10 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                                     machineId={machine.machineId}
                                                     compKey={item.compKey}
                                                     showReset={!!(upstreamMachineConfig||{})[upstreamMachineKey] || !!(upstreamPhaseConfig||{})[upstreamMachineKey]}
+                                                    editingUpstream={editingUpstream}
+                                                    setEditingUpstream={setEditingUpstream}
+                                                    saveUpstreamPhase={saveUpstreamPhase}
+                                                    saveUpstreamMachine={saveUpstreamMachine}
                                                 />
                                                 {/* Form inline override stock */}
                                                 {isEditingStock && (
@@ -1580,7 +1581,7 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                                         )}
                                                     </div>
                                                 )}
-                                                <UpstreamEditForm machineId={machine.machineId} compKey={item.compKey} showReset={false} />
+                                                <UpstreamEditForm machineId={machine.machineId} compKey={item.compKey} showReset={false} editingUpstream={editingUpstream} setEditingUpstream={setEditingUpstream} saveUpstreamPhase={saveUpstreamPhase} saveUpstreamMachine={saveUpstreamMachine} />
                                                 {isEditingG && (
                                                     <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 5, paddingLeft: 18 }}>
                                                         <input type="number" min="0" value={editingStock.value} autoFocus
