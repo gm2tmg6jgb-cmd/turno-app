@@ -1085,19 +1085,28 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
     const [editingUpstream,   setEditingUpstream]   = useState(null); // { key: "machineId::compKey", machineValue: string, phaseValue: string }
     const [highlightedCard,   setHighlightedCard]   = useState(null); // machineId temporaneamente evidenziato
 
-    // Naviga alla card della macchina indicata (scroll + flash highlight)
-    const scrollToMachine = useCallback((machineId) => {
-        const el = document.getElementById(`machine-card-${machineId}`);
-        if (!el) return;
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-        setHighlightedCard(machineId);
-        setTimeout(() => setHighlightedCard(null), 2000);
-    }, []);
-
     const [filterPhase,   setFilterPhase]   = useState("all");
     const filterProject = "all";
     const [filterUrgency, setFilterUrgency] = useState("all");
     const cols = 4;
+
+    // Naviga alla card della macchina indicata (scroll + flash highlight).
+    // Se la card è filtrata, resetta i filtri e riprova dopo il render.
+    const scrollToMachine = useCallback((machineId) => {
+        const doScroll = () => {
+            const el = document.getElementById(`machine-card-${machineId}`);
+            if (!el) return false;
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            setHighlightedCard(machineId);
+            setTimeout(() => setHighlightedCard(null), 2000);
+            return true;
+        };
+        if (!doScroll()) {
+            setFilterPhase("all");
+            setFilterUrgency("all");
+            setTimeout(doScroll, 80);
+        }
+    }, [setFilterPhase, setFilterUrgency]);
 
 
     const visibleMachines = useMemo(() => machineStatus.filter(m => {
