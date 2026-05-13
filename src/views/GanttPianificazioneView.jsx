@@ -1419,8 +1419,11 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
         // Stima completion
         const avgDailyRate = consumedH > 0 ? totalProduced / (consumedH / 24) : 0;
         const daysToComplete = avgDailyRate > 0 ? totalRemaining / avgDailyRate : 999;
-        const projectedCompletionDay = new Date(weekStart + 'T00:00:00');
-        projectedCompletionDay.setDate(projectedCompletionDay.getDate() + Math.ceil(daysToComplete));
+
+        // Calcola data stima completamento
+        let projectedDate = new Date(weekStart + 'T12:00:00Z');
+        projectedDate.setDate(projectedDate.getDate() + Math.ceil(daysToComplete));
+        const projectedCompletionDay = getLocalDate(projectedDate);
 
         return {
             expectedPct,
@@ -1432,7 +1435,7 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
             componentStats,
             machineUtil,
             avgDailyRate: Math.round(avgDailyRate),
-            projectedCompletionDay: projectedCompletionDay.toISOString().split('T')[0],
+            projectedCompletionDay,
             onTrack: daysToComplete <= 6,
         };
     }, [machineStatus, consumedH, weekStart]);
