@@ -75,6 +75,7 @@ const PROJECT_COLORS = {
     "DCT ECO": { main: "#f59e0b", bg: "rgba(245, 158, 11, 0.05)" },
     "DCT300": { main: "#3c6ef0", bg: "rgba(60, 110, 240, 0.05)" },
     "8Fe": { main: "#10b981", bg: "rgba(16, 185, 129, 0.05)" },
+    "RG + DH": { main: "#ef4444", bg: "rgba(239, 68, 68, 0.05)" },
 };
 // sapPrev di una fase può provenire da una fase specifica (non la precedente)
 const SAP_PREV_SOURCE = {
