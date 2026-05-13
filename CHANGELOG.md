@@ -4,6 +4,20 @@ Tutte le modifiche significative di Turno App sono documentate in questo file.
 
 ---
 
+## [1.8.3] — 2026-05-14 — Mappa Flussi Definitivi Componenti OP10
+
+### ✨ Nuove Funzionalità
+- **Mappa flussi OP10** (`public/definitive-component-flows.html`): visualizzazione interattiva di tutti i 29 componenti con sequenza fasi, tipo macchina, zona produzione e tempi di attraversamento.
+- **Script generazione** (`generate-definitive-component-flows.js`): legge da Supabase `componente_fasi` (157 righe) e `material_fino_overrides`; calcola tempi con lotto 1200 pz, OEE 85%, changeover 1h. Quando le macchine specifiche sono configurate in `material_fino_overrides`, le mostra; altrimenti mostra il tipo SAP (`[SCA]`, `[FRW]`, ecc.).
+- **Filtro per progetto**: la mappa è filtrabile per DCT300, 8Fe, DCT ECO, RG+DH.
+- **Legenda team colori**: T11 Soft (blu), T12 Hard (viola), T13 RG/DH (verde).
+
+### 📊 Dati generati
+- Tempo medio attraversamento: 119.3h (14.9 giorni lavorativi)
+- 4 progetti · 29 componenti · ~157 fasi configurate in Supabase
+
+---
+
 ## [1.8.2] — 2026-05-11 — Bugfix Alert Pianificazione Changeover
 
 ### 🐛 Bugfix Critici

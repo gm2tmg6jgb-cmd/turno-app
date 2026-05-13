@@ -1,0 +1,2147 @@
+{
+  "8Fe::FG5/7": {
+    "progetto": "8Fe",
+    "componente": "FG5/7",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 115,
+    "giorni": 14.4
+  },
+  "8Fe::PG": {
+    "progetto": "8Fe",
+    "componente": "PG",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 115,
+    "giorni": 14.4
+  },
+  "8Fe::SG2": {
+    "progetto": "8Fe",
+    "componente": "SG2",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 115,
+    "giorni": 14.4
+  },
+  "8Fe::SG3": {
+    "progetto": "8Fe",
+    "componente": "SG3",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 115,
+    "giorni": 14.4
+  },
+  "8Fe::SG4": {
+    "progetto": "8Fe",
+    "componente": "SG4",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 115,
+    "giorni": 14.4
+  },
+  "8Fe::SG5": {
+    "progetto": "8Fe",
+    "componente": "SG5",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 115,
+    "giorni": 14.4
+  },
+  "8Fe::SG6": {
+    "progetto": "8Fe",
+    "componente": "SG6",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_soft",
+        "faseLabel": "Tornitura Soft",
+        "machineId": "[DRA]",
+        "zona": "Z1-Z3",
+        "zonaNome": "Tornitura Soft",
+        "team": "T11",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 130.1,
+    "giorni": 16.3
+  },
+  "8Fe::SG7": {
+    "progetto": "8Fe",
+    "componente": "SG7",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_soft",
+        "faseLabel": "Tornitura Soft",
+        "machineId": "[DRA]",
+        "zona": "Z1-Z3",
+        "zonaNome": "Tornitura Soft",
+        "team": "T11",
+        "ore": 17,
+        "pzH": 88,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 132,
+    "giorni": 16.5
+  },
+  "8Fe::SG8": {
+    "progetto": "8Fe",
+    "componente": "SG8",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 115,
+    "giorni": 14.4
+  },
+  "8Fe::SGR": {
+    "progetto": "8Fe",
+    "componente": "SGR",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 115,
+    "giorni": 14.4
+  },
+  "DCT ECO::RG FD1": {
+    "progetto": "DCT ECO",
+    "componente": "RG FD1",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 115,
+    "giorni": 14.4
+  },
+  "DCT ECO::RG FD2": {
+    "progetto": "DCT ECO",
+    "componente": "RG FD2",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 115,
+    "giorni": 14.4
+  },
+  "DCT ECO::SG2": {
+    "progetto": "DCT ECO",
+    "componente": "SG2",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 115,
+    "giorni": 14.4
+  },
+  "DCT ECO::SG3": {
+    "progetto": "DCT ECO",
+    "componente": "SG3",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "laser_welding_2",
+        "faseLabel": "Saldatura 2",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 6.5,
+        "pzH": 256,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ut",
+        "faseLabel": "Ultrasuoni",
+        "machineId": "[MZA]",
+        "zona": "Z26",
+        "zonaNome": "Controllo UT",
+        "team": "T12",
+        "ore": 11.6,
+        "pzH": 133,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 133.1,
+    "giorni": 16.6
+  },
+  "DCT ECO::SG4": {
+    "progetto": "DCT ECO",
+    "componente": "SG4",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "laser_welding_2",
+        "faseLabel": "Saldatura 2",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 6.5,
+        "pzH": 256,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 121.5,
+    "giorni": 15.2
+  },
+  "DCT ECO::SG5": {
+    "progetto": "DCT ECO",
+    "componente": "SG5",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ut",
+        "faseLabel": "Ultrasuoni",
+        "machineId": "[MZA]",
+        "zona": "Z26",
+        "zonaNome": "Controllo UT",
+        "team": "T12",
+        "ore": 11.6,
+        "pzH": 133,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "laser_welding_2",
+        "faseLabel": "Saldatura 2",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 6.5,
+        "pzH": 256,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 133.1,
+    "giorni": 16.6
+  },
+  "DCT ECO::SGR": {
+    "progetto": "DCT ECO",
+    "componente": "SGR",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 115,
+    "giorni": 14.4
+  },
+  "DCT300::DG": {
+    "progetto": "DCT300",
+    "componente": "DG",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 115,
+    "giorni": 14.4
+  },
+  "DCT300::DG-REV": {
+    "progetto": "DCT300",
+    "componente": "DG-REV",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 115,
+    "giorni": 14.4
+  },
+  "DCT300::RG": {
+    "progetto": "DCT300",
+    "componente": "RG",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 115,
+    "giorni": 14.4
+  },
+  "DCT300::SG1": {
+    "progetto": "DCT300",
+    "componente": "SG1",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 115,
+    "giorni": 14.4
+  },
+  "DCT300::SG3": {
+    "progetto": "DCT300",
+    "componente": "SG3",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 115,
+    "giorni": 14.4
+  },
+  "DCT300::SG4": {
+    "progetto": "DCT300",
+    "componente": "SG4",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 115,
+    "giorni": 14.4
+  },
+  "DCT300::SG5": {
+    "progetto": "DCT300",
+    "componente": "SG5",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ut",
+        "faseLabel": "Ultrasuoni",
+        "machineId": "[MZA]",
+        "zona": "Z26",
+        "zonaNome": "Controllo UT",
+        "team": "T12",
+        "ore": 11.6,
+        "pzH": 133,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "laser_welding_2",
+        "faseLabel": "Saldatura 2",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 6.5,
+        "pzH": 256,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 133.1,
+    "giorni": 16.6
+  },
+  "DCT300::SG6": {
+    "progetto": "DCT300",
+    "componente": "SG6",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ut",
+        "faseLabel": "Ultrasuoni",
+        "machineId": "[MZA]",
+        "zona": "Z26",
+        "zonaNome": "Controllo UT",
+        "team": "T12",
+        "ore": 11.6,
+        "pzH": 133,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "laser_welding_2",
+        "faseLabel": "Saldatura 2",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 6.5,
+        "pzH": 256,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_soft",
+        "faseLabel": "Tornitura Soft",
+        "machineId": "[DRA]",
+        "zona": "Z1-Z3",
+        "zonaNome": "Tornitura Soft",
+        "team": "T11",
+        "ore": 12.8,
+        "pzH": 120,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 145.9,
+    "giorni": 18.2
+  },
+  "DCT300::SG7": {
+    "progetto": "DCT300",
+    "componente": "SG7",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 115,
+    "giorni": 14.4
+  },
+  "DCT300::SGR": {
+    "progetto": "DCT300",
+    "componente": "SGR",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 115,
+    "giorni": 14.4
+  },
+  "RG+DH::RG FD1": {
+    "progetto": "RG+DH",
+    "componente": "RG FD1",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 115,
+    "giorni": 14.4
+  },
+  "RG+DH::RG FD2": {
+    "progetto": "RG+DH",
+    "componente": "RG FD2",
+    "materials": [],
+    "flusso": [
+      {
+        "faseId": "laser_welding",
+        "faseLabel": "Saldatura Soft",
+        "machineId": "[SCA]",
+        "zona": "Z6-Z7",
+        "zonaNome": "Saldatura",
+        "team": "T11",
+        "ore": 11.9,
+        "pzH": 130,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "hobbing",
+        "faseLabel": "Dentatura",
+        "machineId": "[FRW]",
+        "zona": "Z4-Z11",
+        "zonaNome": "Dentatura",
+        "team": "T11",
+        "ore": 17.4,
+        "pzH": 86,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "ht",
+        "faseLabel": "Tratt. Termico",
+        "machineId": "[HOK]",
+        "zona": "—",
+        "zonaNome": "Forno HT",
+        "team": "—",
+        "ore": 56,
+        "pzH": null,
+        "fixedH": 8,
+        "specificMachine": false
+      },
+      {
+        "faseId": "start_hard",
+        "faseLabel": "Tornitura Hard",
+        "machineId": "[TH]",
+        "zona": "Z15-Z18",
+        "zonaNome": "Tornitura Hard",
+        "team": "T12",
+        "ore": 14.6,
+        "pzH": 104,
+        "fixedH": null,
+        "specificMachine": false
+      },
+      {
+        "faseId": "teeth_grinding",
+        "faseLabel": "Rettifica Denti",
+        "machineId": "[SLW]",
+        "zona": "Z19-Z21",
+        "zonaNome": "Rettifica Denti",
+        "team": "T12",
+        "ore": 15.1,
+        "pzH": 100,
+        "fixedH": null,
+        "specificMachine": false
+      }
+    ],
+    "tempoTotale": 115,
+    "giorni": 14.4
+  }
+}
