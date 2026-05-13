@@ -4,7 +4,7 @@ import { supabase, fetchAllRows } from "../lib/supabase";
 import { phaseHours, loadThroughputConfig } from "../utils/throughput";
 import { aggregateSapByPhase, aggregateSapByVariant, normalizeMaterialOverrides } from "../utils/sapMapping";
 import { PROJECTS, PROCESS_STEPS } from "../data/constants";
-import { getCurrentWeekRange, getLocalDate } from "../lib/dateUtils";
+import { getCurrentWeekRange, getLocalDate, formatItalianDate } from "../lib/dateUtils";
 
 // ─── Costanti ────────────────────────────────────────────────────────────────
 const SHIFT_HOURS = 6;
@@ -1423,7 +1423,7 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
         // Calcola data stima completamento
         let projectedDate = new Date(weekStart + 'T12:00:00Z');
         projectedDate.setDate(projectedDate.getDate() + Math.ceil(daysToComplete));
-        const projectedCompletionDay = getLocalDate(projectedDate);
+        const projectedCompletionDay = formatItalianDate(getLocalDate(projectedDate));
 
         return {
             expectedPct,
