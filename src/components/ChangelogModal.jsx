@@ -3,6 +3,22 @@ import Modal from "./Modal";
 
 const CHANGELOG = [
     {
+        version: "1.8.6",
+        data: "13 Maggio 2026",
+        label: "Smart Changeover Recommendation — Urgency-Based Planning",
+        modifiche: [
+            {
+                categoria: "🎯 Novità",
+                voci: [
+                    "Raccomandazione intelligente: se un componente è >15% più critico del quello attuale, mostra '⚠️ Considera changeover' con delta percentuale",
+                    "Calcolo urgency relativa: confronta % ritardo di ogni componente vs quello in produzione",
+                    "Esempio: se SG5 è -17% e FG5/7 è -34%, suggerisce 'Considera changeover a FG5/7 (+17% più urgente)'",
+                    "Aiuta operatori a identificare dove passare per massimizzare recupero di ritardo settimanale",
+                ]
+            }
+        ]
+    },
+    {
         version: "1.8.5",
         data: "13 Maggio 2026",
         label: "Fix: SG4 mancante nel Report Produzione DCT ECO",
