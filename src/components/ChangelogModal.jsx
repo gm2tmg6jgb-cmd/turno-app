@@ -3,6 +3,19 @@ import Modal from "./Modal";
 
 const CHANGELOG = [
     {
+        version: "1.8.5",
+        data: "13 Maggio 2026",
+        label: "Fix: SG4 mancante nel Report Produzione DCT ECO",
+        modifiche: [
+            {
+                categoria: "🐛 Bugfix",
+                voci: [
+                    "Componente SG4_ECO aggiunto al report produzione: ora DCT ECO mostra correttamente tutti 6 componenti (SG2, SG3, SG4, SG5, SGR, RG)",
+                ]
+            }
+        ]
+    },
+    {
         version: "1.8.4",
         data: "12 Maggio 2026",
         label: "Ordini Cliente DCT300 — Varianti 1A / 21A",
