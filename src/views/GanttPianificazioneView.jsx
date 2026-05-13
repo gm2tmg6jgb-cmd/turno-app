@@ -1585,47 +1585,43 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                     );
                                 })()}
 
-                                {/* Nessun changeover → mostra componente attuale OPPURE changeover consigliato */}
-                                {!hasOverdue && !hasNext && nowLabel && (() => {
-                                    const nowItem = machine.itemsWithProgress.find(i => i.compKey === (machine.currentBlock?.compKey || machine.items[0]?.compKey));
-                                    return (
-                                        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                                            <span style={{ fontSize: 15, flexShrink: 0 }}>{machine.recommendedItem ? "⚠️" : "✅"}</span>
-                                            <div style={{ fontSize: 13, color: "var(--text-primary)" }}>
-                                                {machine.recommendedItem ? (
-                                                    // Smart Changeover Recommendation
-                                                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                                        <div>
-                                                            <span>Considera changeover a </span>
-                                                            <span style={{ color: machine.recommendedItem.color, fontWeight: 700 }}>● {machine.recommendedItem.shortLabel}</span>
-                                                            <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>
-                                                                (+{(machine.urgencyDelta * 100).toFixed(0)}% più urgente)
-                                                            </span>
-                                                        </div>
-                                                        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                                                            {machine.recommendedItem.label}: {machine.recommendedItem.target - machine.recommendedItem.produced} pz indietro
-                                                            {nowItem && <>{" "}vs {nowItem.target - nowItem.produced} su <span style={{ color: nowColor, fontWeight: 600 }}>● {nowLabel}</span></>}
-                                                        </div>
+                                {/* Nessun changeover → mostra componente attuale oppure changeover consigliato */}
+                                {!hasOverdue && !hasNext && nowLabel && (
+                                    <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                                        <span style={{ fontSize: 15, flexShrink: 0 }}>{machine.recommendedItem ? "⚠️" : "✅"}</span>
+                                        <div style={{ fontSize: 13, color: "var(--text-primary)" }}>
+                                            {machine.recommendedItem ? (
+                                                // Smart Changeover Recommendation
+                                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                                    <div>
+                                                        <span>Considera changeover a </span>
+                                                        <span style={{ color: machine.recommendedItem.color, fontWeight: 700 }}>● {machine.recommendedItem.shortLabel}</span>
+                                                        <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>
+                                                            (+{(machine.urgencyDelta * 100).toFixed(0)}% più urgente)
+                                                        </span>
                                                     </div>
-                                                ) : (
-                                                    // Continua con quello attuale (comportamento precedente)
-                                                    <>
-                                                        Adesso — continua con{" "}
-                                                        <span style={{ color: nowColor, fontWeight: 700 }}>● {nowLabel}</span>
-                                                        {lastExec
-                                                            ? <button onClick={() => unmarkCOExecuted(machine.machineId, lastExec)}
-                                                                title="Annulla conferma CO"
-                                                                style={{ marginLeft: 8, padding: "1px 6px", borderRadius: 4, border: "1px solid var(--border)", background: "transparent", color: "var(--text-muted)", cursor: "pointer", fontSize: 10 }}>
-                                                                ↩ annulla CO
-                                                              </button>
-                                                            : <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>nessun changeover previsto</span>
-                                                        }
-                                                    </>
-                                                )}
-                                            </div>
+                                                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                                                        {machine.recommendedItem.label}: {machine.recommendedItem.target - machine.recommendedItem.produced} pz indietro
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                // Continua con quello attuale
+                                                <>
+                                                    Adesso — continua con{" "}
+                                                    <span style={{ color: nowColor, fontWeight: 700 }}>● {nowLabel}</span>
+                                                    {lastExec
+                                                        ? <button onClick={() => unmarkCOExecuted(machine.machineId, lastExec)}
+                                                            title="Annulla conferma CO"
+                                                            style={{ marginLeft: 8, padding: "1px 6px", borderRadius: 4, border: "1px solid var(--border)", background: "transparent", color: "var(--text-muted)", cursor: "pointer", fontSize: 10 }}>
+                                                            ↩ annulla CO
+                                                          </button>
+                                                        : <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>nessun changeover previsto</span>
+                                                    }
+                                                </>
+                                            )}
                                         </div>
-                                    );
-                                })()}
+                                    </div>
+                                )}
                             </div>
                         );
                     })()}
