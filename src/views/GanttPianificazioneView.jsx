@@ -1586,42 +1586,65 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                 })()}
 
                                 {/* Nessun changeover → mostra componente attuale oppure changeover consigliato */}
-                                {!hasOverdue && !hasNext && nowLabel && (
-                                    <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                                        <span style={{ fontSize: 15, flexShrink: 0 }}>{machine.recommendedItem ? "⚠️" : "✅"}</span>
-                                        <div style={{ fontSize: 13, color: "var(--text-primary)" }}>
-                                            {machine.recommendedItem ? (
-                                                // Smart Changeover Recommendation
-                                                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                                                    <div>
-                                                        <span>Considera changeover a </span>
-                                                        <span style={{ color: machine.recommendedItem.color, fontWeight: 700 }}>● {machine.recommendedItem.shortLabel}</span>
-                                                        <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>
-                                                            (+{(machine.urgencyDelta * 100).toFixed(0)}% più urgente)
-                                                        </span>
+                                {!hasOverdue && !hasNext && nowLabel && (() => {
+                                    // Calcola urgency relativa nel rendering (dove ho tutte le info)
+                                    const nowItem = machine.itemsWithProgress.find(i => i.shortLabel === nowLabel) || machine.itemsWithProgress[0];
+                                    let recommendedItem = null;
+                                    let urgencyDelta = 0;
+
+                                    if (nowItem && machine.itemsWithProgress.length > 1) {
+                                        const nowUrgency = nowItem.target > 0 ? (nowItem.target - nowItem.produced) / nowItem.target : 0;
+                                        let maxDelta = 0;
+
+                                        for (const item of machine.itemsWithProgress) {
+                                            if (item.compKey === nowItem.compKey || item.target <= 0) continue;
+                                            const itemUrgency = (item.target - item.produced) / item.target;
+                                            const delta = itemUrgency - nowUrgency;
+                                            if (delta > maxDelta && delta > 0.15) {
+                                                maxDelta = delta;
+                                                recommendedItem = item;
+                                                urgencyDelta = maxDelta;
+                                            }
+                                        }
+                                    }
+
+                                    return (
+                                        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                                            <span style={{ fontSize: 15, flexShrink: 0 }}>{recommendedItem ? "⚠️" : "✅"}</span>
+                                            <div style={{ fontSize: 13, color: "var(--text-primary)" }}>
+                                                {recommendedItem ? (
+                                                    // Smart Changeover Recommendation
+                                                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                                        <div>
+                                                            <span>Considera changeover a </span>
+                                                            <span style={{ color: recommendedItem.color, fontWeight: 700 }}>● {recommendedItem.shortLabel}</span>
+                                                            <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>
+                                                                (+{(urgencyDelta * 100).toFixed(0)}% più urgente)
+                                                            </span>
+                                                        </div>
+                                                        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                                                            {recommendedItem.target - recommendedItem.produced} pz indietro vs {nowItem.target - nowItem.produced} su <span style={{ color: nowColor, fontWeight: 600 }}>● {nowLabel}</span>
+                                                        </div>
                                                     </div>
-                                                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
-                                                        {machine.recommendedItem.label}: {machine.recommendedItem.target - machine.recommendedItem.produced} pz indietro
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                // Continua con quello attuale
-                                                <>
-                                                    Adesso — continua con{" "}
-                                                    <span style={{ color: nowColor, fontWeight: 700 }}>● {nowLabel}</span>
-                                                    {lastExec
-                                                        ? <button onClick={() => unmarkCOExecuted(machine.machineId, lastExec)}
-                                                            title="Annulla conferma CO"
-                                                            style={{ marginLeft: 8, padding: "1px 6px", borderRadius: 4, border: "1px solid var(--border)", background: "transparent", color: "var(--text-muted)", cursor: "pointer", fontSize: 10 }}>
-                                                            ↩ annulla CO
-                                                          </button>
-                                                        : <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>nessun changeover previsto</span>
-                                                    }
-                                                </>
-                                            )}
+                                                ) : (
+                                                    // Continua con quello attuale
+                                                    <>
+                                                        Adesso — continua con{" "}
+                                                        <span style={{ color: nowColor, fontWeight: 700 }}>● {nowLabel}</span>
+                                                        {lastExec
+                                                            ? <button onClick={() => unmarkCOExecuted(machine.machineId, lastExec)}
+                                                                title="Annulla conferma CO"
+                                                                style={{ marginLeft: 8, padding: "1px 6px", borderRadius: 4, border: "1px solid var(--border)", background: "transparent", color: "var(--text-muted)", cursor: "pointer", fontSize: 10 }}>
+                                                                ↩ annulla CO
+                                                              </button>
+                                                            : <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>nessun changeover previsto</span>
+                                                        }
+                                                    </>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
+                                    );
+                                })()}
                             </div>
                         );
                     })()}
