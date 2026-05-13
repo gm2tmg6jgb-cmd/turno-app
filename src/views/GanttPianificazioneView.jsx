@@ -985,7 +985,43 @@ export default function GanttPianificazioneView({ showToast }) {
                 else if (worstDelta < -15) prodUrgency = 1;
             }
 
-            return { ...machine, itemsWithProgress, currentBlock, nextCO, overdueCOs, lastExecutedCO, urgency, prodUrgency };
+            // ── Smart Changeover Recommendation: Urgency-based ──
+            // Se un componente è significativamente più critico (>15% gap), suggerisci changeover
+            let recommendedItem = null;
+            let urgencyDelta = 0;
+            {
+                const currentItemKey = currentBlock?.compKey || machine.items[0]?.compKey;
+                const currentItem = itemsWithProgress.find(i => i.compKey === currentItemKey);
+                if (currentItem && itemsWithProgress.length > 1) {
+                    let maxDelta = 0;
+                    let mostCriticalItem = null;
+
+                    // Calcola percentuale di ritardo per ogni componente
+                    const getUrgencyPercentage = (item) => {
+                        if (item.target <= 0) return 0;
+                        return (item.target - item.produced) / item.target;
+                    };
+
+                    const currentUrgency = getUrgencyPercentage(currentItem);
+
+                    for (const item of itemsWithProgress) {
+                        if (item.compKey === currentItemKey || item.target <= 0) continue;
+                        const itemUrgency = getUrgencyPercentage(item);
+                        const delta = itemUrgency - currentUrgency;
+                        if (delta > maxDelta && delta > 0.15) {  // Threshold: 15%
+                            maxDelta = delta;
+                            mostCriticalItem = item;
+                        }
+                    }
+
+                    if (mostCriticalItem && maxDelta > 0.15) {
+                        recommendedItem = mostCriticalItem;
+                        urgencyDelta = maxDelta;
+                    }
+                }
+            }
+
+            return { ...machine, itemsWithProgress, currentBlock, nextCO, overdueCOs, lastExecutedCO, urgency, prodUrgency, recommendedItem, urgencyDelta };
         }).sort((a, b) => b.urgency - a.urgency || a.machineId.localeCompare(b.machineId));
     }, [sharedMachines, weeklyTargets, sapByKey, stockOverrides, upstreamPhaseConfig, consumedH, executedCOs]);
 
@@ -1549,24 +1585,47 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                     );
                                 })()}
 
-                                {/* Nessun changeover → mostra componente attuale */}
-                                {!hasOverdue && !hasNext && nowLabel && (
-                                    <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                                        <span style={{ fontSize: 15, flexShrink: 0 }}>✅</span>
-                                        <div style={{ fontSize: 13, color: "var(--text-primary)" }}>
-                                            Adesso — continua con{" "}
-                                            <span style={{ color: nowColor, fontWeight: 700 }}>● {nowLabel}</span>
-                                            {lastExec
-                                                ? <button onClick={() => unmarkCOExecuted(machine.machineId, lastExec)}
-                                                    title="Annulla conferma CO"
-                                                    style={{ marginLeft: 8, padding: "1px 6px", borderRadius: 4, border: "1px solid var(--border)", background: "transparent", color: "var(--text-muted)", cursor: "pointer", fontSize: 10 }}>
-                                                    ↩ annulla CO
-                                                  </button>
-                                                : <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>nessun changeover previsto</span>
-                                            }
+                                {/* Nessun changeover → mostra componente attuale OPPURE changeover consigliato */}
+                                {!hasOverdue && !hasNext && nowLabel && (() => {
+                                    const nowItem = machine.itemsWithProgress.find(i => i.compKey === (machine.currentBlock?.compKey || machine.items[0]?.compKey));
+                                    return (
+                                        <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                                            <span style={{ fontSize: 15, flexShrink: 0 }}>{machine.recommendedItem ? "⚠️" : "✅"}</span>
+                                            <div style={{ fontSize: 13, color: "var(--text-primary)" }}>
+                                                {machine.recommendedItem ? (
+                                                    // Smart Changeover Recommendation
+                                                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                                                        <div>
+                                                            <span>Considera changeover a </span>
+                                                            <span style={{ color: machine.recommendedItem.color, fontWeight: 700 }}>● {machine.recommendedItem.shortLabel}</span>
+                                                            <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>
+                                                                (+{(machine.urgencyDelta * 100).toFixed(0)}% più urgente)
+                                                            </span>
+                                                        </div>
+                                                        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                                                            {machine.recommendedItem.label}: {machine.recommendedItem.target - machine.recommendedItem.produced} pz indietro
+                                                            {nowItem && <>{" "}vs {nowItem.target - nowItem.produced} su <span style={{ color: nowColor, fontWeight: 600 }}>● {nowLabel}</span></>}
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    // Continua con quello attuale (comportamento precedente)
+                                                    <>
+                                                        Adesso — continua con{" "}
+                                                        <span style={{ color: nowColor, fontWeight: 700 }}>● {nowLabel}</span>
+                                                        {lastExec
+                                                            ? <button onClick={() => unmarkCOExecuted(machine.machineId, lastExec)}
+                                                                title="Annulla conferma CO"
+                                                                style={{ marginLeft: 8, padding: "1px 6px", borderRadius: 4, border: "1px solid var(--border)", background: "transparent", color: "var(--text-muted)", cursor: "pointer", fontSize: 10 }}>
+                                                                ↩ annulla CO
+                                                              </button>
+                                                            : <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>nessun changeover previsto</span>
+                                                        }
+                                                    </>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
+                                    );
+                                })()}
                             </div>
                         );
                     })()}
