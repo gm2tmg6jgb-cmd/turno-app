@@ -1367,6 +1367,76 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
     const warning  = machineStatus.filter(m => Math.max(m.urgency, m.prodUrgency) === 1).length;
     const ok       = machineStatus.filter(m => Math.max(m.urgency, m.prodUrgency) === 0).length;
 
+    // ── Efficiency Analytics ──
+    const efficiencyMetrics = useMemo(() => {
+        const expectedPct = consumedH > 0 ? Math.round((consumedH / WEEK_HOURS) * 100) : 0;
+
+        // Metriche per componente
+        const componentMetrics = {};
+        let totalProduced = 0, totalTarget = 0, totalRemaining = 0;
+
+        for (const m of machineStatus) {
+            for (const item of m.itemsWithProgress) {
+                if (!item || item.target <= 0) continue;
+                const key = item.comp || item.compKey;
+                if (!componentMetrics[key]) {
+                    componentMetrics[key] = { target: 0, produced: 0, remaining: 0, machines: new Set() };
+                }
+                componentMetrics[key].target += item.target;
+                componentMetrics[key].produced += item.produced;
+                componentMetrics[key].remaining += item.remaining;
+                componentMetrics[key].machines.add(m.machineId);
+
+                totalTarget += item.target;
+                totalProduced += item.produced;
+                totalRemaining += item.remaining;
+            }
+        }
+
+        // Calcolo varianze
+        const componentStats = Object.entries(componentMetrics).map(([comp, data]) => ({
+            comp,
+            pctDone: data.target > 0 ? Math.round((data.produced / data.target) * 100) : 0,
+            variance: data.target > 0 ? Math.round((data.produced / data.target) * 100) - expectedPct : 0,
+            produced: data.produced,
+            target: data.target,
+            remaining: data.remaining,
+            machines: data.machines.size,
+        })).sort((a, b) => a.variance - b.variance);
+
+        // Utilizzo macchine
+        const machineUtil = machineStatus.map(m => ({
+            machineId: m.machineId,
+            phase: m.phaseLabel,
+            hoursUsed: consumedH,
+            hoursAvailable: WEEK_HOURS,
+            utilization: Math.round((consumedH / WEEK_HOURS) * 100),
+            itemsProduced: m.itemsWithProgress.reduce((s, i) => s + i.produced, 0),
+            itemsTarget: m.itemsWithProgress.reduce((s, i) => s + i.target, 0),
+            changeovers: m.nextCO ? m.nextCO.at - (m.currentBlock?.endH || 0) : 0,
+        }));
+
+        // Stima completion
+        const avgDailyRate = consumedH > 0 ? totalProduced / (consumedH / 24) : 0;
+        const daysToComplete = avgDailyRate > 0 ? totalRemaining / avgDailyRate : 999;
+        const projectedCompletionDay = new Date(weekStart + 'T00:00:00');
+        projectedCompletionDay.setDate(projectedCompletionDay.getDate() + Math.ceil(daysToComplete));
+
+        return {
+            expectedPct,
+            totalProduced,
+            totalTarget,
+            totalRemaining,
+            overallEfficiency: totalTarget > 0 ? Math.round((totalProduced / totalTarget) * 100) : 0,
+            variance: totalTarget > 0 ? Math.round((totalProduced / totalTarget) * 100) - expectedPct : 0,
+            componentStats,
+            machineUtil,
+            avgDailyRate: Math.round(avgDailyRate),
+            projectedCompletionDay: projectedCompletionDay.toISOString().split('T')[0],
+            onTrack: daysToComplete <= 6,
+        };
+    }, [machineStatus, consumedH, weekStart]);
+
     // ── Smart Inventory Alerts ──
     // Identifica componenti critici per stock: quelli che sono >75% completati e con pezzi rimasti < 2 giorni di produzione
     const inventoryAlerts = useMemo(() => {
@@ -1587,6 +1657,77 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                     </div>
                 );
             })()}
+
+            {/* ── Efficiency Analytics Dashboard ── */}
+            <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px", marginBottom: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 16, color: "var(--text-primary)" }}>
+                    📊 Efficiency Analytics
+                </div>
+
+                {/* KPI row */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 16 }}>
+                    <div style={{ background: "var(--bg-tertiary)", borderRadius: 8, padding: "12px", textAlign: "center" }}>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Efficienza Globale</div>
+                        <div style={{ fontSize: 22, fontWeight: 800, color: efficiencyMetrics.variance >= 0 ? "#10b981" : "#ef4444" }}>
+                            {efficiencyMetrics.overallEfficiency}%
+                        </div>
+                        <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 4 }}>
+                            {efficiencyMetrics.variance >= 0 ? "+" : ""}{efficiencyMetrics.variance}% vs piano
+                        </div>
+                    </div>
+
+                    <div style={{ background: "var(--bg-tertiary)", borderRadius: 8, padding: "12px", textAlign: "center" }}>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Ritmo Giornaliero</div>
+                        <div style={{ fontSize: 22, fontWeight: 800, color: "#3c6ef0" }}>
+                            {efficiencyMetrics.avgDailyRate.toLocaleString("it-IT")}
+                        </div>
+                        <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 4 }}>pz/giorno</div>
+                    </div>
+
+                    <div style={{ background: "var(--bg-tertiary)", borderRadius: 8, padding: "12px", textAlign: "center" }}>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Completamento</div>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: efficiencyMetrics.onTrack ? "#10b981" : "#f59e0b" }}>
+                            {efficiencyMetrics.projectedCompletionDay}
+                        </div>
+                        <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 4 }}>
+                            {efficiencyMetrics.onTrack ? "✅ In tempo" : "⚠️ A rischio"}
+                        </div>
+                    </div>
+
+                    <div style={{ background: "var(--bg-tertiary)", borderRadius: 8, padding: "12px", textAlign: "center" }}>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Remapped</div>
+                        <div style={{ fontSize: 22, fontWeight: 800, color: "#f59e0b" }}>
+                            {efficiencyMetrics.totalRemaining.toLocaleString("it-IT")}
+                        </div>
+                        <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 4 }}>pz rimanenti</div>
+                    </div>
+                </div>
+
+                {/* Componenti variance */}
+                <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 10, color: "var(--text-primary)" }}>
+                        Varianza Componenti (vs atteso {efficiencyMetrics.expectedPct}%)
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 8 }}>
+                        {efficiencyMetrics.componentStats.slice(0, 6).map(c => (
+                            <div key={c.comp} style={{ padding: "10px 12px", background: "var(--bg-tertiary)", borderRadius: 6, fontSize: 12, borderLeft: `3px solid ${c.variance >= 0 ? "#10b981" : c.variance >= -10 ? "#f59e0b" : "#ef4444"}` }}>
+                                <div style={{ fontWeight: 700, marginBottom: 4 }}>{c.comp}</div>
+                                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 2 }}>
+                                    {c.pctDone}% completato ({c.produced}/{c.target})
+                                </div>
+                                <div style={{ fontSize: 11, color: c.variance >= 0 ? "#10b981" : "#ef4444" }}>
+                                    {c.variance >= 0 ? "+" : ""}{c.variance}% vs piano
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    {efficiencyMetrics.componentStats.length > 6 && (
+                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 10, textAlign: "center" }}>
+                            +{efficiencyMetrics.componentStats.length - 6} componenti
+                        </div>
+                    )}
+                </div>
+            </div>
 
             {machineStatus.length === 0 && (
                 <div style={{ padding: 24, textAlign: "center", color: "var(--text-muted)", background: "var(--bg-secondary)", borderRadius: 10, border: "1px solid var(--border)" }}>
