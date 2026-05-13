@@ -1622,8 +1622,13 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
 
                 return (
                     <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px", marginBottom: 20 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: "var(--text-primary)" }}>
-                            📦 Smart Inventory Alerts
+                        <div style={{ marginBottom: 12 }}>
+                            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, color: "var(--text-primary)" }}>
+                                📦 Smart Inventory Alerts
+                            </div>
+                            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                                Identifica componenti prossimi alla fine stock. Quando un componente è al 75%+ della produzione settimanale ma rimangono &lt;2 giorni di materiale, significa che il ritmo di produzione supera l'arrivo di nuovo materiale. Pianifica il rifornimento per evitare fermi macchina.
+                            </div>
                         </div>
 
                         {criticalInv.length > 0 && (
@@ -1663,8 +1668,13 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
 
             {/* ── Efficiency Analytics Dashboard ── */}
             <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px", marginBottom: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 16, color: "var(--text-primary)" }}>
-                    📊 Efficiency Analytics
+                <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, color: "var(--text-primary)" }}>
+                        📊 Efficiency Analytics
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                        Monitora il ritmo di produzione complessivo rispetto al piano settimanale. Mostra se sei in linea col calendario, il ritmo giornaliero medio, la data stima di completamento, e identifica componenti che corrono avanti (verde) o in ritardo (rosso) rispetto al ritmo atteso.
+                    </div>
                 </div>
 
                 {/* KPI row */}
@@ -1698,7 +1708,7 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                     </div>
 
                     <div style={{ background: "var(--bg-tertiary)", borderRadius: 8, padding: "12px", textAlign: "center" }}>
-                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Remapped</div>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>Rimangono</div>
                         <div style={{ fontSize: 22, fontWeight: 800, color: "#f59e0b" }}>
                             {efficiencyMetrics.totalRemaining.toLocaleString("it-IT")}
                         </div>
@@ -1708,8 +1718,13 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
 
                 {/* Componenti variance */}
                 <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 10, color: "var(--text-primary)" }}>
-                        Varianza Componenti (vs atteso {efficiencyMetrics.expectedPct}%)
+                    <div style={{ marginBottom: 10 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 2, color: "var(--text-primary)" }}>
+                            Varianza Componenti
+                        </div>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                            Confronta il progresso di ogni componente col ritmo atteso settimanale ({efficiencyMetrics.expectedPct}%). Verde = avanti, Rosso = indietro. Aiuta a identificare quali componenti stanno rallentando l'intera linea.
+                        </div>
                     </div>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 8 }}>
                         {efficiencyMetrics.componentStats.slice(0, 6).map(c => (
