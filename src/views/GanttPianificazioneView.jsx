@@ -1367,6 +1367,33 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
     const warning  = machineStatus.filter(m => Math.max(m.urgency, m.prodUrgency) === 1).length;
     const ok       = machineStatus.filter(m => Math.max(m.urgency, m.prodUrgency) === 0).length;
 
+    // ── Smart Inventory Alerts ──
+    // Identifica componenti critici per stock: quelli che sono >75% completati e con pezzi rimasti < 2 giorni di produzione
+    const inventoryAlerts = useMemo(() => {
+        const alerts = [];
+        for (const m of machineStatus) {
+            for (const item of m.itemsWithProgress) {
+                if (!item || item.target <= 0) continue;
+                const pctDone = (item.produced / item.target) * 100;
+                const daysRemaining = item.remaining > 0 && item.jph > 0 ? (item.remaining / item.jph) / 24 : 0;
+
+                // Alert se: >75% fatto E rimangono <2 giorni di lavoro (stock sottodimensionato)
+                if (pctDone >= 75 && daysRemaining < 2 && daysRemaining > 0) {
+                    alerts.push({
+                        machineId: m.machineId,
+                        compKey: item.compKey,
+                        label: item.label,
+                        remaining: item.remaining,
+                        pctDone: Math.round(pctDone),
+                        daysLeft: daysRemaining,
+                        urgency: daysRemaining < 1 ? 2 : 1,  // critical if <1 day
+                    });
+                }
+            }
+        }
+        return alerts.sort((a, b) => a.daysLeft - b.daysLeft);
+    }, [machineStatus]);
+
     const urgencyStyle = (u, pu) => {
         const combined = Math.max(u, pu);
         if (combined >= 3) return { border: "2px solid #ef4444", background: "#ef444408" };
@@ -1504,6 +1531,54 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                         <strong>{m.machineId}</strong> ({m.phaseLabel}) — scadenza in 2-3 giorni
                                         <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
                                             Ritmo: {(Math.min(...m.itemsWithProgress.filter(i => i.target > 0).map(i => (i.produced / i.target) * 100)) || 0).toFixed(0)}% del target
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                );
+            })()}
+
+            {/* ── Smart Inventory Alerts ── */}
+            {(() => {
+                const criticalInv = inventoryAlerts.filter(a => a.urgency === 2);
+                const warningInv = inventoryAlerts.filter(a => a.urgency === 1);
+
+                if (inventoryAlerts.length === 0) return null;
+
+                return (
+                    <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px", marginBottom: 20 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: "var(--text-primary)" }}>
+                            📦 Smart Inventory Alerts
+                        </div>
+
+                        {criticalInv.length > 0 && (
+                            <div style={{ marginBottom: 12 }}>
+                                <div style={{ fontSize: 11, color: "#ef4444", fontWeight: 700, marginBottom: 6 }}>
+                                    🔴 STOCK CRITICO — Rimane &lt;1 giorno di produzione
+                                </div>
+                                {criticalInv.map((alert, i) => (
+                                    <div key={i} style={{ fontSize: 12, padding: "8px 12px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 6, marginBottom: 6, cursor: "pointer" }} onClick={() => scrollToMachine(alert.machineId)}>
+                                        <strong>{alert.label}</strong> — {alert.pctDone}% completato
+                                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                                            Rimangono {alert.remaining.toLocaleString("it-IT")} pz (~{alert.daysLeft.toFixed(1)} giorni)
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {warningInv.length > 0 && (
+                            <div>
+                                <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 700, marginBottom: 6 }}>
+                                    🟡 ATTENZIONE STOCK — Rimane 1-2 giorni di produzione
+                                </div>
+                                {warningInv.map((alert, i) => (
+                                    <div key={i} style={{ fontSize: 12, padding: "8px 12px", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 6, marginBottom: 6, cursor: "pointer" }} onClick={() => scrollToMachine(alert.machineId)}>
+                                        <strong>{alert.label}</strong> — {alert.pctDone}% completato
+                                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                                            Rimangono {alert.remaining.toLocaleString("it-IT")} pz (~{alert.daysLeft.toFixed(1)} giorni)
                                         </div>
                                     </div>
                                 ))}
