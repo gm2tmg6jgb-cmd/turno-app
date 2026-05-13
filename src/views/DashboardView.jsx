@@ -1027,7 +1027,7 @@ export default function DashboardView({
                         {/* Date Range Selector */}
                         <div style={{ display: "flex", gap: 10, marginBottom: 20, alignItems: "center" }}>
                             <div style={{ flex: 1 }}>
-                                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--text-muted)", marginBottom: 4 }}>DA</label>
+                                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", marginBottom: 4 }}>DA</label>
                                 <input 
                                     type="date" className="input" style={{ width: "100%", fontSize: 12, padding: "6px" }}
                                     value={selectedCells[0]?.date}
@@ -1049,7 +1049,7 @@ export default function DashboardView({
                                 />
                             </div>
                             <div style={{ flex: 1 }}>
-                                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "var(--text-muted)", marginBottom: 4 }}>A</label>
+                                <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", marginBottom: 4 }}>A</label>
                                 <input 
                                     type="date" className="input" style={{ width: "100%", fontSize: 12, padding: "6px" }}
                                     value={selectedCells[selectedCells.length - 1]?.date}
@@ -1115,7 +1115,7 @@ export default function DashboardView({
                                             style={{ padding: "8px 4px", borderRadius: 8, border: "1px solid var(--border)", background: "transparent", color: m.colore, fontWeight: 700, fontSize: 11, cursor: "pointer", textAlign: "center" }}
                                         >
                                             <div style={{ fontWeight: 900, fontSize: 13 }}>{m.sigla}</div>
-                                            <div style={{ fontSize: 9, opacity: 0.8 }}>{m.label}</div>
+                                            <div style={{ fontSize: 11, opacity: 0.8 }}>{m.label}</div>
                                         </button>
                                     ));
                                 })()}

@@ -219,7 +219,7 @@ export default function ZoneView({ zones, setZones, macchine, setMacchine, showT
                                             {macchineZona.length === 0 && <span style={{ color: "var(--text-muted)", fontSize: 11 }}>—</span>}
                                         </div>
                                         {z.max_machines > 0 && (
-                                            <div style={{ fontSize: 10, color: macchineZona.length >= z.max_machines ? "var(--danger)" : "var(--success)", marginTop: 4 }}>
+                                            <div style={{ fontSize: 12, color: macchineZona.length >= z.max_machines ? "var(--danger)" : "var(--success)", marginTop: 4 }}>
                                                 {macchineZona.length} / {z.max_machines} slots utilizzati
                                             </div>
                                         )}

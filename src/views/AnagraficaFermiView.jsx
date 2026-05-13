@@ -112,7 +112,7 @@ export default function AnagraficaFermiView({ motiviFermo, setMotiviFermo, tecno
                         // Helper to render a table list
                         const renderTable = (list, typeLabel, color) => (
                             <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 10, fontWeight: 900, color: color || "var(--text-muted)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px", paddingLeft: "4px" }}>
+                                <div style={{ fontSize: 12, fontWeight: 900, color: color || "var(--text-muted)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.5px", paddingLeft: "4px" }}>
                                     {typeLabel} ({list.length})
                                 </div>
                                 <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 4px" }}>
@@ -122,7 +122,7 @@ export default function AnagraficaFermiView({ motiviFermo, setMotiviFermo, tecno
                                                 <td style={{ padding: "8px 10px", width: "32px", fontSize: 16, borderRadius: "8px 0 0 8px" }}>{m.icona}</td>
                                                 <td style={{ padding: "8px 10px" }}>
                                                     <div style={{ fontWeight: 700, fontSize: 13 }}>{m.label}</div>
-                                                    <div style={{ fontSize: 9, color: "var(--text-muted)", fontFamily: "monospace" }}>ID: {m.id}</div>
+                                                    <div style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace" }}>ID: {m.id}</div>
                                                 </td>
                                                 <td style={{ padding: "8px 10px", textAlign: "right", borderRadius: "0 8px 8px 0" }}>
                                                     <div style={{ display: "flex", justifyContent: "flex-end", gap: 4 }}>

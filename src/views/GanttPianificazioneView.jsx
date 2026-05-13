@@ -211,7 +211,7 @@ function GanttBar({ blocks, consumedH }) {
                 }
                 return (
                     <div key={i} title={`${block.shortLabel}: +${block.startH.toFixed(1)}h→${block.endH.toFixed(1)}h`}
-                        style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: 2, bottom: 2, background: block.color, borderRadius: 2, zIndex: 2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#fff", fontWeight: 700, overflow: "hidden", whiteSpace: "nowrap" }}>
+                        style={{ position: "absolute", left: `${left}%`, width: `${width}%`, top: 2, bottom: 2, background: block.color, borderRadius: 2, zIndex: 2, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#fff", fontWeight: 700, overflow: "hidden", whiteSpace: "nowrap" }}>
                         {width > 2.5 ? block.shortLabel : ""}
                     </div>
                 );
@@ -1684,7 +1684,7 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                         <div style={{ fontSize: 22, fontWeight: 800, color: efficiencyMetrics.variance >= 0 ? "#10b981" : "#ef4444" }}>
                             {efficiencyMetrics.overallEfficiency}%
                         </div>
-                        <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 4 }}>
+                        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
                             {efficiencyMetrics.variance >= 0 ? "+" : ""}{efficiencyMetrics.variance}% vs piano
                         </div>
                     </div>
@@ -1694,7 +1694,7 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                         <div style={{ fontSize: 22, fontWeight: 800, color: "#3c6ef0" }}>
                             {efficiencyMetrics.avgDailyRate.toLocaleString("it-IT")}
                         </div>
-                        <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 4 }}>pz/giorno</div>
+                        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>pz/giorno</div>
                     </div>
 
                     <div style={{ background: "var(--bg-tertiary)", borderRadius: 8, padding: "12px", textAlign: "center" }}>
@@ -1702,7 +1702,7 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                         <div style={{ fontSize: 18, fontWeight: 800, color: efficiencyMetrics.onTrack ? "#10b981" : "#f59e0b" }}>
                             {efficiencyMetrics.projectedCompletionDay}
                         </div>
-                        <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 4 }}>
+                        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>
                             {efficiencyMetrics.onTrack ? "✅ In tempo" : "⚠️ A rischio"}
                         </div>
                     </div>
@@ -1712,7 +1712,7 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                         <div style={{ fontSize: 22, fontWeight: 800, color: "#f59e0b" }}>
                             {efficiencyMetrics.totalRemaining.toLocaleString("it-IT")}
                         </div>
-                        <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 4 }}>pz rimanenti</div>
+                        <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 4 }}>pz rimanenti</div>
                     </div>
                 </div>
 
@@ -1939,7 +1939,7 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                                         {lastExec
                                                             ? <button onClick={() => unmarkCOExecuted(machine.machineId, lastExec)}
                                                                 title="Annulla conferma CO"
-                                                                style={{ marginLeft: 8, padding: "1px 6px", borderRadius: 4, border: "1px solid var(--border)", background: "transparent", color: "var(--text-muted)", cursor: "pointer", fontSize: 10 }}>
+                                                                style={{ marginLeft: 8, padding: "1px 6px", borderRadius: 4, border: "1px solid var(--border)", background: "transparent", color: "var(--text-muted)", cursor: "pointer", fontSize: 12 }}>
                                                                 ↩ annulla CO
                                                               </button>
                                                             : <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>nessun changeover previsto</span>
@@ -1994,7 +1994,7 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                             <div style={{ marginTop: 2 }}>
                                                 {!isEditingMachine
                                                     ? <button onClick={() => setEditingUpstream({ key: upstreamMachineKey, machineValue: configuredMachine || "", phaseValue: item.upstreamPhaseId || "" })}
-                                                        style={{ padding: "1px 7px", borderRadius: 3, border: "1px solid var(--accent-dim)", background: "var(--accent-dim)", color: "var(--accent)", cursor: "pointer", fontSize: 10 }}>
+                                                        style={{ padding: "1px 7px", borderRadius: 3, border: "1px solid var(--accent-dim)", background: "var(--accent-dim)", color: "var(--accent)", cursor: "pointer", fontSize: 12 }}>
                                                         + configura flusso
                                                       </button>
                                                     : <UpstreamEditForm machineId={machine.machineId} compKey={item.compKey} showReset={false} editingUpstream={editingUpstream} setEditingUpstream={setEditingUpstream} saveUpstreamPhase={saveUpstreamPhase} saveUpstreamMachine={saveUpstreamMachine} />
@@ -2020,13 +2020,13 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                                                 <span style={{ color: "var(--text-muted)", marginLeft: 3 }}>({PHASE_LABELS[item.upstreamPhaseId] || item.upstreamPhaseId})</span>
                                                                 {/* Bottone modifica fase + macchina upstream */}
                                                                 <button onClick={() => setEditingUpstream(isEditingMachine ? null : { key: upstreamMachineKey, machineValue: configuredMachine || "", phaseValue: item.upstreamPhaseId || "" })}
-                                                                    style={{ marginLeft: 3, padding: "0px 4px", borderRadius: 3, border: "1px solid var(--border)", background: isEditingMachine ? "var(--accent)" : "var(--bg-tertiary)", color: isEditingMachine ? "#fff" : "var(--text-muted)", cursor: "pointer", fontSize: 9 }}>
+                                                                    style={{ marginLeft: 3, padding: "0px 4px", borderRadius: 3, border: "1px solid var(--border)", background: isEditingMachine ? "var(--accent)" : "var(--bg-tertiary)", color: isEditingMachine ? "#fff" : "var(--text-muted)", cursor: "pointer", fontSize: 11 }}>
                                                                     ✏️
                                                                 </button>
                                                               </>
                                                             : <><strong>{PHASE_LABELS[item.upstreamPhaseId] || item.upstreamPhaseId}</strong>
                                                                 <button onClick={() => setEditingUpstream(isEditingMachine ? null : { key: upstreamMachineKey, machineValue: "", phaseValue: item.upstreamPhaseId || "" })}
-                                                                    style={{ marginLeft: 4, padding: "0px 5px", borderRadius: 3, border: "1px solid var(--accent-dim)", background: "var(--accent-dim)", color: "var(--accent)", cursor: "pointer", fontSize: 9 }}>
+                                                                    style={{ marginLeft: 4, padding: "0px 5px", borderRadius: 3, border: "1px solid var(--accent-dim)", background: "var(--accent-dim)", color: "var(--accent)", cursor: "pointer", fontSize: 11 }}>
                                                                     + macchina
                                                                 </button>
                                                               </>
@@ -2034,7 +2034,7 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                                         {" "}— pianificabili{" "}
                                                         <strong>{item.remaining.toLocaleString("it-IT")} pz</strong>
                                                     </span>
-                                                    <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3,
+                                                    <span style={{ fontSize: 12, padding: "1px 5px", borderRadius: 3,
                                                         background: item.isManualOverride ? "#9b59b620" : "rgba(255,255,255,0.08)",
                                                         color: item.isManualOverride ? "#9b59b6" : "var(--text-muted)" }}>
                                                         {item.isManualOverride ? "manuale" : "SAP"}
@@ -2043,7 +2043,7 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                                     <button onClick={() => setEditingStock(isEditingStock ? null : { key: overrideKey, value: item.upstreamProduced || 0 })}
                                                         style={{ padding: "1px 6px", borderRadius: 3, border: "1px solid var(--border)",
                                                             background: isEditingStock ? "var(--accent)" : "var(--bg-tertiary)",
-                                                            color: isEditingStock ? "#fff" : "var(--text-secondary)", cursor: "pointer", fontSize: 10 }}>
+                                                            color: isEditingStock ? "#fff" : "var(--text-secondary)", cursor: "pointer", fontSize: 12 }}>
                                                         📦
                                                     </button>
                                                 </div>
@@ -2115,19 +2115,19 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                                         <button onClick={() => setEditingStock(isEditingG ? null : { key: gk, value: gs })}
                                                             style={{ padding: "1px 6px", borderRadius: 3, border: "1px solid var(--border)",
                                                                 background: isEditingG ? "var(--accent)" : "var(--bg-tertiary)",
-                                                                color: isEditingG ? "#fff" : "var(--text-secondary)", cursor: "pointer", fontSize: 10 }}>
+                                                                color: isEditingG ? "#fff" : "var(--text-secondary)", cursor: "pointer", fontSize: 12 }}>
                                                             ✏️
                                                         </button>
                                                     </div>
                                                 ) : (
                                                     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                                                         <button onClick={() => setEditingStock(isEditingG ? null : { key: gk, value: 0 })}
-                                                            style={{ padding: "1px 7px", borderRadius: 3, border: "1px solid #9b59b640", background: "#9b59b610", color: "#9b59b6", cursor: "pointer", fontSize: 10, fontWeight: 600 }}>
+                                                            style={{ padding: "1px 7px", borderRadius: 3, border: "1px solid #9b59b640", background: "#9b59b610", color: "#9b59b6", cursor: "pointer", fontSize: 12, fontWeight: 600 }}>
                                                             📦 Inserisci grezzo
                                                         </button>
                                                         {!(MACHINES_NO_FLOW_CONFIG.has(machine.machineId) || PHASES_NO_FLOW_CONFIG.has(machine.phase)) && (
                                                         <button onClick={() => setEditingUpstream({ key: `${machine.machineId}::${item.compKey}`, machineValue: "", phaseValue: "" })}
-                                                            style={{ padding: "1px 7px", borderRadius: 3, border: "1px solid var(--accent-dim)", background: "var(--accent-dim)", color: "var(--accent)", cursor: "pointer", fontSize: 10 }}>
+                                                            style={{ padding: "1px 7px", borderRadius: 3, border: "1px solid var(--accent-dim)", background: "var(--accent-dim)", color: "var(--accent)", cursor: "pointer", fontSize: 12 }}>
                                                             🔗 configura flusso
                                                         </button>
                                                         )}
@@ -2451,10 +2451,10 @@ function GanttTab({ sharedMachines, weekStart, consumedH, cardStyle }) {
                                                         ({item.remaining.toLocaleString("it-IT")} rim.)
                                                     </span>
                                                     <span style={{ marginLeft: 6, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                                                        <span style={{ fontSize: 10, background: item.urgencyScore >= 0.8 ? "#ef444422" : item.urgencyScore >= 0.5 ? "#f59e0b22" : "#10b98122", color: item.urgencyScore >= 0.8 ? "#ef4444" : item.urgencyScore >= 0.5 ? "#f59e0b" : "#10b981", padding: "1px 6px", borderRadius: 8, fontWeight: 600 }}>
+                                                        <span style={{ fontSize: 12, background: item.urgencyScore >= 0.8 ? "#ef444422" : item.urgencyScore >= 0.5 ? "#f59e0b22" : "#10b98122", color: item.urgencyScore >= 0.8 ? "#ef4444" : item.urgencyScore >= 0.5 ? "#f59e0b" : "#10b981", padding: "1px 6px", borderRadius: 8, fontWeight: 600 }}>
                                                             Urg: {item.urgencyScore}
                                                         </span>
-                                                        <span style={{ fontSize: 10, color: "var(--text-muted)" }}>({item.jph.toLocaleString("it-IT")} pz/h)</span>
+                                                        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>({item.jph.toLocaleString("it-IT")} pz/h)</span>
                                                     </span>
                                                 </>
                                             )}
@@ -2466,7 +2466,7 @@ function GanttTab({ sharedMachines, weekStart, consumedH, cardStyle }) {
                                         <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 6 }}>nessun target</span>
                                     )}
                                     {item.target > 0 && !item.hasConfig && (
-                                        <span style={{ fontSize: 10, color: "#ef4444", marginLeft: 4 }}>⚠ no throughput</span>
+                                        <span style={{ fontSize: 12, color: "#ef4444", marginLeft: 4 }}>⚠ no throughput</span>
                                     )}
                                 </div>
                             </div>
@@ -3464,7 +3464,7 @@ function MancatoTargetTab({ sharedMachines, weeklyTargets, sapByKey, rawConferme
                                         <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 13, color: "var(--text-primary)" }}>
                                             {machine.machineId}
                                         </span>
-                                        <span style={{ fontSize: 10, color: "var(--text-muted)", padding: "1px 6px",
+                                        <span style={{ fontSize: 12, color: "var(--text-muted)", padding: "1px 6px",
                                             background: (machine.phaseColor || "#888") + "22", borderRadius: 8 }}>
                                             {machine.phaseLabel}
                                         </span>
@@ -3497,9 +3497,9 @@ function MancatoTargetTab({ sharedMachines, weeklyTargets, sapByKey, rawConferme
                                         {/* Row 3: cause chips */}
                                         {causes.length > 0 && (
                                             <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
-                                                <span style={{ fontSize: 10, color: "var(--text-muted)" }}>Occupata da:</span>
+                                                <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Occupata da:</span>
                                                 {causes.map(r => (
-                                                    <span key={r.compKey} style={{ fontSize: 10, padding: "1px 7px", borderRadius: 8,
+                                                    <span key={r.compKey} style={{ fontSize: 12, padding: "1px 7px", borderRadius: 8,
                                                         background: (r.color || "#888") + "20",
                                                         border: `1px solid ${r.color || "#888"}44`,
                                                         color: "var(--text-primary)", fontWeight: 600 }}>
@@ -3521,7 +3521,7 @@ function MancatoTargetTab({ sharedMachines, weeklyTargets, sapByKey, rawConferme
                                                         style={{ padding: "2px 8px", borderRadius: 10, border: `1px solid ${on ? "var(--accent)" : "var(--border)"}`,
                                                             background: on ? "var(--accent)" : "transparent",
                                                             color: on ? "#fff" : "var(--text-muted)",
-                                                            fontSize: 10, cursor: "pointer", fontWeight: on ? 600 : 400,
+                                                            fontSize: 12, cursor: "pointer", fontWeight: on ? 600 : 400,
                                                             transition: "all 0.12s" }}>
                                                         {on ? "✓ " : ""}{m.label}
                                                     </button>

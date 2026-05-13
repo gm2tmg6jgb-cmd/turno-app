@@ -1087,7 +1087,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                         {step.id !== "baa" && !configuredCells.has(`${proj}::${comp.replace(/\s*-\s*(1A|21A)$/i, "").trim()}::${step.id}`) && (
                                                             <div style={{
                                                                 position: "absolute", top: 2, right: 2,
-                                                                fontSize: 10, lineHeight: 1,
+                                                                fontSize: 12, lineHeight: 1,
                                                                 color: "#F59E0B",
                                                                 textShadow: "0 0 4px rgba(245,158,11,0.6)",
                                                                 pointerEvents: "none"

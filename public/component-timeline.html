@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timeline Flusso Componenti</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 20px;
+        }
+        .container { max-width: 1600px; margin: 0 auto; }
+        h1 { color: #f1f5f9; margin-bottom: 30px; font-size: 28px; }
+
+        .component-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .comp-btn {
+            padding: 12px;
+            border: 2px solid #334155;
+            background: #1e293b;
+            color: #e2e8f0;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .comp-btn:hover {
+            border-color: #64748b;
+            background: #334155;
+        }
+
+        .comp-btn.active {
+            border-color: #3b82f6;
+            background: #1e40af;
+            color: #fff;
+        }
+
+        .timeline-container {
+            background: #1e293b;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid #334155;
+        }
+
+        .phase-row {
+            display: grid;
+            grid-template-columns: 200px 1fr 100px 100px;
+            gap: 20px;
+            align-items: center;
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #0f172a;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .phase-name {
+            font-weight: 600;
+            color: #f1f5f9;
+            font-size: 14px;
+        }
+
+        .phase-bar {
+            background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+            height: 40px;
+            border-radius: 6px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .phase-bar.termico { background: linear-gradient(90deg, #ef4444, #b91c1c); }
+        .phase-bar.saldatura { background: linear-gradient(90deg, #f59e0b, #d97706); }
+        .phase-bar.rettifica { background: linear-gradient(90deg, #8b5cf6, #6d28d9); }
+        .phase-bar.dentatura { background: linear-gradient(90deg, #10b981, #047857); }
+
+        .phase-bar-label {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: white;
+            font-weight: 600;
+            font-size: 12px;
+            z-index: 10;
+        }
+
+        .phase-hours {
+            text-align: right;
+            font-weight: 600;
+            color: #60a5fa;
+            font-size: 14px;
+        }
+
+        .phase-days {
+            text-align: right;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .summary-box {
+            background: #334155;
+            border-left: 4px solid #10b981;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .summary-row {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 20px;
+            padding: 10px 0;
+            border-bottom: 1px solid #475569;
+        }
+
+        .summary-row:last-child { border-bottom: none; }
+
+        .summary-label {
+            font-weight: 600;
+            color: #cbd5e1;
+        }
+
+        .summary-value {
+            color: #60a5fa;
+            font-weight: 600;
+        }
+
+        .timeline-header {
+            display: grid;
+            grid-template-columns: 200px 1fr 100px 100px;
+            gap: 20px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #475569;
+        }
+
+        .header-cell {
+            font-weight: 600;
+            color: #cbd5e1;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .warning {
+            background: #7c2d12;
+            border-left: 4px solid #ef4444;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 6px;
+            color: #fed7aa;
+            font-size: 13px;
+        }
+
+        .bottleneck {
+            background: #7c2d12;
+            border: 2px solid #ef4444;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .bottleneck-title {
+            color: #fca5a5;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .gantt-weekly {
+            background: #0f172a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #10b981;
+            overflow-x: auto;
+        }
+
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .comparison-table th,
+        .comparison-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #334155;
+        }
+
+        .comparison-table th {
+            background: #1e293b;
+            color: #cbd5e1;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .comparison-table tr:hover {
+            background: #1e293b;
+        }
+
+        .comp-name {
+            font-weight: 600;
+            color: #60a5fa;
+        }
+
+        .critical {
+            color: #fca5a5;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Timeline Flusso Componenti</h1>
+
+        <div class="component-selector" id="compSelector"></div>
+
+        <div id="timelineContainer"></div>
+    </div>
+
+    <script>
+        const components = {
+            'SG1_DCT300': {
+                name: 'SG1·DCT300',
+                project: 'DCT300',
+                phases: [
+                    { name: 'Saldatura Soft', hours: 11.8, type: 'saldatura', zone: 'Z6-Z7', equipment: 'SCA/FRW/SDA' },
+                    { name: 'Dentatura', hours: 17.4, type: 'dentatura', zone: 'Z9-Z11', equipment: 'FRW (16x)' },
+                    { name: 'Trattamento Termico ★', hours: 56, type: 'termico', zone: 'FORNO', equipment: 'Tempra 176pz/carica' },
+                    { name: 'Tornitura Hard', hours: 14.6, type: 'default', zone: 'Z15-Z18', equipment: 'DRA (10x)' },
+                    { name: 'Rettifica Denti', hours: 15.1, type: 'rettifica', zone: 'Z19-Z21', equipment: 'SLW (12x)' }
+                ]
+            },
+            'SG5_DCT300': {
+                name: 'SG5·DCT300',
+                project: 'DCT300',
+                phases: [
+                    { name: 'Saldatura Soft', hours: 11.8, type: 'saldatura', zone: 'Z6-Z7', equipment: 'SCA/FRW/SDA' },
+                    { name: 'Dentatura', hours: 17.4, type: 'dentatura', zone: 'Z9-Z11', equipment: 'FRW (16x)' },
+                    { name: 'Trattamento Termico ★', hours: 56, type: 'termico', zone: 'FORNO', equipment: 'Tempra 176pz/carica' },
+                    { name: 'Tornitura Hard', hours: 14.6, type: 'default', zone: 'Z15-Z18', equipment: 'DRA (10x)' },
+                    { name: 'Rettifica Denti', hours: 15.1, type: 'rettifica', zone: 'Z19-Z21', equipment: 'SLW (12x)' }
+                ]
+            },
+            'FG5_7_8Fe': {
+                name: 'FG5/7·8Fe ⚠️',
+                project: '8Fe',
+                critical: true,
+                phases: [
+                    { name: 'Saldatura Soft', hours: 11.8, type: 'saldatura', zone: 'Z6-Z7', equipment: 'SCA/FRW/SDA' },
+                    { name: 'Dentatura', hours: 17.4, type: 'dentatura', zone: 'Z9-Z11', equipment: 'FRW (16x)' },
+                    { name: 'Trattamento Termico ★', hours: 56, type: 'termico', zone: 'FORNO', equipment: 'Tempra 176pz/carica' },
+                    { name: 'Tornitura Hard', hours: 14.6, type: 'default', zone: 'Z15-Z18', equipment: 'DRA (10x)' },
+                    { name: 'Rettifica Denti', hours: 15.1, type: 'rettifica', zone: 'Z19-Z21', equipment: 'SLW (12x)', note: '+2-3h setup extra' }
+                ]
+            },
+            'DG_REV_DCT300': {
+                name: 'DG-REV·DCT300',
+                project: 'DCT300',
+                phases: [
+                    { name: 'Saldatura Soft', hours: 11.8, type: 'saldatura', zone: 'Z6-Z7', equipment: 'SCA/FRW/SDA' },
+                    { name: 'Dentatura', hours: 17.4, type: 'dentatura', zone: 'Z9-Z11', equipment: 'FRW (16x)' },
+                    { name: 'Trattamento Termico ★', hours: 56, type: 'termico', zone: 'FORNO', equipment: 'Tempra 176pz/carica' },
+                    { name: 'Tornitura Hard', hours: 14.6, type: 'default', zone: 'Z15-Z18', equipment: 'DRA (10x)' },
+                    { name: 'Rettifica Denti', hours: 15.1, type: 'rettifica', zone: 'Z19-Z21', equipment: 'SLW (12x)' }
+                ]
+            },
+            'SG3_8Fe': {
+                name: 'SG3·8Fe',
+                project: '8Fe',
+                phases: [
+                    { name: 'Saldatura Soft', hours: 11.8, type: 'saldatura', zone: 'Z6-Z7', equipment: 'SCA/FRW/SDA' },
+                    { name: 'Dentatura', hours: 17.4, type: 'dentatura', zone: 'Z9-Z11', equipment: 'FRW (16x)' },
+                    { name: 'Trattamento Termico ★', hours: 56, type: 'termico', zone: 'FORNO', equipment: 'Tempra 176pz/carica' },
+                    { name: 'Tornitura Hard', hours: 14.6, type: 'default', zone: 'Z15-Z18', equipment: 'DRA (10x)' },
+                    { name: 'Rettifica Denti', hours: 15.1, type: 'rettifica', zone: 'Z19-Z21', equipment: 'SLW (12x)' }
+                ]
+            },
+            'SG2_DCT_ECO': {
+                name: 'SG2·DCT ECO',
+                project: 'DCT ECO',
+                phases: [
+                    { name: 'Saldatura Soft', hours: 11.8, type: 'saldatura', zone: 'Z6-Z7', equipment: 'SCA/FRW/SDA' },
+                    { name: 'Dentatura', hours: 17.4, type: 'dentatura', zone: 'Z9-Z11', equipment: 'FRW (16x)' },
+                    { name: 'Trattamento Termico ★', hours: 56, type: 'termico', zone: 'FORNO', equipment: 'Tempra 176pz/carica' },
+                    { name: 'Tornitura Hard', hours: 14.6, type: 'default', zone: 'Z15-Z18', equipment: 'DRA (10x)' },
+                    { name: 'Rettifica Denti', hours: 15.1, type: 'rettifica', zone: 'Z19-Z21', equipment: 'SLW (12x)' }
+                ]
+            }
+        };
+
+        function formatHours(h) {
+            const days = Math.floor(h / 8);
+            const hours = h % 8;
+            if (days > 0) return `${days}d ${Math.round(hours)}h`;
+            return `${Math.round(h)}h`;
+        }
+
+        function getTotalHours(phases) {
+            return phases.reduce((sum, p) => sum + p.hours, 0);
+        }
+
+        function renderTimeline(componentKey) {
+            const comp = components[componentKey];
+            const totalHours = getTotalHours(comp.phases);
+            const maxHours = Math.max(...comp.phases.map(p => p.hours));
+
+            let html = `
+                <div class="timeline-container">
+                    <h2 style="margin-bottom: 20px; color: #60a5fa;">${comp.name}</h2>
+
+                    ${comp.critical ? `
+                        <div class="warning">
+                            ⚠️ Componente critico per urgency. Se ritardo > -30%, riceve priorità nel forno e nella rettifica denti.
+                        </div>
+                    ` : ''}
+
+                    <div class="timeline-header">
+                        <div class="header-cell">Fase</div>
+                        <div class="header-cell">Timeline (ore)</div>
+                        <div class="header-cell">Ore</div>
+                        <div class="header-cell">Giorni</div>
+                    </div>
+            `;
+
+            let cumulativeHours = 0;
+            comp.phases.forEach((phase, idx) => {
+                const phasePercentage = (phase.hours / maxHours) * 100;
+                const days = (phase.hours / 8).toFixed(1);
+                cumulativeHours += phase.hours;
+
+                html += `
+                    <div class="phase-row">
+                        <div class="phase-name">
+                            ${idx + 1}. ${phase.name}<br>
+                            <span style="font-size: 11px; color: #94a3b8;">${phase.zone} • ${phase.equipment}</span>
+                        </div>
+                        <div class="phase-bar ${phase.type}">
+                            <div class="phase-bar-label">${formatHours(phase.hours)}</div>
+                        </div>
+                        <div class="phase-hours">${phase.hours}h</div>
+                        <div class="phase-days">${days}d</div>
+                    </div>
+                `;
+            });
+
+            html += `
+                <div class="summary-box">
+                    <div class="summary-row">
+                        <div class="summary-label">⏱️ Tempo Totale</div>
+                        <div class="summary-value">${totalHours.toFixed(1)} ore = ${(totalHours / 8).toFixed(1)} giorni lavorativi</div>
+                    </div>
+                    <div class="summary-row">
+                        <div class="summary-label">📍 Fase Critica</div>
+                        <div class="summary-value">Trattamento Termico (56 ore = 70% del tempo totale)</div>
+                    </div>
+                    <div class="summary-row">
+                        <div class="summary-label">🏭 Macchine Utilizzate</div>
+                        <div class="summary-value">SCA/FRW/SDA → FRW (16x) → FORNO (7 cariche) → DRA (10x) → SLW (12x)</div>
+                    </div>
+                </div>
+            `;
+
+            if (comp.critical) {
+                html += `
+                    <div class="bottleneck">
+                        <div class="bottleneck-title">⚠️ Criticità FG5/7</div>
+                        <p>Rettifica denti richiede +2-3h di setup aggiuntivo (tolleranza ±0.05mm per ingranaggio libero)</p>
+                        <p style="margin-top: 8px;">Tempo totale reale: ~120 ore (vs 114.9 ore di SG standard)</p>
+                    </div>
+                `;
+            }
+
+            html += `
+                <div class="bottleneck" style="border-left-color: #ef4444;">
+                    <div class="bottleneck-title">🔥 Bottleneck: Forno</div>
+                    <p>Il forno impiega 56 ore (7 cariche × 8h/carica) per tempra 1200 pz.</p>
+                    <p style="margin-top: 8px;"><strong>Implicazione:</strong> Se questo componente arriva con urgency alta, rallenta TUTTO il resto della produzione.</p>
+                    <p style="margin-top: 8px;"><strong>Dettaglio:</strong> Le 7 cariche si mixano (no separazione variante 1A/21A) per massimizzare efficienza termica.</p>
+                </div>
+            `;
+
+            document.getElementById('timelineContainer').innerHTML = html;
+        }
+
+        // Setup component selector
+        const selector = document.getElementById('compSelector');
+        let firstComp = null;
+        Object.entries(components).forEach(([key, comp], idx) => {
+            if (idx === 0) firstComp = key;
+            const btn = document.createElement('button');
+            btn.className = 'comp-btn' + (idx === 0 ? ' active' : '');
+            btn.textContent = comp.name;
+            btn.onclick = () => {
+                document.querySelectorAll('.comp-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderTimeline(key);
+            };
+            selector.appendChild(btn);
+        });
+
+        // Initial render
+        renderTimeline(firstComp);
+    </script>
+</body>
+</html>

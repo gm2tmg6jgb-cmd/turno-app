@@ -240,7 +240,7 @@ export default function AnagraficaView({ dipendenti, setDipendenti, showToast, t
                                                 </div>
 
                                                 {d.tipo === 'interinale' && d.scadenza && (
-                                                    <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 6, borderTop: "1px solid var(--border-light)", paddingTop: 6 }}>
+                                                    <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6, borderTop: "1px solid var(--border-light)", paddingTop: 6 }}>
                                                         ⏳ {new Date(d.scadenza).toLocaleDateString()} {d.agenzia && <span>• {d.agenzia}</span>}
                                                     </div>
                                                 )}

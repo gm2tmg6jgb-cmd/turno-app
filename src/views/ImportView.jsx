@@ -672,8 +672,8 @@ CREATE TABLE prelievi_baa (
                                 <div key={key} className="form-group" style={{ marginBottom: 0 }}>
                                     <label className="form-label" style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                         {label}
-                                        {isRequired && <span style={{ color: "var(--danger)", fontSize: 10 }}>*</span>}
-                                        <span style={{ marginLeft: "auto", fontSize: 10, color: found ? "var(--success)" : "var(--text-muted)" }}>
+                                        {isRequired && <span style={{ color: "var(--danger)", fontSize: 12 }}>*</span>}
+                                        <span style={{ marginLeft: "auto", fontSize: 12, color: found ? "var(--success)" : "var(--text-muted)" }}>
                                             {found ? "✓ rilevata" : "non trovata"}
                                         </span>
                                     </label>

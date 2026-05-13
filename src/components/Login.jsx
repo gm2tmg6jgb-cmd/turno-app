@@ -69,14 +69,14 @@ export default function Login() {
                     <p style={{ margin: "6px 0 0", fontSize: 13, color: "var(--text-muted)" }}>
                         {mode === "login" ? "Accedi per continuare" : "Recupera la tua password"}
                     </p>
-                    <span style={{ fontSize: 10, color: "var(--text-muted)", opacity: 0.5 }}>v{version}</span>
+                    <span style={{ fontSize: 12, color: "var(--text-muted)", opacity: 0.5 }}>v{version}</span>
                 </div>
 
                 {/* FORM LOGIN */}
                 {mode === "login" && (
                     <form onSubmit={handleLogin}>
                         <div style={{ marginBottom: 16 }}>
-                            <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>
+                            <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>
                                 Email
                             </label>
                             <input
@@ -92,7 +92,7 @@ export default function Login() {
                         </div>
 
                         <div style={{ marginBottom: 8 }}>
-                            <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>
+                            <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>
                                 Password
                             </label>
                             <input
@@ -157,7 +157,7 @@ export default function Login() {
                         ) : (
                             <form onSubmit={handleReset}>
                                 <div style={{ marginBottom: 20 }}>
-                                    <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>
+                                    <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 6 }}>
                                         Email
                                     </label>
                                     <input

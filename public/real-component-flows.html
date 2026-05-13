@@ -1,0 +1,2328 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flussi Reali Componenti</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 30px;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 { color: #60a5fa; margin-bottom: 30px; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .stat-box {
+            background: #1e293b;
+            border: 1px solid #334155;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .stat-value { color: #60a5fa; font-weight: 600; font-size: 20px; }
+        .stat-label { font-size: 12px; color: #94a3b8; margin-top: 5px; }
+
+        .components-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 20px;
+        }
+
+        .component-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .component-card h3 {
+            color: #60a5fa;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .phases-timeline {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .phase-item {
+            background: #0f172a;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 3px solid #3b82f6;
+        }
+
+        .phase-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .phase-num {
+            background: #3b82f6;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 11px;
+        }
+
+        .phase-name {
+            flex: 1;
+            font-weight: 500;
+            color: #e2e8f0;
+        }
+
+        .phase-time {
+            color: #60a5fa;
+            font-weight: 600;
+        }
+
+        .phase-bar-container {
+            background: #0f172a;
+            height: 4px;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .phase-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+        }
+
+        .phase-details {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 4px;
+        }
+
+        .component-summary {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #334155;
+            color: #10b981;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Flussi REALI di Ogni Componente (da Supabase)</h1>
+
+        <div class="stats">
+    
+            <div class="stat-box">
+                <div class="stat-value">29</div>
+                <div class="stat-label">Componenti totali</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">4</div>
+                <div class="stat-label">Progetti</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">119.2h</div>
+                <div class="stat-label">Tempo medio</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">14.9d</div>
+                <div class="stat-label">Giorni lavorativi</div>
+            </div>
+        </div>
+
+        <div class="components-grid">
+    
+    <div class="component-card">
+        <h3>8Fe::<strong>FG5/7</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 115.0h (14.4 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>8Fe::<strong>PG</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 115.0h (14.4 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>8Fe::<strong>SG2</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 115.0h (14.4 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>8Fe::<strong>SG3</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 115.0h (14.4 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>8Fe::<strong>SG4</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 115.0h (14.4 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>8Fe::<strong>SG5</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 115.0h (14.4 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>8Fe::<strong>SG6</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">6.</span>
+                    <span class="phase-name">Tornitura Soft</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">start_soft</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 130.1h (16.3 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>8Fe::<strong>SG7</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">6.</span>
+                    <span class="phase-name">Tornitura Soft</span>
+                    <span class="phase-time">17.0h (2.1d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 30.43353705118411%"></div>
+                </div>
+                <div class="phase-details">start_soft</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 132.0h (16.5 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>8Fe::<strong>SG8</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 115.0h (14.4 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>8Fe::<strong>SGR</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 115.0h (14.4 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>DCT ECO::<strong>RG FD1</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 115.0h (14.4 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>DCT ECO::<strong>RG FD2</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 115.0h (14.4 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>DCT ECO::<strong>SG2</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 115.0h (14.4 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>DCT ECO::<strong>SG3</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">6.</span>
+                    <span class="phase-name">Saldatura 2</span>
+                    <span class="phase-time">6.5h (0.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 11.633403361344538%"></div>
+                </div>
+                <div class="phase-details">laser_welding_2</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">7.</span>
+                    <span class="phase-name">Ultrasuoni</span>
+                    <span class="phase-time">11.6h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 20.740664686927403%"></div>
+                </div>
+                <div class="phase-details">ut</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 133.1h (16.6 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>DCT ECO::<strong>SG4</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">6.</span>
+                    <span class="phase-name">Saldatura 2</span>
+                    <span class="phase-time">6.5h (0.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 11.633403361344538%"></div>
+                </div>
+                <div class="phase-details">laser_welding_2</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 121.5h (15.2 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>DCT ECO::<strong>SG5</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">6.</span>
+                    <span class="phase-name">Ultrasuoni</span>
+                    <span class="phase-time">11.6h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 20.740664686927403%"></div>
+                </div>
+                <div class="phase-details">ut</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">7.</span>
+                    <span class="phase-name">Saldatura 2</span>
+                    <span class="phase-time">6.5h (0.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 11.633403361344538%"></div>
+                </div>
+                <div class="phase-details">laser_welding_2</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 133.1h (16.6 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>DCT ECO::<strong>SGR</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 115.0h (14.4 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>DCT300::<strong>DG</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 115.0h (14.4 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>DCT300::<strong>DG-REV</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 115.0h (14.4 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>DCT300::<strong>RG</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 115.0h (14.4 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>DCT300::<strong>SG1</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 115.0h (14.4 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>DCT300::<strong>SG3</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 115.0h (14.4 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>DCT300::<strong>SG4</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 115.0h (14.4 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>DCT300::<strong>SG5</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">6.</span>
+                    <span class="phase-name">Ultrasuoni</span>
+                    <span class="phase-time">11.6h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 20.740664686927403%"></div>
+                </div>
+                <div class="phase-details">ut</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">7.</span>
+                    <span class="phase-name">Saldatura 2</span>
+                    <span class="phase-time">6.5h (0.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 11.633403361344538%"></div>
+                </div>
+                <div class="phase-details">laser_welding_2</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 133.1h (16.6 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>DCT300::<strong>SG6</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">6.</span>
+                    <span class="phase-name">Ultrasuoni</span>
+                    <span class="phase-time">11.6h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 20.740664686927403%"></div>
+                </div>
+                <div class="phase-details">ut</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">7.</span>
+                    <span class="phase-name">Saldatura 2</span>
+                    <span class="phase-time">6.5h (0.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 11.633403361344538%"></div>
+                </div>
+                <div class="phase-details">laser_welding_2</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">8.</span>
+                    <span class="phase-name">Tornitura Soft</span>
+                    <span class="phase-time">12.8h (1.6d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 22.794117647058826%"></div>
+                </div>
+                <div class="phase-details">start_soft</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 145.9h (18.2 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>DCT300::<strong>SG7</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 115.0h (14.4 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>DCT300::<strong>SGR</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 115.0h (14.4 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>RG+DH::<strong>RG FD1</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 115.0h (14.4 giorni)</strong>
+        </div>
+    </div>
+    
+    <div class="component-card">
+        <h3>RG+DH::<strong>RG FD2</strong></h3>
+        <div class="phases-timeline">
+    
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">1.</span>
+                    <span class="phase-name">Saldatura Soft</span>
+                    <span class="phase-time">11.9h (1.5d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 21.17808661926309%"></div>
+                </div>
+                <div class="phase-details">laser_welding</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">2.</span>
+                    <span class="phase-name">Dentatura</span>
+                    <span class="phase-time">17.4h (2.2d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 31.099765487590386%"></div>
+                </div>
+                <div class="phase-details">hobbing</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">3.</span>
+                    <span class="phase-name">Tratt. Termico</span>
+                    <span class="phase-time">56.0h (7.0d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 100%"></div>
+                </div>
+                <div class="phase-details">ht</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">4.</span>
+                    <span class="phase-name">Tornitura Hard</span>
+                    <span class="phase-time">14.6h (1.8d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.026179702650293%"></div>
+                </div>
+                <div class="phase-details">start_hard</div>
+            </div>
+        
+            <div class="phase-item">
+                <div class="phase-header">
+                    <span class="phase-num">5.</span>
+                    <span class="phase-name">Rettifica Denti</span>
+                    <span class="phase-time">15.1h (1.9d)</span>
+                </div>
+                <div class="phase-bar-container">
+                    <div class="phase-bar" style="width: 26.99579831932773%"></div>
+                </div>
+                <div class="phase-details">teeth_grinding</div>
+            </div>
+        
+        </div>
+        <div class="component-summary">
+            <strong>⏱️ Tempo totale: 115.0h (14.4 giorni)</strong>
+        </div>
+    </div>
+    
+        </div>
+    </div>
+</body>
+</html>
+    
