@@ -1021,7 +1021,30 @@ export default function GanttPianificazioneView({ showToast }) {
                 }
             }
 
-            return { ...machine, itemsWithProgress, currentBlock, nextCO, overdueCOs, lastExecutedCO, urgency, prodUrgency, recommendedItem, urgencyDelta };
+            // ── Bottleneck Risk Detection ──
+            // Una macchina è a rischio bottleneck se:
+            // 1. Ha componenti molto indietro (prodUrgency >= 1)
+            // 2. Ha poco tempo rimasto rispetto al lavoro necessario
+            // 3. Serve componenti critici per altri progetti
+            let bottleneckRisk = 0;  // 0=none, 1=warning, 2=critical
+            {
+                const totalHoursNeeded = itemsWithProgress
+                    .filter(i => i.remaining > 0)
+                    .reduce((sum, i) => sum + i.remainingH, 0);
+                const hoursRemaining = WEEK_HOURS - consumedH;
+                const daysRemaining = hoursRemaining / 24;
+
+                // Se ha lavoro > ore rimanenti per >30% → warning
+                if (totalHoursNeeded > hoursRemaining * 1.3 && daysRemaining < 3 && prodUrgency >= 1) {
+                    bottleneckRisk = 1;
+                }
+                // Se ha lavoro > ore rimanenti per >50% → critical
+                if (totalHoursNeeded > hoursRemaining * 1.5 && daysRemaining < 2) {
+                    bottleneckRisk = 2;
+                }
+            }
+
+            return { ...machine, itemsWithProgress, currentBlock, nextCO, overdueCOs, lastExecutedCO, urgency, prodUrgency, recommendedItem, urgencyDelta, bottleneckRisk };
         }).sort((a, b) => b.urgency - a.urgency || a.machineId.localeCompare(b.machineId));
     }, [sharedMachines, weeklyTargets, sapByKey, stockOverrides, upstreamPhaseConfig, consumedH, executedCOs]);
 
@@ -1441,6 +1464,54 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                     </div>
                 ))}
             </div>
+
+            {/* ── Predictive Bottleneck Alerts ── */}
+            {(() => {
+                const criticalBottlenecks = machineStatus.filter(m => m.bottleneckRisk === 2);
+                const warningBottlenecks = machineStatus.filter(m => m.bottleneckRisk === 1);
+
+                if (criticalBottlenecks.length === 0 && warningBottlenecks.length === 0) return null;
+
+                return (
+                    <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px", marginBottom: 20 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 12, color: "var(--text-primary)" }}>
+                            ⚠️ Predictive Bottleneck Detection
+                        </div>
+
+                        {criticalBottlenecks.length > 0 && (
+                            <div style={{ marginBottom: 12 }}>
+                                <div style={{ fontSize: 11, color: "#ef4444", fontWeight: 700, marginBottom: 6 }}>
+                                    🔴 CRITICO — Rischio di blocco produzione
+                                </div>
+                                {criticalBottlenecks.map(m => (
+                                    <div key={m.machineId} style={{ fontSize: 12, padding: "8px 12px", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 6, marginBottom: 6, cursor: "pointer" }} onClick={() => scrollToMachine(m.machineId)}>
+                                        <strong>{m.machineId}</strong> ({m.phaseLabel}) — scadenza in &lt;2 giorni
+                                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                                            Lavoro rimanente: {m.itemsWithProgress.reduce((s, i) => s + i.remaining, 0).toLocaleString("it-IT")} pz
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {warningBottlenecks.length > 0 && (
+                            <div>
+                                <div style={{ fontSize: 11, color: "#f59e0b", fontWeight: 700, marginBottom: 6 }}>
+                                    🟡 ATTENZIONE — Potenziale collo di bottiglia
+                                </div>
+                                {warningBottlenecks.map(m => (
+                                    <div key={m.machineId} style={{ fontSize: 12, padding: "8px 12px", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 6, marginBottom: 6, cursor: "pointer" }} onClick={() => scrollToMachine(m.machineId)}>
+                                        <strong>{m.machineId}</strong> ({m.phaseLabel}) — scadenza in 2-3 giorni
+                                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                                            Ritmo: {(Math.min(...m.itemsWithProgress.filter(i => i.target > 0).map(i => (i.produced / i.target) * 100)) || 0).toFixed(0)}% del target
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                );
+            })()}
 
             {machineStatus.length === 0 && (
                 <div style={{ padding: 24, textAlign: "center", color: "var(--text-muted)", background: "var(--bg-secondary)", borderRadius: 10, border: "1px solid var(--border)" }}>
