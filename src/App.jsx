@@ -9,6 +9,7 @@ import { getLocalDate } from "./lib/dateUtils";
 import Login from "./components/Login";
 import ChangelogModal from "./components/ChangelogModal";
 import { version } from "../package.json";
+import { useSessionTimeout } from "./lib/sessionTimeout";
 
 // Views — lazy loaded per ridurre bundle iniziale
 const DashboardView = lazy(() => import("./views/DashboardView"));
@@ -42,6 +43,9 @@ function AppContent({ session, onLogout }) {
   const [hasNewVersion, setHasNewVersion] = useState(() => {
     return localStorage.getItem("lastSeenVersion") !== version;
   });
+
+  // Auto-logout dopo 15 minuti di inattività
+  useSessionTimeout(15, onLogout);
 
   const isAdmin = session?.user?.app_metadata?.role === "admin";
 
