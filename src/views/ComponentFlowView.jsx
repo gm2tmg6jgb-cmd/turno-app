@@ -10,6 +10,8 @@ import { normalizeFlowComp, normalizeProject } from "../utils/sapMapping";
 
 // Parsing 100% manuale: solo material_fino_overrides (configurazione utente su Supabase)
 
+const DAYS_WEEK = 6;     // lun–sab (coerente con GanttPianificazioneView)
+const SHIFTS_DAY = 4;    // turni per giorno (A, B, C, D)
 const PHASE_CODE = Object.fromEntries(PROCESS_STEPS.map(step => [step.id, step.code]));
 
 // Daily targets (standard)
@@ -840,7 +842,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                     return (
                                         <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
                                             <span style={{ fontSize: isExpanded ? "32px" : "24px", color: "var(--text-primary)" }}>{base * numGiorni}</span>
-                                            <span style={{ fontSize: isExpanded ? "16px" : "13px", color: "var(--text-muted)", fontWeight: 700 }}>/ {base * 5}</span>
+                                            <span style={{ fontSize: isExpanded ? "16px" : "13px", color: "var(--text-muted)", fontWeight: 700 }}>/ {base * DAYS_WEEK}</span>
                                         </div>
                                     );
                                 })() : (
@@ -1420,7 +1422,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                             turniTotali += turniSenzaDatiOggi;
                         }
 
-                        const turniSettimanaliTotali = 20; // 5 giorni × 4 turni
+                        const turniSettimanaliTotali = DAYS_WEEK * SHIFTS_DAY; // 6 giorni × 4 turni = 24
                         const turniMancanti = Math.max(0, turniSettimanaliTotali - turniTotali);
 
                         // Trova la data/ora più recente dei dati scaricati
