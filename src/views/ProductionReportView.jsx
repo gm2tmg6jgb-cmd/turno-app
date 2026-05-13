@@ -826,7 +826,7 @@ export default function ProductionReportView({
                   8Fe
                 </th>
                 <th
-                  colSpan={5}
+                  colSpan={6}
                   style={{
                     border: "1px solid var(--border)",
                     padding: "8px",
