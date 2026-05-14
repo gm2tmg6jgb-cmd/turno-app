@@ -1281,7 +1281,10 @@ function UpstreamEditForm({ machineId, compKey, showReset, editingUpstream, setE
                 onChange={e => setEditingUpstream({ ...editingUpstream, phaseValue: e.target.value })}
                 style={{ padding: "3px 6px", borderRadius: 4, border: "1px solid var(--accent)", background: "var(--bg-primary)", color: "var(--text-primary)", fontSize: 12 }}>
                 <option value="">— fase —</option>
-                {Object.entries(PHASE_LABELS).filter(([id]) => id !== "baa").map(([id, label]) => (
+                {Object.entries(PHASE_LABELS).filter(([id]) => id !== "baa").reduce((acc, [id, label]) => {
+                    if (!acc.seen.has(label)) { acc.seen.add(label); acc.items.push([id, label]); }
+                    return acc;
+                }, { seen: new Set(), items: [] }).items.map(([id, label]) => (
                     <option key={id} value={id}>{label}</option>
                 ))}
             </select>
