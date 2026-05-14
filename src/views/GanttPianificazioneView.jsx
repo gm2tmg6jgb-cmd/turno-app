@@ -1207,6 +1207,7 @@ export default function GanttPianificazioneView({ showToast }) {
                 markCOExecuted={markCOExecuted}
                 unmarkCOExecuted={unmarkCOExecuted}
                 executedCOs={executedCOs}
+                compPhaseBackups={compPhaseBackups}
             />}
 
             {/* ══════════════════════════ TAB 2: GANTT ══════════════════════════ */}
@@ -1300,7 +1301,7 @@ function UpstreamEditForm({ machineId, compKey, showReset, editingUpstream, setE
     );
 }
 
-function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastSapByMachine, consumedH, weekStart, weekEnd, cfg, stockOverrides, saveStockOverride, upstreamMachineConfig, saveUpstreamMachine, upstreamPhaseConfig, saveUpstreamPhase, onRefreshOverrides, showToast, cardStyle, markCOExecuted, unmarkCOExecuted, executedCOs }) {
+function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastSapByMachine, consumedH, weekStart, weekEnd, cfg, stockOverrides, saveStockOverride, upstreamMachineConfig, saveUpstreamMachine, upstreamPhaseConfig, saveUpstreamPhase, onRefreshOverrides, showToast, cardStyle, markCOExecuted, unmarkCOExecuted, executedCOs, compPhaseBackups }) {
     const [editMachine,       setEditMachine]       = useState(null); // macchina aperta nel modal
     const [editingStock,      setEditingStock]      = useState(null); // { key, value } override stock upstream
     const [editingUpstream,   setEditingUpstream]   = useState(null); // { key: "machineId::compKey", machineValue: string, phaseValue: string }
