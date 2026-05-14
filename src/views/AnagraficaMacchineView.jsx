@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { Icons } from "../components/ui/Icons";
 import { REPARTI } from "../data/constants";
@@ -16,10 +16,58 @@ export default function AnagraficaMacchineView({ macchine, setMacchine, tecnolog
     const [search, setSearch] = useState("");
     const [filterReparto, setFilterReparto] = useState("");
     const [filterTec, setFilterTec] = useState("");
-    const [editingId, setEditingId] = useState(null); // null = nessun form aperto, 'new' = nuovo, ID = modifica
-    const [originalId, setOriginalId] = useState(null); // ID originale prima di eventuali modifiche
+    const [editingId, setEditingId] = useState(null);
+    const [originalId, setOriginalId] = useState(null);
     const [form, setForm] = useState(EMPTY);
     const [saving, setSaving] = useState(false);
+
+    // Backup machines state
+    const [backupMap, setBackupMap] = useState({}); // { macchina_id: [{id, backup_id, note}] }
+    const [newBackupInput, setNewBackupInput] = useState("");
+    const [addingBackup, setAddingBackup] = useState(false);
+
+    useEffect(() => {
+        supabase.from("machine_backups").select("*").then(({ data }) => {
+            if (!data) return;
+            const map = {};
+            data.forEach(r => {
+                if (!map[r.macchina_id]) map[r.macchina_id] = [];
+                map[r.macchina_id].push(r);
+            });
+            setBackupMap(map);
+        });
+    }, []);
+
+    const currentBackups = backupMap[editingId] || [];
+
+    const addBackup = async () => {
+        const bid = newBackupInput.trim().toUpperCase();
+        if (!bid || editingId === "new" || !editingId) return;
+        if (currentBackups.some(b => b.backup_id === bid)) {
+            showToast("Backup già presente", "warning"); return;
+        }
+        setAddingBackup(true);
+        const { data, error } = await supabase
+            .from("machine_backups")
+            .insert({ macchina_id: editingId, backup_id: bid })
+            .select().single();
+        setAddingBackup(false);
+        if (error) { showToast("Errore: " + error.message, "error"); return; }
+        setBackupMap(prev => ({
+            ...prev,
+            [editingId]: [...(prev[editingId] || []), data]
+        }));
+        setNewBackupInput("");
+    };
+
+    const removeBackup = async (rowId, machineId) => {
+        const { error } = await supabase.from("machine_backups").delete().eq("id", rowId);
+        if (error) { showToast("Errore rimozione: " + error.message, "error"); return; }
+        setBackupMap(prev => ({
+            ...prev,
+            [machineId]: (prev[machineId] || []).filter(b => b.id !== rowId)
+        }));
+    };
 
     /* ── dati filtrati ── */
     const filtered = useMemo(() => {
@@ -183,6 +231,7 @@ export default function AnagraficaMacchineView({ macchine, setMacchine, tecnolog
                                         <th style={{ textAlign: "left", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Zona</th>
                                         <th style={{ textAlign: "left", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Tecnologia Fermi</th>
                                         <th style={{ textAlign: "left", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Codice SAP</th>
+                                        <th style={{ textAlign: "left", padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Backup</th>
                                         <th style={{ width: 80, padding: "10px 16px" }}></th>
                                     </tr>
                                 </thead>
@@ -225,6 +274,19 @@ export default function AnagraficaMacchineView({ macchine, setMacchine, tecnolog
                                                 </td>
                                                 <td style={{ padding: "10px 12px", fontSize: 13, fontFamily: "monospace", color: "var(--accent)" }}>
                                                     {m.codice_sap || <span style={{ color: "var(--text-lighter)", fontStyle: "italic", fontSize: 11 }}>—</span>}
+                                                </td>
+                                                <td style={{ padding: "10px 12px" }}>
+                                                    {(backupMap[m.id] || []).length > 0 ? (
+                                                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                                                            {(backupMap[m.id] || []).map(b => (
+                                                                <span key={b.id} style={{ fontSize: 11, fontFamily: "monospace", fontWeight: 700, background: "var(--info-muted)", color: "var(--info)", borderRadius: 4, padding: "2px 7px" }}>
+                                                                    🔄 {b.backup_id}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>—</span>
+                                                    )}
                                                 </td>
                                                 <td style={{ padding: "10px 16px" }} onClick={e => e.stopPropagation()}>
                                                     <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
@@ -332,7 +394,54 @@ export default function AnagraficaMacchineView({ macchine, setMacchine, tecnolog
                             </div>
                         </div>
 
-                        <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+                        {/* ── Macchine di Backup ── */}
+                        {editingId && editingId !== "new" && (
+                            <div className="form-group" style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid var(--border)" }}>
+                                <label className="form-label">Macchine di Backup</label>
+                                <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 8 }}>
+                                    Se questa macchina è occupata, valuta C/O su:
+                                </div>
+
+                                {/* Chips backup esistenti */}
+                                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+                                    {currentBackups.length === 0 && (
+                                        <span style={{ fontSize: 12, color: "var(--text-muted)", fontStyle: "italic" }}>Nessun backup configurato</span>
+                                    )}
+                                    {currentBackups.map(b => (
+                                        <span key={b.id} style={{
+                                            display: "inline-flex", alignItems: "center", gap: 6,
+                                            background: "var(--info-muted)", border: "1px solid rgba(59,130,246,0.3)",
+                                            color: "var(--info)", borderRadius: 6, padding: "4px 10px",
+                                            fontSize: 13, fontFamily: "monospace", fontWeight: 700,
+                                        }}>
+                                            🔄 {b.backup_id}
+                                            <button
+                                                onClick={() => removeBackup(b.id, editingId)}
+                                                style={{ background: "none", border: "none", color: "var(--danger)", cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 0 }}
+                                                title="Rimuovi backup"
+                                            >×</button>
+                                        </span>
+                                    ))}
+                                </div>
+
+                                {/* Input aggiunta */}
+                                <div style={{ display: "flex", gap: 8 }}>
+                                    <input
+                                        className="input"
+                                        placeholder="Es. FRW10217"
+                                        value={newBackupInput}
+                                        onChange={e => setNewBackupInput(e.target.value.toUpperCase())}
+                                        onKeyDown={e => e.key === "Enter" && addBackup()}
+                                        style={{ fontFamily: "monospace", fontWeight: 600, flex: 1 }}
+                                    />
+                                    <button className="btn btn-secondary" onClick={addBackup} disabled={addingBackup || !newBackupInput.trim()}>
+                                        {addingBackup ? "…" : "+ Aggiungi"}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
                             <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleSave} disabled={saving}>
                                 {saving ? "Salvataggio…" : "Salva"}
                             </button>

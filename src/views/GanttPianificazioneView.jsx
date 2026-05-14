@@ -353,6 +353,7 @@ export default function GanttPianificazioneView({ showToast }) {
     // ── Loading ──
     const [loading,         setLoading]         = useState(true);
     const [loadingConferme, setLoadingConferme] = useState(false);
+    const [machineBackups,  setMachineBackups]  = useState({}); // { machineId: [backupId, ...] }
 
     // ── Weekend end date ──
     const weekEnd = useMemo(() => {
@@ -424,6 +425,16 @@ export default function GanttPianificazioneView({ showToast }) {
             loadOverrides(),
             supabase.from("componente_fasi").select("progetto,componente,fase_id,fase_label,pzH,fixedH,chargeSize,noChangeOver")
                 .then(({ data }) => { if (data) setDbFasi(data); }),
+            supabase.from("machine_backups").select("macchina_id,backup_id")
+                .then(({ data }) => {
+                    if (!data) return;
+                    const map = {};
+                    data.forEach(r => {
+                        if (!map[r.macchina_id]) map[r.macchina_id] = [];
+                        map[r.macchina_id].push(r.backup_id);
+                    });
+                    setMachineBackups(map);
+                }),
         ]).then(() => setLoading(false));
     }, [loadOverrides]);
 
@@ -1791,6 +1802,19 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                             </span>
                         )}
                     </div>
+
+                    {/* ── Macchine di backup ── */}
+                    {(machineBackups[machine.machineId] || []).length > 0 && (
+                        <div style={{ padding: "6px 16px", borderBottom: "1px solid var(--border)", background: "rgba(59,130,246,0.05)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <span style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 600 }}>🔄 Backup:</span>
+                            {(machineBackups[machine.machineId] || []).map(bid => (
+                                <span key={bid} style={{ fontSize: 12, fontFamily: "monospace", fontWeight: 700, background: "var(--info-muted)", color: "var(--info)", borderRadius: 4, padding: "2px 8px" }}>
+                                    {bid}
+                                </span>
+                            ))}
+                            <span style={{ fontSize: 11, color: "var(--text-muted)", fontStyle: "italic" }}>— valuta C/O se occupata</span>
+                        </div>
+                    )}
 
                     {/* Raccomandazione automatica — sempre visibile */}
                     {(() => {
