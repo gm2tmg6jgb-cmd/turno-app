@@ -28,7 +28,6 @@ const SkillsView = lazy(() => import("./views/SkillsView"));
 const FormazioneView = lazy(() => import("./views/FormazioneView"));
 const Op10View = lazy(() => import("./views/Op10View"));
 const ComponentFlowView = lazy(() => import("./views/ComponentFlowView"));
-const ComponentFlowViewBackup = lazy(() => import("./views/ComponentFlowViewBackup"));
 const PrioritaView = lazy(() => import("./views/PrioritaView"));
 const ProductionDelaysView = lazy(() => import("./views/ProductionDelaysView"));
 const ProductionScheduleView = lazy(() => import("./views/ProductionScheduleView"));
@@ -236,7 +235,6 @@ function AppContent({ session, onLogout }) {
     { id: "formazione", label: "Formazione", icon: Icons.academic },
     { id: "lpaPlan", label: "Piano LPA", icon: Icons.calendar },
     { id: "componentFlow", label: "Avanzamento Componenti", icon: Icons.report, status: "new" },
-    { id: "componentFlowBackup", label: "⚙ Avanzamento Backup", icon: Icons.report },
     { id: "ganttPianificazione", label: "Pianificazione Changeover", icon: Icons.calendar, status: "new" },
     { id: "priorita", label: "Laboratorio Attualizzato Beta", icon: Icons.filter },
     { id: "weisserPriorities", label: "Priorità Macchine", icon: Icons.filter },
@@ -257,7 +255,6 @@ function AppContent({ session, onLogout }) {
     op10: "Asservimento OP10",
     sapHub: "Hub Gestione SAP",
     componentFlow: "Avanzamento Componenti",
-    componentFlowBackup: "Avanzamento Componenti - Backup",
     throughput: "Tempi di Attraversamento",
     ganttPianificazione: "Pianificazione Changeover — Gantt",
     priorita: "Laboratorio Attualizzato Beta",
@@ -384,7 +381,6 @@ function AppContent({ session, onLogout }) {
 
                 <div className="nav-section-label">Report & Dati</div>
                 {renderItem(ni("componentFlow"))}
-                {renderItem(ni("componentFlowBackup"))}
                 {renderItem(ni("ganttPianificazione"))}
                 {renderItem(ni("priorita"))}
                 {renderItem(ni("productionFlowReport"))}
@@ -602,9 +598,6 @@ function AppContent({ session, onLogout }) {
 
           {currentView === "componentFlow" && (
             <ComponentFlowView macchine={macchine} showToast={showToast} globalDate={globalDate} />
-          )}
-          {currentView === "componentFlowBackup" && (
-            <ComponentFlowViewBackup macchine={macchine} showToast={showToast} globalDate={globalDate} />
           )}
           {currentView === "throughput" && (
             <ThroughputView showToast={showToast} />
