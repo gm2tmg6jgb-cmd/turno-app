@@ -951,6 +951,8 @@ export default function ProductionReportView({
                       borderBottom: "1px solid var(--border-light)",
                       backgroundColor: isRowHovered ? "#eef2ff" : "transparent",
                       transition: "background-color 0.1s",
+                      height: "50px",
+                      minHeight: "50px",
                     }}
                   >
                     <td
