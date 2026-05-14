@@ -1018,6 +1018,9 @@ export default function GanttPianificazioneView({ showToast }) {
 
                     for (const item of itemsWithProgress) {
                         if (item.compKey === currentItemKey || item.target <= 0) continue;
+                        // Non suggerire C/O se non c'è materiale processabile
+                        if (item.upstreamConstrained && (item.availableFromUpstream ?? 0) <= 0) continue;
+                        if (!item.upstreamPhaseId && item.grezzoStock !== null && item.grezzoStock <= 0) continue;
                         const itemUrgency = getUrgencyPercentage(item);
                         const delta = itemUrgency - currentUrgency;
                         if (delta > maxDelta && delta > 0.15) {  // Threshold: 15%
