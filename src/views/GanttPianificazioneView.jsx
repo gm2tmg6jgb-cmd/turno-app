@@ -353,8 +353,8 @@ export default function GanttPianificazioneView({ showToast }) {
     // ── Loading ──
     const [loading,         setLoading]         = useState(true);
     const [loadingConferme, setLoadingConferme] = useState(false);
-    const [machineBackups,  setMachineBackups]  = useState({}); // { machineId: [backupId, ...] }
-
+    // { "progetto::componente::fase_id": [backup_macchina_id, ...] }
+    const [compPhaseBackups, setCompPhaseBackups] = useState({});
     // ── Weekend end date ──
     const weekEnd = useMemo(() => {
         const d = new Date(weekStart + "T12:00:00");
@@ -425,15 +425,16 @@ export default function GanttPianificazioneView({ showToast }) {
             loadOverrides(),
             supabase.from("componente_fasi").select("progetto,componente,fase_id,fase_label,pzH,fixedH,chargeSize,noChangeOver")
                 .then(({ data }) => { if (data) setDbFasi(data); }),
-            supabase.from("machine_backups").select("macchina_id,backup_id")
+            supabase.from("component_phase_backups").select("progetto,componente,fase_id,backup_macchina_id")
                 .then(({ data }) => {
                     if (!data) return;
                     const map = {};
                     data.forEach(r => {
-                        if (!map[r.macchina_id]) map[r.macchina_id] = [];
-                        map[r.macchina_id].push(r.backup_id);
+                        const key = `${r.progetto}::${r.componente}::${r.fase_id}`;
+                        if (!map[key]) map[key] = [];
+                        map[key].push(r.backup_macchina_id);
                     });
-                    setMachineBackups(map);
+                    setCompPhaseBackups(map);
                 }),
         ]).then(() => setLoading(false));
     }, [loadOverrides]);
@@ -1803,18 +1804,32 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                         )}
                     </div>
 
-                    {/* ── Macchine di backup ── */}
-                    {(machineBackups[machine.machineId] || []).length > 0 && (
-                        <div style={{ padding: "6px 16px", borderBottom: "1px solid var(--border)", background: "rgba(59,130,246,0.05)", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                            <span style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 600 }}>🔄 Backup:</span>
-                            {(machineBackups[machine.machineId] || []).map(bid => (
-                                <span key={bid} style={{ fontSize: 12, fontFamily: "monospace", fontWeight: 700, background: "var(--info-muted)", color: "var(--info)", borderRadius: 4, padding: "2px 8px" }}>
-                                    {bid}
-                                </span>
-                            ))}
-                            <span style={{ fontSize: 11, color: "var(--text-muted)", fontStyle: "italic" }}>— valuta C/O se occupata</span>
-                        </div>
-                    )}
+                    {/* ── Macchine di backup per componente+fase ── */}
+                    {(() => {
+                        const rows = [];
+                        for (const item of machine.itemsWithProgress) {
+                            const phases = item.relevantPhases?.length ? item.relevantPhases : [machine.phase];
+                            for (const phaseId of phases) {
+                                const bm = compPhaseBackups[`${item.proj}::${item.comp}::${phaseId}`];
+                                if (bm?.length) rows.push({ label: item.label, backups: bm });
+                            }
+                        }
+                        if (!rows.length) return null;
+                        return (
+                            <div style={{ padding: "6px 16px", borderBottom: "1px solid var(--border)", background: "rgba(59,130,246,0.05)", display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                                <span style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 600 }}>🔄 Backup:</span>
+                                {rows.map((row, i) => (
+                                    <span key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                                        <strong style={{ fontSize: 12 }}>{row.label}:</strong>
+                                        {row.backups.map(b => (
+                                            <span key={b} style={{ fontFamily: "monospace", fontWeight: 700, background: "var(--info-muted)", color: "var(--info)", borderRadius: 4, padding: "1px 7px", fontSize: 12 }}>{b}</span>
+                                        ))}
+                                    </span>
+                                ))}
+                                <span style={{ fontSize: 11, color: "var(--text-muted)", fontStyle: "italic" }}>— valuta C/O se occupata</span>
+                            </div>
+                        );
+                    })()}
 
                     {/* Raccomandazione automatica — sempre visibile */}
                     {(() => {
