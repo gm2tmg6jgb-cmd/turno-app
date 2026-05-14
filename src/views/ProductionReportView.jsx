@@ -133,6 +133,7 @@ export default function ProductionReportView({
 
   const components = [
     "SG1",
+    "DG-REV",
     "DG",
     "SG3",
     "SG4",
