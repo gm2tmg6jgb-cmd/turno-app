@@ -497,7 +497,8 @@ export default function GanttPianificazioneView({ showToast }) {
                 const ps   = PROJ_SHORT[proj] || proj.slice(0, 3);
                 result[machineId] = {
                     comp, proj,
-                    date:       rowDate,
+                    date:        rowDate,
+                    importatoIl: r.importato_il || null,
                     shortLabel: `${comp}·${ps}`,
                     color:      keyColor(`${proj}::${comp}`),
                 };
@@ -1802,6 +1803,12 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                 {" "}
                                 <span style={{ fontSize: 12, color: "var(--text-muted)" }}>
                                     {fmtDate(lastSapByMachine[machine.machineId].date)}
+                                    {lastSapByMachine[machine.machineId].importatoIl && (
+                                        <span style={{ marginLeft: 4 }}>
+                                            {new Date(lastSapByMachine[machine.machineId].importatoIl)
+                                                .toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
+                                        </span>
+                                    )}
                                 </span>
                             </span>
                         ) : (
