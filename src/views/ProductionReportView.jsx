@@ -1044,8 +1044,9 @@ export default function ProductionReportView({
                               const groupedDetails = Object.values(
                                 details.reduce((acc, curr) => {
                                   const mat = curr.materiale || "N/A";
-                                  if (!acc[mat]) acc[mat] = { ...curr, qta_ottenuta: 0 };
+                                  if (!acc[mat]) acc[mat] = { ...curr, qta_ottenuta: 0, qta_scarto: 0 };
                                   acc[mat].qta_ottenuta += curr.qta_ottenuta || 0;
+                                  acc[mat].qta_scarto += curr.qta_scarto || 0;
                                   return acc;
                                 }, {}),
                               );
@@ -1077,23 +1078,22 @@ export default function ProductionReportView({
                         >
                           {val || "0"}
                           {hasProduction && (
-                            <div style={{ 
-                              fontSize: "9px", 
-                              color: "var(--text-muted)", 
-                              marginTop: "2px", 
-                              lineHeight: "1.1",
-                              fontWeight: "400",
+                            <div style={{
+                              fontSize: "10px",
+                              color: "var(--text-muted)",
+                              marginTop: "3px",
+                              lineHeight: "1.2",
+                              fontWeight: "500",
                               pointerEvents: "none"
                             }}>
-                              <div style={{
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                maxWidth: "70px",
-                                margin: "0 auto"
-                              }}>
-                                {mats.join(", ")}
-                              </div>
+                              {(() => {
+                                const totalScarti = details.reduce((sum, d) => sum + (d.qta_scarto || 0), 0);
+                                return totalScarti > 0 ? (
+                                  <div style={{ color: "var(--danger)" }}>
+                                    {totalScarti} scarti
+                                  </div>
+                                ) : null;
+                              })()}
                             </div>
                           )}
                         </td>
