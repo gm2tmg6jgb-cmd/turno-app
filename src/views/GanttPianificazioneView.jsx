@@ -1565,8 +1565,8 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                 ))}
             </div>
 
-            {/* ── Predictive Bottleneck Alerts ── */}
-            {(() => {
+            {/* ── Predictive Bottleneck Alerts ── NASCOSTO TEMPORANEAMENTE */}
+            {false && (() => {
                 const criticalBottlenecks = machineStatus.filter(m => m.bottleneckRisk === 2);
                 const warningBottlenecks = machineStatus.filter(m => m.bottleneckRisk === 1);
 
@@ -1613,8 +1613,8 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                 );
             })()}
 
-            {/* ── Smart Inventory Alerts ── */}
-            {(() => {
+            {/* ── Smart Inventory Alerts ── NASCOSTO TEMPORANEAMENTE */}
+            {false && (() => {
                 const criticalInv = inventoryAlerts.filter(a => a.urgency === 2);
                 const warningInv = inventoryAlerts.filter(a => a.urgency === 1);
 
@@ -1666,8 +1666,8 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                 );
             })()}
 
-            {/* ── Efficiency Analytics Dashboard ── */}
-            <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px", marginBottom: 20 }}>
+            {/* ── Efficiency Analytics Dashboard ── NASCOSTO TEMPORANEAMENTE */}
+            {false && <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px", marginBottom: 20 }}>
                 <div style={{ marginBottom: 16 }}>
                     <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, color: "var(--text-primary)" }}>
                         📊 Efficiency Analytics
@@ -1745,7 +1745,7 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                         </div>
                     )}
                 </div>
-            </div>
+            </div>}
 
             {machineStatus.length === 0 && (
                 <div style={{ padding: 24, textAlign: "center", color: "var(--text-muted)", background: "var(--bg-secondary)", borderRadius: 10, border: "1px solid var(--border)" }}>
