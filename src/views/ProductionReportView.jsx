@@ -39,6 +39,7 @@ export default function ProductionReportView({
   const [hoveredCol, setHoveredCol] = useState(null);
   const [hoveredRow, setHoveredRow] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [reportDate, setReportDate] = useState(globalDate || new Date().toISOString().split("T")[0]);
   const [selectedTurno, setSelectedTurno] = useState("ALL");
   const [selectedMachineDowntime, setSelectedMachineDowntime] = useState(null);
   const [selectedProduction, setSelectedProduction] = useState(null);
@@ -209,17 +210,16 @@ export default function ProductionReportView({
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const date = globalDate || new Date().toISOString().split("T")[0];
 
       // 1. Fetch production data
-      let qProd = supabase.from("conferme_sap").select("*").eq("data", date);
+      let qProd = supabase.from("conferme_sap").select("*").eq("data", reportDate);
       if (selectedTurno !== "ALL") qProd = qProd.eq("turno_id", selectedTurno);
 
       // 2. Fetch downtime data
       let qDowntime = supabase
         .from("fermi_macchina")
         .select("*")
-        .eq("data", date);
+        .eq("data", reportDate);
       if (selectedTurno !== "ALL") qDowntime = qDowntime.eq("turno_id", selectedTurno);
 
       const [resProd, resDowntime] = await Promise.all([qProd, qDowntime]);
@@ -229,7 +229,7 @@ export default function ProductionReportView({
 
       // Filter assignments for this date and shift
       const filtered = assegnazioni.filter(a => {
-        if (a.data !== date) return false;
+        if (a.data !== reportDate) return false;
         if (selectedTurno !== "ALL" && a.turno_id !== selectedTurno) return false;
         return true;
       });
@@ -239,7 +239,7 @@ export default function ProductionReportView({
     };
 
     fetchData();
-  }, [globalDate, selectedTurno, anagrafica, assegnazioni]);
+  }, [reportDate, selectedTurno, anagrafica, assegnazioni]);
 
   // Dynamic Matrix Calculation based on activeTech and raw data
   const { matrice, detailedProduction, downtimeMap, detailedDowntime } = useMemo(() => {
@@ -539,11 +539,28 @@ export default function ProductionReportView({
             </h1>
             <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>
               Dati del{" "}
-              <strong>{formatItalianDate(globalDate || new Date())}</strong> -
+              <strong>{formatItalianDate(reportDate)}</strong> -
               Turno <strong>{selectedTurno === "ALL" ? "Tutti (Intera Giornata)" : selectedTurno}</strong>
             </p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+            <input
+              type="date"
+              value={reportDate}
+              onChange={(e) => setReportDate(e.target.value)}
+              style={{
+                padding: "10px 12px",
+                borderRadius: "8px",
+                border: "1px solid var(--border-light)",
+                backgroundColor: "white",
+                fontSize: "14px",
+                fontWeight: "600",
+                color: "var(--text-primary)",
+                outline: "none",
+                cursor: "pointer",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+              }}
+            />
             <select
               value={selectedTurno}
               onChange={(e) => setSelectedTurno(e.target.value)}
