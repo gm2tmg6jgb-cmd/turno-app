@@ -957,7 +957,7 @@ export default function ProductionReportView({
                   >
                     <td
                       style={{
-                        padding: "12px 16px",
+                        padding: "0 16px",
                         fontWeight: "600",
                         color: "var(--text-primary)",
                         borderRight: "1px solid var(--border)",
@@ -970,7 +970,10 @@ export default function ProductionReportView({
                         cursor: "default",
                         display: "flex",
                         alignItems: "center",
+                        justifyContent: "flex-start",
                         gap: "6px",
+                        height: "50px",
+                        minHeight: "50px",
                       }}
                     >
                       {displayLabel}
