@@ -1308,7 +1308,7 @@ function UpstreamEditForm({ machineId, compKey, showReset, editingUpstream, setE
     );
 }
 
-function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastSapByMachine, consumedH, weekStart, weekEnd, cfg, stockOverrides, saveStockOverride, upstreamMachineConfig, saveUpstreamMachine, upstreamPhaseConfig, saveUpstreamPhase, onRefreshOverrides, showToast, cardStyle, markCOExecuted, unmarkCOExecuted, executedCOs, compPhaseBackups }) {
+function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastSapByMachine, consumedH, weekStart, weekEnd, cfg, stockOverrides, saveStockOverride, upstreamMachineConfig, saveUpstreamMachine, upstreamPhaseConfig, saveUpstreamPhase, onRefreshOverrides, showToast, cardStyle, markCOExecuted, unmarkCOExecuted, executedCOs, compPhaseBackups, changeoverConfig }) {
     const [editMachine,       setEditMachine]       = useState(null); // macchina aperta nel modal
     const [editingStock,      setEditingStock]      = useState(null); // { key, value } override stock upstream
     const [editingUpstream,   setEditingUpstream]   = useState(null); // { key: "machineId::compKey", machineValue: string, phaseValue: string }
@@ -2150,6 +2150,47 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                         const isEditingG = editingStock?.key === gk;
                                         const gs = item.grezzoStock;
                                         const available = gs !== null ? Math.max(0, gs - item.produced) : null;
+
+                                        // Calcolo realistico: posso raggiungere il target?
+                                        const stillNeeded = Math.max(0, item.target - item.produced);
+                                        const productionPossible = (item.remainingH || 0) * (item.jph || 0);
+                                        const totalCapacity = (available || 0) + productionPossible;
+                                        const deficit = stillNeeded - totalCapacity;
+                                        const isLimiting = deficit > 0;
+                                        const hoursNeeded = item.jph > 0 ? Math.ceil(deficit / item.jph) : 0;
+
+                                        // CALCOLO COMPLETO: deficit, changeover, upstream, percentuali
+                                        // 1. Determina il tempo di changeover (da configurazione default)
+                                        const compPhases = cfg.components?.[item.compKey]?.phases || [];
+                                        const firstPhase = compPhases?.[0]?.phaseId;
+                                        const coTime = firstPhase ? (DEFAULT_CHANGEOVER_H[firstPhase] ?? 1) : 1;
+
+                                        // 2. Calcola la risorsa disponibile (grezzo + upstream)
+                                        const totalAvailable = (available || 0) + (item.availableFromUpstream || 0);
+
+                                        // 3. Tempo effettivo di produzione dopo changeover
+                                        const timeAfterCO = Math.max(0, (item.remainingH || 0) - coTime);
+
+                                        // 4. Pezzi producibili nel tempo rimasto
+                                        const productionPossible2 = timeAfterCO * (item.jph || 0);
+
+                                        // 5. Capacità totale (risorsa disponibile + produzione futura)
+                                        const totalCapacity2 = totalAvailable + productionPossible2;
+
+                                        // 6. Deficit e percentuale
+                                        const stillNeeded2 = Math.max(0, item.target - item.produced);
+                                        const deficit2 = Math.max(0, stillNeeded2 - totalCapacity2);
+                                        const deficitPct = item.target > 0 ? Math.round((deficit2 / item.target) * 100) : 0;
+                                        const isLimiting2 = deficit2 > 0;
+
+                                        // 7. Ore necessarie per colmare il gap
+                                        const hoursNeeded2 = item.jph > 0 ? Math.ceil(deficit2 / item.jph) : 0;
+
+                                        // 8. Se parti ORA: quanti pezzi riuscirai a fare
+                                        const piecesIfStartNow = productionPossible2;
+                                        const capacityWithoutUpstream = (available || 0) + productionPossible2;
+                                        const capacityPct = item.target > 0 ? Math.round((capacityWithoutUpstream / item.target) * 100) : 0;
+
                                         return (
                                             <div style={{ marginTop: 2 }}>
                                                 {gs !== null ? (
@@ -2161,8 +2202,26 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                                             {" "}disponibili —{" "}
                                                             pianificabili{" "}
                                                             <strong>{item.remaining.toLocaleString("it-IT")} pz</strong>
-                                                            {available < Math.max(0, item.target - item.produced) && (
-                                                                <span style={{ color: "#f59e0b", marginLeft: 4 }}>⚠️ limitante</span>
+                                                            {isLimiting2 && (
+                                                                <div style={{ marginLeft: 4, marginTop: 6, padding: 8, borderRadius: 6, background: "rgba(245,158,11,0.1)", borderLeft: "3px solid #f59e0b" }}>
+                                                                  {/* Riga 1: Il problema */}
+                                                                  <div style={{ color: "#f59e0b", fontWeight: 700, fontSize: 11, marginBottom: 6 }}>
+                                                                    ⚠️ Non arriverai: mancano <strong>{deficit2.toLocaleString("it-IT")} pz</strong> ({deficitPct}%)
+                                                                  </div>
+
+                                                                  {/* Riga 2: Analisi */}
+                                                                  <div style={{ fontSize: 9, color: "#f59e0b", opacity: 0.8, marginBottom: 4, lineHeight: 1.6 }}>
+                                                                    <div>📦 Risorsa: <strong>{totalAvailable.toLocaleString("it-IT")} pz</strong> {item.availableFromUpstream > 0 && `(grezzo: ${available?.toLocaleString("it-IT")} + upstream: ${item.availableFromUpstream.toLocaleString("it-IT")})`}</div>
+                                                                    <div>⏱️ Tempo: <strong>{timeAfterCO.toFixed(1)}h</strong> (−{coTime}h CO)</div>
+                                                                    <div>⚙️ Producibile: <strong>{productionPossible2.toLocaleString("it-IT")} pz</strong> a {item.jph} pz/h</div>
+                                                                  </div>
+
+                                                                  {/* Riga 3: Se parti ORA */}
+                                                                  <div style={{ fontSize: 10, color: "#3b82f6", fontWeight: 600, padding: 5, background: "rgba(59,130,246,0.1)", borderRadius: 4, marginTop: 4 }}>
+                                                                    💡 Se parti ORA: <strong>{piecesIfStartNow.toLocaleString("it-IT")} pz</strong> ({capacityPct}%)
+                                                                    {hoursNeeded2 > 0 && <div style={{ fontSize: 8, marginTop: 2, opacity: 0.85 }}>Ancora +{hoursNeeded2}h per raggiungere target</div>}
+                                                                  </div>
+                                                                </div>
                                                             )}
                                                         </span>
                                                         <button onClick={() => setEditingStock(isEditingG ? null : { key: gk, value: gs })}

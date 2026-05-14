@@ -24,7 +24,7 @@ export function extractVariant(comp) {
  */
 export function extractVariantFromMat(matCode) {
     const code = (matCode || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-    if (code.startsWith("2511108")) return "1A";
+    if (code.startsWith("2511108") || code.startsWith("2511109")) return "1A";
     if (code.startsWith("2511122")) return "21A";
     return null;
 }

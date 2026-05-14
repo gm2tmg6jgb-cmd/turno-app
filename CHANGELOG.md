@@ -4,6 +4,22 @@ Tutte le modifiche significative di Turno App sono documentate in questo file.
 
 ---
 
+## [1.8.7] — 2026-05-14 — Badge Limitante Intelligente + Fix Variante 1A
+
+### ✨ Nuove Funzionalità
+- **Badge "Non arriverai al target"** (`GanttPianificazioneView`): il vecchio badge "⚠️ limitante" è stato sostituito con un'analisi completa che considera:
+  - Grezzo disponibile + materiale proveniente da fase upstream
+  - Tempo rimasto nella settimana al netto del changeover (da `DEFAULT_CHANGEOVER_H`)
+  - Pezzi producibili nel tempo rimasto (tempo × jph)
+  - Deficit in pezzi e percentuale rispetto al target
+  - Proiezione "Se parti ORA": pezzi che si riusciranno a produrre e quante ore aggiuntive servirebbero per raggiungere il target
+
+### 🐛 Bugfix
+- **Variante 1A non visualizzata** (`sapMapping.js`): aggiunto riconoscimento dei codici materiale con prefisso `2511109` come variante 1A (prima erano riconosciuti solo i codici `2511108`).
+- **`changeoverConfig` non definito in `StatusTab`**: la prop `changeoverConfig` veniva passata al componente ma non era dichiarata nella firma della funzione → errore runtime che bloccava l'intera vista. Fix: aggiunto `changeoverConfig` ai parametri di `StatusTab`.
+
+---
+
 ## [1.8.3] — 2026-05-14 — Mappa Flussi Definitivi Componenti OP10
 
 ### ✨ Nuove Funzionalità
