@@ -31,7 +31,6 @@ const ComponentFlowView = lazy(() => import("./views/ComponentFlowView"));
 const PrioritaView = lazy(() => import("./views/PrioritaView"));
 const ProductionDelaysView = lazy(() => import("./views/ProductionDelaysView"));
 const ProductionScheduleView = lazy(() => import("./views/ProductionScheduleView"));
-const NuovaPianificazioneView = lazy(() => import("./views/NuovaPianificazioneView"));
 const ThroughputView = lazy(() => import("./views/ThroughputView"));
 const GanttPianificazioneView = lazy(() => import("./views/GanttPianificazioneView"));
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
@@ -243,7 +242,6 @@ function AppContent({ session, onLogout }) {
     { id: "productionReport", label: "Report Produzione", icon: Icons.report },
     { id: "productionDelays", label: "Gestione Ritardi Produzione", icon: Icons.alert, status: "new" },
     { id: "productionSchedule", label: "Programma Produzione", icon: Icons.calendar, status: "new" },
-    { id: "nuovaPianificazione", label: "Nuova Pianificazione Produzione", icon: Icons.calendar, status: "new" },
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine, adminOnly: true },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings, adminOnly: true },
     { id: "inventory", label: "Inventario", icon: Icons.report },
@@ -264,7 +262,6 @@ function AppContent({ session, onLogout }) {
     productionReport: "Report Produzione",
     productionDelays: "Gestione Ritardi Produzione",
     productionSchedule: "Programma Produzione",
-    nuovaPianificazione: "Nuova Pianificazione Produzione",
     fermi: "Report Fermi",
     anagraficaFermi: "Anagrafica Fermi Macchine",
     anagraficaMacchine: "Anagrafica Macchine",
@@ -386,7 +383,6 @@ function AppContent({ session, onLogout }) {
                 {renderItem(ni("productionFlowReport"))}
                 {renderItem(ni("productionReport"))}
                 {renderItem(ni("productionSchedule"))}
-                {renderItem(ni("nuovaPianificazione"))}
                 {renderItem(ni("lpaPlan"))}
                 {renderItem(ni("op10"))}
                 {renderItem(ni("sapHub"))}
@@ -644,9 +640,6 @@ function AppContent({ session, onLogout }) {
           )}
           {currentView === "productionSchedule" && (
             <ProductionScheduleView showToast={showToast} />
-          )}
-          {currentView === "nuovaPianificazione" && (
-            <NuovaPianificazioneView showToast={showToast} />
           )}
           {currentView === "anagraficaMacchine" && isAdmin && (
             <AdminSecurityWrapper title="Anagrafica Macchine">
