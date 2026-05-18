@@ -2299,29 +2299,31 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
                 macchina_id: form.macchina.trim() || null,
             };
 
-            // Cerca configurazione esistente
-            const { data: existing } = await supabase
+            // Cerca e aggiorna o inserisce (upsert)
+            // Prima cerca tutti i record per componente
+            const { data: allForComp } = await supabase
                 .from('componente_report_config')
-                .select('id, progetto')
+                .select('id, progetto, componente')
                 .ilike('componente', comp);
 
-            const existingCfg = (existing || [])
+            // Trova il record per questo specifico progetto
+            const existingCfg = (allForComp || [])
                 .find(r => normalizeProj(r.progetto) === normalizeProj(data.project));
 
             if (existingCfg) {
-                // Update
-                const { error } = await supabase
+                // Delete il vecchio e inserisci il nuovo (per assicurare che l'array sia corretto)
+                const { error: delErr } = await supabase
                     .from('componente_report_config')
-                    .update(payload)
+                    .delete()
                     .eq('id', existingCfg.id);
-                if (error) throw error;
-            } else {
-                // Insert
-                const { error } = await supabase
-                    .from('componente_report_config')
-                    .insert([payload]);
-                if (error) throw error;
+                if (delErr) throw delErr;
             }
+
+            // Inserisci il nuovo record con tutti i codici
+            const { error: insErr } = await supabase
+                .from('componente_report_config')
+                .insert([payload]);
+            if (insErr) throw insErr;
 
             showToast("Configurazione salvata con successo!");
             onSave();
