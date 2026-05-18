@@ -8,6 +8,24 @@ import { computeThroughput, loadThroughputConfig, saveThroughputConfig } from ".
 import { loadComponentPhases } from "../utils/componentiPhases";
 import { normalizeFlowComp, normalizeProject } from "../utils/sapMapping";
 
+// Helper: Parsare codici che potrebbero venire come array o come stringa raw PostgreSQL
+function parseCodicisArray(codici) {
+  if (!codici) return [];
+  if (Array.isArray(codici)) return codici;
+  if (typeof codici === 'string') {
+    if (codici.startsWith('{') && codici.endsWith('}')) {
+      return codici.slice(1, -1).split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
+    }
+    try {
+      const parsed = JSON.parse(codici);
+      return Array.isArray(parsed) ? parsed.map(c => String(c).toUpperCase()) : [codici.toUpperCase()];
+    } catch {
+      return [codici.toUpperCase()];
+    }
+  }
+  return [];
+}
+
 // Parsing 100% manuale: solo material_fino_overrides (configurazione utente su Supabase)
 
 const DAYS_WEEK = 6;     // lun–sab (coerente con GanttPianificazioneView)
@@ -373,14 +391,53 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
             });
             setConfiguredCells(cfgSet);
 
+            // Carica componente_report_config per codici multipli
+            const { data: compConfigRes } = await fetchAllRows(() => supabase.from("componente_report_config").select("*"));
+            const compReportConfigs = compConfigRes || [];
+
             const compToMats = {};
+
+            // Aggiungi materiali da material_fino_overrides
             dbMaterialOverrides.forEach(o => {
                 if (o.comp) {
                     if (!compToMats[o.comp]) compToMats[o.comp] = [];
                     if (!compToMats[o.comp].includes(o.mat)) compToMats[o.comp].push(o.mat);
                 }
             });
+
+            // Aggiungi codici multipli da componente_report_config
+            compReportConfigs.forEach(cfg => {
+                const comp = normalizeFlowComp((cfg.componente || "").toUpperCase());
+                if (comp) {
+                    if (!compToMats[comp]) compToMats[comp] = [];
+                    const codicis = parseCodicisArray(cfg.codici);
+                    codicis.forEach(code => {
+                        if (!compToMats[comp].includes(code)) compToMats[comp].push(code);
+                    });
+                }
+            });
+
             setCompMappings(compToMats);
+
+            // Costruisci override aggiuntivi dai codici multipli di componente_report_config
+            const extraOverrides = [];
+            compReportConfigs.forEach(cfg => {
+                const comp = normalizeFlowComp((cfg.componente || "").toUpperCase());
+                const proj = (cfg.progetto || "").trim();
+                if (comp && proj) {
+                    const codicis = parseCodicisArray(cfg.codici);
+                    codicis.forEach(code => {
+                        extraOverrides.push({
+                            mat: code,
+                            fino: null,
+                            phase: "unknown", // Verrà determinato dai dati SAP
+                            comp: comp,
+                            proj: proj,
+                            macchina_id: (cfg.macchina_id || "").toUpperCase()
+                        });
+                    });
+                }
+            });
 
             // Fetch dati produzione
             const selectFields = "data, materiale, work_center_sap, macchina_id, qta_ottenuta, qta_scarto, turno_id, fino, importato_il, acq_da, sto";
@@ -432,8 +489,10 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     const fino = String(r.fino || "").padStart(4, "0");
 
                     // SOLO configurazione manuale — match specifico (fino esatto) ha priorità su match generico (fino null)
+                    // Cerca prima in dbMaterialOverrides, poi in extraOverrides (codici multipli da componente_report_config)
                     const override = dbMaterialOverrides.find(o => o.mat === matCode && o.fino === fino)
-                        || dbMaterialOverrides.find(o => o.mat === matCode && !o.fino);
+                        || dbMaterialOverrides.find(o => o.mat === matCode && !o.fino)
+                        || extraOverrides.find(o => o.mat === matCode);
                     if (!override) return;
 
                     const phase = override.phase;
