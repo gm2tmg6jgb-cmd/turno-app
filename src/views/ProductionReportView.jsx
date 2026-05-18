@@ -24,6 +24,27 @@ const ALL_MACHINES_ORDER = [
 import { supabase } from "../lib/supabase";
 import { formatItalianDate } from "../lib/dateUtils";
 
+// Helper: Parsare codici che potrebbero venire come array o come stringa raw PostgreSQL
+function parseCodicisArray(codici) {
+  if (!codici) return [];
+  if (Array.isArray(codici)) return codici;
+  if (typeof codici === 'string') {
+    // Formato raw PostgreSQL: {cod1,cod2} oppure JSON: ["cod1","cod2"]
+    if (codici.startsWith('{') && codici.endsWith('}')) {
+      // Raw PostgreSQL array format: {item1,item2}
+      return codici.slice(1, -1).split(',').map(s => s.trim()).filter(Boolean);
+    }
+    try {
+      // Prova a parsare come JSON
+      const parsed = JSON.parse(codici);
+      return Array.isArray(parsed) ? parsed : [codici];
+    } catch {
+      return [codici];
+    }
+  }
+  return [];
+}
+
 export default function ProductionReportView({
   macchine = [],
   globalDate,
@@ -78,7 +99,20 @@ export default function ProductionReportView({
 
   const reloadComponentConfigs = async () => {
     const { data } = await supabase.from("componente_report_config").select("*");
-    if (data) setComponentConfigs(data);
+    if (data) {
+      // Parsare i codici in caso vengano come stringa raw PostgreSQL
+      const parsedData = data.map(cfg => ({
+        ...cfg,
+        codici: parseCodicisArray(cfg.codici)
+      }));
+      // DEBUG: Verifica il parsing
+      parsedData.forEach(cfg => {
+        if (Array.isArray(cfg.codici) && cfg.codici.length > 1) {
+          console.log(`[INFO] ${cfg.componente} parsed ${cfg.codici.length} codici:`, cfg.codici);
+        }
+      });
+      setComponentConfigs(parsedData);
+    }
   };
 
   const handleSaveComponentConfig = async () => {
@@ -1041,7 +1075,7 @@ export default function ProductionReportView({
                                 c => c.componente === comp && c.macchina_id === machineId
                               );
                               if (existing) {
-                                setEditingComponent({ ...existing, codicisText: (existing.codici || []).join("\n") });
+                                setEditingComponent({ ...existing, codicisText: parseCodicisArray(existing.codici).join("\n") });
                               } else {
                                 setEditingComponent({ componente: comp, macchina_id: machineId, progetto: "", codicisText: "", fino: "" });
                               }
@@ -1540,10 +1574,10 @@ function ComponentConfigModal({ editing, onChange, onSave, onClose, onDelete, ex
               <span style={{ flex: 1 }}>
                 <strong>{cfg.macchina_id || "—"}</strong>
                 {cfg.fino && <span style={{ color: "var(--text-muted)", marginLeft: "6px" }}>op:{cfg.fino}</span>}
-                <span style={{ color: "var(--text-muted)", marginLeft: "6px" }}>{(cfg.codici||[]).length} codici</span>
+                <span style={{ color: "var(--text-muted)", marginLeft: "6px" }}>{parseCodicisArray(cfg.codici).length} codici</span>
               </span>
               <button
-                onClick={() => onChange({ ...cfg, codicisText: (cfg.codici||[]).join("\n") })}
+                onClick={() => onChange({ ...cfg, codicisText: parseCodicisArray(cfg.codici).join("\n") })}
                 className="btn btn-secondary btn-sm"
               >Modifica</button>
               <button
