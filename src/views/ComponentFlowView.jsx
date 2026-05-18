@@ -2189,30 +2189,30 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
     useEffect(() => {
         const fetchExisting = async () => {
             try {
-                // Carica SENZA filtro progetto per gestire varianti ("DCT300" vs "DCT 300")
-                const { data: allForCell, error: existingErr } = await supabase
-                    .from('material_fino_overrides')
-                    .select('*')
-                    .eq('fase', data.phase)
-                    .ilike('componente', data.comp)
-                    .order('id', { ascending: true });
-
-                if (existingErr) console.error("QuickConfigModal query error:", existingErr);
-
-                // Filtra progetto lato client (ignora spazi e case)
+                // Normalizza progetto per confronto (ignora spazi e case)
                 const normalizeProj = (p) => (p || "").trim().replace(/\s+/g, "").toLowerCase();
-                const existing = (allForCell || [])
-                    .filter(r => normalizeProj(r.progetto) === normalizeProj(data.project))
-                    .slice(0, numCodici);
 
-                if (existing.length > 0) {
+                // Carica da componente_report_config per i codici multipli
+                const { data: compConfigs, error: compErr } = await supabase
+                    .from('componente_report_config')
+                    .select('*')
+                    .ilike('componente', data.comp);
+
+                if (compErr) console.error("QuickConfigModal componente_report_config error:", compErr);
+
+                // Cerca la configurazione per questo progetto
+                const compConfig = (compConfigs || [])
+                    .find(r => normalizeProj(r.progetto) === normalizeProj(data.project));
+
+                if (compConfig) {
+                    const codicis = parseCodicisArray(compConfig.codici);
                     setForm({
-                        fino:       existing[0].fino ?? "",
-                        componente: existing[0].componente || data.comp || "",
-                        macchina:   existing[0].macchina_id || "",
-                        codice:     existing[0]?.materiale || "",
-                        codice2:    existing[1]?.materiale || "",
-                        codice3:    existing[2]?.materiale || "",
+                        fino:       compConfig.fino ? String(compConfig.fino).padStart(4, "0") : "",
+                        componente: compConfig.componente || data.comp || "",
+                        macchina:   compConfig.macchina_id || "",
+                        codice:     codicis[0] || "",
+                        codice2:    codicis[1] || "",
+                        codice3:    codicis[2] || "",
                     });
                 }
             } catch (err) {
@@ -2284,26 +2284,50 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
         setIsSaving(true);
         try {
             const comp = form.componente.toUpperCase();
-            const finoStr = form.fino && String(form.fino).trim() ? String(form.fino.trim()).padStart(4, "0") : null;
-            const ensureHok = (code) => {
-                const c = code.toUpperCase().trim();
-                return data.phase === "ht" && !c.endsWith("/T") ? c + "/T" : c;
+            const normalizeProj = (p) => (p || "").trim().replace(/\s+/g, "").toLowerCase();
+
+            // Raccogli tutti i codici non vuoti
+            const codicis = [form.codice];
+            if (form.codice2.trim()) codicis.push(form.codice2);
+            if (form.codice3.trim()) codicis.push(form.codice3);
+
+            const payload = {
+                componente: comp,
+                codici: codicis,
+                progetto: data.project,
+                fino: form.fino ? String(form.fino).padStart(4, "0") : null,
+                macchina_id: form.macchina.trim() || null,
             };
 
-            await saveSingleMaterial(ensureHok(form.codice), finoStr, comp, data.project, data.phase, form.macchina);
+            // Cerca configurazione esistente
+            const { data: existing } = await supabase
+                .from('componente_report_config')
+                .select('id, progetto')
+                .ilike('componente', comp);
 
-            if (numCodici >= 2 && form.codice2.trim()) {
-                await saveSingleMaterial(ensureHok(form.codice2), finoStr, comp, data.project, data.phase, form.macchina);
-            }
-            if (numCodici >= 3 && form.codice3.trim()) {
-                await saveSingleMaterial(ensureHok(form.codice3), finoStr, comp, data.project, data.phase, form.macchina);
+            const existingCfg = (existing || [])
+                .find(r => normalizeProj(r.progetto) === normalizeProj(data.project));
+
+            if (existingCfg) {
+                // Update
+                const { error } = await supabase
+                    .from('componente_report_config')
+                    .update(payload)
+                    .eq('id', existingCfg.id);
+                if (error) throw error;
+            } else {
+                // Insert
+                const { error } = await supabase
+                    .from('componente_report_config')
+                    .insert([payload]);
+                if (error) throw error;
             }
 
-            showToast("Mappatura salvata con successo!");
+            showToast("Configurazione salvata con successo!");
             onSave();
         } catch (err) {
             console.error(err);
-            showToast("Errore durante il salvataggio", "error");
+            showToast("Errore durante il salvataggio: " + (err.message || ""), "error");
         } finally {
             setIsSaving(false);
         }
