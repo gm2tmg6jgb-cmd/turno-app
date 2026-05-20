@@ -415,6 +415,42 @@ export default function ProductionReportView({
   }, [rawProductionData, rawDowntimeData, activeTech, anagrafica, tecnologie, componentConfigs, macchine, localMachineFinos, isConfigMode]);
 
 
+  const downtimeByTech = useMemo(() => {
+    const result = { TUTTO: 0 };
+    tecnologie.forEach(t => {
+      result[t.id] = 0;
+    });
+
+    macchine.forEach((m) => {
+      const machineId = m.id.toUpperCase();
+      const fermiCount = (detailedDowntime[machineId] || []).length;
+      if (fermiCount === 0) return;
+
+      result.TUTTO += fermiCount;
+
+      const machineHasTech = tecnologie.filter(tec => {
+        const label = tec.label?.toLowerCase() || "";
+        if (label.includes("tornitura soft")) {
+          if (machineId.startsWith("DRA")) {
+            if (m.tecnologia_id === "tornitura_hard") return false;
+            if (m.tecnologia_id === "tornitura_soft") return true;
+            const hasSoftData = Object.keys(detailedProduction[machineId] || {}).length > 0;
+            if (hasSoftData) return true;
+            if (!m.tecnologia_id && tec.prefissi && tec.prefissi.split(',').map(p => p.trim()).includes("DRA")) return true;
+            return false;
+          }
+        }
+        return m.tecnologia_id === tec.id || m.tecnologia_id === label || m.zona === tec.label;
+      });
+
+      machineHasTech.forEach(tec => {
+        result[tec.id] = (result[tec.id] || 0) + fermiCount;
+      });
+    });
+
+    return result;
+  }, [detailedDowntime, detailedProduction, macchine, tecnologie]);
+
   const activeTechMachines = useMemo(() => {
     return macchine
       .filter((m) => {
@@ -798,7 +834,12 @@ export default function ProductionReportView({
             onClick={() => setActiveTech("TUTTO")}
             style={tabStyle("TUTTO")}
           >
-            TUTTO
+            <div>TUTTO</div>
+            {downtimeByTech.TUTTO > 0 && (
+              <div style={{ fontSize: "11px", opacity: 0.7 }}>
+                {downtimeByTech.TUTTO} fermi
+              </div>
+            )}
           </button>
           {(() => {
             const labelMapping = {
@@ -858,7 +899,12 @@ export default function ProductionReportView({
                   onClick={() => setActiveTech(tec.id)}
                   style={tabStyle(tec.id)}
                 >
-                  {tec.displayLabel}
+                  <div>{tec.displayLabel}</div>
+                  {downtimeByTech[tec.id] > 0 && (
+                    <div style={{ fontSize: "11px", opacity: 0.7 }}>
+                      {downtimeByTech[tec.id]} fermi
+                    </div>
+                  )}
                 </button>
               ));
           })()}
