@@ -23,6 +23,7 @@ const ALL_MACHINES_ORDER = [
 ];
 import { supabase } from "../lib/supabase";
 import { formatItalianDate } from "../lib/dateUtils";
+import { exportProductionReport } from "../lib/excelExport";
 
 // Helper: Parsare codici che potrebbero venire come array o come stringa raw PostgreSQL
 function parseCodicisArray(codici) {
@@ -611,6 +612,21 @@ export default function ProductionReportView({
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
   };
 
+  const handleExportExcel = () => {
+    const data = {
+      reportDate: new Date(reportDate),
+      selectedTurno,
+      activeTech,
+      matrice,
+      detailedDowntime,
+      activeTechMachines,
+      components,
+      technologies: tecnologie,
+      macchine,
+    };
+    exportProductionReport(data);
+  };
+
   const tabStyle = (techId) => ({
     padding: "8px 14px",
     backgroundColor: activeTech === techId ? "#3B82F6" : "#E5E7EB",
@@ -777,6 +793,25 @@ export default function ProductionReportView({
               title="Configura le celle da visualizzare"
             >
               {isConfigMode ? "✓ Fine Config" : "⚙ Configura Celle"}
+            </button>
+
+            <button
+              onClick={handleExportExcel}
+              className="btn"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "10px 12px",
+                borderRadius: "8px",
+                fontWeight: "600",
+                background: "var(--bg-tertiary)",
+                color: "var(--text-secondary)",
+                border: "1px solid var(--border)",
+              }}
+              title="Esporta il report in formato Excel"
+            >
+              📊 Esporta Excel
             </button>
 
             <button
