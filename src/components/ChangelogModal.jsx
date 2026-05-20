@@ -3,6 +3,23 @@ import Modal from "./Modal";
 
 const CHANGELOG = [
     {
+        version: "1.8.8",
+        data: "20 Maggio 2026",
+        label: "Configurazione Componenti da DB + Modal Fermi + Flusso Componenti Gantt",
+        modifiche: [
+            {
+                categoria: "🆕 Novità",
+                voci: [
+                    "Configurazione Componenti definitiva da Supabase: le ops (jph, changeover, fase, ordine) sono ora persistite in tabella 'componente_ops' e non vanno più riconfigurate ad ogni sessione",
+                    "Vista 'Configurazione Componenti' (solo admin): CRUD completo per gestire le operazioni di ogni componente direttamente dall'app",
+                    "Cache globale di sessione: la config DB viene caricata una volta sola e riusata in tutto il sistema di scheduling",
+                    "Tab 'Flusso Componenti' in Pianificazione Changeover: WIP tra fasi, lead time reale vs pianificato, collo di bottiglia e data di fine stimata",
+                    "Modal inserimento fermi in Report Produzione: pulsante + sulla cella 'Fermi (min)' per inserire fermi macchina senza cambiare vista",
+                ]
+            }
+        ]
+    },
+    {
         version: "1.8.6",
         data: "13 Maggio 2026",
         label: "Smart Changeover Recommendation — Urgency-Based Planning",
