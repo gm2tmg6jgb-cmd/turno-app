@@ -78,6 +78,10 @@ export default function ProductionReportView({
   const [todayAssignments, setTodayAssignments] = useState([]);
   // Config mode for configuring cells
   const [isConfigMode, setIsConfigMode] = useState(false);
+  // Modal inserimento fermo
+  const [fermoModal, setFermoModal] = useState(null); // { machineId, machineLabel }
+  const [fermoForm, setFermoForm] = useState({ motivo: "", durata: "", note: "" });
+  const [savingFermo, setSavingFermo] = useState(false);
 
   // Note: selectedTurno defaults to ALL and is not auto-synced with turnoCorrente
 
@@ -275,6 +279,30 @@ export default function ProductionReportView({
 
     fetchData();
   }, [reportDate, selectedTurno, anagrafica, assegnazioni]);
+
+  const saveFermo = async () => {
+    if (!fermoForm.motivo) return;
+    if (!fermoForm.durata || isNaN(parseInt(fermoForm.durata))) return;
+    setSavingFermo(true);
+    const { error } = await supabase.from("fermi_macchina").insert({
+      data: reportDate,
+      turno_id: selectedTurno !== "ALL" ? selectedTurno : (turnoCorrente?.id || null),
+      macchina_id: fermoModal.machineId,
+      motivo: fermoForm.motivo,
+      durata_minuti: parseInt(fermoForm.durata),
+      note: fermoForm.note || null,
+    });
+    if (!error) {
+      // Ricarica i fermi
+      let q = supabase.from("fermi_macchina").select("*").eq("data", reportDate);
+      if (selectedTurno !== "ALL") q = q.eq("turno_id", selectedTurno);
+      const { data } = await q;
+      setRawDowntimeData(data || []);
+      setFermoModal(null);
+      setFermoForm({ motivo: "", durata: "", note: "" });
+    }
+    setSavingFermo(false);
+  };
 
   // Dynamic Matrix Calculation based on activeTech and raw data
   const { matrice, detailedProduction, downtimeMap, detailedDowntime } = useMemo(() => {
@@ -1013,30 +1041,40 @@ export default function ProductionReportView({
                       {displayLabel}
                     </td>
                     <td
-                      onClick={() =>
-                        downtime > 0 &&
-                        setSelectedMachineDowntime({
-                          id: machineId,
-                          label: displayLabel,
-                          details: detailedDowntime[machineId] || [],
-                        })
-                      }
                       style={{
                         border: "1px solid var(--border)",
-                        padding: "8px",
+                        padding: "4px 8px",
                         textAlign: "center",
                         backgroundColor: isRowHovered
                           ? "#eef2ff"
                           : downtime > 0
                             ? "rgba(239,68,68,0.1)"
                             : "var(--bg-card)",
-                        fontWeight: "700",
-                        color:
-                          downtime > 0 ? "var(--danger)" : "var(--text-muted)",
-                        cursor: downtime > 0 ? "pointer" : "default",
                       }}
                     >
-                      {downtime > 0 ? downtime : "—"}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                        <span
+                          onClick={() => downtime > 0 && setSelectedMachineDowntime({ id: machineId, label: displayLabel, details: detailedDowntime[machineId] || [] })}
+                          style={{
+                            fontWeight: "700",
+                            color: downtime > 0 ? "var(--danger)" : "var(--text-muted)",
+                            cursor: downtime > 0 ? "pointer" : "default",
+                            fontSize: 13,
+                          }}
+                        >
+                          {downtime > 0 ? downtime : "—"}
+                        </span>
+                        <button
+                          onClick={() => { setFermoModal({ machineId, machineLabel: displayLabel }); setFermoForm({ motivo: "", durata: "", note: "" }); }}
+                          style={{
+                            width: 18, height: 18, borderRadius: "50%", border: "1px solid var(--danger)",
+                            background: "transparent", color: "var(--danger)", fontSize: 12, fontWeight: 700,
+                            cursor: "pointer", lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center",
+                            opacity: isRowHovered ? 1 : 0.3, transition: "opacity 0.15s",
+                          }}
+                          title="Inserisci fermo"
+                        >+</button>
+                      </div>
                     </td>
                     <td
                       style={{
@@ -1146,6 +1184,69 @@ export default function ProductionReportView({
           </table>
         </div>
       </div>
+
+      {/* Modal Inserimento Fermo */}
+      {fermoModal && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "var(--bg-card)", borderRadius: 12, padding: 24, width: 380, boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Inserisci Fermo</div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 20 }}>
+              {fermoModal.machineLabel} · {reportDate}
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Motivo *</label>
+                <select
+                  value={fermoForm.motivo}
+                  onChange={e => setFermoForm(f => ({ ...f, motivo: e.target.value }))}
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: 13 }}
+                >
+                  <option value="">— Seleziona motivo —</option>
+                  {motiviFermo.map(m => (
+                    <option key={m.id} value={m.label}>{m.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Durata (minuti) *</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={fermoForm.durata}
+                  onChange={e => setFermoForm(f => ({ ...f, durata: e.target.value }))}
+                  placeholder="es. 30"
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: 13, boxSizing: "border-box" }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Note</label>
+                <textarea
+                  value={fermoForm.note}
+                  onChange={e => setFermoForm(f => ({ ...f, note: e.target.value }))}
+                  placeholder="Descrizione opzionale..."
+                  rows={2}
+                  style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: 13, resize: "none", boxSizing: "border-box" }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 20 }}>
+              <button
+                onClick={() => { setFermoModal(null); setFermoForm({ motivo: "", durata: "", note: "" }); }}
+                style={{ padding: "8px 16px", borderRadius: 6, border: "1px solid var(--border)", background: "transparent", color: "var(--text-secondary)", fontWeight: 600, cursor: "pointer", fontSize: 13 }}
+              >Annulla</button>
+              <button
+                onClick={saveFermo}
+                disabled={savingFermo || !fermoForm.motivo || !fermoForm.durata}
+                style={{ padding: "8px 16px", borderRadius: 6, border: "none", background: savingFermo || !fermoForm.motivo || !fermoForm.durata ? "var(--text-muted)" : "var(--danger)", color: "white", fontWeight: 700, cursor: savingFermo || !fermoForm.motivo || !fermoForm.durata ? "default" : "pointer", fontSize: 13 }}
+              >{savingFermo ? "Salvo…" : "Salva fermo"}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Dettagli Fermi */}
       {selectedMachineDowntime && (
