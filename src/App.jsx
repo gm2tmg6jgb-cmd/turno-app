@@ -34,6 +34,7 @@ const ProductionScheduleView = lazy(() => import("./views/ProductionScheduleView
 const ThroughputView = lazy(() => import("./views/ThroughputView"));
 const GanttPianificazioneView = lazy(() => import("./views/GanttPianificazioneView"));
 const TestSchedulingView = lazy(() => import("./views/TestSchedulingView"));
+const ComponentiConfigView = lazy(() => import("./views/ComponentiConfigView"));
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 function AppContent({ session, onLogout }) {
@@ -72,6 +73,8 @@ function AppContent({ session, onLogout }) {
   const [motivi, setMotivi] = useState([]);
   const [motiviFermo, setMotiviFermo] = useState([]);
   const [tecnologie, setTecnologie] = useState([]);
+  const [confermeSap, setConfermeSap] = useState([]);
+  const [materialFinoOverrides, setMaterialFinoOverrides] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState(null);
 
@@ -107,6 +110,8 @@ function AppContent({ session, onLogout }) {
           { data: motiviHelper },
           { data: motiviFermoHelper },
           { data: tecnologieHelper },
+          { data: confermeSapHelper, error: errConfermeSap },
+          { data: materialFinoOverridesHelper, error: errMaterialFinoOverrides },
         ] = await Promise.all([
           supabase.from('dipendenti').select('*'),
           supabase.from('macchine').select('*'),
@@ -118,6 +123,8 @@ function AppContent({ session, onLogout }) {
           supabase.from('motivi_assenza').select('*'),
           supabase.from('motivi_fermo').select('*').order('label'),
           supabase.from('tecnologie_fermo').select('*').order('ordine'),
+          supabase.from('conferme_sap').select('*'),
+          supabase.from('material_fino_overrides').select('*'),
         ]);
 
         if (errDip) {
@@ -130,6 +137,9 @@ function AppContent({ session, onLogout }) {
         if (errPres) throw errPres;
         if (errPian) {
           console.warn("⚠️ Tabella pianificazione non trovata:", errPian);
+        }
+        if (errConfermeSap) {
+          console.warn("⚠️ Tabella conferme_sap non trovata:", errConfermeSap);
         }
 
         // --- AUTO-GENERATE PRESENCE FOR TODAY IF MISSING ---
@@ -191,6 +201,8 @@ function AppContent({ session, onLogout }) {
         setMotivi(motiviHelper || []);
         setMotiviFermo(motiviFermoHelper || []);
         setTecnologie(tecnologieHelper || []);
+        setConfermeSap(confermeSapHelper || []);
+        setMaterialFinoOverrides(materialFinoOverridesHelper || []);
       } catch (error) {
         console.error("❌ Error fetching data:", error);
         // If it's the planning table missing, we can still load
@@ -244,6 +256,7 @@ function AppContent({ session, onLogout }) {
     { id: "productionDelays", label: "Gestione Ritardi Produzione", icon: Icons.alert, status: "new" },
     { id: "productionSchedule", label: "Programma Produzione", icon: Icons.calendar, status: "new" },
     { id: "testScheduling", label: "🧪 Test Scheduling", icon: Icons.report, status: "beta" },
+    { id: "componentiConfig", label: "Configurazione Componenti", icon: Icons.settings, adminOnly: true },
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine, adminOnly: true },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings, adminOnly: true },
     { id: "inventory", label: "Inventario", icon: Icons.report },
@@ -265,6 +278,7 @@ function AppContent({ session, onLogout }) {
     productionDelays: "Gestione Ritardi Produzione",
     productionSchedule: "Programma Produzione",
     testScheduling: "Test Scheduling & Tracciamento SAP",
+    componentiConfig: "Configurazione Componenti",
     fermi: "Report Fermi",
     anagraficaFermi: "Anagrafica Fermi Macchine",
     anagraficaMacchine: "Anagrafica Macchine",
@@ -392,6 +406,7 @@ function AppContent({ session, onLogout }) {
                 {renderItem(ni("sapHub"))}
 
                 <div className="nav-section-label">Anagrafiche</div>
+                {renderItem(ni("componentiConfig"))}
                 {renderItem(ni("anagraficaMacchine"))}
                 {renderItem(ni("zones"))}
                 {renderItem(ni("anagraficaFermi"))}
@@ -644,6 +659,14 @@ function AppContent({ session, onLogout }) {
           )}
           {currentView === "productionSchedule" && (
             <ProductionScheduleView showToast={showToast} />
+          )}
+          {currentView === "testScheduling" && (
+            <TestSchedulingView conferme_sap={confermeSap} material_fino_overrides={materialFinoOverrides} />
+          )}
+          {currentView === "componentiConfig" && isAdmin && (
+            <AdminSecurityWrapper title="Configurazione Componenti">
+              <ComponentiConfigView showToast={showToast} />
+            </AdminSecurityWrapper>
           )}
           {currentView === "anagraficaMacchine" && isAdmin && (
             <AdminSecurityWrapper title="Anagrafica Macchine">
