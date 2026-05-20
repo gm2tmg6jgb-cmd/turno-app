@@ -101,8 +101,8 @@ export const MAC_CONDIVISE = {
  *
  * Ritorna l'ordine di tutte le fasi per un componente.
  */
-export function getFlussoCompleto(comp) {
-  const cfg = COMPONENTI_CONFIG[comp];
+export function getFlussoCompleto(comp, config = COMPONENTI_CONFIG) {
+  const cfg = config[comp];
   if (!cfg) return [];
 
   return [
@@ -118,8 +118,8 @@ export function getFlussoCompleto(comp) {
  * Calcola il tempo (in minuti) per completare un'OP.
  * Formula: changeover + (quantita / JPH) * 60
  */
-export function durataOP(comp, op, quantita) {
-  const cfg = COMPONENTI_CONFIG[comp];
+export function durataOP(comp, op, quantita, config = COMPONENTI_CONFIG) {
+  const cfg = config[comp];
   if (!cfg) return 0;
 
   // HT è un caso speciale: dipende dal batch size
@@ -153,8 +153,8 @@ export function opPrecedente(comp, op) {
  * Dato un numero di conferma (es. "2511108150/S"), ritorna il componente (SG3, SG2, etc.)
  * In base al codice materiale.
  */
-export function getComponennteDaConferma(materiale) {
-  for (const [comp, cfg] of Object.entries(COMPONENTI_CONFIG)) {
+export function getComponennteDaConferma(materiale, config = COMPONENTI_CONFIG) {
+  for (const [comp, cfg] of Object.entries(config)) {
     if (
       materiale === cfg.materiali.soft ||
       materiale === cfg.materiali.ht ||
@@ -169,8 +169,8 @@ export function getComponennteDaConferma(materiale) {
 /**
  * MACCHINA PER UN'OPERAZIONE
  */
-export function getMacchinaOP(comp, op) {
-  const cfg = COMPONENTI_CONFIG[comp];
+export function getMacchinaOP(comp, op, config = COMPONENTI_CONFIG) {
+  const cfg = config[comp];
   if (!cfg) return '—';
   return cfg.ops[op]?.mac || '—';
 }

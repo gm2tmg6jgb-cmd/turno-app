@@ -16,22 +16,24 @@
 
 import React, { useState, useMemo } from 'react';
 import { useTracciamentoSAP, formatTempo, dataOra } from '../hooks/useTracciamentoSAP';
-import { COMPONENTI_CONFIG, getAllComponenti, getAllMacchineCondivise } from '../config/componenti-config';
+import { COMPONENTI_CONFIG, MAC_CONDIVISE, getAllMacchineCondivise } from '../config/componenti-config';
+import { useComponentiConfigDB } from '../hooks/useComponentiConfigDB';
 
 export function SchedulingTab({ conferme_sap = [], componentiConfig = null }) {
 
-  // Usa la config estratta o quella hardcoded
-  const configAttiva = componentiConfig || COMPONENTI_CONFIG;
+  // Carica la config dal DB (definitiva, una volta per sessione)
+  const { config: configDB, loading: loadingConfig } = useComponentiConfigDB();
 
-  // Hook di tracciamento - NOTA: useTracciamentoSAP usa ancora COMPONENTI_CONFIG hardcoded
-  // TODO: Passare configAttiva a useTracciamentoSAP
+  // Priorità: prop esplicita → DB → hardcoded fallback
+  const configAttiva = componentiConfig || configDB || COMPONENTI_CONFIG;
+
   const {
     timelines,
     conflitti,
     bottleneck_per_comp,
     kpi,
     elaborati_ok
-  } = useTracciamentoSAP(conferme_sap);
+  } = useTracciamentoSAP(conferme_sap, null, configAttiva);
 
   // Filtra solo i componenti che hanno una timeline calcolata
   const componentiDisponibili = useMemo(() => {
@@ -165,7 +167,7 @@ export function SchedulingTab({ conferme_sap = [], componentiConfig = null }) {
 
       {/* CONTENUTO TAB */}
       {tab_attivo === 'timeline' && (
-        <TabTimeline tl={tl_comp} comp={comp_selezionato} />
+        <TabTimeline tl={tl_comp} comp={comp_selezionato} configAttiva={configAttiva} />
       )}
 
       {tab_attivo === 'conflitti' && (
@@ -182,9 +184,10 @@ export function SchedulingTab({ conferme_sap = [], componentiConfig = null }) {
 /**
  * TAB 1: TIMELINE
  */
-function TabTimeline({ tl, comp }) {
+function TabTimeline({ tl, comp, configAttiva }) {
 
-  const cfg = COMPONENTI_CONFIG[comp];
+  const cfg = configAttiva?.[comp] || COMPONENTI_CONFIG[comp];
+  if (!cfg) return null;
   const fasi = ['soft', 'ht', 'hard'];
 
   return (

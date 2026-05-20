@@ -40,15 +40,17 @@ function extractOpCode(workCenter) {
  * - Bottleneck
  * - KPI (lead time, fine target, etc.)
  */
-export function useTracciamentoSAP(conferme_sap = [], data_inizio = null) {
+export function useTracciamentoSAP(conferme_sap = [], data_inizio = null, componentiConfig = null) {
+
+  const configAttiva = componentiConfig || COMPONENTI_CONFIG;
 
   // Se non ci sono conferme, usa dati mock
   const conferme = conferme_sap.length > 0 ? conferme_sap : generateMockConferme();
 
   // Elabora i dati
   const elaborati = useMemo(() => {
-    return elaboraConferme(conferme, data_inizio);
-  }, [conferme, data_inizio]);
+    return elaboraConferme(conferme, data_inizio, configAttiva);
+  }, [conferme, data_inizio, configAttiva]);
 
   return elaborati;
 }
@@ -56,7 +58,7 @@ export function useTracciamentoSAP(conferme_sap = [], data_inizio = null) {
 /**
  * ELABORAZIONE PRINCIPALE
  */
-function elaboraConferme(conferme_sap, data_inizio = null) {
+function elaboraConferme(conferme_sap, data_inizio = null, configAttiva = COMPONENTI_CONFIG) {
 
   if (conferme_sap.length > 0) {
     console.log('📊 Primo record SAP:', conferme_sap[0]);
@@ -87,12 +89,12 @@ function elaboraConferme(conferme_sap, data_inizio = null) {
 
   // Raggruppa per componente
   const per_comp = {};
-  for (const comp of Object.keys(COMPONENTI_CONFIG)) {
+  for (const comp of Object.keys(configAttiva)) {
     per_comp[comp] = [];
   }
 
   for (const conf of confermeSapNormalizzate) {
-    const comp = getComponennteDaConferma(conf.materiale);
+    const comp = getComponennteDaConferma(conf.materiale, configAttiva);
     if (comp) {
       per_comp[comp].push(conf);
     }
@@ -104,9 +106,9 @@ function elaboraConferme(conferme_sap, data_inizio = null) {
 
   for (const comp in per_comp) {
     const conferme = per_comp[comp];
-    const qty = COMPONENTI_CONFIG[comp].target_giornaliero;
+    const qty = configAttiva[comp].target_giornaliero;
 
-    const tl = calcolaTimeline(comp, qty, conferme, data_inizio);
+    const tl = calcolaTimeline(comp, qty, conferme, data_inizio, configAttiva);
     timelines[comp] = tl;
     bottleneck_per_comp[comp] = trovaBottleneck(tl.timeline);
   }
@@ -134,10 +136,10 @@ function elaboraConferme(conferme_sap, data_inizio = null) {
  * - Data di fine
  * - Attesa su macchine condivise
  */
-function calcolaTimeline(comp, quantita, conferme_sap, data_inizio_base) {
+function calcolaTimeline(comp, quantita, conferme_sap, data_inizio_base, configAttiva = COMPONENTI_CONFIG) {
 
-  const cfg = COMPONENTI_CONFIG[comp];
-  const flusso = getFlussoCompleto(comp);
+  const cfg = configAttiva[comp];
+  const flusso = getFlussoCompleto(comp, configAttiva);
   const timeline = [];
 
   // Data inizio: primo giorno 08:00 (oppure da parametro)
@@ -147,8 +149,8 @@ function calcolaTimeline(comp, quantita, conferme_sap, data_inizio_base) {
   }
 
   for (const {op, fase} of flusso) {
-    const dur = durataOP(comp, op, quantita);
-    const mac = getMacchinaOP(comp, op);
+    const dur = durataOP(comp, op, quantita, configAttiva);
+    const mac = getMacchinaOP(comp, op, configAttiva);
     const is_condivisa = isOpCondivisa(comp, op);
 
     // Trova la conferma SAP se esiste
