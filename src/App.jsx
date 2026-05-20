@@ -34,6 +34,7 @@ const ProductionScheduleView = lazy(() => import("./views/ProductionScheduleView
 const ThroughputView = lazy(() => import("./views/ThroughputView"));
 const GanttPianificazioneView = lazy(() => import("./views/GanttPianificazioneView"));
 const TestSchedulingView = lazy(() => import("./views/TestSchedulingView"));
+const ComponentiConfigView = lazy(() => import("./views/ComponentiConfigView"));
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 function AppContent({ session, onLogout }) {
@@ -255,6 +256,7 @@ function AppContent({ session, onLogout }) {
     { id: "productionDelays", label: "Gestione Ritardi Produzione", icon: Icons.alert, status: "new" },
     { id: "productionSchedule", label: "Programma Produzione", icon: Icons.calendar, status: "new" },
     { id: "testScheduling", label: "🧪 Test Scheduling", icon: Icons.report, status: "beta" },
+    { id: "componentiConfig", label: "Configurazione Componenti", icon: Icons.settings, adminOnly: true },
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine, adminOnly: true },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings, adminOnly: true },
     { id: "inventory", label: "Inventario", icon: Icons.report },
@@ -276,6 +278,7 @@ function AppContent({ session, onLogout }) {
     productionDelays: "Gestione Ritardi Produzione",
     productionSchedule: "Programma Produzione",
     testScheduling: "Test Scheduling & Tracciamento SAP",
+    componentiConfig: "Configurazione Componenti",
     fermi: "Report Fermi",
     anagraficaFermi: "Anagrafica Fermi Macchine",
     anagraficaMacchine: "Anagrafica Macchine",
@@ -403,6 +406,7 @@ function AppContent({ session, onLogout }) {
                 {renderItem(ni("sapHub"))}
 
                 <div className="nav-section-label">Anagrafiche</div>
+                {renderItem(ni("componentiConfig"))}
                 {renderItem(ni("anagraficaMacchine"))}
                 {renderItem(ni("zones"))}
                 {renderItem(ni("anagraficaFermi"))}
@@ -658,6 +662,11 @@ function AppContent({ session, onLogout }) {
           )}
           {currentView === "testScheduling" && (
             <TestSchedulingView conferme_sap={confermeSap} material_fino_overrides={materialFinoOverrides} />
+          )}
+          {currentView === "componentiConfig" && isAdmin && (
+            <AdminSecurityWrapper title="Configurazione Componenti">
+              <ComponentiConfigView showToast={showToast} />
+            </AdminSecurityWrapper>
           )}
           {currentView === "anagraficaMacchine" && isAdmin && (
             <AdminSecurityWrapper title="Anagrafica Macchine">
