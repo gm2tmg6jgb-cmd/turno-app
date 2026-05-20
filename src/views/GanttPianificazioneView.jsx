@@ -1185,6 +1185,7 @@ export default function GanttPianificazioneView({ showToast }) {
                 <button style={tabBtnStyle(activeTab === "status",  "#10b981")} onClick={() => setActiveTab("status")}>📊 Stato Settimana</button>
                 <button style={tabBtnStyle(activeTab === "gantt",   "#3c6ef0")} onClick={() => setActiveTab("gantt")}>📅 Gantt Pianificazione</button>
                 <button style={tabBtnStyle(activeTab === "report",  "#ef4444")} onClick={() => setActiveTab("report")}>📉 Report Mancato Target</button>
+                <button style={tabBtnStyle(activeTab === "flusso",  "#f59e0b")} onClick={() => setActiveTab("flusso")}>🔄 Flusso Componenti</button>
                 <button style={tabBtnStyle(activeTab === "config",  "#9b59b6")} onClick={() => setActiveTab("config")}>⚙️ Configurazione</button>
             </div>
 
@@ -1233,6 +1234,16 @@ export default function GanttPianificazioneView({ showToast }) {
                 materialOverrides={materialOverrides}
                 showToast={showToast}
                 cardStyle={cardStyle}
+            />}
+
+            {/* ══════════════════════════ TAB 5: FLUSSO COMPONENTI ══════════════════════════ */}
+            {activeTab === "flusso" && <FlussoComponentiTab
+                components={components}
+                cfg={cfg}
+                sapByKey={sapByKey}
+                weeklyTargets={weeklyTargets}
+                consumedH={consumedH}
+                weekStart={weekStart}
             />}
 
             {/* ══════════════════════════ TAB 4: CONFIG ══════════════════════════ */}
@@ -3661,6 +3672,222 @@ function MancatoTargetTab({ sharedMachines, weeklyTargets, sapByKey, rawConferme
                     )}
                 </div>
             </>)}
+        </div>
+    );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// TAB: FLUSSO COMPONENTI
+// Mostra per ogni componente il flusso delle fasi con:
+// - Pezzi prodotti vs target
+// - WIP tra fasi consecutive (= accumulo tra una fase e la successiva)
+// - Lead time stimato a finire (basato sul ritmo SAP attuale)
+// ══════════════════════════════════════════════════════════════════════════════
+function FlussoComponentiTab({ components, cfg, sapByKey, weeklyTargets, consumedH, weekStart }) {
+
+    const [selectedProj, setSelectedProj] = useState("all");
+
+    // Raggruppa componenti per progetto
+    const progetti = useMemo(() => ["all", ...new Set(components.map(c => c.project))], [components]);
+
+    // Calcola flusso per ogni componente
+    const flussiPerComp = useMemo(() => {
+        return components
+            .filter(comp => selectedProj === "all" || comp.project === selectedProj)
+            .map(comp => {
+                const compCfg = cfg.components[comp.key];
+                if (!compCfg?.phases?.length) return null;
+
+                // Fasi ordinate secondo PHASE_FLOW_INDEX
+                const fasi = [...compCfg.phases]
+                    .sort((a, b) => (PHASE_FLOW_INDEX[a.phaseId] ?? 999) - (PHASE_FLOW_INDEX[b.phaseId] ?? 999));
+
+                const target = weeklyTargets[comp.key] || 0;
+
+                // Per ogni fase: produzione SAP e calcolo WIP
+                const fasiConDati = fasi.map((fase, idx) => {
+                    const sapKey   = `${comp.key}::${fase.phaseId}`;
+                    const produced = sapByKey[sapKey] || 0;
+                    const pct      = target > 0 ? Math.min(100, Math.round(produced / target * 100)) : 0;
+                    const remaining = Math.max(0, target - produced);
+
+                    // WIP = pezzi completati in questa fase ma NON ancora nella successiva
+                    const nextFase = fasi[idx + 1];
+                    const nextProduced = nextFase ? (sapByKey[`${comp.key}::${nextFase.phaseId}`] || 0) : null;
+                    const wip = nextProduced !== null ? Math.max(0, produced - nextProduced) : null;
+
+                    // Ritmo attuale (pz/ora) basato su SAP
+                    const ritmo = consumedH > 0 ? produced / consumedH : 0;
+
+                    // Lead time stimato a finire questa fase (ore)
+                    const leadTimeOre = ritmo > 0 ? remaining / ritmo : null;
+
+                    return {
+                        phaseId:    fase.phaseId,
+                        label:      PHASE_LABELS[fase.phaseId] || fase.phaseId,
+                        color:      PHASE_COLORS[fase.phaseId] || "#64748b",
+                        produced,
+                        target,
+                        remaining,
+                        pct,
+                        wip,
+                        ritmo,
+                        leadTimeOre,
+                    };
+                });
+
+                // Fase più arretrata (quella con % più bassa) = il vero collo di bottiglia del componente
+                const faseBottleneck = [...fasiConDati].sort((a, b) => a.pct - b.pct)[0];
+
+                // Lead time globale = stimato dalla fase più arretrata
+                const leadTimeGlobale = faseBottleneck?.leadTimeOre;
+
+                // Data fine stimata
+                const dataFine = leadTimeGlobale != null
+                    ? (() => {
+                        const d = new Date(weekStart + "T08:00:00");
+                        d.setHours(d.getHours() + Math.round(leadTimeGlobale));
+                        return d.toLocaleDateString("it-IT", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+                    })()
+                    : null;
+
+                return { comp, fasi: fasiConDati, target, faseBottleneck, leadTimeGlobale, dataFine };
+            })
+            .filter(Boolean);
+    }, [components, cfg, sapByKey, weeklyTargets, consumedH, weekStart, selectedProj]);
+
+    const row = { display: "flex", alignItems: "center", gap: 10, marginBottom: 6 };
+    const label = { fontSize: 11, color: "var(--text-secondary)", width: 130, flexShrink: 0, textAlign: "right" };
+    const barWrap = { flex: 1, height: 18, background: "var(--bg-tertiary, var(--border))", borderRadius: 4, overflow: "hidden", position: "relative" };
+
+    return (
+        <div style={{ padding: "0 4px" }}>
+
+            {/* Filtro progetto */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
+                {progetti.map(p => (
+                    <button key={p} onClick={() => setSelectedProj(p)} style={{
+                        padding: "5px 14px", borderRadius: 20, border: "1px solid var(--border)",
+                        background: selectedProj === p ? "var(--accent)" : "transparent",
+                        color: selectedProj === p ? "#fff" : "var(--text-secondary)",
+                        fontWeight: selectedProj === p ? 600 : 400, fontSize: 12, cursor: "pointer"
+                    }}>
+                        {p === "all" ? "Tutti i progetti" : p}
+                    </button>
+                ))}
+            </div>
+
+            {flussiPerComp.length === 0 && (
+                <div style={{ textAlign: "center", padding: "3rem", color: "var(--text-secondary)", fontSize: 13 }}>
+                    Nessun componente disponibile. Verifica che i dati SAP siano caricati.
+                </div>
+            )}
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(480px, 1fr))", gap: 20 }}>
+                {flussiPerComp.map(({ comp, fasi, target, faseBottleneck, leadTimeGlobale, dataFine }) => (
+                    <div key={comp.key} style={{
+                        background: "var(--bg-secondary)",
+                        border: "1px solid var(--border)",
+                        borderRadius: 10,
+                        padding: "16px 18px",
+                        borderLeft: `4px solid ${comp.color}`,
+                    }}>
+                        {/* Header componente */}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
+                            <div>
+                                <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text-primary)" }}>
+                                    {comp.label}
+                                </div>
+                                <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
+                                    {comp.project} · target settimana: <strong>{target.toLocaleString("it-IT")}</strong> pz
+                                </div>
+                            </div>
+                            {dataFine && (
+                                <div style={{ textAlign: "right" }}>
+                                    <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>Fine stimata</div>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: leadTimeGlobale > 24 ? "#ef4444" : "#10b981" }}>
+                                        {dataFine}
+                                    </div>
+                                    <div style={{ fontSize: 10, color: "var(--text-secondary)" }}>
+                                        {leadTimeGlobale != null ? `${leadTimeGlobale.toFixed(0)}h rimanenti` : ""}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Fasi */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            {fasi.map((fase, idx) => {
+                                const isBottleneck = fase.phaseId === faseBottleneck?.phaseId;
+                                return (
+                                    <div key={fase.phaseId}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+                                            {/* Badge fase */}
+                                            <span style={{
+                                                display: "inline-block", width: 10, height: 10,
+                                                borderRadius: "50%", background: fase.color, flexShrink: 0
+                                            }} />
+                                            <span style={{ fontSize: 12, fontWeight: isBottleneck ? 700 : 500, color: "var(--text-primary)", flex: 1 }}>
+                                                {fase.label}
+                                                {isBottleneck && <span style={{ marginLeft: 6, fontSize: 10, color: "#ef4444", fontWeight: 700 }}>◄ collo di bottiglia</span>}
+                                            </span>
+                                            <span style={{ fontSize: 11, color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
+                                                {fase.produced.toLocaleString("it-IT")} / {fase.target.toLocaleString("it-IT")} pz
+                                            </span>
+                                            <span style={{
+                                                fontSize: 11, fontWeight: 700, minWidth: 36, textAlign: "right",
+                                                color: fase.pct >= 90 ? "#10b981" : fase.pct >= 60 ? "#f59e0b" : "#ef4444"
+                                            }}>
+                                                {fase.pct}%
+                                            </span>
+                                        </div>
+
+                                        {/* Barra avanzamento */}
+                                        <div style={{ ...barWrap, marginLeft: 18 }}>
+                                            <div style={{
+                                                width: `${fase.pct}%`, height: "100%",
+                                                background: fase.color, opacity: 0.8,
+                                                transition: "width 0.4s ease"
+                                            }} />
+                                        </div>
+
+                                        {/* WIP tra questa fase e la successiva */}
+                                        {fase.wip !== null && fase.wip > 0 && (
+                                            <div style={{ marginLeft: 18, marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                                                <div style={{ width: 1, height: 12, background: "var(--border)", marginLeft: 4 }} />
+                                                <span style={{
+                                                    fontSize: 10, color: fase.wip > target * 0.15 ? "#f59e0b" : "var(--text-secondary)",
+                                                    fontWeight: fase.wip > target * 0.15 ? 600 : 400
+                                                }}>
+                                                    WIP in attesa: {fase.wip.toLocaleString("it-IT")} pz
+                                                    {fase.wip > target * 0.15 && " ⚠️"}
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Riepilogo bottom */}
+                        <div style={{ marginTop: 14, paddingTop: 10, borderTop: "1px solid var(--border)", display: "flex", gap: 16, flexWrap: "wrap" }}>
+                            <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                                Fase critica: <strong style={{ color: "var(--text-primary)" }}>{faseBottleneck?.label || "—"}</strong>
+                            </div>
+                            {faseBottleneck?.ritmo > 0 && (
+                                <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                                    Ritmo: <strong style={{ color: "var(--text-primary)" }}>{faseBottleneck.ritmo.toFixed(0)} pz/h</strong>
+                                </div>
+                            )}
+                            {faseBottleneck?.remaining > 0 && (
+                                <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                                    Rimanenti: <strong style={{ color: "#ef4444" }}>{faseBottleneck.remaining.toLocaleString("it-IT")} pz</strong>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }
