@@ -33,6 +33,7 @@ const ProductionDelaysView = lazy(() => import("./views/ProductionDelaysView"));
 const ProductionScheduleView = lazy(() => import("./views/ProductionScheduleView"));
 const ThroughputView = lazy(() => import("./views/ThroughputView"));
 const GanttPianificazioneView = lazy(() => import("./views/GanttPianificazioneView"));
+const TestSchedulingView = lazy(() => import("./views/TestSchedulingView"));
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 function AppContent({ session, onLogout }) {
@@ -242,6 +243,7 @@ function AppContent({ session, onLogout }) {
     { id: "productionReport", label: "Report Produzione", icon: Icons.report },
     { id: "productionDelays", label: "Gestione Ritardi Produzione", icon: Icons.alert, status: "new" },
     { id: "productionSchedule", label: "Programma Produzione", icon: Icons.calendar, status: "new" },
+    { id: "testScheduling", label: "🧪 Test Scheduling", icon: Icons.report, status: "beta" },
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine, adminOnly: true },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings, adminOnly: true },
     { id: "inventory", label: "Inventario", icon: Icons.report },
@@ -262,6 +264,7 @@ function AppContent({ session, onLogout }) {
     productionReport: "Report Produzione",
     productionDelays: "Gestione Ritardi Produzione",
     productionSchedule: "Programma Produzione",
+    testScheduling: "Test Scheduling & Tracciamento SAP",
     fermi: "Report Fermi",
     anagraficaFermi: "Anagrafica Fermi Macchine",
     anagraficaMacchine: "Anagrafica Macchine",
@@ -383,6 +386,7 @@ function AppContent({ session, onLogout }) {
                 {renderItem(ni("productionFlowReport"))}
                 {renderItem(ni("productionReport"))}
                 {renderItem(ni("productionSchedule"))}
+                {renderItem(ni("testScheduling"))}
                 {renderItem(ni("lpaPlan"))}
                 {renderItem(ni("op10"))}
                 {renderItem(ni("sapHub"))}
@@ -672,6 +676,8 @@ function AppContent({ session, onLogout }) {
           )}
 
 
+
+          {currentView === "testScheduling" && <TestSchedulingView />}
 
           {currentView === "inventory" && <InventoryView showToast={showToast} macchine={macchine} />}
         </div>
