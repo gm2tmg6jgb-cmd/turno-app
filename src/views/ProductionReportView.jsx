@@ -282,17 +282,26 @@ export default function ProductionReportView({
 
   const saveFermo = async () => {
     if (!fermoForm.motivo) return;
-    if (!fermoForm.durata || isNaN(parseInt(fermoForm.durata))) return;
     setSavingFermo(true);
+    // Durata è opzionale: se non inserita, salvare 0
+    const durataValue = fermoForm.durata && !isNaN(parseInt(fermoForm.durata))
+      ? parseInt(fermoForm.durata)
+      : 0;
+    const turnoId = selectedTurno !== "ALL" ? selectedTurno : (turnoCorrente?.id || null);
     const { error } = await supabase.from("fermi_macchina").insert({
       data: reportDate,
-      turno_id: selectedTurno !== "ALL" ? selectedTurno : (turnoCorrente?.id || null),
+      turno_id: turnoId,
       macchina_id: fermoModal.machineId,
       motivo: fermoForm.motivo,
-      durata_minuti: parseInt(fermoForm.durata),
+      durata_minuti: durataValue,
       note: fermoForm.note || null,
     });
-    if (!error) {
+    if (error) {
+      console.error("Errore salvataggio fermo:", error);
+      setSavingFermo(false);
+      return;
+    }
+    if (true) {
       // Ricarica i fermi
       let q = supabase.from("fermi_macchina").select("*").eq("data", reportDate);
       if (selectedTurno !== "ALL") q = q.eq("turno_id", selectedTurno);
@@ -302,6 +311,18 @@ export default function ProductionReportView({
       setFermoForm({ motivo: "", durata: "", note: "" });
     }
     setSavingFermo(false);
+  };
+
+  const deleteFermo = async (fermoId) => {
+    const { error } = await supabase.from("fermi_macchina").delete().eq("id", fermoId);
+    if (!error) {
+      // Ricarica i fermi
+      let q = supabase.from("fermi_macchina").select("*").eq("data", reportDate);
+      if (selectedTurno !== "ALL") q = q.eq("turno_id", selectedTurno);
+      const { data } = await q;
+      setRawDowntimeData(data || []);
+      setSelectedMachineDowntime(null);
+    }
   };
 
   // Dynamic Matrix Calculation based on activeTech and raw data
@@ -948,7 +969,7 @@ export default function ProductionReportView({
                     color: "var(--danger)",
                   }}
                 >
-                  Fermi (min)
+                  Fermi
                 </th>
                 <th
                   style={{
@@ -1002,6 +1023,7 @@ export default function ProductionReportView({
                 }
 
                 const downtime = downtimeMap[machineId] || 0;
+                const fermiCount = (detailedDowntime[machineId] || []).length;
                 const isRowHovered = hoveredRow === machineId;
 
                 return (
@@ -1041,40 +1063,39 @@ export default function ProductionReportView({
                       {displayLabel}
                     </td>
                     <td
+                      onClick={() => {
+                        if (fermiCount > 0) {
+                          setSelectedMachineDowntime({ id: machineId, label: displayLabel, details: detailedDowntime[machineId] || [] });
+                        } else {
+                          setFermoModal({ machineId, machineLabel: displayLabel });
+                          setFermoForm({ motivo: "", durata: "", note: "" });
+                        }
+                      }}
                       style={{
                         border: "1px solid var(--border)",
                         padding: "4px 8px",
                         textAlign: "center",
                         backgroundColor: isRowHovered
                           ? "#eef2ff"
-                          : downtime > 0
-                            ? "rgba(239,68,68,0.1)"
+                          : fermiCount > 0
+                            ? "#EF4444"
                             : "var(--bg-card)",
+                        cursor: "pointer",
                       }}
                     >
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                        <span
-                          onClick={() => downtime > 0 && setSelectedMachineDowntime({ id: machineId, label: displayLabel, details: detailedDowntime[machineId] || [] })}
-                          style={{
-                            fontWeight: "700",
-                            color: downtime > 0 ? "var(--danger)" : "var(--text-muted)",
-                            cursor: downtime > 0 ? "pointer" : "default",
-                            fontSize: 13,
-                          }}
-                        >
-                          {downtime > 0 ? downtime : "—"}
-                        </span>
-                        <button
-                          onClick={() => { setFermoModal({ machineId, machineLabel: displayLabel }); setFermoForm({ motivo: "", durata: "", note: "" }); }}
-                          style={{
-                            width: 18, height: 18, borderRadius: "50%", border: "1px solid var(--danger)",
-                            background: "transparent", color: "var(--danger)", fontSize: 12, fontWeight: 700,
-                            cursor: "pointer", lineHeight: 1, padding: 0, display: "flex", alignItems: "center", justifyContent: "center",
-                            opacity: isRowHovered ? 1 : 0.3, transition: "opacity 0.15s",
-                          }}
-                          title="Inserisci fermo"
-                        >+</button>
-                      </div>
+                      {fermiCount > 0 && (
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                          <span
+                            style={{
+                              fontWeight: "700",
+                              color: "white",
+                              fontSize: 13,
+                            }}
+                          >
+                            {fermiCount}
+                          </span>
+                        </div>
+                      )}
                     </td>
                     <td
                       style={{
@@ -1210,13 +1231,13 @@ export default function ProductionReportView({
               </div>
 
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Durata (minuti) *</label>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Durata (minuti)</label>
                 <input
                   type="number"
-                  min="1"
+                  min="0"
                   value={fermoForm.durata}
                   onChange={e => setFermoForm(f => ({ ...f, durata: e.target.value }))}
-                  placeholder="es. 30"
+                  placeholder="es. 30 (opzionale)"
                   style={{ width: "100%", padding: "8px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: 13, boxSizing: "border-box" }}
                 />
               </div>
@@ -1240,8 +1261,8 @@ export default function ProductionReportView({
               >Annulla</button>
               <button
                 onClick={saveFermo}
-                disabled={savingFermo || !fermoForm.motivo || !fermoForm.durata}
-                style={{ padding: "8px 16px", borderRadius: 6, border: "none", background: savingFermo || !fermoForm.motivo || !fermoForm.durata ? "var(--text-muted)" : "var(--danger)", color: "white", fontWeight: 700, cursor: savingFermo || !fermoForm.motivo || !fermoForm.durata ? "default" : "pointer", fontSize: 13 }}
+                disabled={savingFermo || !fermoForm.motivo || selectedTurno === "ALL"}
+                style={{ padding: "8px 16px", borderRadius: 6, border: "none", background: savingFermo || !fermoForm.motivo || selectedTurno === "ALL" ? "var(--text-muted)" : "var(--danger)", color: "white", fontWeight: 700, cursor: savingFermo || !fermoForm.motivo || selectedTurno === "ALL" ? "default" : "pointer", fontSize: 13 }}
               >{savingFermo ? "Salvo…" : "Salva fermo"}</button>
             </div>
           </div>
@@ -1336,6 +1357,18 @@ export default function ProductionReportView({
                     >
                       Durata (min)
                     </th>
+                    <th
+                      style={{
+                        textAlign: "center",
+                        padding: "12px 0",
+                        color: "var(--text-muted)",
+                        fontSize: "12px",
+                        textTransform: "uppercase",
+                        width: "50px",
+                      }}
+                    >
+                      Azione
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1382,12 +1415,34 @@ export default function ProductionReportView({
                         >
                           {f.durata_minuti}
                         </td>
+                        <td
+                          style={{
+                            textAlign: "center",
+                            padding: "12px 0",
+                          }}
+                        >
+                          <button
+                            onClick={() => deleteFermo(f.id)}
+                            style={{
+                              border: "none",
+                              background: "transparent",
+                              color: "var(--danger)",
+                              cursor: "pointer",
+                              fontSize: "16px",
+                              padding: "4px 8px",
+                              fontWeight: "bold",
+                            }}
+                            title="Elimina fermo"
+                          >
+                            ✕
+                          </button>
+                        </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
                       <td
-                        colSpan={2}
+                        colSpan={3}
                         style={{
                           padding: "20px 0",
                           textAlign: "center",

@@ -4,6 +4,23 @@ Tutte le modifiche significative di Turno App sono documentate in questo file.
 
 ---
 
+## [1.8.9] — 2026-05-20 — Miglioramenti Gestione Fermi in ProductionReportView
+
+### ✨ Nuove Funzionalità
+- **Durata fermi opzionale** (`ProductionReportView`): i minuti di durata non sono più obbligatori nell'inserimento fermi. Se non specificati, il valore di default è 0.
+- **Visualizzazione numero fermi** (`ProductionReportView`): la colonna "Fermi" ora mostra il **conteggio dei fermi** anziché il totale dei minuti, per una visibilità più immediata.
+- **Eliminazione fermi** (`ProductionReportView`): aggiunto bottone "✕" nel modal "Dettaglio Fermi" per eliminare singoli fermi.
+- **Cella fermi completamente cliccabile** (`ProductionReportView`): 
+  - Quando nessun fermo: cella vuota e cliccabile per inserire
+  - Quando fermi presenti: cella rossa con numero bianco, cliccabile per visualizzare/gestire dettagli
+  - Rimosso il bottone "+" separato
+
+### 🎨 Miglioramenti UI
+- **Header colonna semplificato**: "Fermi (min)" → "Fermi" (più conciso)
+- **Validazione turno**: bottone "Salva fermo" disabilitato se non è stato selezionato un turno specifico (non è consentito salvare con "Tutto il giorno" selezionato)
+
+---
+
 ## [1.8.7] — 2026-05-14 — Badge Limitante Intelligente + Fix Variante 1A
 
 ### ✨ Nuove Funzionalità
