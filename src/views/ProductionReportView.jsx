@@ -63,6 +63,7 @@ export default function ProductionReportView({
   const [searchQuery, setSearchQuery] = useState("");
   const [reportDate, setReportDate] = useState(globalDate || new Date().toISOString().split("T")[0]);
   const [selectedTurno, setSelectedTurno] = useState("ALL");
+  const [viewMode, setViewMode] = useState("day"); // "day" o "week"
   const [selectedMachineDowntime, setSelectedMachineDowntime] = useState(null);
   const [selectedProduction, setSelectedProduction] = useState(null);
   const [rawProductionData, setRawProductionData] = useState([]);
@@ -229,6 +230,27 @@ export default function ProductionReportView({
     return machineId; // Return itself if not part of a twin group
   };
 
+  // Helper: Get week dates (Monday to Sunday)
+  const getWeekDates = (date) => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Sunday
+    const monday = new Date(d.setDate(diff));
+    const sunday = new Date(monday);
+    sunday.setDate(sunday.getDate() + 6);
+
+    const formatDate = (dateObj) => dateObj.toISOString().split('T')[0];
+    return {
+      start: formatDate(monday),
+      end: formatDate(sunday),
+      dates: Array.from({ length: 7 }, (_, i) => {
+        const d = new Date(monday);
+        d.setDate(d.getDate() + i);
+        return formatDate(d);
+      })
+    };
+  };
+
   // Fetch anagrafica once
   useEffect(() => {
     const fetchAnagrafica = async () => {
@@ -251,35 +273,65 @@ export default function ProductionReportView({
     const fetchData = async () => {
       setLoading(true);
 
-      // 1. Fetch production data
-      let qProd = supabase.from("conferme_sap").select("*").eq("data", reportDate);
-      if (selectedTurno !== "ALL") qProd = qProd.eq("turno_id", selectedTurno);
+      if (viewMode === "day") {
+        // 1. Fetch production data
+        let qProd = supabase.from("conferme_sap").select("*").eq("data", reportDate);
+        if (selectedTurno !== "ALL") qProd = qProd.eq("turno_id", selectedTurno);
 
-      // 2. Fetch downtime data
-      let qDowntime = supabase
-        .from("fermi_macchina")
-        .select("*")
-        .eq("data", reportDate);
-      if (selectedTurno !== "ALL") qDowntime = qDowntime.eq("turno_id", selectedTurno);
+        // 2. Fetch downtime data
+        let qDowntime = supabase
+          .from("fermi_macchina")
+          .select("*")
+          .eq("data", reportDate);
+        if (selectedTurno !== "ALL") qDowntime = qDowntime.eq("turno_id", selectedTurno);
 
-      const [resProd, resDowntime] = await Promise.all([qProd, qDowntime]);
+        const [resProd, resDowntime] = await Promise.all([qProd, qDowntime]);
 
-      setRawProductionData(resProd.data || []);
-      setRawDowntimeData(resDowntime.data || []);
+        setRawProductionData(resProd.data || []);
+        setRawDowntimeData(resDowntime.data || []);
 
-      // Filter assignments for this date and shift
-      const filtered = assegnazioni.filter(a => {
-        if (a.data !== reportDate) return false;
-        if (selectedTurno !== "ALL" && a.turno_id !== selectedTurno) return false;
-        return true;
-      });
-      setTodayAssignments(filtered);
+        // Filter assignments for this date and shift
+        const filtered = assegnazioni.filter(a => {
+          if (a.data !== reportDate) return false;
+          if (selectedTurno !== "ALL" && a.turno_id !== selectedTurno) return false;
+          return true;
+        });
+        setTodayAssignments(filtered);
+      } else {
+        // Week mode: fetch data for all days of the week
+        const week = getWeekDates(reportDate);
+
+        // Fetch production data for the week
+        let qProd = supabase.from("conferme_sap").select("*")
+          .gte("data", week.start)
+          .lte("data", week.end);
+        if (selectedTurno !== "ALL") qProd = qProd.eq("turno_id", selectedTurno);
+
+        // Fetch downtime data for the week
+        let qDowntime = supabase.from("fermi_macchina").select("*")
+          .gte("data", week.start)
+          .lte("data", week.end);
+        if (selectedTurno !== "ALL") qDowntime = qDowntime.eq("turno_id", selectedTurno);
+
+        const [resProd, resDowntime] = await Promise.all([qProd, qDowntime]);
+
+        setRawProductionData(resProd.data || []);
+        setRawDowntimeData(resDowntime.data || []);
+
+        // Filter assignments for the week and shift
+        const filtered = assegnazioni.filter(a => {
+          if (a.data < week.start || a.data > week.end) return false;
+          if (selectedTurno !== "ALL" && a.turno_id !== selectedTurno) return false;
+          return true;
+        });
+        setTodayAssignments(filtered);
+      }
 
       setLoading(false);
     };
 
     fetchData();
-  }, [reportDate, selectedTurno, anagrafica, assegnazioni]);
+  }, [reportDate, selectedTurno, viewMode, anagrafica, assegnazioni];
 
   const saveFermo = async () => {
     if (!fermoForm.motivo) return;
@@ -674,9 +726,11 @@ export default function ProductionReportView({
               Report Produzione
             </h1>
             <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>
-              Dati del{" "}
-              <strong>{formatItalianDate(reportDate)}</strong> -
-              Turno <strong>{selectedTurno === "ALL" ? "Tutti (Intera Giornata)" : selectedTurno}</strong>
+              {viewMode === "day" ? (
+                <>Dati del <strong>{formatItalianDate(reportDate)}</strong> - Turno <strong>{selectedTurno === "ALL" ? "Tutti (Intera Giornata)" : selectedTurno}</strong></>
+              ) : (
+                <>Dati della settimana di <strong>{formatItalianDate(getWeekDates(reportDate).start)}</strong> - Turno <strong>{selectedTurno === "ALL" ? "Tutti (Intera Giornata)" : selectedTurno}</strong></>
+              )}
             </p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
@@ -717,6 +771,25 @@ export default function ProductionReportView({
               {["A", "B", "C", "D"].map(t => (
                   <option key={t} value={t}>Turno {t}</option>
               ))}
+            </select>
+            <select
+              value={viewMode}
+              onChange={(e) => setViewMode(e.target.value)}
+              style={{
+                padding: "10px 16px",
+                borderRadius: "8px",
+                border: "1px solid var(--border-light)",
+                backgroundColor: "white",
+                fontSize: "14px",
+                fontWeight: "600",
+                color: "var(--text-primary)",
+                outline: "none",
+                cursor: "pointer",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+              }}
+            >
+              <option value="day">Giornaliera</option>
+              <option value="week">Settimanale</option>
             </select>
             <div style={{ position: "relative" }}>
               <input
