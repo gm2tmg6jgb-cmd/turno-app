@@ -748,64 +748,76 @@ export default function ProductionReportView({
               )}
             </p>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
-            <input
-              type="date"
-              value={reportDate}
-              onChange={(e) => setReportDate(e.target.value)}
-              style={{
-                padding: "10px 12px",
-                borderRadius: "8px",
-                border: "1px solid var(--border-light)",
-                backgroundColor: "white",
-                fontSize: "14px",
-                fontWeight: "600",
-                color: "var(--text-primary)",
-                outline: "none",
-                cursor: "pointer",
-                boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-              }}
-            />
-            <select
-              value={selectedTurno}
-              onChange={(e) => setSelectedTurno(e.target.value)}
-              style={{
-                padding: "10px 16px",
-                borderRadius: "8px",
-                border: "1px solid var(--border-light)",
-                backgroundColor: "white",
-                fontSize: "14px",
-                fontWeight: "600",
-                color: "var(--text-primary)",
-                outline: "none",
-                cursor: "pointer",
-                boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-              }}
-            >
-              <option value="ALL">Tutto il giorno</option>
-              {["A", "B", "C", "D"].map(t => (
+          <div style={{ display: "flex", alignItems: "flex-end", gap: "12px" }}>
+            {/* Data */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Data</span>
+              <input
+                type="date"
+                value={reportDate}
+                onChange={(e) => setReportDate(e.target.value)}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border-light)",
+                  backgroundColor: "white",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  color: "var(--text-primary)",
+                  outline: "none",
+                  cursor: "pointer",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                }}
+              />
+            </div>
+            {/* Vista */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Vista</span>
+              <select
+                value={viewMode}
+                onChange={(e) => setViewMode(e.target.value)}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border-light)",
+                  backgroundColor: "white",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  color: "var(--text-primary)",
+                  outline: "none",
+                  cursor: "pointer",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                }}
+              >
+                <option value="day">Giornaliera</option>
+                <option value="week">Settimanale</option>
+              </select>
+            </div>
+            {/* Turno */}
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Turno</span>
+              <select
+                value={selectedTurno}
+                onChange={(e) => setSelectedTurno(e.target.value)}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border-light)",
+                  backgroundColor: "white",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  color: "var(--text-primary)",
+                  outline: "none",
+                  cursor: "pointer",
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                }}
+              >
+                <option value="ALL">Tutti i turni</option>
+                {["A", "B", "C", "D"].map(t => (
                   <option key={t} value={t}>Turno {t}</option>
-              ))}
-            </select>
-            <select
-              value={viewMode}
-              onChange={(e) => setViewMode(e.target.value)}
-              style={{
-                padding: "10px 16px",
-                borderRadius: "8px",
-                border: "1px solid var(--border-light)",
-                backgroundColor: "white",
-                fontSize: "14px",
-                fontWeight: "600",
-                color: "var(--text-primary)",
-                outline: "none",
-                cursor: "pointer",
-                boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-              }}
-            >
-              <option value="day">Giornaliera</option>
-              <option value="week">Settimanale</option>
-            </select>
+                ))}
+              </select>
+            </div>
             <div style={{ position: "relative" }}>
               <input
                 type="text"
