@@ -607,6 +607,9 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     .filter(c => !(p === "DCT300" && c === "SG2"))
                     .filter(c => !(p === "8Fe" && c === "RG"))
                     .filter(c => !(p === "DCT ECO" && c === "SG4 ECO"))
+                    .filter(c => !(p === "DCT ECO" && c === "SG2_ECO"))
+                    .filter(c => !(p === "DCT ECO" && c === "SGR_ECO"))
+                    .filter(c => !(p === "DCT ECO" && c.endsWith("_ECO")))
                     .sort();
                 newCompsByProject[p] = [...fixed, ...extra];
             });
