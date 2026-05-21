@@ -605,11 +605,14 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 const extra = Array.from(projComponentSets[p])
                     .filter(c => !fixed.includes(c))
                     .filter(c => !(p === "DCT300" && c === "SG2"))
+                    .filter(c => !(p === "DCT300" && c.endsWith("_ECO")))
+                    .filter(c => !(p === "DCT300" && c.endsWith("_8FE")))
                     .filter(c => !(p === "8Fe" && c === "RG"))
+                    .filter(c => !(p === "8Fe" && c.endsWith("_ECO")))
+                    .filter(c => !(p === "8Fe" && c.endsWith("_8FE")))
                     .filter(c => !(p === "DCT ECO" && c === "SG4 ECO"))
-                    .filter(c => !(p === "DCT ECO" && c === "SG2_ECO"))
-                    .filter(c => !(p === "DCT ECO" && c === "SGR_ECO"))
                     .filter(c => !(p === "DCT ECO" && c.endsWith("_ECO")))
+                    .filter(c => !(p === "DCT ECO" && c.endsWith("_8FE")))
                     .sort();
                 newCompsByProject[p] = [...fixed, ...extra];
             });
