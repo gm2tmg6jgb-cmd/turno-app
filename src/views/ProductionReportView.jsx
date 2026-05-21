@@ -929,34 +929,22 @@ export default function ProductionReportView({
       }}
     >
       <div style={{ marginBottom: "16px", padding: "0 4px" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-end",
-            marginBottom: "32px",
-          }}
-        >
-          <div>
-            <h1
-              style={{
-                fontSize: "36px",
-                fontWeight: "bold",
-                color: "var(--text-primary)",
-                marginBottom: "8px",
-              }}
-            >
-              Report Produzione
-            </h1>
-            <p style={{ color: "var(--text-muted)", fontSize: "14px" }}>
-              {viewMode === "day" ? (
-                <>Dati del <strong>{formatItalianDate(reportDate)}</strong> - Turno <strong>{selectedTurno === "ALL" ? "Tutti (Intera Giornata)" : selectedTurno}</strong></>
-              ) : (
-                <>Dati dal <strong>{formatItalianDate(getWeekDates(reportDate).start)}</strong> al <strong>{formatItalianDate(getWeekDates(reportDate).end)}</strong> — Turno <strong>{selectedTurno === "ALL" ? "Tutti" : selectedTurno}</strong></>
-              )}
-            </p>
-          </div>
-          <div style={{ display: "flex", alignItems: "flex-end", gap: "12px" }}>
+        {/* Titoli */}
+        <div style={{ marginBottom: "24px" }}>
+          <h1 style={{ fontSize: "32px", fontWeight: "bold", color: "var(--text-primary)", margin: 0 }}>
+            Report Produzione
+          </h1>
+          <h2 style={{ fontSize: "14px", fontWeight: "600", color: "var(--text-muted)", margin: "4px 0 0 0" }}>
+            {viewMode === "day" ? (
+              <>Dati del <strong>{formatItalianDate(reportDate)}</strong> - Turno <strong>{selectedTurno === "ALL" ? "Tutti (Intera Giornata)" : selectedTurno}</strong></>
+            ) : (
+              <>Dati dal <strong>{formatItalianDate(getWeekDates(reportDate).start)}</strong> al <strong>{formatItalianDate(getWeekDates(reportDate).end)}</strong> — Turno <strong>{selectedTurno === "ALL" ? "Tutti" : selectedTurno}</strong></>
+            )}
+          </h2>
+        </div>
+
+        {/* Filtri */}
+        <div style={{ display: "flex", alignItems: "flex-end", gap: "12px", flexWrap: "wrap", marginBottom: "24px" }}>
             {/* Data */}
             <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
               <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Data</span>
@@ -1271,7 +1259,6 @@ export default function ProductionReportView({
               ));
           })()}
         </div>
-      </div>
 
       <div
         style={{
