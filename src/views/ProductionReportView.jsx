@@ -64,6 +64,7 @@ export default function ProductionReportView({
   const [reportDate, setReportDate] = useState(globalDate || new Date().toISOString().split("T")[0]);
   const [selectedTurno, setSelectedTurno] = useState("ALL");
   const [viewMode, setViewMode] = useState("day"); // "day" o "week"
+  const [showFermiView, setShowFermiView] = useState(false);
   const [selectedMachineDowntime, setSelectedMachineDowntime] = useState(null);
   const [selectedProduction, setSelectedProduction] = useState(null);
   const [rawProductionData, setRawProductionData] = useState([]);
@@ -728,6 +729,192 @@ export default function ProductionReportView({
     whiteSpace: "nowrap",
   });
 
+  // ── Analisi fermi ──────────────────────────────────────────────
+  const fermiAnalisi = useMemo(() => {
+    if (!rawDowntimeData.length) return { byMotivo: [], byMacchina: [], byTurno: [], total: 0, totalMin: 0 };
+
+    const byMotivo = {};
+    const byMacchina = {};
+    const byTurno = {};
+
+    rawDowntimeData.forEach(f => {
+      const motivo = f.motivo || "N/D";
+      const mac = getPrimaryMachineId(f.macchina_id || "—");
+      const turno = f.turno_id || "—";
+      const durata = f.durata_minuti || 0;
+
+      if (!byMotivo[motivo]) byMotivo[motivo] = { motivo, count: 0, totalMin: 0 };
+      byMotivo[motivo].count++;
+      byMotivo[motivo].totalMin += durata;
+
+      if (!byMacchina[mac]) byMacchina[mac] = { mac, count: 0, totalMin: 0 };
+      byMacchina[mac].count++;
+      byMacchina[mac].totalMin += durata;
+
+      if (!byTurno[turno]) byTurno[turno] = { turno, count: 0, totalMin: 0 };
+      byTurno[turno].count++;
+      byTurno[turno].totalMin += durata;
+    });
+
+    return {
+      rows: [...rawDowntimeData].sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0)),
+      byMotivo: Object.values(byMotivo).sort((a, b) => b.count - a.count),
+      byMacchina: Object.values(byMacchina).sort((a, b) => b.count - a.count),
+      byTurno: Object.values(byTurno).sort((a, b) => (["A","B","C","D"].indexOf(a.turno) - ["A","B","C","D"].indexOf(b.turno))),
+      total: rawDowntimeData.length,
+      totalMin: rawDowntimeData.reduce((s, f) => s + (f.durata_minuti || 0), 0),
+    };
+  }, [rawDowntimeData]);
+
+  // Vista Analisi Fermi (schermo intero)
+  if (showFermiView) {
+    const thStyle = { padding: "10px 14px", textAlign: "left", fontSize: "11px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.05em", color: "#6B7280", borderBottom: "2px solid #E5E7EB", whiteSpace: "nowrap", backgroundColor: "#F9FAFB" };
+    const tdStyle = { padding: "10px 14px", borderBottom: "1px solid #F3F4F6", fontSize: "13px", color: "#374151" };
+    const cardStyle = { background: "white", borderRadius: "12px", padding: "20px 24px", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" };
+
+    const dateRange = viewMode === "week"
+      ? `${formatItalianDate(getWeekDates(reportDate).start)} – ${formatItalianDate(getWeekDates(reportDate).end)}`
+      : formatItalianDate(reportDate);
+    const turnoLabel = selectedTurno === "ALL" ? "Tutti i turni" : `Turno ${selectedTurno}`;
+
+    return (
+      <div className="fade-in" style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", overflow: "hidden", backgroundColor: "var(--bg-secondary)", padding: "32px" }}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "28px" }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
+              <button onClick={() => setShowFermiView(false)} style={{ border: "1px solid var(--border)", background: "white", borderRadius: "8px", padding: "6px 12px", cursor: "pointer", fontSize: "13px", color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: "6px" }}>
+                ← Report Produzione
+              </button>
+            </div>
+            <h1 style={{ fontSize: "32px", fontWeight: "bold", color: "var(--text-primary)", margin: 0 }}>Analisi Fermi</h1>
+            <p style={{ color: "var(--text-muted)", fontSize: "14px", margin: "6px 0 0" }}>{dateRange} · {turnoLabel}</p>
+          </div>
+          {/* KPI cards */}
+          <div style={{ display: "flex", gap: "16px" }}>
+            {[
+              { label: "Fermi totali", value: fermiAnalisi.total, color: "#EF4444" },
+              { label: "Minuti totali", value: fermiAnalisi.totalMin, color: "#F97316" },
+              { label: "Media durata", value: fermiAnalisi.total ? Math.round(fermiAnalisi.totalMin / fermiAnalisi.total) + " min" : "—", color: "#8B5CF6" },
+            ].map(k => (
+              <div key={k.label} style={{ ...cardStyle, minWidth: "140px", textAlign: "center" }}>
+                <div style={{ fontSize: "28px", fontWeight: "800", color: k.color }}>{k.value}</div>
+                <div style={{ fontSize: "12px", color: "#6B7280", marginTop: "4px", fontWeight: "600" }}>{k.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: "24px" }}>
+
+          {/* Tabella fermi dettagliata */}
+          <div style={cardStyle}>
+            <h2 style={{ fontSize: "16px", fontWeight: "700", margin: "0 0 16px", color: "var(--text-primary)" }}>📋 Dettaglio Fermi</h2>
+            {fermiAnalisi.rows?.length > 0 ? (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead><tr>
+                    {["Data", "Turno", "Macchina", "Motivo", "Durata (min)", "Note"].map(c => <th key={c} style={thStyle}>{c}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {fermiAnalisi.rows.map((f, i) => {
+                      const mac = macchine.find(m => m.id === getPrimaryMachineId(f.macchina_id));
+                      return (
+                        <tr key={i} style={{ backgroundColor: i % 2 === 0 ? "white" : "#FAFAFA" }}>
+                          <td style={tdStyle}>{f.data ? formatItalianDate(f.data) : "—"}</td>
+                          <td style={{ ...tdStyle, textAlign: "center" }}>
+                            <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: "12px", backgroundColor: "#EFF6FF", color: "#1D4ED8", fontWeight: "700", fontSize: "12px" }}>{f.turno_id || "—"}</span>
+                          </td>
+                          <td style={{ ...tdStyle, fontWeight: "600", color: "#111827" }}>{mac?.nome || f.macchina_id || "—"}</td>
+                          <td style={{ ...tdStyle, fontWeight: "600", color: "#EF4444" }}>{f.motivo || "—"}</td>
+                          <td style={{ ...tdStyle, textAlign: "right", fontWeight: "700" }}>{f.durata_minuti > 0 ? f.durata_minuti : "—"}</td>
+                          <td style={{ ...tdStyle, color: "#6B7280", fontStyle: f.note ? "normal" : "italic" }}>{f.note || "—"}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : <p style={{ color: "var(--text-muted)", fontStyle: "italic", textAlign: "center", padding: "24px 0" }}>Nessun fermo registrato per il periodo selezionato.</p>}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "24px" }}>
+            {/* Top Motivi */}
+            <div style={cardStyle}>
+              <h2 style={{ fontSize: "16px", fontWeight: "700", margin: "0 0 16px", color: "var(--text-primary)" }}>🔴 Top Motivi</h2>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr>
+                  <th style={thStyle}>Motivo</th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>N°</th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>Min totali</th>
+                </tr></thead>
+                <tbody>
+                  {fermiAnalisi.byMotivo.map((m, i) => (
+                    <tr key={i} style={{ backgroundColor: i % 2 === 0 ? "white" : "#FAFAFA" }}>
+                      <td style={{ ...tdStyle, fontWeight: "600", color: "#EF4444" }}>{m.motivo}</td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: "700" }}>{m.count}</td>
+                      <td style={{ ...tdStyle, textAlign: "right" }}>{m.totalMin || "—"}</td>
+                    </tr>
+                  ))}
+                  {!fermiAnalisi.byMotivo.length && <tr><td colSpan={3} style={{ ...tdStyle, textAlign: "center", color: "#9CA3AF", fontStyle: "italic" }}>—</td></tr>}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Fermi per Macchina */}
+            <div style={cardStyle}>
+              <h2 style={{ fontSize: "16px", fontWeight: "700", margin: "0 0 16px", color: "var(--text-primary)" }}>🔧 Fermi per Macchina</h2>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr>
+                  <th style={thStyle}>Macchina</th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>N°</th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>Min totali</th>
+                </tr></thead>
+                <tbody>
+                  {fermiAnalisi.byMacchina.map((m, i) => (
+                    <tr key={i} style={{ backgroundColor: i % 2 === 0 ? "white" : "#FAFAFA" }}>
+                      <td style={{ ...tdStyle, fontWeight: "600" }}>{m.mac}</td>
+                      <td style={{ ...tdStyle, textAlign: "right", fontWeight: "700", color: "#EF4444" }}>{m.count}</td>
+                      <td style={{ ...tdStyle, textAlign: "right" }}>{m.totalMin || "—"}</td>
+                    </tr>
+                  ))}
+                  {!fermiAnalisi.byMacchina.length && <tr><td colSpan={3} style={{ ...tdStyle, textAlign: "center", color: "#9CA3AF", fontStyle: "italic" }}>—</td></tr>}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Fermi per Turno */}
+            <div style={cardStyle}>
+              <h2 style={{ fontSize: "16px", fontWeight: "700", margin: "0 0 16px", color: "var(--text-primary)" }}>⏱ Minuti per Turno</h2>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr>
+                  <th style={thStyle}>Turno</th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>N°</th>
+                  <th style={{ ...thStyle, textAlign: "right" }}>Min totali</th>
+                </tr></thead>
+                <tbody>
+                  {["A","B","C","D"].map(t => {
+                    const data = fermiAnalisi.byTurno?.find(r => r.turno === t) || { count: 0, totalMin: 0 };
+                    return (
+                      <tr key={t}>
+                        <td style={{ ...tdStyle, fontWeight: "700" }}>
+                          <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: "12px", backgroundColor: "#EFF6FF", color: "#1D4ED8", fontSize: "12px" }}>Turno {t}</span>
+                        </td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: "700", color: data.count > 0 ? "#EF4444" : "#9CA3AF" }}>{data.count || "—"}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", color: data.totalMin > 0 ? "#374151" : "#9CA3AF" }}>{data.totalMin || "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="fade-in"
@@ -914,6 +1101,25 @@ export default function ProductionReportView({
               title="Configura le celle da visualizzare"
             >
               {isConfigMode ? "✓ Fine Config" : "⚙ Configura Celle"}
+            </button>
+
+            <button
+              onClick={() => setShowFermiView(true)}
+              className="btn"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "10px 12px",
+                borderRadius: "8px",
+                fontWeight: "600",
+                background: "var(--bg-tertiary)",
+                color: "var(--text-secondary)",
+                border: "1px solid var(--border)",
+              }}
+              title="Analisi fermi macchina"
+            >
+              📋 Analisi Fermi
             </button>
 
             <button
@@ -1759,7 +1965,7 @@ export default function ProductionReportView({
                   {selectedProduction.details.length > 0 ? (
                     selectedProduction.details.map((p, i) => (
                       <tr key={i} style={{ borderBottom: "1px solid #F3F4F6", backgroundColor: i % 2 === 0 ? "white" : "#FAFAFA" }}>
-                        <td style={{ padding: "10px 16px", color: "#374151", whiteSpace: "nowrap" }}>{p.data || "—"}</td>
+                        <td style={{ padding: "10px 16px", color: "#374151", whiteSpace: "nowrap" }}>{p.data ? formatItalianDate(p.data) : "—"}</td>
                         <td style={{ padding: "10px 16px", fontWeight: "600", color: "#F97316", whiteSpace: "nowrap" }}>{p.materiale || "N/A"}</td>
                         <td style={{ padding: "10px 16px", color: "#374151", whiteSpace: "nowrap" }}>{p.fino || "—"}</td>
                         <td style={{ padding: "10px 16px", textAlign: "center" }}>
