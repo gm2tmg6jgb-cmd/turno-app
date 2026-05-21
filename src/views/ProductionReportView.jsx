@@ -429,6 +429,9 @@ export default function ProductionReportView({
 
       if (!machineId || !compKey) return;
 
+      // Filter components not in the allowed list
+      if (!components.includes(compKey)) return;
+
       // Apply dynamic DRA splitting logic
       if (activeTech !== "TUTTO" && machineId.startsWith("DRA")) {
         if (isSoftView && !isSoftMat) return;
@@ -497,6 +500,24 @@ export default function ProductionReportView({
 
     return result;
   }, [detailedDowntime, detailedProduction, macchine, tecnologie]);
+
+  // Filter components based on active technology
+  const displayedComponents = useMemo(() => {
+    if (activeTech === "TUTTO") return components;
+
+    // Map of technology to component indices
+    const techComponentMap = {
+      "DCT 300": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],        // First 10 components
+      "8Fe": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23], // Next 14 components
+      "ECO": [], // ECO components removed
+    };
+
+    const currentTech = tecnologie.find(t => t.id === activeTech || t.label === activeTech);
+    const techLabel = currentTech?.label || activeTech;
+    const indices = techComponentMap[techLabel] || [];
+
+    return components.filter((_, idx) => indices.includes(idx));
+  }, [activeTech, tecnologie, components]);
 
   const activeTechMachines = useMemo(() => {
     return macchine
@@ -599,7 +620,7 @@ export default function ProductionReportView({
 
   const getRowSum = (machine) => {
     if (!matrice[machine]) return 0;
-    return components.reduce((sum, comp) => {
+    return displayedComponents.reduce((sum, comp) => {
       const val = matrice[machine][comp];
       return sum + (val ? Number(val) : 0);
     }, 0);
@@ -666,7 +687,7 @@ export default function ProductionReportView({
       matrice,
       detailedDowntime,
       activeTechMachines,
-      components,
+      components: displayedComponents,
       technologies: tecnologie,
       macchine,
     };
@@ -1131,7 +1152,7 @@ export default function ProductionReportView({
                 >
                   Totale
                 </th>
-                {components.map((comp, idx) => {
+                {displayedComponents.map((comp, idx) => {
                   const isColHovered = hoveredCol === comp;
                   const isConfigured = componentConfigs.some(c => c.componente === comp);
                   return (
@@ -1260,12 +1281,12 @@ export default function ProductionReportView({
                       {getRowSum(machineId)}
                     </td>
 
-                    {components.map((comp, cidx) => {
+                    {displayedComponents.map((comp, cidx) => {
                       const machineData = matrice[machineId] || {};
                       const val = machineData[comp] || 0;
                       const hasProduction = Number(val) > 0;
                       const isColHovered = hoveredCol === comp;
-                      
+
                       const details = (detailedProduction[machineId] && detailedProduction[machineId][comp]) || [];
                       const mats = Array.from(new Set(details.map(d => d?.materiale).filter(Boolean)));
                       const opCodes = Array.from(new Set(details.map(d => d?.fino).filter(Boolean)));
