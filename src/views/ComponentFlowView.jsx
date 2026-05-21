@@ -2206,6 +2206,8 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
 
                 if (compConfig) {
                     const codicis = parseCodicisArray(compConfig.codici);
+                    console.log("[DEBUG fetchExisting] compConfig:", compConfig);
+                    console.log("[DEBUG fetchExisting] parseCodicisArray result:", codicis);
                     setForm({
                         fino:       compConfig.fino ? String(compConfig.fino).padStart(4, "0") : "",
                         componente: compConfig.componente || data.comp || "",
@@ -2214,6 +2216,8 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
                         codice2:    codicis[1] || "",
                         codice3:    codicis[2] || "",
                     });
+                } else {
+                    console.log("[DEBUG fetchExisting] No compConfig found for:", data.comp, data.project);
                 }
             } catch (err) {
                 console.error("QuickConfigModal fetchExisting error:", err);
@@ -2287,9 +2291,10 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
             const normalizeProj = (p) => (p || "").trim().replace(/\s+/g, "").toLowerCase();
 
             // Raccogli tutti i codici non vuoti
-            const codicis = [form.codice];
-            if (form.codice2.trim()) codicis.push(form.codice2);
-            if (form.codice3.trim()) codicis.push(form.codice3);
+            const codicis = [];
+            if (form.codice?.trim()) codicis.push(form.codice);
+            if (form.codice2?.trim()) codicis.push(form.codice2);
+            if (form.codice3?.trim()) codicis.push(form.codice3);
 
             const payload = {
                 componente: comp,
@@ -2298,6 +2303,10 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
                 fino: form.fino ? String(form.fino).padStart(4, "0") : null,
                 macchina_id: form.macchina.trim() || null,
             };
+
+            console.log("[DEBUG handleSave] Payload:", payload);
+            console.log("[DEBUG handleSave] data.project:", data.project);
+            console.log("[DEBUG handleSave] codicis:", codicis);
 
             // Cerca e aggiorna o inserisce (upsert)
             // Prima cerca tutti i record per componente
@@ -2400,7 +2409,7 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
                             />
                             {form[key] && (
                                 <button
-                                    onClick={() => deleteMaterial(form[key])}
+                                    onClick={() => setForm({...form, [key]: ""})}
                                     className="btn btn-sm"
                                     title="Elimina materiale"
                                     style={{ background: "var(--danger-muted)", color: "var(--danger)", border: "1px solid var(--danger)", flexShrink: 0 }}

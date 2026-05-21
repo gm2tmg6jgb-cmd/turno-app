@@ -4,7 +4,7 @@ Tutte le modifiche significative di Turno App sono documentate in questo file.
 
 ---
 
-## [1.8.9] — 2026-05-20 — Miglioramenti Gestione Fermi in ProductionReportView
+## [1.8.9] — 2026-05-20 — Miglioramenti Gestione Fermi + Export Excel + Vista Settimanale
 
 ### ✨ Nuove Funzionalità
 - **Durata fermi opzionale** (`ProductionReportView`): i minuti di durata non sono più obbligatori nell'inserimento fermi. Se non specificati, il valore di default è 0.
@@ -14,10 +14,26 @@ Tutte le modifiche significative di Turno App sono documentate in questo file.
   - Quando nessun fermo: cella vuota e cliccabile per inserire
   - Quando fermi presenti: cella rossa con numero bianco, cliccabile per visualizzare/gestire dettagli
   - Rimosso il bottone "+" separato
+- **Esportazione Report in Excel** (`ProductionReportView`, `excelExport.js`):
+  - Nuovo bottone "📊 Esporta Excel" nella toolbar
+  - Download automatico del file con naming: `Report_Produzione_YYYY-MM-DD_TurnoX.xlsx`
+  - Mantiene la stessa struttura dell'app: Macchina | Fermi | Totale | Componenti per tecnologia
+  - Header a 2 righe con merged cells per raggruppamento tecnologie
+  - Colori condizionali: verde (#D1FAE5) >100, giallo (#FEF3C7) >50, rosso (#FEE2E2) ≤50
+  - Fermi visualizzati in rosso scuro (#EF4444) con numero bianco
+  - Supporto filtri turno e tecnologia
+  - Twin machines raggruppate in singola riga
+- **Visualizzazione settimanale** (`ProductionReportView`):
+  - Nuovo selettore "Giornaliera / Settimanale" accanto ai filtri
+  - Vista settimanale mostra dati aggregati da lunedì a domenica
+  - Aggiornamento automatico del range dati in base alla settimana selezionata
+  - Descrizione dinamica: "Dati del ..." (giornaliera) vs "Dati della settimana di ..." (settimanale)
+  - Tutti i filtri (turno, tecnologia) continuano a funzionare anche in modalità settimanale
 
 ### 🎨 Miglioramenti UI
 - **Header colonna semplificato**: "Fermi (min)" → "Fermi" (più conciso)
 - **Validazione turno**: bottone "Salva fermo" disabilitato se non è stato selezionato un turno specifico (non è consentito salvare con "Tutto il giorno" selezionato)
+- **Nuovo selettore filtro**: "Giornaliera / Settimanale" per scegliere la granularità dei dati
 
 ---
 

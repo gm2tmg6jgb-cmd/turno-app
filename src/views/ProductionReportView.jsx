@@ -196,12 +196,6 @@ export default function ProductionReportView({
     "DH Machine",
     "DH Assembly",
     "DH Welding", // 8Fe (14)
-    "SG2_ECO",
-    "SG3_ECO",
-    "SG4_ECO",
-    "SG5_ECO",
-    "SGR_ECO",
-    "RG_ECO", // Eco (6)
   ];
 
   // Configuration for Twin Machines (macchine gemellari)
@@ -331,7 +325,7 @@ export default function ProductionReportView({
     };
 
     fetchData();
-  }, [reportDate, selectedTurno, viewMode, anagrafica, assegnazioni];
+  }, [reportDate, selectedTurno, viewMode, anagrafica, assegnazioni]);
 
   const saveFermo = async () => {
     if (!fermoForm.motivo) return;

@@ -16,7 +16,6 @@ const DashboardView = lazy(() => import("./views/DashboardView"));
 const AssegnazioniView = lazy(() => import("./views/AssegnazioniView"));
 const AnagraficaMacchineView = lazy(() => import("./views/AnagraficaMacchineView"));
 const PlanningView = lazy(() => import("./views/PlanningView"));
-const SapHubView = lazy(() => import("./views/SapHubView"));
 const LpaPlanView = lazy(() => import("./views/LpaPlanView"));
 const InventoryView = lazy(() => import("./views/InventoryView"));
 const WeisserPrioritiesView = lazy(() => import("./views/WeisserPrioritiesView"));
@@ -30,11 +29,8 @@ const Op10View = lazy(() => import("./views/Op10View"));
 const ComponentFlowView = lazy(() => import("./views/ComponentFlowView"));
 const PrioritaView = lazy(() => import("./views/PrioritaView"));
 const ProductionDelaysView = lazy(() => import("./views/ProductionDelaysView"));
-const ProductionScheduleView = lazy(() => import("./views/ProductionScheduleView"));
 const ThroughputView = lazy(() => import("./views/ThroughputView"));
 const GanttPianificazioneView = lazy(() => import("./views/GanttPianificazioneView"));
-const TestSchedulingView = lazy(() => import("./views/TestSchedulingView"));
-const ComponentiConfigView = lazy(() => import("./views/ComponentiConfigView"));
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 function AppContent({ session, onLogout }) {
@@ -241,7 +237,6 @@ function AppContent({ session, onLogout }) {
   const navItems = [
     { id: "dashboard", label: "Gestione Dipendenti", icon: Icons.dashboard },
     { id: "assegnazioni", label: "Assegnazioni", icon: Icons.machine, badge: alertCount || null },
-    { id: "sapHub", label: "Hub SAP", icon: Icons.settings, status: "new" },
     { id: "op10", label: "Asservimento OP10", icon: Icons.check },
     { id: "skills", label: "Competenze", icon: Icons.brain },
     { id: "formazione", label: "Formazione", icon: Icons.academic },
@@ -254,9 +249,6 @@ function AppContent({ session, onLogout }) {
     { id: "productionFlowReport", label: "Flusso Report Produzione", icon: Icons.report, status: "new" },
     { id: "productionReport", label: "Report Produzione", icon: Icons.report },
     { id: "productionDelays", label: "Gestione Ritardi Produzione", icon: Icons.alert, status: "new" },
-    { id: "productionSchedule", label: "Programma Produzione", icon: Icons.calendar, status: "new" },
-    { id: "testScheduling", label: "🧪 Test Scheduling", icon: Icons.report, status: "beta" },
-    { id: "componentiConfig", label: "Configurazione Componenti", icon: Icons.settings, adminOnly: true },
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine, adminOnly: true },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings, adminOnly: true },
     { id: "inventory", label: "Inventario", icon: Icons.report },
@@ -266,7 +258,6 @@ function AppContent({ session, onLogout }) {
     dashboard: "Gestione dipendenti",
     assegnazioni: "Assegnazione Macchine",
     op10: "Asservimento OP10",
-    sapHub: "Hub Gestione SAP",
     componentFlow: "Avanzamento Componenti",
     throughput: "Tempi di Attraversamento",
     ganttPianificazione: "Pianificazione Changeover — Gantt",
@@ -276,9 +267,6 @@ function AppContent({ session, onLogout }) {
     productionFlowReport: "Flusso Report Produzione",
     productionReport: "Report Produzione",
     productionDelays: "Gestione Ritardi Produzione",
-    productionSchedule: "Programma Produzione",
-    testScheduling: "Test Scheduling & Tracciamento SAP",
-    componentiConfig: "Configurazione Componenti",
     fermi: "Report Fermi",
     anagraficaFermi: "Anagrafica Fermi Macchine",
     anagraficaMacchine: "Anagrafica Macchine",
@@ -399,14 +387,10 @@ function AppContent({ session, onLogout }) {
                 {renderItem(ni("priorita"))}
                 {renderItem(ni("productionFlowReport"))}
                 {renderItem(ni("productionReport"))}
-                {renderItem(ni("productionSchedule"))}
-                {renderItem(ni("testScheduling"))}
                 {renderItem(ni("lpaPlan"))}
                 {renderItem(ni("op10"))}
-                {renderItem(ni("sapHub"))}
 
                 <div className="nav-section-label">Anagrafiche</div>
-                {renderItem(ni("componentiConfig"))}
                 {renderItem(ni("anagraficaMacchine"))}
                 {renderItem(ni("zones"))}
                 {renderItem(ni("anagraficaFermi"))}
@@ -602,15 +586,6 @@ function AppContent({ session, onLogout }) {
             <LpaPlanView macchine={macchine} dipendenti={dipendenti} showToast={showToast} turnoCorrente={turnoCorrente} />
           )}
 
-          {currentView === "sapHub" && (
-            <SapHubView
-              macchine={macchine}
-              showToast={showToast}
-              setCurrentView={setCurrentView}
-              globalDate={globalDate}
-            />
-          )}
-
           {currentView === "componentFlow" && (
             <ComponentFlowView macchine={macchine} showToast={showToast} globalDate={globalDate} />
           )}
@@ -657,17 +632,6 @@ function AppContent({ session, onLogout }) {
               globalDate={globalDate}
             />
           )}
-          {currentView === "productionSchedule" && (
-            <ProductionScheduleView showToast={showToast} />
-          )}
-          {currentView === "testScheduling" && (
-            <TestSchedulingView conferme_sap={confermeSap} material_fino_overrides={materialFinoOverrides} />
-          )}
-          {currentView === "componentiConfig" && isAdmin && (
-            <AdminSecurityWrapper title="Configurazione Componenti">
-              <ComponentiConfigView showToast={showToast} />
-            </AdminSecurityWrapper>
-          )}
           {currentView === "anagraficaMacchine" && isAdmin && (
             <AdminSecurityWrapper title="Anagrafica Macchine">
               <AnagraficaMacchineView macchine={macchine} setMacchine={setMacchine} tecnologie={tecnologie} zone={zone} showToast={showToast} />
@@ -697,10 +661,6 @@ function AppContent({ session, onLogout }) {
               turnoCorrente={turnoCorrente}
             />
           )}
-
-
-
-          {currentView === "testScheduling" && <TestSchedulingView />}
 
           {currentView === "inventory" && <InventoryView showToast={showToast} macchine={macchine} />}
         </div>
