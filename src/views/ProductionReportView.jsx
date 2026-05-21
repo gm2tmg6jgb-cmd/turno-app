@@ -524,22 +524,10 @@ export default function ProductionReportView({
   }, [detailedDowntime, detailedProduction, macchine, tecnologie]);
 
   // Filter components based on active technology
+  // Mostra sempre tutti i componenti: il filtraggio delle macchine è già fatto da activeTechMachines
   const displayedComponents = useMemo(() => {
-    if (activeTech === "TUTTO") return components;
-
-    // Map of technology to component indices
-    const techComponentMap = {
-      "DCT 300": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],        // First 10 components
-      "8Fe": [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23], // Next 14 components
-      "ECO": [], // ECO components removed
-    };
-
-    const currentTech = tecnologie.find(t => t.id === activeTech || t.label === activeTech);
-    const techLabel = currentTech?.label || activeTech;
-    const indices = techComponentMap[techLabel] || [];
-
-    return components.filter((_, idx) => indices.includes(idx));
-  }, [activeTech, tecnologie, components]);
+    return components;
+  }, [components]);
 
   const activeTechMachines = useMemo(() => {
     return macchine
