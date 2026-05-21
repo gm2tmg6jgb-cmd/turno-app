@@ -429,6 +429,9 @@ export default function ProductionReportView({
 
       if (!machineId || !compKey) return;
 
+      // Filter out components not in the allowed list
+      if (!components.includes(compKey)) return;
+
       // Apply dynamic DRA splitting logic
       if (activeTech !== "TUTTO" && machineId.startsWith("DRA")) {
         if (isSoftView && !isSoftMat) return;
