@@ -974,9 +974,9 @@ export default function ProductionReportView({
                       border: "none",
                       borderRight: value === "day" ? "1px solid var(--border-light)" : "none",
                       cursor: "pointer",
-                      backgroundColor: viewMode === value ? "white" : "var(--bg-secondary)",
-                      color: viewMode === value ? "var(--text-primary)" : "var(--text-muted)",
-                      boxShadow: viewMode === value ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                      backgroundColor: viewMode === value ? "var(--accent)" : "var(--bg-secondary)",
+                      color: viewMode === value ? "white" : "var(--text-muted)",
+                      boxShadow: viewMode === value ? "0 1px 3px rgba(0,0,0,0.15)" : "none",
                       transition: "all 0.15s",
                     }}
                   >
@@ -1000,9 +1000,9 @@ export default function ProductionReportView({
                       border: "none",
                       borderRight: idx < arr.length - 1 ? "1px solid var(--border-light)" : "none",
                       cursor: "pointer",
-                      backgroundColor: selectedTurno === value ? "white" : "var(--bg-secondary)",
-                      color: selectedTurno === value ? "var(--text-primary)" : "var(--text-muted)",
-                      boxShadow: selectedTurno === value ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                      backgroundColor: selectedTurno === value ? "var(--accent)" : "var(--bg-secondary)",
+                      color: selectedTurno === value ? "white" : "var(--text-muted)",
+                      boxShadow: selectedTurno === value ? "0 1px 3px rgba(0,0,0,0.15)" : "none",
                       transition: "all 0.15s",
                     }}
                   >
