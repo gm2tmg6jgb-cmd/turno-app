@@ -605,6 +605,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 const extra = Array.from(projComponentSets[p])
                     .filter(c => !fixed.includes(c))
                     .filter(c => !(p === "DCT300" && c === "SG2"))
+                    .filter(c => !(p === "DCT300" && c === "RW"))
                     .filter(c => !(p === "DCT300" && c.endsWith("_ECO")))
                     .filter(c => !(p === "DCT300" && c.endsWith("_8FE")))
                     .filter(c => !(p === "8Fe" && c === "RG"))
