@@ -1341,21 +1341,18 @@ export default function ProductionReportView({
                                 setEditingComponent({ componente: comp, macchina_id: machineId, progetto: "", codicisText: "", fino: "" });
                               }
                             } else {
-                              // Modalità normale: mostra dettaglio pezzi prodotti
-                              const groupedDetails = Object.values(
-                                details.reduce((acc, curr) => {
-                                  const mat = curr.materiale || "N/A";
-                                  if (!acc[mat]) acc[mat] = { ...curr, qta_ottenuta: 0, qta_scarto: 0 };
-                                  acc[mat].qta_ottenuta += curr.qta_ottenuta || 0;
-                                  acc[mat].qta_scarto += curr.qta_scarto || 0;
-                                  return acc;
-                                }, {}),
-                              );
+                              // Modalità normale: mostra dettaglio righe individuali
+                              const sortedDetails = [...details].sort((a, b) => {
+                                if (a.data < b.data) return -1;
+                                if (a.data > b.data) return 1;
+                                const turniOrd = ["A","B","C","D"];
+                                return turniOrd.indexOf(a.turno_id) - turniOrd.indexOf(b.turno_id);
+                              });
                               setSelectedProduction({
                                 machineId,
                                 label: displayLabel,
                                 componentName: comp.replace("_ECO", "").replace("_8FE", ""),
-                                details: groupedDetails,
+                                details: sortedDetails,
                               });
                             }
                           }}
@@ -1719,7 +1716,7 @@ export default function ProductionReportView({
             style={{
               backgroundColor: "white",
               borderRadius: "16px",
-              width: "550px", // Slightly wider to accommodate "DRA10069 + DRA10070"
+              width: "820px",
               maxHeight: "80vh",
               display: "flex",
               flexDirection: "column",
@@ -1728,123 +1725,58 @@ export default function ProductionReportView({
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div
-              style={{
-                padding: "20px",
-                borderBottom: "1px solid var(--border)",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "bold" }}>
-                Dettaglio Produzione: {selectedProduction.label} -{" "}
-                {selectedProduction.componentName}
-              </h3>
-              <button
-                onClick={() => setSelectedProduction(null)}
-                style={{
-                  border: "none",
-                  background: "none",
-                  cursor: "pointer",
-                  fontSize: "20px",
-                  color: "var(--text-muted)",
-                }}
-              >
-                ✕
-              </button>
+            {/* Header */}
+            <div style={{ padding: "20px 24px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: "18px", fontWeight: "bold" }}>
+                  {selectedProduction.label} — {selectedProduction.componentName}
+                </h3>
+                <p style={{ margin: "4px 0 0", fontSize: "13px", color: "var(--text-muted)" }}>
+                  {selectedProduction.details.length} righe · Totale: <strong>{selectedProduction.details.reduce((s, p) => s + (p.qta_ottenuta || 0), 0)} pz</strong>
+                  {selectedProduction.details.some(p => p.qta_scarto > 0) && (
+                    <span style={{ color: "#EF4444", marginLeft: "12px" }}>
+                      Scarti: <strong>{selectedProduction.details.reduce((s, p) => s + (p.qta_scarto || 0), 0)} pz</strong>
+                    </span>
+                  )}
+                </p>
+              </div>
+              <button onClick={() => setSelectedProduction(null)} style={{ border: "none", background: "none", cursor: "pointer", fontSize: "20px", color: "var(--text-muted)" }}>✕</button>
             </div>
-            <div style={{ padding: "20px", overflowY: "auto" }}>
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  fontSize: "14px",
-                }}
-              >
-                <thead>
-                  <tr style={{ borderBottom: "2px solid var(--border)" }}>
-                    <th
-                      style={{
-                        textAlign: "left",
-                        padding: "12px 0",
-                        color: "var(--text-muted)",
-                        fontSize: "12px",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      Materiale
-                    </th>
-                    <th
-                      style={{
-                        textAlign: "right",
-                        padding: "12px 0",
-                        color: "var(--text-muted)",
-                        fontSize: "12px",
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      Quantità
-                    </th>
+
+            {/* Tabella */}
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
+                <thead style={{ position: "sticky", top: 0, backgroundColor: "#F9FAFB", zIndex: 1 }}>
+                  <tr>
+                    {["Data", "Materiale", "OP", "Turno", "Macchina", "Q.TÀ", "Scarti"].map(col => (
+                      <th key={col} style={{ padding: "10px 16px", textAlign: col === "Q.TÀ" || col === "Scarti" ? "right" : "left", color: "#6B7280", fontSize: "11px", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "2px solid var(--border)", whiteSpace: "nowrap" }}>
+                        {col}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {selectedProduction.details.length > 0 ? (
                     selectedProduction.details.map((p, i) => (
-                      <tr
-                        key={i}
-                        style={{
-                          borderBottom: "1px solid var(--border-light)",
-                        }}
-                      >
-                        <td style={{ padding: "12px 0" }}>
-                          <div
-                            style={{
-                              fontWeight: "600",
-                              color: "var(--text-primary)",
-                            }}
-                          >
-                            {p.materiale || "N/A"}
-                          </div>
-                          {anagrafica[p.materiale?.toUpperCase()]
-                            ?.descrizione && (
-                              <div
-                                style={{
-                                  fontSize: "12px",
-                                  color: "var(--text-muted)",
-                                  marginTop: "2px",
-                                }}
-                              >
-                                {
-                                  anagrafica[p.materiale?.toUpperCase()]
-                                    .descrizione
-                                }
-                              </div>
-                            )}
+                      <tr key={i} style={{ borderBottom: "1px solid #F3F4F6", backgroundColor: i % 2 === 0 ? "white" : "#FAFAFA" }}>
+                        <td style={{ padding: "10px 16px", color: "#374151", whiteSpace: "nowrap" }}>{p.data || "—"}</td>
+                        <td style={{ padding: "10px 16px", fontWeight: "600", color: "#F97316", whiteSpace: "nowrap" }}>{p.materiale || "N/A"}</td>
+                        <td style={{ padding: "10px 16px", color: "#374151", whiteSpace: "nowrap" }}>{p.fino || "—"}</td>
+                        <td style={{ padding: "10px 16px", textAlign: "center" }}>
+                          <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: "12px", backgroundColor: "#EFF6FF", color: "#1D4ED8", fontWeight: "700", fontSize: "12px" }}>
+                            {p.turno_id || "—"}
+                          </span>
                         </td>
-                        <td
-                          style={{
-                            textAlign: "right",
-                            padding: "12px 0",
-                            fontWeight: "700",
-                            color: "var(--text-primary)",
-                          }}
-                        >
-                          {p.qta_ottenuta}
+                        <td style={{ padding: "10px 16px", fontWeight: "600", color: "#111827", whiteSpace: "nowrap" }}>{p._original_machine || p.macchina_id || "—"}</td>
+                        <td style={{ padding: "10px 16px", textAlign: "right", fontWeight: "700", color: "#1D4ED8", fontSize: "14px" }}>{p.qta_ottenuta || 0}</td>
+                        <td style={{ padding: "10px 16px", textAlign: "right", fontWeight: "700", color: p.qta_scarto > 0 ? "#EF4444" : "#9CA3AF", fontSize: "14px" }}>
+                          {p.qta_scarto > 0 ? p.qta_scarto : "—"}
                         </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
-                      <td
-                        colSpan={2}
-                        style={{
-                          padding: "20px 0",
-                          textAlign: "center",
-                          color: "var(--text-muted)",
-                          fontStyle: "italic",
-                        }}
-                      >
+                      <td colSpan={7} style={{ padding: "32px", textAlign: "center", color: "var(--text-muted)", fontStyle: "italic" }}>
                         Nessun dettaglio disponibile.
                       </td>
                     </tr>
@@ -1852,37 +1784,10 @@ export default function ProductionReportView({
                 </tbody>
               </table>
             </div>
-            <div
-              style={{
-                padding: "20px",
-                borderTop: "1px solid var(--border)",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                backgroundColor: "var(--bg-secondary)",
-              }}
-            >
-              <div style={{ fontWeight: "bold", fontSize: "16px" }}>
-                <span
-                  style={{
-                    color: "var(--text-muted)",
-                    fontWeight: "normal",
-                    fontSize: "14px",
-                  }}
-                >
-                  Totale:{" "}
-                </span>
-                {selectedProduction.details.reduce(
-                  (sum, p) => sum + (p.qta_ottenuta || 0),
-                  0,
-                )}{" "}
-                pz
-              </div>
-              <button
-                className="btn btn-primary"
-                onClick={() => setSelectedProduction(null)}
-                style={{ padding: "8px 24px" }}
-              >
+
+            {/* Footer */}
+            <div style={{ padding: "16px 24px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", backgroundColor: "var(--bg-secondary)" }}>
+              <button className="btn btn-primary" onClick={() => setSelectedProduction(null)} style={{ padding: "8px 24px" }}>
                 Chiudi
               </button>
             </div>
