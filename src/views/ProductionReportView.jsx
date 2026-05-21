@@ -781,7 +781,42 @@ export default function ProductionReportView({
               </button>
             </div>
             <h1 style={{ fontSize: "32px", fontWeight: "bold", color: "var(--text-primary)", margin: 0 }}>Analisi Fermi</h1>
-            <p style={{ color: "var(--text-muted)", fontSize: "14px", margin: "6px 0 0" }}>{dateRange} · {turnoLabel}</p>
+            <p style={{ color: "var(--text-muted)", fontSize: "14px", margin: "6px 0 16px" }}>{dateRange} · {turnoLabel}</p>
+            {/* Filtri */}
+            <div style={{ display: "flex", alignItems: "flex-end", gap: "12px", flexWrap: "wrap" }}>
+              {/* Data */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Data</span>
+                <input
+                  type="date"
+                  value={reportDate}
+                  onChange={(e) => setReportDate(e.target.value)}
+                  style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid var(--border-light)", backgroundColor: "white", fontSize: "14px", fontWeight: "600", color: "var(--text-primary)", outline: "none", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}
+                />
+              </div>
+              {/* Vista */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Vista</span>
+                <div style={{ display: "flex", borderRadius: "8px", border: "1px solid var(--border-light)", overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
+                  {[{ value: "day", label: "Giorno" }, { value: "week", label: "Settimana" }].map(({ value, label }) => (
+                    <button key={value} onClick={() => setViewMode(value)} style={{ padding: "8px 14px", fontSize: "14px", fontWeight: "600", border: "none", borderRight: value === "day" ? "1px solid var(--border-light)" : "none", cursor: "pointer", backgroundColor: viewMode === value ? "var(--accent)" : "var(--bg-secondary)", color: viewMode === value ? "white" : "var(--text-muted)", transition: "all 0.15s" }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Turno */}
+              <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Turno</span>
+                <div style={{ display: "flex", borderRadius: "8px", border: "1px solid var(--border-light)", overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
+                  {[{ value: "ALL", label: "Tutti" }, ...["A", "B", "C", "D"].map(t => ({ value: t, label: t }))].map(({ value, label }, idx, arr) => (
+                    <button key={value} onClick={() => setSelectedTurno(value)} style={{ padding: "8px 12px", fontSize: "14px", fontWeight: "600", border: "none", borderRight: idx < arr.length - 1 ? "1px solid var(--border-light)" : "none", cursor: "pointer", backgroundColor: selectedTurno === value ? "var(--accent)" : "var(--bg-secondary)", color: selectedTurno === value ? "white" : "var(--text-muted)", transition: "all 0.15s" }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
           {/* KPI cards */}
           <div style={{ display: "flex", gap: "16px" }}>
