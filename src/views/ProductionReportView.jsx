@@ -962,50 +962,54 @@ export default function ProductionReportView({
             {/* Vista */}
             <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
               <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Vista</span>
-              <select
-                value={viewMode}
-                onChange={(e) => setViewMode(e.target.value)}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid var(--border-light)",
-                  backgroundColor: "white",
-                  fontSize: "14px",
-                  fontWeight: "600",
-                  color: "var(--text-primary)",
-                  outline: "none",
-                  cursor: "pointer",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-                }}
-              >
-                <option value="day">Giornaliera</option>
-                <option value="week">Settimanale</option>
-              </select>
+              <div style={{ display: "flex", borderRadius: "8px", border: "1px solid var(--border-light)", overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
+                {[{ value: "day", label: "Giorno" }, { value: "week", label: "Settimana" }].map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => setViewMode(value)}
+                    style={{
+                      padding: "8px 14px",
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      border: "none",
+                      borderRight: value === "day" ? "1px solid var(--border-light)" : "none",
+                      cursor: "pointer",
+                      backgroundColor: viewMode === value ? "white" : "var(--bg-secondary)",
+                      color: viewMode === value ? "var(--text-primary)" : "var(--text-muted)",
+                      boxShadow: viewMode === value ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
             {/* Turno */}
             <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
               <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Turno</span>
-              <select
-                value={selectedTurno}
-                onChange={(e) => setSelectedTurno(e.target.value)}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid var(--border-light)",
-                  backgroundColor: "white",
-                  fontSize: "14px",
-                  fontWeight: "600",
-                  color: "var(--text-primary)",
-                  outline: "none",
-                  cursor: "pointer",
-                  boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
-                }}
-              >
-                <option value="ALL">Tutti i turni</option>
-                {["A", "B", "C", "D"].map(t => (
-                  <option key={t} value={t}>Turno {t}</option>
+              <div style={{ display: "flex", borderRadius: "8px", border: "1px solid var(--border-light)", overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
+                {[{ value: "ALL", label: "Tutti" }, ...["A", "B", "C", "D"].map(t => ({ value: t, label: t }))].map(({ value, label }, idx, arr) => (
+                  <button
+                    key={value}
+                    onClick={() => setSelectedTurno(value)}
+                    style={{
+                      padding: "8px 12px",
+                      fontSize: "14px",
+                      fontWeight: "600",
+                      border: "none",
+                      borderRight: idx < arr.length - 1 ? "1px solid var(--border-light)" : "none",
+                      cursor: "pointer",
+                      backgroundColor: selectedTurno === value ? "white" : "var(--bg-secondary)",
+                      color: selectedTurno === value ? "var(--text-primary)" : "var(--text-muted)",
+                      boxShadow: selectedTurno === value ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    {label}
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
             <div style={{ position: "relative" }}>
               <input
