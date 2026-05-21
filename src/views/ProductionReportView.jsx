@@ -727,6 +727,10 @@ export default function ProductionReportView({
     fontSize: "11px",
     transition: "all 0.2s",
     whiteSpace: "nowrap",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "2px",
   });
 
   // ── Analisi fermi ──────────────────────────────────────────────
