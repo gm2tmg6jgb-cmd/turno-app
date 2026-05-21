@@ -295,22 +295,43 @@ export default function ProductionReportView({
         // Week mode: fetch data for all days of the week
         const week = getWeekDates(reportDate);
 
-        // Fetch production data for the week
-        let qProd = supabase.from("conferme_sap").select("*")
-          .gte("data", week.start)
-          .lte("data", week.end);
-        if (selectedTurno !== "ALL") qProd = qProd.eq("turno_id", selectedTurno);
+        // Helper: fetch all pages (Supabase default limit 1000 rows)
+        const fetchAllPages = async (buildQuery) => {
+          const PAGE_SIZE = 1000;
+          let allData = [];
+          let offset = 0;
+          while (true) {
+            const { data, error } = await buildQuery(offset, PAGE_SIZE);
+            if (error || !data) break;
+            allData = allData.concat(data);
+            if (data.length < PAGE_SIZE) break;
+            offset += PAGE_SIZE;
+          }
+          return allData;
+        };
 
-        // Fetch downtime data for the week
-        let qDowntime = supabase.from("fermi_macchina").select("*")
-          .gte("data", week.start)
-          .lte("data", week.end);
-        if (selectedTurno !== "ALL") qDowntime = qDowntime.eq("turno_id", selectedTurno);
+        // Fetch production data for the week (paginated)
+        const prodData = await fetchAllPages((offset, limit) => {
+          let q = supabase.from("conferme_sap").select("*")
+            .gte("data", week.start)
+            .lte("data", week.end)
+            .range(offset, offset + limit - 1);
+          if (selectedTurno !== "ALL") q = q.eq("turno_id", selectedTurno);
+          return q;
+        });
 
-        const [resProd, resDowntime] = await Promise.all([qProd, qDowntime]);
+        // Fetch downtime data for the week (paginated)
+        const downtimeData = await fetchAllPages((offset, limit) => {
+          let q = supabase.from("fermi_macchina").select("*")
+            .gte("data", week.start)
+            .lte("data", week.end)
+            .range(offset, offset + limit - 1);
+          if (selectedTurno !== "ALL") q = q.eq("turno_id", selectedTurno);
+          return q;
+        });
 
-        setRawProductionData(resProd.data || []);
-        setRawDowntimeData(resDowntime.data || []);
+        setRawProductionData(prodData);
+        setRawDowntimeData(downtimeData);
 
         // Filter assignments for the week and shift
         const filtered = assegnazioni.filter(a => {
