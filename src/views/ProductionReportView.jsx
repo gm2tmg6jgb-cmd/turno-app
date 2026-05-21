@@ -765,7 +765,7 @@ export default function ProductionReportView({
               {viewMode === "day" ? (
                 <>Dati del <strong>{formatItalianDate(reportDate)}</strong> - Turno <strong>{selectedTurno === "ALL" ? "Tutti (Intera Giornata)" : selectedTurno}</strong></>
               ) : (
-                <>Dati della settimana di <strong>{formatItalianDate(getWeekDates(reportDate).start)}</strong> - Turno <strong>{selectedTurno === "ALL" ? "Tutti (Intera Giornata)" : selectedTurno}</strong></>
+                <>Dati dal <strong>{formatItalianDate(getWeekDates(reportDate).start)}</strong> al <strong>{formatItalianDate(getWeekDates(reportDate).end)}</strong> — Turno <strong>{selectedTurno === "ALL" ? "Tutti" : selectedTurno}</strong></>
               )}
             </p>
           </div>
