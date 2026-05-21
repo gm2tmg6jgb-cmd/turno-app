@@ -4,6 +4,32 @@ Tutte le modifiche significative di Turno App sono documentate in questo file.
 
 ---
 
+## [1.9.0] — 2026-05-21 — Report Produzione: UX, Fix e Analisi Fermi Avanzate
+
+### ✨ Nuove Funzionalità
+- **Analisi Fermi avanzate** (`ProductionReportView`):
+  - KPI aggiuntivi nell'header: **Macchina critica** (con più minuti fermi) e **Motivo più frequente**
+  - **Barre visuali** proporzionali nelle tabelle Top Motivi (rosso), Fermi per Macchina (arancione), Minuti per Turno (viola)
+  - **Andamento Settimanale**: mini-card per ogni giorno Lun→Dom con colori verde/giallo/rosso — visibile solo in vista Settimana; mostra tutti i 7 giorni inclusi quelli senza fermi
+  - **Heatmap Macchina × Turno**: matrice colorata con celle giallo/arancione/rosso in base ai fermi per combinazione macchina-turno
+- **Filtri in Analisi Fermi**: Data, Vista (Giorno/Settimana) e Turno ora disponibili direttamente nella vista Analisi Fermi senza tornare al Report
+- **Toggle button Vista e Turno** (`ProductionReportView`): i dropdown select sostituiti con toggle button (stile coerente con il resto dell'app)
+  - Vista: `Giorno` | `Settimana`
+  - Turno: `Tutti` | `A` | `B` | `C` | `D`
+  - Bottone attivo colorato con `var(--accent)` (arancione)
+
+### 🎨 Miglioramenti UI
+- **Titoli sopra i filtri**: "Report Produzione" come `h1` e descrizione data/turno come `h2`, posizionati sopra la barra filtri
+- **Tab tecnologie uniformi**: altezza minima e allineamento centrato (`minHeight: 46px`, `display: flex`) per visualizzazione coerente tra tab con e senza contatore fermi
+
+### 🐛 Bug Fix
+- **Colonne componenti visibili su tutti i tab**: selezionando un tab tecnologia (es. Saldatura Laser) le colonne SG1, DG-REV, DG ecc. non scomparivano più — rimosso il `techComponentMap` errato che restituiva array vuoto per tecnologie non mappate
+- **Errore JSX** in `ProductionReportView`: rimosso `</div>` orfano che causava crash di compilazione
+- **Guard `fermiAnalisi`**: il return vuoto ora include tutti i campi (`byData`, `byMachinaTurno`, `topMacchina`, `topMotivo`) per evitare crash quando non ci sono dati
+- **`maxMin` Fermi per Macchina**: corretto calcolo del massimo — usato `topMacchina.totalMin` (ordinato per minuti) invece di `byMacchina[0].totalMin` (ordinato per count)
+
+---
+
 ## [1.8.9] — 2026-05-20 — Miglioramenti Gestione Fermi + Export Excel + Vista Settimanale
 
 ### ✨ Nuove Funzionalità
