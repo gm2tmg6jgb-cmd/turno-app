@@ -724,7 +724,7 @@ export default function ProductionReportView({
 
   // ── Analisi fermi ──────────────────────────────────────────────
   const fermiAnalisi = useMemo(() => {
-    if (!rawDowntimeData.length) return { byMotivo: [], byMacchina: [], byTurno: [], total: 0, totalMin: 0 };
+    if (!rawDowntimeData.length) return { byMotivo: [], byMacchina: [], byTurno: [], byData: [], byMachinaTurno: {}, topMacchina: null, topMotivo: null, total: 0, totalMin: 0 };
 
     const byMotivo = {};
     const byMacchina = {};
@@ -932,7 +932,7 @@ export default function ProductionReportView({
 
             {/* Fermi per Macchina */}
             {(() => {
-              const maxMin = fermiAnalisi.byMacchina[0]?.totalMin || 1;
+              const maxMin = (fermiAnalisi.topMacchina?.totalMin) || 1;
               return (
                 <div style={cardStyle}>
                   <h2 style={{ fontSize: "16px", fontWeight: "700", margin: "0 0 16px", color: "var(--text-primary)" }}>🔧 Fermi per Macchina</h2>
@@ -1000,17 +1000,20 @@ export default function ProductionReportView({
           </div>
 
           {/* Andamento giornaliero — solo vista settimana */}
-          {viewMode === "week" && fermiAnalisi.byData?.length > 0 && (
+          {viewMode === "week" && (
             <div style={cardStyle}>
               <h2 style={{ fontSize: "16px", fontWeight: "700", margin: "0 0 16px", color: "var(--text-primary)" }}>📅 Andamento Settimanale</h2>
               <div style={{ display: "flex", gap: "12px" }}>
-                {fermiAnalisi.byData.map(d => (
-                  <div key={d.data} style={{ flex: 1, textAlign: "center", padding: "12px 8px", borderRadius: "10px", backgroundColor: d.count === 0 ? "#F0FDF4" : d.count < 3 ? "#FEF9C3" : "#FEE2E2", border: `1px solid ${d.count === 0 ? "#BBF7D0" : d.count < 3 ? "#FDE68A" : "#FECACA"}` }}>
-                    <div style={{ fontSize: "11px", color: "#6B7280", fontWeight: "600", marginBottom: "6px" }}>{formatItalianDate(d.data)}</div>
-                    <div style={{ fontSize: "28px", fontWeight: "800", color: d.count === 0 ? "#16A34A" : d.count < 3 ? "#D97706" : "#DC2626" }}>{d.count}</div>
-                    <div style={{ fontSize: "11px", color: "#6B7280", marginTop: "4px" }}>{d.totalMin > 0 ? `${d.totalMin} min` : "nessun fermo"}</div>
-                  </div>
-                ))}
+                {getWeekDates(reportDate).dates.map(dateStr => {
+                  const d = fermiAnalisi.byData?.find(x => x.data === dateStr) || { count: 0, totalMin: 0 };
+                  return (
+                    <div key={dateStr} style={{ flex: 1, textAlign: "center", padding: "12px 8px", borderRadius: "10px", backgroundColor: d.count === 0 ? "#F0FDF4" : d.count < 3 ? "#FEF9C3" : "#FEE2E2", border: `1px solid ${d.count === 0 ? "#BBF7D0" : d.count < 3 ? "#FDE68A" : "#FECACA"}` }}>
+                      <div style={{ fontSize: "11px", color: "#6B7280", fontWeight: "600", marginBottom: "6px" }}>{formatItalianDate(dateStr)}</div>
+                      <div style={{ fontSize: "28px", fontWeight: "800", color: d.count === 0 ? "#16A34A" : d.count < 3 ? "#D97706" : "#DC2626" }}>{d.count}</div>
+                      <div style={{ fontSize: "11px", color: "#6B7280", marginTop: "4px" }}>{d.totalMin > 0 ? `${d.totalMin} min` : "nessun fermo"}</div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
