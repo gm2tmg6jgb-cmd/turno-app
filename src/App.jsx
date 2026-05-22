@@ -36,6 +36,7 @@ import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 function AppContent({ session, onLogout }) {
   const [currentView, setCurrentView] = useState("componentFlow");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [hasNewVersion, setHasNewVersion] = useState(() => {
     return localStorage.getItem("lastSeenVersion") !== version;
@@ -302,18 +303,24 @@ function AppContent({ session, onLogout }) {
   return (
     <div className="app">
       {/* Sidebar */}
-      <div className="sidebar">
+      <div className={`sidebar${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
         <div className="sidebar-header">
           <div className="sidebar-logo">
             <div className="sidebar-logo-icon">B</div>
-            <div className="sidebar-logo-text">BAP1 - Production</div>
+            {!sidebarCollapsed && <div className="sidebar-logo-text">BAP1 - Production</div>}
           </div>
-
+          <button
+            onClick={() => setSidebarCollapsed(c => !c)}
+            title={sidebarCollapsed ? "Espandi menu" : "Comprimi menu"}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 16, padding: "2px 4px", borderRadius: 4, lineHeight: 1, marginLeft: "auto" }}
+          >
+            {sidebarCollapsed ? "»" : "«"}
+          </button>
         </div>
 
-        <div className="sidebar-turno-badge" style={{ margin: "8px 10px", padding: "10px 12px", gap: 8 }}>
-          <div className="dot" style={{ width: 10, height: 10 }} />
-          <div className="sidebar-turno-info">
+        <div className="sidebar-turno-badge" style={{ margin: "8px 10px", padding: "10px 12px", gap: 8, justifyContent: sidebarCollapsed ? "center" : undefined }}>
+          <div className="dot" style={{ width: 10, height: 10, flexShrink: 0 }} />
+          {!sidebarCollapsed && <div className="sidebar-turno-info">
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <div className="label" style={{ flex: 1, fontSize: 11 }}>Turno Attivo</div>
               {turnoCorrente !== getActiveGroup() && (
@@ -356,7 +363,7 @@ function AppContent({ session, onLogout }) {
               style={{ background: "transparent", border: "none", color: "var(--text-primary)", fontWeight: 700, fontSize: 15, cursor: "pointer", padding: "4px 0", outline: "none", width: "100%", fontFamily: "inherit", marginTop: 4 }}
             />
 
-          </div>
+          </div>}
         </div>
 
         <nav className="sidebar-nav">
@@ -364,27 +371,27 @@ function AppContent({ session, onLogout }) {
           {(() => {
             const ni = (id) => navItems.find(i => i.id === id);
             const renderItem = (item) => item ? (
-              <div key={item.id} className={`nav-item ${currentView === item.id ? "active" : ""}`} onClick={() => setCurrentView(item.id)}>
+              <div key={item.id} className={`nav-item ${currentView === item.id ? "active" : ""}`} onClick={() => setCurrentView(item.id)} title={sidebarCollapsed ? item.label : undefined} style={sidebarCollapsed ? { justifyContent: "center", padding: "8px" } : undefined}>
                 {item.icon}
-                <span style={{ display: "flex", alignItems: "center", flex: 1 }}>
+                {!sidebarCollapsed && <span style={{ display: "flex", alignItems: "center", flex: 1 }}>
                   {item.label}
                   {item.status && <span className={`nav-status-badge ${item.status}`}>{item.status}</span>}
-                </span>
-                {item.badge && <span className="badge">{item.badge}</span>}
+                </span>}
+                {!sidebarCollapsed && item.badge && <span className="badge">{item.badge}</span>}
               </div>
             ) : null;
             return (
               <>
-                <div className="nav-section-label">Operatività</div>
+                {!sidebarCollapsed && <div className="nav-section-label">Operatività</div>}
                 {renderItem(ni("dashboard"))}
                 {renderItem(ni("assegnazioni"))}
                 {renderItem(ni("planning"))}
 
-                <div className="nav-section-label">Sviluppo HR</div>
+                {!sidebarCollapsed && <div className="nav-section-label">Sviluppo HR</div>}
                 {renderItem(ni("skills"))}
                 {renderItem(ni("formazione"))}
 
-                <div className="nav-section-label">Report & Dati</div>
+                {!sidebarCollapsed && <div className="nav-section-label">Report & Dati</div>}
                 {renderItem(ni("componentFlow"))}
                 {renderItem(ni("ganttPianificazione"))}
                 {renderItem(ni("priorita"))}
@@ -394,7 +401,7 @@ function AppContent({ session, onLogout }) {
                 {renderItem(ni("lpaPlan"))}
                 {renderItem(ni("op10"))}
 
-                <div className="nav-section-label">Anagrafiche</div>
+                {!sidebarCollapsed && <div className="nav-section-label">Anagrafiche</div>}
                 {renderItem(ni("anagraficaMacchine"))}
                 {renderItem(ni("zones"))}
                 {renderItem(ni("anagraficaFermi"))}

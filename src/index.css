@@ -102,9 +102,17 @@ body {
   z-index: 100;
 }
 
+.sidebar-collapsed {
+  width: 56px;
+  min-width: 56px;
+}
+
 .sidebar-header {
   padding: 14px 16px 12px;
   border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .sidebar-logo {
