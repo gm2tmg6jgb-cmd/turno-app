@@ -345,41 +345,55 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 8px 16px;
-  border-radius: var(--radius-sm);
-  font-size: var(--font-base);
-  font-weight: var(--fw-semibold);
+  padding: 0 16px;
+  height: 38px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
   transition: var(--transition);
-  border: 1px solid transparent;
+  border: 1px solid var(--border-light);
+  background: white;
+  color: #374151;
   font-family: inherit;
   white-space: nowrap;
+  line-height: 1;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.btn:hover {
+  background: #F9FAFB;
+  border-color: #9CA3AF;
 }
 
 .btn-primary {
   background: var(--accent);
   color: white;
   border-color: var(--accent);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
 }
 
 .btn-primary:hover {
   background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 .btn-secondary {
-  background: var(--bg-elevated);
-  color: var(--text-primary);
+  background: white;
+  color: #374151;
   border-color: var(--border-light);
 }
 
 .btn-secondary:hover {
-  background: var(--bg-card);
-  border-color: var(--text-muted);
+  background: #F9FAFB;
+  border-color: #9CA3AF;
 }
 
 .btn-ghost {
   background: transparent;
   color: var(--text-secondary);
+  border-color: transparent;
+  box-shadow: none;
 }
 
 .btn-ghost:hover {
@@ -388,14 +402,19 @@ body {
 }
 
 .btn-danger {
-  background: var(--danger-muted);
+  background: rgba(239,68,68,0.08);
   color: var(--danger);
   border-color: rgba(239, 68, 68, 0.3);
 }
 
+.btn-danger:hover {
+  background: rgba(239,68,68,0.15);
+}
+
 .btn-sm {
-  padding: 5px 10px;
-  font-size: var(--font-sm);
+  padding: 0 10px;
+  height: 32px;
+  font-size: 13px;
 }
 
 .btn-lg {
