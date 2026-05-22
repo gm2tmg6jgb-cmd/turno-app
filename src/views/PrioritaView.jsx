@@ -696,115 +696,82 @@ export default function PrioritaView({ showToast, globalDate }) {
         <div className="fade-in" style={{ padding: "20px", height: "100%", overflowY: "auto" }}>
 
             {/* Header toolbar */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ fontSize: 20 }}>📦</div>
-                    <div>
-                        <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.02em" }}>Laboratorio Inventario</div>
-                        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>WIP tracking con scarichi SAP</div>
+            <div style={{ marginBottom: 20 }}>
+                {/* Riga 1: titolo + filtri + azioni */}
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
+                    {/* Titolo */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 2 }}>
+                        <div style={{ fontSize: 20 }}>📦</div>
+                        <div>
+                            <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.02em" }}>Laboratorio Inventario</div>
+                            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>WIP tracking con scarichi SAP</div>
+                        </div>
                     </div>
-                </div>
 
-                <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+                    {/* Separatore */}
+                    <div style={{ width: 1, height: 36, background: "var(--border-light)", alignSelf: "flex-end", marginBottom: 2 }} />
+
                     {/* Dal */}
                     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                         <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Dal</span>
                         <input type="date" value={inventarioDate} onChange={e => setInventarioDate(e.target.value)}
                             style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border-light)", backgroundColor: "white", fontSize: 14, fontWeight: 600, color: "var(--text-primary)", outline: "none", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }} />
                     </div>
+
                     {/* Al */}
                     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                         <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Al</span>
                         <input type="date" value={inventarioDateFine} onChange={e => setInventarioDateFine(e.target.value)}
                             style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border-light)", backgroundColor: "white", fontSize: 14, fontWeight: 600, color: "var(--text-primary)", outline: "none", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }} />
                     </div>
+
+                    {/* Separatore */}
+                    <div style={{ width: 1, height: 36, background: "var(--border-light)", alignSelf: "flex-end", marginBottom: 2 }} />
+
+                    {/* Bottoni azione */}
+                    <button onClick={() => fetchData()} className="btn btn-secondary btn-sm" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        {Icons.refresh} Aggiorna
+                    </button>
+
+                    <button onClick={() => setShowFilterPanel(true)} className="btn btn-secondary btn-sm"
+                        style={{ display: "flex", alignItems: "center", gap: 6, background: (filterExcludeSto || filterExcludeOperators.length > 0) ? "rgba(96,165,250,0.12)" : undefined, color: (filterExcludeSto || filterExcludeOperators.length > 0) ? "#60a5fa" : undefined, border: (filterExcludeSto || filterExcludeOperators.length > 0) ? "1px solid #60a5fa55" : undefined }}>
+                        🔽 Filtra {(filterExcludeSto || filterExcludeOperators.length > 0) ? "●" : ""}
+                    </button>
+
+                    <button onClick={() => setShowOperatorReport(true)} className="btn btn-secondary btn-sm" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        📊 Operatori
+                    </button>
+
+                    <button
+                        onClick={() => { const now = new Date(); setResetDate(now.toISOString().split("T")[0]); setResetTime(now.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })); setResetConfirmModal(true); }}
+                        className="btn btn-secondary btn-sm"
+                        style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid #ef444433" }}
+                        title="Seleziona data e ora inizio inventario fisico."
+                    >
+                        🔄 Reset Periodo
+                    </button>
+
+                    <button onClick={() => setShowDetails(!showDetails)} className="btn"
+                        style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: 6, fontWeight: 700, background: showDetails ? "rgba(96,165,250,0.1)" : "var(--bg-tertiary)", color: showDetails ? "#60a5fa" : "var(--text-secondary)", border: "1px solid " + (showDetails ? "#60a5fa33" : "var(--border)") }}>
+                        {showDetails ? "Nascondi Dettagli" : "Mostra Dettagli"}
+                    </button>
+
+                    <button onClick={() => setIsConfigMode(!isConfigMode)} className="btn"
+                        title={isConfigMode ? "Esci dalla configurazione" : "Configura celle"}
+                        style={{ padding: "8px 14px", display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 16, background: isConfigMode ? "var(--accent)" : "var(--bg-tertiary)", color: isConfigMode ? "white" : "var(--text-secondary)", border: "1px solid var(--border)", boxShadow: isConfigMode ? "0 0 10px var(--accent)" : "none" }}>
+                        {isConfigMode ? "✓" : "⚙️"}
+                    </button>
+
                     {/* Orario inizio inventario */}
                     {inventarioOraInizio && (() => {
                         const d = new Date(inventarioOraInizio);
-                        const data = d.toLocaleDateString("it-IT");
-                        const ora = d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
                         return (
-                            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", paddingLeft: 12 }}>
-                                📋 Inventario fisico del {data} ore {ora}
+                            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", marginLeft: "auto", alignSelf: "flex-end", paddingBottom: 2 }}>
+                                📋 Inventario fisico del {d.toLocaleDateString("it-IT")} ore {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
                             </div>
                         );
                     })()}
                 </div>
-
-                <button
-                    onClick={() => fetchData()}
-                    className="btn btn-secondary btn-sm"
-                    style={{ display: "flex", alignItems: "center", gap: 6 }}
-                >
-                    {Icons.refresh} Aggiorna
-                </button>
-
-                <button
-                    onClick={() => setShowFilterPanel(true)}
-                    className="btn btn-secondary btn-sm"
-                    style={{
-                        display: "flex", alignItems: "center", gap: 6,
-                        background: (filterExcludeSto || filterExcludeOperators.length > 0) ? "rgba(96,165,250,0.12)" : undefined,
-                        color: (filterExcludeSto || filterExcludeOperators.length > 0) ? "#60a5fa" : undefined,
-                        border: (filterExcludeSto || filterExcludeOperators.length > 0) ? "1px solid #60a5fa55" : undefined
-                    }}
-                >
-                    🔽 Filtra {(filterExcludeSto || filterExcludeOperators.length > 0) ? "●" : ""}
-                </button>
-
-                <button
-                    onClick={() => setShowOperatorReport(true)}
-                    className="btn btn-secondary btn-sm"
-                    style={{ display: "flex", alignItems: "center", gap: 6 }}
-                >
-                    📊 Operatori
-                </button>
-
-                <button
-                    onClick={() => {
-                        const now = new Date();
-                        const todayStr = now.toISOString().split("T")[0];
-                        const timeStr = now.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
-                        setResetDate(todayStr);
-                        setResetTime(timeStr);
-                        setResetConfirmModal(true);
-                    }}
-                    className="btn btn-secondary btn-sm"
-                    style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(239, 68, 68, 0.1)", color: "#ef4444", border: "1px solid #ef444433" }}
-                    title="Seleziona data e ora inizio inventario fisico. L'inventario precedente rimane nel database."
-                >
-                    🔄 Reset Periodo
-                </button>
-
-                <button
-                    onClick={() => setShowDetails(!showDetails)}
-                    className="btn"
-                    style={{
-                        padding: "8px 12px", display: "flex", alignItems: "center", gap: 6,
-                        fontWeight: 700,
-                        background: showDetails ? "rgba(96,165,250,0.1)" : "var(--bg-tertiary)",
-                        color: showDetails ? "#60a5fa" : "var(--text-secondary)",
-                        border: "1px solid " + (showDetails ? "#60a5fa33" : "var(--border)")
-                    }}
-                >
-                    {showDetails ? "Nascondi Dettagli" : "Mostra Dettagli"}
-                </button>
-
-                <button
-                    onClick={() => setIsConfigMode(!isConfigMode)}
-                    className="btn"
-                    title={isConfigMode ? "Esci dalla configurazione" : "Configura celle"}
-                    style={{
-                        padding: "8px 14px", display: "flex", alignItems: "center", gap: 6,
-                        fontWeight: 700, fontSize: 16,
-                        background: isConfigMode ? "var(--accent)" : "var(--bg-tertiary)",
-                        color: isConfigMode ? "white" : "var(--text-secondary)",
-                        border: "1px solid var(--border)",
-                        boxShadow: isConfigMode ? "0 0 10px var(--accent)" : "none"
-                    }}
-                >
-                    {isConfigMode ? "✓" : "⚙️"}
-                </button>
             </div>
 
             {/* Legenda */}
