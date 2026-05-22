@@ -253,6 +253,7 @@ export default function SapSummaryView({ macchine = [] }) {
 
     // ── Giornaliero state ──
     const [gDate, setGDate] = useState(getLocalDate(new Date()));
+    const [gTurno, setGTurno] = useState("ALL");
     const [gData, setGData] = useState({});
     const [gLoading, setGLoading] = useState(false);
     const [gTargets, setGTargets] = useState({});
@@ -305,19 +306,19 @@ export default function SapSummaryView({ macchine = [] }) {
     useEffect(() => {
         if (activeTab !== "giornaliero") return;
         loadGiornaliero();
-    }, [gDate, activeTab, anagrafica, wcFasiMapping]);
+    }, [gDate, gTurno, activeTab, anagrafica, wcFasiMapping]);
 
     const [gDiag, setGDiag] = useState(null); // { total, mapped }
 
     const loadGiornaliero = async () => {
         setGLoading(true);
         try {
-        const { data: rows, error: gErr } = await fetchAllRows(() =>
-            supabase
-                .from("conferme_sap")
-                .select("materiale, work_center_sap, qta_ottenuta, macchina_id")
-                .eq("data", gDate)
-        );
+        let gQuery = supabase
+            .from("conferme_sap")
+            .select("materiale, work_center_sap, qta_ottenuta, macchina_id")
+            .eq("data", gDate);
+        if (gTurno !== "ALL") gQuery = gQuery.eq("turno_id", gTurno);
+        const { data: rows, error: gErr } = await fetchAllRows(() => gQuery);
         if (gErr) { console.error("Errore loadGiornaliero:", gErr); return; }
 
         if (rows) {
@@ -830,13 +831,25 @@ export default function SapSummaryView({ macchine = [] }) {
             ══════════════════════════════════════ */}
             {activeTab === "giornaliero" && (
                 <div>
-                    {/* Selettore data */}
-                    <div style={{ display: "flex", gap: 12, marginBottom: 20, alignItems: "center", flexWrap: "wrap" }}>
+                    {/* Selettore data + turno */}
+                    <div style={{ display: "flex", gap: 12, marginBottom: 20, alignItems: "flex-end", flexWrap: "wrap" }}>
                         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                            <label style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase" }}>Data</label>
-                            <input type="date" value={gDate} onChange={e => setGDate(e.target.value)} className="input" style={{ width: 160 }} />
+                            <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Data</span>
+                            <input type="date" value={gDate} onChange={e => setGDate(e.target.value)}
+                                style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border-light)", backgroundColor: "white", fontSize: 14, fontWeight: 600, color: "var(--text-primary)", outline: "none", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }} />
                         </div>
-                        <div style={{ paddingTop: 20 }}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Turno</span>
+                            <div style={{ display: "flex", borderRadius: 8, border: "1px solid var(--border-light)", overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
+                                {[{ value: "ALL", label: "Tutti" }, ...["A","B","C","D"].map(t => ({ value: t, label: t }))].map(({ value, label }, idx, arr) => (
+                                    <button key={value} onClick={() => setGTurno(value)}
+                                        style={{ padding: "8px 12px", fontSize: 14, fontWeight: 600, border: "none", borderRight: idx < arr.length - 1 ? "1px solid var(--border-light)" : "none", cursor: "pointer", backgroundColor: gTurno === value ? "var(--accent)" : "var(--bg-secondary)", color: gTurno === value ? "white" : "var(--text-muted)", boxShadow: gTurno === value ? "0 1px 3px rgba(0,0,0,0.15)" : "none", transition: "all 0.15s" }}>
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div>
                             <button className="btn btn-secondary btn-sm" onClick={loadGiornaliero} disabled={gLoading}>
                                 {Icons.history} Aggiorna
                             </button>

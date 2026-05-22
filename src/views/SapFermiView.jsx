@@ -125,20 +125,25 @@ export default function SapFermiView({ macchine = [] }) {
                     </div>
                 )}
 
-                <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-                    <div style={{ flex: 1, minWidth: 200 }}>
-                        <input
-                            type="text"
-                            className="input"
-                            placeholder="Cerca per codice, descrizione o centro..."
-                            value={search}
-                            onChange={e => { setPage(0); setSearch(e.target.value); }}
-                        />
+                {/* Filtri */}
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+                    {/* Data da */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Dal</span>
+                        <input type="date" value={startDate} onChange={e => { setPage(0); setStartDate(e.target.value); }}
+                            style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border-light)", backgroundColor: "white", fontSize: 14, fontWeight: 600, color: "var(--text-primary)", outline: "none", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }} />
                     </div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <input type="date" className="input" value={startDate} onChange={e => { setPage(0); setStartDate(e.target.value); }} style={{ width: 140 }} />
-                        <span style={{ color: "var(--text-muted)", fontSize: 13 }}>al</span>
-                        <input type="date" className="input" value={endDate} onChange={e => { setPage(0); setEndDate(e.target.value); }} style={{ width: 140 }} />
+                    {/* Data al */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Al</span>
+                        <input type="date" value={endDate} onChange={e => { setPage(0); setEndDate(e.target.value); }}
+                            style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border-light)", backgroundColor: "white", fontSize: 14, fontWeight: 600, color: "var(--text-primary)", outline: "none", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }} />
+                    </div>
+                    {/* Cerca */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minWidth: 200 }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Cerca</span>
+                        <input type="text" className="input" placeholder="Cerca per codice, descrizione o centro..." value={search}
+                            onChange={e => { setPage(0); setSearch(e.target.value); }} />
                     </div>
                 </div>
 
