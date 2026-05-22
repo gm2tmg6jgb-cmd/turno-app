@@ -31,6 +31,7 @@ const PrioritaView = lazy(() => import("./views/PrioritaView"));
 const ProductionDelaysView = lazy(() => import("./views/ProductionDelaysView"));
 const ThroughputView = lazy(() => import("./views/ThroughputView"));
 const GanttPianificazioneView = lazy(() => import("./views/GanttPianificazioneView"));
+const SapHubView = lazy(() => import("./views/SapHubView"));
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 function AppContent({ session, onLogout }) {
@@ -248,6 +249,7 @@ function AppContent({ session, onLogout }) {
     { id: "prioritiesSummary", label: "Riepilogo Priorità", icon: Icons.dashboard, status: "new" },
     { id: "productionFlowReport", label: "Flusso Report Produzione", icon: Icons.report, status: "new" },
     { id: "productionReport", label: "Report Produzione", icon: Icons.report },
+    { id: "sapHub", label: "Hub Dati SAP", icon: Icons.settings },
     { id: "productionDelays", label: "Gestione Ritardi Produzione", icon: Icons.alert, status: "new" },
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine, adminOnly: true },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings, adminOnly: true },
@@ -275,6 +277,7 @@ function AppContent({ session, onLogout }) {
     skills: "Matrice Competenze",
     formazione: "Gestione Formazione Operatori",
     inventory: "Gestione Inventario Progetti",
+    sapHub: "Hub Dati SAP",
   };
 
   const handleSendPlan = async () => {
@@ -387,6 +390,7 @@ function AppContent({ session, onLogout }) {
                 {renderItem(ni("priorita"))}
                 {renderItem(ni("productionFlowReport"))}
                 {renderItem(ni("productionReport"))}
+                {renderItem(ni("sapHub"))}
                 {renderItem(ni("lpaPlan"))}
                 {renderItem(ni("op10"))}
 
@@ -663,6 +667,15 @@ function AppContent({ session, onLogout }) {
           )}
 
           {currentView === "inventory" && <InventoryView showToast={showToast} macchine={macchine} />}
+
+          {currentView === "sapHub" && (
+            <SapHubView
+              macchine={macchine}
+              showToast={showToast}
+              setCurrentView={setCurrentView}
+              globalDate={globalDate}
+            />
+          )}
         </div>
         </Suspense>
         </ErrorBoundary>
