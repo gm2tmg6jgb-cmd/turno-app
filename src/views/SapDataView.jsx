@@ -204,7 +204,7 @@ export default function SapDataView({ macchine = [] }) {
                         <div style={{ display: "flex", borderRadius: 8, border: "1px solid var(--border-light)", overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
                             {[{ value: "ALL", label: "Tutti" }, ...["A","B","C","D"].map(t => ({ value: t, label: t }))].map(({ value, label }, idx, arr) => (
                                 <button key={value} onClick={() => { setPage(0); setSelectedTurno(value); }}
-                                    style={{ padding: "8px 12px", fontSize: 14, fontWeight: 600, border: "none", borderRight: idx < arr.length - 1 ? "1px solid var(--border-light)" : "none", cursor: "pointer", backgroundColor: selectedTurno === value ? "var(--accent)" : "white", color: selectedTurno === value ? "white" : "#374151", boxShadow: selectedTurno === value ? "0 1px 3px rgba(0,0,0,0.15)" : "none", transition: "all 0.15s" }}>
+                                    style={{ padding: "0 12px", height: "38px", fontSize: 14, fontWeight: 600, border: "none", borderRight: idx < arr.length - 1 ? "1px solid var(--border-light)" : "none", cursor: "pointer", backgroundColor: selectedTurno === value ? "var(--accent)" : "white", color: selectedTurno === value ? "white" : "#374151", boxShadow: selectedTurno === value ? "0 1px 3px rgba(0,0,0,0.15)" : "none", transition: "all 0.15s" }}>
                                     {label}
                                 </button>
                             ))}

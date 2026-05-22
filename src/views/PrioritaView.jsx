@@ -730,7 +730,7 @@ export default function PrioritaView({ showToast, globalDate }) {
 
                     {/* Bottoni azione — stile uniforme */}
                     {(() => {
-                        const btnBase = { display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid var(--border-light)", backgroundColor: "white", color: "#374151", fontSize: 14, fontWeight: 600, cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)", transition: "all 0.15s", fontFamily: "inherit" };
+                        const btnBase = { display: "flex", alignItems: "center", gap: 6, padding: "0 14px", height: "38px", borderRadius: 8, border: "1px solid var(--border-light)", backgroundColor: "white", color: "#374151", fontSize: 14, fontWeight: 600, cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)", transition: "all 0.15s", fontFamily: "inherit", lineHeight: 1 };
                         const hasActiveFilter = filterExcludeSto || filterExcludeOperators.length > 0;
                         return (<>
                             <button onClick={() => fetchData()} style={btnBase}>
