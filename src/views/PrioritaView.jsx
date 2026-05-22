@@ -718,8 +718,6 @@ export default function PrioritaView({ showToast, globalDate }) {
                         <input type="date" value={inventarioDateFine} onChange={e => setInventarioDateFine(e.target.value)}
                             style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border-light)", backgroundColor: "white", fontSize: 14, fontWeight: 600, color: "var(--text-primary)", outline: "none", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }} />
                     </div>
-                </div>
-
                     {/* Orario inizio inventario */}
                     {inventarioOraInizio && (() => {
                         const d = new Date(inventarioOraInizio);
