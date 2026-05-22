@@ -197,6 +197,12 @@ export default function ProductionReportView({
     "DH Machine",
     "DH Assembly",
     "DH Welding", // 8Fe (14)
+    "SG2_ECO",
+    "SG3_ECO",
+    "SG4_ECO",
+    "SG5_ECO",
+    "SGR_ECO",
+    "RG_ECO", // DCT ECO (6)
   ];
 
   // Configuration for Twin Machines (macchine gemellari)
