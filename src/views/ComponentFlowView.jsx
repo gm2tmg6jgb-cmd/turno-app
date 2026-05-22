@@ -1311,88 +1311,61 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
         <div className="fade-in" style={{ padding: "10px 16px", height: "100%", overflowY: "auto" }}>
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", marginBottom: "10px" }}>
 
-                <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-                    {/* Date Picker - Prima elemento */}
-                    {viewMode === "weekly" ? (
-                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                            <button className="btn btn-secondary btn-sm" onClick={() => {
-                                const d = new Date(wWeek + "T12:00:00");
-                                d.setDate(d.getDate() - 7);
-                                setWWeek(d.toISOString().split("T")[0]);
-                            }}>←</button>
-                            <span style={{ fontWeight: "700", background: "var(--bg-tertiary)", padding: "6px 12px", borderRadius: "8px", fontSize: "13px" }}>
-                                {new Date(wWeek + "T12:00:00").toLocaleDateString("it-IT", { day: "2-digit", month: "short" })}
-                            </span>
-                            <button className="btn btn-secondary btn-sm" onClick={() => {
-                                const d = new Date(wWeek + "T12:00:00");
-                                d.setDate(d.getDate() + 7);
-                                setWWeek(d.toISOString().split("T")[0]);
-                            }}>→</button>
-                        </div>
-                    ) : (
-                        <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                            <button className="btn btn-secondary btn-sm" onClick={() => {
-                                const d = new Date(wDate + "T12:00:00");
-                                d.setDate(d.getDate() - 1);
-                                setWDate(d.toISOString().split("T")[0]);
-                            }}>←</button>
-                            <span style={{ fontWeight: "700", background: "var(--bg-tertiary)", padding: "6px 12px", borderRadius: "8px", fontSize: "13px" }}>
-                                {new Date(wDate + "T12:00:00").toLocaleDateString("it-IT", { day: "2-digit", month: "short" })}
-                            </span>
-                            <button className="btn btn-secondary btn-sm" onClick={() => {
-                                const d = new Date(wDate + "T12:00:00");
-                                d.setDate(d.getDate() + 1);
-                                setWDate(d.toISOString().split("T")[0]);
-                            }}>→</button>
-                        </div>
-                    )}
-
-                    {/* View Mode Toggle */}
-                    <div style={{ display: "flex", background: "var(--bg-tertiary)", padding: "4px", borderRadius: "10px", border: "1px solid var(--border)" }}>
-                        <button
-                            onClick={() => setViewMode("weekly")}
-                            style={{
-                                padding: "6px 16px", background: viewMode === "weekly" ? "var(--bg-card)" : "transparent",
-                                color: viewMode === "weekly" ? "var(--text-primary)" : "var(--text-muted)",
-                                border: "none", borderRadius: "6px", fontWeight: "600", fontSize: "13px",
-                                boxShadow: viewMode === "weekly" ? "0 2px 4px rgba(0,0,0,0.1)" : "none", cursor: "pointer", transition: "all 0.2s ease"
-                            }}
-                        >
-                            Settimana
-                        </button>
-                        <button
-                            onClick={() => setViewMode("daily")}
-                            style={{
-                                padding: "6px 16px", background: viewMode === "daily" ? "var(--bg-card)" : "transparent",
-                                color: viewMode === "daily" ? "var(--text-primary)" : "var(--text-muted)",
-                                border: "none", borderRadius: "6px", fontWeight: "600", fontSize: "13px",
-                                boxShadow: viewMode === "daily" ? "0 2px 4px rgba(0,0,0,0.1)" : "none", cursor: "pointer", transition: "all 0.2s ease"
-                            }}
-                        >
-                            Giorno
-                        </button>
+                <div style={{ display: "flex", gap: "12px", alignItems: "flex-end" }}>
+                    {/* DATA */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Data</span>
+                        {viewMode === "weekly" ? (
+                            <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+                                <button style={{ padding: "8px 10px", borderRadius: "8px 0 0 8px", border: "1px solid var(--border-light)", background: "white", cursor: "pointer", fontSize: 13, fontWeight: 600 }} onClick={() => {
+                                    const d = new Date(wWeek + "T12:00:00"); d.setDate(d.getDate() - 7); setWWeek(d.toISOString().split("T")[0]);
+                                }}>←</button>
+                                <span style={{ padding: "8px 12px", border: "1px solid var(--border-light)", borderLeft: "none", borderRight: "none", background: "white", fontSize: 14, fontWeight: 700, color: "var(--text-primary)", whiteSpace: "nowrap" }}>
+                                    {new Date(wWeek + "T12:00:00").toLocaleDateString("it-IT", { day: "2-digit", month: "short" })}
+                                </span>
+                                <button style={{ padding: "8px 10px", borderRadius: "0 8px 8px 0", border: "1px solid var(--border-light)", background: "white", cursor: "pointer", fontSize: 13, fontWeight: 600 }} onClick={() => {
+                                    const d = new Date(wWeek + "T12:00:00"); d.setDate(d.getDate() + 7); setWWeek(d.toISOString().split("T")[0]);
+                                }}>→</button>
+                            </div>
+                        ) : (
+                            <div style={{ display: "flex", gap: "4px", alignItems: "center" }}>
+                                <button style={{ padding: "8px 10px", borderRadius: "8px 0 0 8px", border: "1px solid var(--border-light)", background: "white", cursor: "pointer", fontSize: 13, fontWeight: 600 }} onClick={() => {
+                                    const d = new Date(wDate + "T12:00:00"); d.setDate(d.getDate() - 1); setWDate(d.toISOString().split("T")[0]);
+                                }}>←</button>
+                                <input type="date" value={wDate} onChange={e => setWDate(e.target.value)}
+                                    style={{ padding: "8px 10px", border: "1px solid var(--border-light)", borderLeft: "none", borderRight: "none", background: "white", fontSize: 14, fontWeight: 600, color: "var(--text-primary)", outline: "none", cursor: "pointer" }} />
+                                <button style={{ padding: "8px 10px", borderRadius: "0 8px 8px 0", border: "1px solid var(--border-light)", background: "white", cursor: "pointer", fontSize: 13, fontWeight: 600 }} onClick={() => {
+                                    const d = new Date(wDate + "T12:00:00"); d.setDate(d.getDate() + 1); setWDate(d.toISOString().split("T")[0]);
+                                }}>→</button>
+                            </div>
+                        )}
                     </div>
 
-                    <select
-                        value={localTurno}
-                        onChange={(e) => setLocalTurno(e.target.value)}
-                        style={{
-                            padding: "6px 12px",
-                            borderRadius: "8px",
-                            border: "1px solid var(--border)",
-                            background: localTurno !== "ALL" ? "var(--accent-muted)" : "var(--bg-tertiary)",
-                            color: localTurno !== "ALL" ? "var(--accent)" : "var(--text-primary)",
-                            fontWeight: "700",
-                            fontSize: "14px",
-                            cursor: "pointer",
-                            outline: "none"
-                        }}
-                    >
-                        <option value="ALL">Tutti i turni</option>
-                        {TURNI.map(t => (
-                            <option key={t.id} value={t.id}>Turno {t.id}</option>
-                        ))}
-                    </select>
+                    {/* VISTA */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Vista</span>
+                        <div style={{ display: "flex", borderRadius: "8px", border: "1px solid var(--border-light)", overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
+                            {[{ value: "daily", label: "Giorno" }, { value: "weekly", label: "Settimana" }].map(({ value, label }, idx) => (
+                                <button key={value} onClick={() => setViewMode(value)}
+                                    style={{ padding: "8px 14px", fontSize: 14, fontWeight: 600, border: "none", borderRight: idx === 0 ? "1px solid var(--border-light)" : "none", cursor: "pointer", backgroundColor: viewMode === value ? "var(--accent)" : "var(--bg-secondary)", color: viewMode === value ? "white" : "var(--text-muted)", boxShadow: viewMode === value ? "0 1px 3px rgba(0,0,0,0.15)" : "none", transition: "all 0.15s" }}>
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* TURNO */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Turno</span>
+                        <div style={{ display: "flex", borderRadius: "8px", border: "1px solid var(--border-light)", overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
+                            {[{ value: "ALL", label: "Tutti" }, ...["A","B","C","D"].map(t => ({ value: t, label: t }))].map(({ value, label }, idx, arr) => (
+                                <button key={value} onClick={() => setLocalTurno(value)}
+                                    style={{ padding: "8px 12px", fontSize: 14, fontWeight: 600, border: "none", borderRight: idx < arr.length - 1 ? "1px solid var(--border-light)" : "none", cursor: "pointer", backgroundColor: localTurno === value ? "var(--accent)" : "var(--bg-secondary)", color: localTurno === value ? "white" : "var(--text-muted)", boxShadow: localTurno === value ? "0 1px 3px rgba(0,0,0,0.15)" : "none", transition: "all 0.15s" }}>
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
 
                     <button
                         onClick={() => setShowFilterModal(!showFilterModal)}

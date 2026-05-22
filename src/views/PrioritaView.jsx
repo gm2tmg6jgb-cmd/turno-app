@@ -705,24 +705,20 @@ export default function PrioritaView({ showToast, globalDate }) {
                     </div>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {/* Periodo inventario */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--bg-tertiary)", padding: "6px 14px", borderRadius: 10, border: "1px solid var(--border)" }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", whiteSpace: "nowrap" }}>Dal</span>
-                        <input
-                            type="date"
-                            value={inventarioDate}
-                            onChange={e => setInventarioDate(e.target.value)}
-                            style={{ border: "none", background: "transparent", fontSize: 13, fontWeight: 800, color: "var(--accent)", cursor: "pointer", outline: "none" }}
-                        />
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", whiteSpace: "nowrap" }}>al</span>
-                        <input
-                            type="date"
-                            value={inventarioDateFine}
-                            onChange={e => setInventarioDateFine(e.target.value)}
-                            style={{ border: "none", background: "transparent", fontSize: 13, fontWeight: 800, color: "var(--accent)", cursor: "pointer", outline: "none" }}
-                        />
+                <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
+                    {/* Dal */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Dal</span>
+                        <input type="date" value={inventarioDate} onChange={e => setInventarioDate(e.target.value)}
+                            style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border-light)", backgroundColor: "white", fontSize: 14, fontWeight: 600, color: "var(--text-primary)", outline: "none", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }} />
                     </div>
+                    {/* Al */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Al</span>
+                        <input type="date" value={inventarioDateFine} onChange={e => setInventarioDateFine(e.target.value)}
+                            style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border-light)", backgroundColor: "white", fontSize: 14, fontWeight: 600, color: "var(--text-primary)", outline: "none", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }} />
+                    </div>
+                </div>
 
                     {/* Orario inizio inventario */}
                     {inventarioOraInizio && (() => {
