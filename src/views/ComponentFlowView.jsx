@@ -1367,60 +1367,27 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                         </div>
                     </div>
 
-                    <button
-                        onClick={() => setShowFilterModal(!showFilterModal)}
-                        className="btn"
-                        style={{
-                            padding: "8px 12px", display: "flex", alignItems: "center", gap: "6px", fontWeight: "700",
-                            background: (filterExcludeSto || filterExcludeOperators.length > 0) ? "var(--accent-muted)" : "var(--bg-tertiary)",
-                            color: (filterExcludeSto || filterExcludeOperators.length > 0) ? "var(--accent)" : "var(--text-secondary)",
-                            border: "1px solid var(--border)"
-                        }}
-                    >
-                        🔽 Filtra
-                    </button>
-
-                    <button
-                        onClick={() => setShowOperatorReport(true)}
-                        className="btn"
-                        title="Report: mostra quali celle sono state modificate da ogni operatore"
-                        style={{
-                            padding: "8px 12px", display: "flex", alignItems: "center", gap: "6px", fontWeight: "700",
-                            background: "var(--bg-tertiary)",
-                            color: "var(--text-secondary)",
-                            border: "1px solid var(--border)"
-                        }}
-                    >
-                        📊 Operatori
-                    </button>
-
-                    <button
-                        onClick={() => setIsConfigMode(!isConfigMode)}
-                        className="btn"
-                        style={{
-                            padding: "8px 12px", display: "flex", alignItems: "center", gap: "6px", fontWeight: "700",
-                            background: isConfigMode ? "var(--accent)" : "var(--bg-tertiary)",
-                            color: isConfigMode ? "white" : "var(--text-secondary)",
-                            border: "1px solid var(--border)",
-                            boxShadow: isConfigMode ? "0 0 10px var(--accent)" : "none"
-                        }}
-                    >
-                        {isConfigMode ? "✓ Fine Config" : "⚙ Configura Celle"}
-                    </button>
-
-                    <button
-                        onClick={handlePrint}
-                        className="btn"
-                        style={{
-                            padding: "8px 12px", display: "flex", alignItems: "center", gap: "6px", fontWeight: "700",
-                            background: "var(--bg-tertiary)",
-                            color: "var(--text-secondary)",
-                            border: "1px solid var(--border)"
-                        }}
-                        title="Stampa le quattro box"
-                    >
-                        🖨 Stampa
-                    </button>
+                    {(() => {
+                        const btnBase = { display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid var(--border-light)", backgroundColor: "white", color: "#374151", fontSize: 14, fontWeight: 600, cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)", transition: "all 0.15s", fontFamily: "inherit" };
+                        const hasFilter = filterExcludeSto || filterExcludeOperators.length > 0;
+                        return (<>
+                            <button onClick={() => setShowFilterModal(!showFilterModal)}
+                                style={{ ...btnBase, ...(hasFilter ? { backgroundColor: "rgba(96,165,250,0.12)", color: "#60a5fa", border: "1px solid #60a5fa55" } : {}) }}>
+                                🔽 Filtra {hasFilter ? "●" : ""}
+                            </button>
+                            <button onClick={() => setShowOperatorReport(true)} style={btnBase}
+                                title="Report: mostra quali celle sono state modificate da ogni operatore">
+                                📊 Operatori
+                            </button>
+                            <button onClick={() => setIsConfigMode(!isConfigMode)}
+                                style={{ ...btnBase, ...(isConfigMode ? { backgroundColor: "var(--accent)", color: "white", border: "1px solid var(--accent)", boxShadow: "0 0 8px var(--accent)" } : {}) }}>
+                                {isConfigMode ? "✓ Fine Config" : "⚙ Configura Celle"}
+                            </button>
+                            <button onClick={handlePrint} style={btnBase} title="Stampa le quattro box">
+                                🖨 Stampa
+                            </button>
+                        </>);
+                    })()}
 
                 </div>
             </div>
