@@ -283,11 +283,13 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .sidebar-avatar {
   width: 34px;
   height: 34px;
+  min-width: 34px;
   border-radius: 50%;
   background: var(--bg-elevated);
   display: flex;
@@ -299,14 +301,26 @@ body {
   border: 2px solid var(--border-light);
 }
 
+.sidebar-user-info {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
 .sidebar-user-info .name {
   font-size: 13px;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sidebar-user-info .role {
   font-size: 12px;
   color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Main Content */
