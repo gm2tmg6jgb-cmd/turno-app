@@ -311,7 +311,7 @@ function AppContent({ session, onLogout }) {
 
         </div>
 
-        <div className="sidebar-turno-badge" style={{ margin: "16px 12px", padding: "20px 18px", gap: 14 }}>
+        <div className="sidebar-turno-badge" style={{ margin: "8px 10px", padding: "10px 12px", gap: 8 }}>
           <div className="dot" style={{ width: 10, height: 10 }} />
           <div className="sidebar-turno-info">
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
