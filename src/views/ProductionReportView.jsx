@@ -1448,7 +1448,7 @@ export default function ProductionReportView({
                   }}
                 ></th>
                 <th
-                  colSpan={9}
+                  colSpan={10}
                   style={{
                     border: "1px solid var(--border)",
                     padding: "8px",
