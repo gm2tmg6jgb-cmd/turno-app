@@ -728,39 +728,41 @@ export default function PrioritaView({ showToast, globalDate }) {
                     {/* Separatore */}
                     <div style={{ width: 1, height: 36, background: "var(--border-light)", alignSelf: "flex-end", marginBottom: 2 }} />
 
-                    {/* Bottoni azione */}
-                    <button onClick={() => fetchData()} className="btn btn-secondary btn-sm" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        {Icons.refresh} Aggiorna
-                    </button>
+                    {/* Bottoni azione — stile uniforme */}
+                    {(() => {
+                        const btnBase = { display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 8, border: "1px solid var(--border-light)", backgroundColor: "white", color: "#374151", fontSize: 14, fontWeight: 600, cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)", transition: "all 0.15s", fontFamily: "inherit" };
+                        const hasActiveFilter = filterExcludeSto || filterExcludeOperators.length > 0;
+                        return (<>
+                            <button onClick={() => fetchData()} style={btnBase}>
+                                {Icons.refresh} Aggiorna
+                            </button>
 
-                    <button onClick={() => setShowFilterPanel(true)} className="btn btn-secondary btn-sm"
-                        style={{ display: "flex", alignItems: "center", gap: 6, background: (filterExcludeSto || filterExcludeOperators.length > 0) ? "rgba(96,165,250,0.12)" : undefined, color: (filterExcludeSto || filterExcludeOperators.length > 0) ? "#60a5fa" : undefined, border: (filterExcludeSto || filterExcludeOperators.length > 0) ? "1px solid #60a5fa55" : undefined }}>
-                        🔽 Filtra {(filterExcludeSto || filterExcludeOperators.length > 0) ? "●" : ""}
-                    </button>
+                            <button onClick={() => setShowFilterPanel(true)} style={{ ...btnBase, ...(hasActiveFilter ? { backgroundColor: "rgba(96,165,250,0.12)", color: "#60a5fa", border: "1px solid #60a5fa55" } : {}) }}>
+                                🔽 Filtra {hasActiveFilter ? "●" : ""}
+                            </button>
 
-                    <button onClick={() => setShowOperatorReport(true)} className="btn btn-secondary btn-sm" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        📊 Operatori
-                    </button>
+                            <button onClick={() => setShowOperatorReport(true)} style={btnBase}>
+                                📊 Operatori
+                            </button>
 
-                    <button
-                        onClick={() => { const now = new Date(); setResetDate(now.toISOString().split("T")[0]); setResetTime(now.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })); setResetConfirmModal(true); }}
-                        className="btn btn-secondary btn-sm"
-                        style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid #ef444433" }}
-                        title="Seleziona data e ora inizio inventario fisico."
-                    >
-                        🔄 Reset Periodo
-                    </button>
+                            <button onClick={() => { const now = new Date(); setResetDate(now.toISOString().split("T")[0]); setResetTime(now.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })); setResetConfirmModal(true); }}
+                                style={{ ...btnBase, backgroundColor: "rgba(239,68,68,0.08)", color: "#ef4444", border: "1px solid #ef444433" }}
+                                title="Seleziona data e ora inizio inventario fisico.">
+                                🔄 Reset Periodo
+                            </button>
 
-                    <button onClick={() => setShowDetails(!showDetails)} className="btn"
-                        style={{ padding: "8px 12px", display: "flex", alignItems: "center", gap: 6, fontWeight: 700, background: showDetails ? "rgba(96,165,250,0.1)" : "var(--bg-tertiary)", color: showDetails ? "#60a5fa" : "var(--text-secondary)", border: "1px solid " + (showDetails ? "#60a5fa33" : "var(--border)") }}>
-                        {showDetails ? "Nascondi Dettagli" : "Mostra Dettagli"}
-                    </button>
+                            <button onClick={() => setShowDetails(!showDetails)}
+                                style={{ ...btnBase, ...(showDetails ? { backgroundColor: "rgba(96,165,250,0.1)", color: "#60a5fa", border: "1px solid #60a5fa33" } : {}) }}>
+                                {showDetails ? "Nascondi Dettagli" : "Mostra Dettagli"}
+                            </button>
 
-                    <button onClick={() => setIsConfigMode(!isConfigMode)} className="btn"
-                        title={isConfigMode ? "Esci dalla configurazione" : "Configura celle"}
-                        style={{ padding: "8px 14px", display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: 16, background: isConfigMode ? "var(--accent)" : "var(--bg-tertiary)", color: isConfigMode ? "white" : "var(--text-secondary)", border: "1px solid var(--border)", boxShadow: isConfigMode ? "0 0 10px var(--accent)" : "none" }}>
-                        {isConfigMode ? "✓" : "⚙️"}
-                    </button>
+                            <button onClick={() => setIsConfigMode(!isConfigMode)}
+                                title={isConfigMode ? "Esci dalla configurazione" : "Configura celle"}
+                                style={{ ...btnBase, ...(isConfigMode ? { backgroundColor: "var(--accent)", color: "white", border: "1px solid var(--accent)", boxShadow: "0 0 8px var(--accent)" } : {}) }}>
+                                {isConfigMode ? "✓ Salva Config" : "⚙️ Configura Celle"}
+                            </button>
+                        </>);
+                    })()}
 
                     {/* Orario inizio inventario */}
                     {inventarioOraInizio && (() => {
