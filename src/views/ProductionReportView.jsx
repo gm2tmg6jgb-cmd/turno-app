@@ -712,7 +712,7 @@ export default function ProductionReportView({
     borderRadius: "6px",
     fontWeight: "600",
     cursor: "pointer",
-    fontSize: "11px",
+    fontSize: "13px",
     transition: "all 0.2s",
     whiteSpace: "nowrap",
     minHeight: "46px",
