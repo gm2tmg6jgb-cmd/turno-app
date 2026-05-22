@@ -777,8 +777,8 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
                     border: "none",
                     borderRight: idx < arr.length - 1 ? "1px solid var(--border-light)" : "none",
                     cursor: "pointer",
-                    backgroundColor: (turnoCorrente || "ALL") === value ? "var(--accent)" : "var(--bg-secondary)",
-                    color: (turnoCorrente || "ALL") === value ? "white" : "var(--text-muted)",
+                    backgroundColor: (turnoCorrente || "ALL") === value ? "var(--accent)" : "white",
+                    color: (turnoCorrente || "ALL") === value ? "white" : "#374151",
                     boxShadow: (turnoCorrente || "ALL") === value ? "0 1px 3px rgba(0,0,0,0.15)" : "none",
                     transition: "all 0.15s",
                   }}

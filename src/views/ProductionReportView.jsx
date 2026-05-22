@@ -823,7 +823,7 @@ export default function ProductionReportView({
                 <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Vista</span>
                 <div style={{ display: "flex", borderRadius: "8px", border: "1px solid var(--border-light)", overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
                   {[{ value: "day", label: "Giorno" }, { value: "week", label: "Settimana" }].map(({ value, label }) => (
-                    <button key={value} onClick={() => setViewMode(value)} style={{ padding: "8px 14px", fontSize: "14px", fontWeight: "600", border: "none", borderRight: value === "day" ? "1px solid var(--border-light)" : "none", cursor: "pointer", backgroundColor: viewMode === value ? "var(--accent)" : "var(--bg-secondary)", color: viewMode === value ? "white" : "var(--text-muted)", transition: "all 0.15s" }}>
+                    <button key={value} onClick={() => setViewMode(value)} style={{ padding: "8px 14px", fontSize: "14px", fontWeight: "600", border: "none", borderRight: value === "day" ? "1px solid var(--border-light)" : "none", cursor: "pointer", backgroundColor: viewMode === value ? "var(--accent)" : "white", color: viewMode === value ? "white" : "#374151", transition: "all 0.15s" }}>
                       {label}
                     </button>
                   ))}
@@ -834,7 +834,7 @@ export default function ProductionReportView({
                 <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Turno</span>
                 <div style={{ display: "flex", borderRadius: "8px", border: "1px solid var(--border-light)", overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
                   {[{ value: "ALL", label: "Tutti" }, ...["A", "B", "C", "D"].map(t => ({ value: t, label: t }))].map(({ value, label }, idx, arr) => (
-                    <button key={value} onClick={() => setSelectedTurno(value)} style={{ padding: "8px 12px", fontSize: "14px", fontWeight: "600", border: "none", borderRight: idx < arr.length - 1 ? "1px solid var(--border-light)" : "none", cursor: "pointer", backgroundColor: selectedTurno === value ? "var(--accent)" : "var(--bg-secondary)", color: selectedTurno === value ? "white" : "var(--text-muted)", transition: "all 0.15s" }}>
+                    <button key={value} onClick={() => setSelectedTurno(value)} style={{ padding: "8px 12px", fontSize: "14px", fontWeight: "600", border: "none", borderRight: idx < arr.length - 1 ? "1px solid var(--border-light)" : "none", cursor: "pointer", backgroundColor: selectedTurno === value ? "var(--accent)" : "white", color: selectedTurno === value ? "white" : "#374151", transition: "all 0.15s" }}>
                       {label}
                     </button>
                   ))}
@@ -1131,8 +1131,8 @@ export default function ProductionReportView({
                       border: "none",
                       borderRight: value === "day" ? "1px solid var(--border-light)" : "none",
                       cursor: "pointer",
-                      backgroundColor: viewMode === value ? "var(--accent)" : "var(--bg-secondary)",
-                      color: viewMode === value ? "white" : "var(--text-muted)",
+                      backgroundColor: viewMode === value ? "var(--accent)" : "white",
+                      color: viewMode === value ? "white" : "#374151",
                       boxShadow: viewMode === value ? "0 1px 3px rgba(0,0,0,0.15)" : "none",
                       transition: "all 0.15s",
                     }}
@@ -1157,8 +1157,8 @@ export default function ProductionReportView({
                       border: "none",
                       borderRight: idx < arr.length - 1 ? "1px solid var(--border-light)" : "none",
                       cursor: "pointer",
-                      backgroundColor: selectedTurno === value ? "var(--accent)" : "var(--bg-secondary)",
-                      color: selectedTurno === value ? "white" : "var(--text-muted)",
+                      backgroundColor: selectedTurno === value ? "var(--accent)" : "white",
+                      color: selectedTurno === value ? "white" : "#374151",
                       boxShadow: selectedTurno === value ? "0 1px 3px rgba(0,0,0,0.15)" : "none",
                       transition: "all 0.15s",
                     }}
