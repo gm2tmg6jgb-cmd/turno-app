@@ -134,11 +134,20 @@ export default function PrioritaView({ showToast, globalDate }) {
     const [noSapPrevCells, setNoSapPrevCells] = useState(() => {
         try {
             const v = JSON.parse(localStorage.getItem("lab_no_sap_prev") || "{}");
-            // Forza SAP ↑ abilitato per ut_soft (MZA) su ECO
-            delete v["SG2 ECO:ut_soft"];
-            delete v["SG3 ECO:ut_soft"];
-            delete v["SG4 ECO:ut_soft"];
-            delete v["SG5 ECO:ut_soft"];
+            // Rimuovi dal localStorage tutte le fasi che NON sono in NO_SAP_PREV_PHASES
+            // (non devono mai essere bloccate da toggle accidentali)
+            const allNoSapPhasesPerProj = NO_SAP_PREV_PHASES; // { "DCT ECO": [...], ... }
+            Object.keys(v).forEach(key => {
+                const [compFase, fase] = key.split(":");
+                if (!fase) return;
+                // Controlla se questa fase è in qualche progetto in NO_SAP_PREV_PHASES
+                const isDefaultDisabled = Object.values(allNoSapPhasesPerProj).some(arr => arr.includes(fase));
+                // Se la fase NON è di default disabilitata, rimuovila (era un toggle accidentale)
+                if (!isDefaultDisabled) {
+                    delete v[key];
+                }
+            });
+            localStorage.setItem("lab_no_sap_prev", JSON.stringify(v));
             noSapPrevRef.current = v;
             return v;
         } catch { return {}; }
@@ -215,19 +224,23 @@ export default function PrioritaView({ showToast, globalDate }) {
         if (!inventarioDate || !inventarioDateFine) return;
         setLoading(true);
 
-        // Forza SAP ↑ abilitato per ut_soft (MZA) su ECO
+        // Rimuovi dal localStorage tutte le fasi che NON devono essere bloccate (non in NO_SAP_PREV_PHASES)
         try {
             const stored = JSON.parse(localStorage.getItem("lab_no_sap_prev") || "{}");
             let modified = false;
-            ["SG2", "SG3", "SG4", "SG5"].forEach(comp => {
-                const key = `${comp} ECO:ut_soft`;
-                if (stored[key]) {
+            Object.keys(stored).forEach(key => {
+                const parts = key.split(":");
+                const fase = parts.slice(1).join(":");
+                if (!fase) return;
+                const isDefaultDisabled = Object.values(NO_SAP_PREV_PHASES).some(arr => arr.includes(fase));
+                if (!isDefaultDisabled) {
                     delete stored[key];
                     modified = true;
                 }
             });
             if (modified) {
                 localStorage.setItem("lab_no_sap_prev", JSON.stringify(stored));
+                noSapPrevRef.current = stored;
             }
         } catch (e) {
             // ignore
@@ -475,10 +488,8 @@ export default function PrioritaView({ showToast, globalDate }) {
                                 }
                             } else {
                                 // Risali la sequenza saltando le celle escluse
-                                // FORCE: ut_soft (MZA) ignora le esclusioni e trova sempre la fase precedente
-                                const ignoreExclusions = fase === "ut_soft" && proj === "DCT ECO";
                                 for (let i = idx - 1; i >= 0; i--) {
-                                    if (ignoreExclusions || !excl[`${normComp}:${seq[i].fase}`]) {
+                                    if (!excl[`${normComp}:${seq[i].fase}`]) {
                                         sapPrevFino = seq[i].fino;
                                         break;
                                     }
