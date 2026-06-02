@@ -486,6 +486,14 @@ export default function PrioritaView({ showToast, globalDate }) {
                             }
                         }
                         const sapPrev = sapPrevFino ? (sapMap[normComp]?.[sapPrevFino]?.qty || 0) : 0;
+
+                        // DEBUG: log dettagliato per ut_soft (MZA)
+                        if (fase === "ut_soft" && proj === "DCT ECO") {
+                            console.log(`[DEBUG-MZA] ${normComp}: idx=${idx}, fase=ut_soft, fino=${fino}`);
+                            console.log(`  - sapPrevFino=${sapPrevFino}, sapMap[${normComp}][${sapPrevFino}]=`, sapMap[normComp]?.[sapPrevFino]);
+                            console.log(`  - sapPrev=${sapPrev}, noSapPrev=${noSapPrev}`);
+                            console.log(`  - seq.length=${seq.length}, seq=`, seq.map(s => `${PHASE_CODE[s.fase] || s.fase}(${s.fino})`).join(" -> "));
+                        }
                         // Per la prima cella attiva (nessun sapPrev), se non c'è inventario manuale
                         // mostra il SAP in uscita come valore (= pezzi disponibili per la fase successiva)
                         const isFirstActive = sapPrevFino === null;
