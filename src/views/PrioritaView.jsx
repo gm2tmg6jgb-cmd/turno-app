@@ -373,8 +373,6 @@ export default function PrioritaView({ showToast, globalDate }) {
             // Aggrega SAP per comp+fino
             const sapMap = {}; // {comp: {fino: {qty, records}}}
 
-            console.log("[DEBUG] sapRes length:", sapRes?.length);
-            console.log("[DEBUG] inventarioDate:", inventarioDate, "inventarioDateFine:", inventarioDateFine);
 
             // Filtro materiali e progetto stretti
             // Match esatto mat+fino ha priorità, mat senza fino è fallback generico (come ComponentFlowView)
@@ -420,11 +418,6 @@ export default function PrioritaView({ showToast, globalDate }) {
             }
             setUnconfiguredSap(Object.values(unconfigured));
 
-            // ===== DEBUG COMPLETO SG2 ECO =====
-            console.log("=== SAPMAP SG2 ECO ===", JSON.stringify(
-                Object.fromEntries(Object.entries(sapMap["SG2 ECO"] || {}).map(([fino, v]) => [fino, v.qty]))
-            ));
-
             // Per componenti senza material_fino_overrides, aggiorna finoSeqSorted
             // usando i finos reali trovati in sapMap (invece dei placeholder)
             PROJECTS.forEach(proj => {
@@ -459,13 +452,8 @@ export default function PrioritaView({ showToast, globalDate }) {
                 });
             });
 
-            // ===== DEBUG SEQUENZA SG2 ECO =====
-            console.log("=== SEQ SG2 ECO ===", JSON.stringify(
-                (finoSeqSorted["SG2 ECO"] || []).map(s => `${PHASE_CODE[s.fase] || s.fase}=${s.fino}`)
-            ));
-
-            // Per alcuni progetti, il sapPrev di una fase viene da una fase specifica (non la precedente)
             // 5. Calcolo WIP flow per componente
+            // Prima passata: costruisci la mappa sap per ogni cella
             const newMatrix = {};
             PROJECTS.forEach(proj => {
                 const comps = PROJECT_COMPONENTS_LAB[proj] || [];
@@ -474,75 +462,51 @@ export default function PrioritaView({ showToast, globalDate }) {
                     const seq = finoSeqSorted[normComp] || [];
                     newMatrix[normComp] = {};
 
-                    seq.forEach(({ fino, fase, isAutoFino }, idx) => {
-                        const inv = invMap[normComp]?.[fino] || 0;
+                    // Prima passata: calcola sap per ogni cella
+                    seq.forEach(({ fino, fase, isAutoFino }) => {
                         const sap = sapMap[normComp]?.[fino]?.qty || 0;
                         const sapRecords = sapMap[normComp]?.[fino]?.records || [];
-                        const prevFino = idx > 0 ? seq[idx - 1].fino : null;
-                        // Fino non configurato O configurato ma senza dati SAP nel periodo
+                        newMatrix[normComp][fino] = { fino, fase, isAutoFino, sap, sapRecords };
+                    });
+
+                    // Seconda passata: propaga sapPrev = sap della fase precedente visibile
+                    seq.forEach(({ fino, fase, isAutoFino }, idx) => {
+                        const inv = invMap[normComp]?.[fino] || 0;
+                        const { sap, sapRecords } = newMatrix[normComp][fino];
                         const hasNoSapData = sap === 0 && sapRecords.length === 0;
 
-                        // Trova il fino della fase precedente per il flusso SAP↑
-                        // Le esclusioni visive NON bloccano il flusso dati: una cella nascosta
-                        // deve comunque passare i dati alla fase successiva
+                        // SAP↑ = SAP↓ della fase precedente non esclusa
+                        // Sorgente specifica per alcune fasi (es. DCT300 WIP←FRW)
                         const sapPrevSourceFase = SAP_PREV_SOURCE[proj]?.[fase];
-                        // XOR: toggle inverte il default (NO_SAP_PREV_PHASES = disabilitato di default)
-                        const noSapPrev = !!(NO_SAP_PREV_PHASES[proj]?.includes(fase)) !== !!noSapPrevRef.current[`${normComp}:${fase}`];
-                        let sapPrevFino = null;
+                        let sapPrev = 0;
+                        const noSapPrev = !!(NO_SAP_PREV_PHASES[proj]?.includes(fase));
 
-                        if (!noSapPrev) {
+                        if (!noSapPrev && idx > 0) {
                             if (sapPrevSourceFase) {
-                                // Cerca la fase sorgente specificata, risalendo se esclusa
                                 const sourceIdx = seq.findIndex(s => s.fase === sapPrevSourceFase);
                                 for (let i = sourceIdx; i >= 0; i--) {
                                     if (!excl[`${normComp}:${seq[i].fase}`]) {
-                                        sapPrevFino = seq[i].fino;
+                                        sapPrev = newMatrix[normComp][seq[i].fino]?.sap || 0;
                                         break;
                                     }
                                 }
                             } else {
-                                // Risali la sequenza saltando le celle escluse (fasi non presenti per questo componente)
+                                // Risali saltando celle escluse
                                 for (let i = idx - 1; i >= 0; i--) {
                                     if (!excl[`${normComp}:${seq[i].fase}`]) {
-                                        sapPrevFino = seq[i].fino;
+                                        sapPrev = newMatrix[normComp][seq[i].fino]?.sap || 0;
                                         break;
                                     }
                                 }
                             }
                         }
-                        const sapPrev = sapPrevFino ? (sapMap[normComp]?.[sapPrevFino]?.qty || 0) : 0;
 
-                        // DEBUG: log dettagliato per ut_soft (MZA)
-                        if (fase === "ut_soft" && proj === "DCT ECO") {
-                            console.log(`[DEBUG-MZA] ${normComp}: idx=${idx}, fase=ut_soft, fino=${fino}`);
-                            console.log(`  - sapPrevFino=${sapPrevFino}, sapMap[${normComp}][${sapPrevFino}]=`, sapMap[normComp]?.[sapPrevFino]);
-                            console.log(`  - sapPrev=${sapPrev}, noSapPrev=${noSapPrev}`);
-                            console.log(`  - seq.length=${seq.length}, seq=`, seq.map(s => `${PHASE_CODE[s.fase] || s.fase}(${s.fino})`).join(" -> "));
-                        }
-
-                        // DEBUG: log dettagliato per deburring (EGW)
-                        if (fase === "deburring" && proj === "DCT ECO") {
-                            console.log(`[DEBUG-EGW] ${normComp}: idx=${idx}, fase=deburring, fino=${fino}`);
-                            console.log(`  - sapPrevFino=${sapPrevFino}, sapMap[${normComp}][${sapPrevFino}]=`, sapMap[normComp]?.[sapPrevFino]);
-                            console.log(`  - sapPrev=${sapPrev}, noSapPrev=${noSapPrev}`);
-                            console.log(`  - seq.length=${seq.length}, seq=`, seq.map(s => `${PHASE_CODE[s.fase] || s.fase}(${s.fino})`).join(" -> "));
-                        }
-                        // Per la prima cella attiva (nessun sapPrev), se non c'è inventario manuale
-                        // mostra il SAP in uscita come valore (= pezzi disponibili per la fase successiva)
-                        const isFirstActive = sapPrevFino === null;
+                        const isFirstActive = sapPrev === 0 && idx === 0;
                         const remaining = (isFirstActive && inv === 0) ? sap : (inv - sap + sapPrev);
 
-                        // DEBUG: log per fasi che non ricevono dati
-                        if (proj === "DCT ECO" && normComp === "SG2 ECO" && sap > 0 && idx < seq.length - 1) {
-                            const nextPhase = seq[idx + 1];
-                            const nextSapPrev = sapMap[normComp]?.[nextPhase.fino]?.sapPrev;
-                            console.log(`[DEBUG] ${normComp} ${PHASE_CODE[fase] || fase}(${fino}): SAP↓=${sap}, fase successiva ${PHASE_CODE[nextPhase.fase] || nextPhase.fase}(${nextPhase.fino}) riceve SAP↑=${nextSapPrev || "?"}`);
-                        }
-
                         newMatrix[normComp][fino] = {
-                            fino, fase, inv, sap, sapPrev, remaining, records: sapRecords,
-                            isFirstActive, isAutoFino, hasNoSapData,
-                            noSapPrev // salvo il valore calcolato per il render
+                            fino, fase, inv, sap, sapPrev, remaining,
+                            records: sapRecords, isFirstActive, isAutoFino, hasNoSapData, noSapPrev
                         };
                     });
                 });
