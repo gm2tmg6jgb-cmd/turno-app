@@ -284,8 +284,11 @@ export default function PrioritaView({ showToast, globalDate }) {
                         const override = dbOverrides.find(o =>
                             normalizeComp(o.comp, o.proj) === normComp && o.proj === proj && o.fase === fase
                         );
+                        // Se override esiste ma fino è "0000" o vuoto, usa il counter generato
+                        const overrideFino = override?.fino;
+                        const validFino = (overrideFino && overrideFino !== "0000") ? overrideFino : String(finoCounter).padStart(4, "0");
                         return {
-                            fino: override ? override.fino : String(finoCounter).padStart(4, "0"),
+                            fino: validFino,
                             fase: fase
                         };
                     });
