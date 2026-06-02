@@ -1197,7 +1197,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                 {/* SAP scarichi */}
                                                                 {true && (
                                                                     <div
-                                                                        onClick={() => !isConfigMode && cell.records.length > 0 && setSelectedDetail({
+                                                                        onClick={() => !isConfigMode && (cell.records?.length ?? 0) > 0 && setSelectedDetail({
                                                                             title: `${comp} — op.${fino} (${PHASE_CODE[fase] || fase})`,
                                                                             records: cell.records,
                                                                             fino, fase
@@ -1206,7 +1206,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                         style={{
                                                                             width: "100%", fontSize: 12, fontWeight: 800,
                                                                             color: "#60a5fa",
-                                                                            textAlign: "center", cursor: cell.records.length > 0 ? "pointer" : "default",
+                                                                            textAlign: "center", cursor: (cell.records?.length ?? 0) > 0 ? "pointer" : "default",
                                                                             padding: "4px 2px", borderRadius: 6,
                                                                             border: "1px solid rgba(96,165,250,0.3)",
                                                                             background: "rgba(96,165,250,0.1)",
@@ -1270,7 +1270,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                             <div>
                                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{selectedDetail.title}</h3>
                                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
-                                    Scarichi SAP dal {new Date(inventarioDate + "T12:00:00").toLocaleDateString("it-IT")} al {new Date(inventarioDateFine + "T12:00:00").toLocaleDateString("it-IT")} — {selectedDetail.records.length} record
+                                    Scarichi SAP dal {new Date(inventarioDate + "T12:00:00").toLocaleDateString("it-IT")} al {new Date(inventarioDateFine + "T12:00:00").toLocaleDateString("it-IT")} — {selectedDetail.records?.length ?? 0} record
                                 </div>
                             </div>
                             <button onClick={() => setSelectedDetail(null)}
