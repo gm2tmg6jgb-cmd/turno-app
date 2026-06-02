@@ -331,10 +331,12 @@ export default function PrioritaView({ showToast, globalDate }) {
                         );
                         // Se override esiste ma fino è "0000" o vuoto, usa il counter generato
                         const overrideFino = override?.fino;
-                        const validFino = (overrideFino && overrideFino !== "0000") ? overrideFino : String(finoCounter).padStart(4, "0");
+                        const isAutoFino = !overrideFino || overrideFino === "0000";
+                        const validFino = isAutoFino ? String(finoCounter).padStart(4, "0") : overrideFino;
                         return {
                             fino: validFino,
-                            fase: fase
+                            fase: fase,
+                            isAutoFino // true = nessuna configurazione reale per questa cella
                         };
                     });
                 });
@@ -472,11 +474,13 @@ export default function PrioritaView({ showToast, globalDate }) {
                     const seq = finoSeqSorted[normComp] || [];
                     newMatrix[normComp] = {};
 
-                    seq.forEach(({ fino, fase }, idx) => {
+                    seq.forEach(({ fino, fase, isAutoFino }, idx) => {
                         const inv = invMap[normComp]?.[fino] || 0;
                         const sap = sapMap[normComp]?.[fino]?.qty || 0;
                         const sapRecords = sapMap[normComp]?.[fino]?.records || [];
                         const prevFino = idx > 0 ? seq[idx - 1].fino : null;
+                        // Fino non configurato O configurato ma senza dati SAP nel periodo
+                        const hasNoSapData = sap === 0 && sapRecords.length === 0;
 
                         // Trova il fino della fase precedente per il flusso SAP↑
                         // Le esclusioni visive NON bloccano il flusso dati: una cella nascosta
@@ -532,7 +536,7 @@ export default function PrioritaView({ showToast, globalDate }) {
 
                         newMatrix[normComp][fino] = {
                             fino, fase, inv, sap, sapPrev, remaining, records: sapRecords,
-                            isFirstActive
+                            isFirstActive, isAutoFino, hasNoSapData
                         };
                     });
                 });
@@ -1052,6 +1056,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                     const allRecords = rawCell?.records || [];
                                                     const hasHighlightedOperator = highlightOperator && allRecords.some(r => r.acq_da === highlightOperator);
                                                     const hasSto = allRecords.some(r => r.sto === "X");
+                                                    const inv = cell.inv || 0;
 
                                                     return (
                                                         <div key={fase + "_" + fino} style={{
@@ -1124,6 +1129,28 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                         fontSize: 8, fontWeight: 900,
                                                                         display: "flex", alignItems: "center", justifyContent: "center"
                                                                     }}>S</div>
+                                                                )}
+
+                                                                {/* Badge configurazione mancante — fino auto-generato */}
+                                                                {!isConfigMode && rawCell?.isAutoFino && (
+                                                                    <div title="Fino non configurato — vai su ⚙️ Configura Celle per impostare l'operazione SAP" style={{
+                                                                        position: "absolute", top: -5, left: -5,
+                                                                        background: "#ef4444", color: "white",
+                                                                        borderRadius: "50%", width: 14, height: 14,
+                                                                        fontSize: 9, fontWeight: 900,
+                                                                        display: "flex", alignItems: "center", justifyContent: "center"
+                                                                    }}>!</div>
+                                                                )}
+
+                                                                {/* Badge nessun dato SAP nel periodo (fino configurato ma vuoto) */}
+                                                                {!isConfigMode && !rawCell?.isAutoFino && rawCell?.hasNoSapData && inv === 0 && (
+                                                                    <div title="Nessuno scarico SAP in questo periodo" style={{
+                                                                        position: "absolute", top: -5, left: -5,
+                                                                        background: "#f59e0b", color: "white",
+                                                                        borderRadius: "50%", width: 14, height: 14,
+                                                                        fontSize: 9, fontWeight: 900,
+                                                                        display: "flex", alignItems: "center", justifyContent: "center"
+                                                                    }}>?</div>
                                                                 )}
 
                                                                 {isConfigMode && (
