@@ -565,16 +565,29 @@ export default function PrioritaView({ showToast, globalDate }) {
         const normComp = comp.toUpperCase();
         setSavingCell({ comp: normComp, fino });
         try {
-            const { error } = await supabase.from("inventario_fisico")
-                .upsert({
-                    componente: normComp,
-                    fino,
-                    quantita: qty,
-                    data_inventario: inventarioDate,
-                    updated_at: new Date().toISOString()
-                }, { onConflict: "componente,fino" });
+            // Bypass per sviluppo locale senza Supabase
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+            const isDevMode = !supabaseUrl || supabaseUrl.includes('placeholder') || !supabaseAnonKey?.length || supabaseAnonKey.includes('placeholder');
 
-            if (error) throw error;
+            if (isDevMode) {
+                // Salva in localStorage per sviluppo locale
+                const key = `inv_${normComp}_${fino}`;
+                const data = { componente: normComp, fino, quantita: qty, data_inventario: inventarioDate, updated_at: new Date().toISOString() };
+                localStorage.setItem(key, JSON.stringify(data));
+                showToast?.(`Salvato in locale: ${comp} op.${fino} = ${qty}`, "success");
+            } else {
+                const { error } = await supabase.from("inventario_fisico")
+                    .upsert({
+                        componente: normComp,
+                        fino,
+                        quantita: qty,
+                        data_inventario: inventarioDate,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: "componente,fino" });
+
+                if (error) throw error;
+            }
 
             // Ricalcola rimanenza per questo fino e il successivo (aggiorna rawMatrixData)
             setRawMatrixData(prev => {
