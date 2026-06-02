@@ -1089,16 +1089,16 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                 }}>
                                                                 {/* Inventario fisico (editabile) */}
                                                                 <div
-                                                                    onClick={() => startEditing(normComp, fino, cell.inv, proj)}
-                                                                    title="Modifica inventario fisico"
+                                                                    onClick={() => isEditable && startEditing(normComp, fino, cell.inv, proj)}
+                                                                    title={isEditable ? "Modifica inventario fisico" : "Questa fase non è editabile"}
                                                                     style={{
                                                                         width: "100%", fontSize: 12, fontWeight: 800,
                                                                         color: cell.inv > 0 ? "white" : "var(--text-muted)",
-                                                                        textAlign: "center", cursor: "pointer",
+                                                                        textAlign: "center", cursor: isEditable ? "pointer" : "not-allowed",
                                                                         padding: "4px 2px", borderRadius: 6,
                                                                         border: cell.inv > 0 ? "none" : "1px dashed var(--border-light)",
                                                                         background: cell.inv > 0 ? "var(--accent)" : "transparent",
-                                                                        opacity: isConfigMode ? 0 : 1
+                                                                        opacity: isConfigMode ? 0 : isEditable ? 1 : 0.5
                                                                     }}
                                                                 >
                                                                     {`Inv: ${cell.inv || 0}`}
