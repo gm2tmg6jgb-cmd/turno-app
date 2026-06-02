@@ -609,12 +609,14 @@ export default function PrioritaView({ showToast, globalDate }) {
     };
 
     const saveInventory = async (comp, fino, qty) => {
-        if (!fino || fino === "0000" || fino === "null") {
-            showToast?.("Fino non configurato — usa ⚙️ Configura Celle per impostare l'operazione SAP", "error");
-            return;
+        // Auto-generate dummy fino if not configured (e.g., HT with null fino)
+        let saveFino = fino;
+        if (!fino || fino === "0000" || fino === null) {
+            saveFino = `99${comp.slice(-2)}`.substring(0, 4).padStart(4, "0");
+            showToast?.(`Salvataggio con operazione generata: ${saveFino}`, "info");
         }
         const normComp = comp.toUpperCase();
-        setSavingCell({ comp: normComp, fino });
+        setSavingCell({ comp: normComp, fino: saveFino });
         try {
             // Bypass per sviluppo locale senza Supabase
             const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -623,15 +625,15 @@ export default function PrioritaView({ showToast, globalDate }) {
 
             if (isDevMode) {
                 // Salva in localStorage per sviluppo locale
-                const key = `inv_${normComp}_${fino}`;
-                const data = { componente: normComp, fino, quantita: qty, data_inventario: inventarioDate, updated_at: new Date().toISOString() };
+                const key = `inv_${normComp}_${saveFino}`;
+                const data = { componente: normComp, fino: saveFino, quantita: qty, data_inventario: inventarioDate, updated_at: new Date().toISOString() };
                 localStorage.setItem(key, JSON.stringify(data));
-                showToast?.(`Salvato in locale: ${comp} op.${fino} = ${qty}`, "success");
+                showToast?.(`Salvato: ${comp} op.${saveFino} = ${qty}`, "success");
             } else {
                 const { error } = await supabase.from("inventario_fisico")
                     .upsert({
                         componente: normComp,
-                        fino,
+                        fino: saveFino,
                         quantita: qty,
                         data_inventario: inventarioDate,
                         updated_at: new Date().toISOString()
@@ -645,7 +647,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                 const updated = { ...prev };
                 if (!updated[normComp]) return prev;
                 const seq = finoSequences[normComp] || [];
-                const idx = seq.findIndex(s => s.fino === fino);
+                const idx = seq.findIndex(s => s.fino === saveFino);
                 if (idx === -1) return prev;
                 const fase = seq[idx].fase;
 
@@ -1018,7 +1020,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                         );
                                                     }
 
-                                                    const isEditable = !(NON_EDITABLE_PHASES[proj] || []).includes(fase) && fino && fino !== "0000";
+                                                    const isEditable = !(NON_EDITABLE_PHASES[proj] || []).includes(fase);
 
                                                     // Highlight operator & storno
                                                     const rawCell = rawMatrixData[normComp]?.[fase];
