@@ -475,8 +475,10 @@ export default function PrioritaView({ showToast, globalDate }) {
                                 }
                             } else {
                                 // Risali la sequenza saltando le celle escluse
+                                // FORCE: ut_soft (MZA) ignora le esclusioni e trova sempre la fase precedente
+                                const ignoreExclusions = fase === "ut_soft" && proj === "DCT ECO";
                                 for (let i = idx - 1; i >= 0; i--) {
-                                    if (!excl[`${normComp}:${seq[i].fase}`]) {
+                                    if (ignoreExclusions || !excl[`${normComp}:${seq[i].fase}`]) {
                                         sapPrevFino = seq[i].fino;
                                         break;
                                     }
