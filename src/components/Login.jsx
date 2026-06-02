@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 import { version } from "../../package.json";
 
@@ -9,11 +9,31 @@ export default function Login() {
     const [error, setError] = useState("");
     const [mode, setMode] = useState("login"); // "login" | "reset"
     const [resetSent, setResetSent] = useState(false);
+    const [isDevMode, setIsDevMode] = useState(false);
+
+    useEffect(() => {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+        if (!supabaseUrl || supabaseUrl.includes('placeholder') || !supabaseAnonKey?.length || supabaseAnonKey.includes('placeholder')) {
+            setIsDevMode(true);
+        }
+    }, []);
 
     const handleLogin = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError("");
+
+        if (isDevMode) {
+            // Login locale - salva in localStorage
+            const emailValue = email.trim() || 'dev@localhost';
+            const mockSession = { user: { id: 'dev-user', email: emailValue, app_metadata: { role: 'admin' } } };
+            localStorage.setItem('devSession', JSON.stringify(mockSession));
+            window.location.reload();
+            return;
+        }
+
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) setError("Email o password non corretti.");
         setLoading(false);

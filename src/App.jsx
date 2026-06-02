@@ -698,6 +698,21 @@ export default function App() {
   const [session, setSession] = useState(undefined);
 
   useEffect(() => {
+    // Bypass per sviluppo locale senza Supabase
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || supabaseUrl.includes('placeholder') || !supabaseAnonKey?.length || supabaseAnonKey.includes('placeholder')) {
+      // Usa sessione localStorage in sviluppo locale
+      const savedSession = localStorage.getItem('devSession');
+      if (savedSession) {
+        setSession(JSON.parse(savedSession));
+      } else {
+        setSession(null); // Mostra login screen
+      }
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
     });
@@ -708,7 +723,15 @@ export default function App() {
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    if (supabaseUrl?.includes('placeholder') || supabaseAnonKey?.includes('placeholder')) {
+      localStorage.removeItem('devSession');
+      setSession(null);
+    } else {
+      await supabase.auth.signOut();
+    }
   };
 
   if (session === undefined) {
