@@ -214,6 +214,25 @@ export default function PrioritaView({ showToast, globalDate }) {
     const fetchData = async () => {
         if (!inventarioDate || !inventarioDateFine) return;
         setLoading(true);
+
+        // Forza SAP ↑ abilitato per ut_soft (MZA) su ECO
+        try {
+            const stored = JSON.parse(localStorage.getItem("lab_no_sap_prev") || "{}");
+            let modified = false;
+            ["SG2", "SG3", "SG4", "SG5"].forEach(comp => {
+                const key = `${comp} ECO:ut_soft`;
+                if (stored[key]) {
+                    delete stored[key];
+                    modified = true;
+                }
+            });
+            if (modified) {
+                localStorage.setItem("lab_no_sap_prev", JSON.stringify(stored));
+            }
+        } catch (e) {
+            // ignore
+        }
+
         try {
             // 1. Anagrafica materiali
             const anagrafica = {};
