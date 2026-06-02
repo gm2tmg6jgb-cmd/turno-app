@@ -358,6 +358,9 @@ export default function PrioritaView({ showToast, globalDate }) {
             // Aggrega SAP per comp+fino
             const sapMap = {}; // {comp: {fino: {qty, records}}}
 
+            console.log("[DEBUG] sapRes length:", sapRes?.length);
+            console.log("[DEBUG] inventarioDate:", inventarioDate, "inventarioDateFine:", inventarioDateFine);
+
             // Filtro materiali e progetto stretti
             // Match esatto mat+fino ha priorità, mat senza fino è fallback generico (come ComponentFlowView)
             const validConfigMap = {};  // {mat_fino: {comp, fase}}
@@ -485,6 +488,13 @@ export default function PrioritaView({ showToast, globalDate }) {
                         // mostra il SAP in uscita come valore (= pezzi disponibili per la fase successiva)
                         const isFirstActive = sapPrevFino === null;
                         const remaining = (isFirstActive && inv === 0) ? sap : (inv - sap + sapPrev);
+
+                        // DEBUG: log per fasi che non ricevono dati
+                        if (proj === "DCT ECO" && normComp === "SG2 ECO" && sap > 0 && idx < seq.length - 1) {
+                            const nextPhase = seq[idx + 1];
+                            const nextSapPrev = sapMap[normComp]?.[nextPhase.fino]?.sapPrev;
+                            console.log(`[DEBUG] ${normComp} ${PHASE_CODE[fase] || fase}(${fino}): SAP↓=${sap}, fase successiva ${PHASE_CODE[nextPhase.fase] || nextPhase.fase}(${nextPhase.fino}) riceve SAP↑=${nextSapPrev || "?"}`);
+                        }
 
                         newMatrix[normComp][fino] = {
                             fino, fase, inv, sap, sapPrev, remaining, records: sapRecords,
