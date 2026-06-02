@@ -53,6 +53,8 @@ function AppContent({ session, onLogout }) {
   const repartoCorrente = ""; // Intenzionalmente vuota: mostra tutti i reparti. Estendibile in futuro con un selettore.
   const [turnoCorrente, setTurnoCorrente] = useState(() => localStorage.getItem("turnoCorrente") || getActiveGroup());
   const [globalDate, setGlobalDate] = useState(() => getLocalDate(new Date()));
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("sidebarCollapsed") === "true");
+  const toggleSidebar = () => setSidebarCollapsed(v => { localStorage.setItem("sidebarCollapsed", String(!v)); return !v; });
 
   useEffect(() => {
     localStorage.setItem("turnoCorrente", turnoCorrente);
@@ -299,16 +301,36 @@ function AppContent({ session, onLogout }) {
   return (
     <div className="app">
       {/* Sidebar */}
-      <div className="sidebar">
-        <div className="sidebar-header">
-          <div className="sidebar-logo">
+      <div className={`sidebar${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
+        <div className="sidebar-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div className="sidebar-logo" style={{ marginBottom: 0 }}>
             <div className="sidebar-logo-icon">B</div>
-            <div className="sidebar-logo-text">BAP1 - Production</div>
+            {!sidebarCollapsed && <div className="sidebar-logo-text">BAP1 - Production</div>}
           </div>
-
+          <button
+            onClick={toggleSidebar}
+            title={sidebarCollapsed ? "Espandi sidebar" : "Comprimi sidebar"}
+            style={{ background: "none", border: "1px solid var(--border)", borderRadius: "6px", cursor: "pointer", color: "var(--text-muted)", padding: "4px 6px", fontSize: "12px", lineHeight: 1, flexShrink: 0 }}
+          >
+            {sidebarCollapsed ? "▶" : "◀"}
+          </button>
         </div>
 
-        <div className="sidebar-turno-badge" style={{ margin: "16px 12px", padding: "20px 18px", gap: 14 }}>
+        {sidebarCollapsed && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", padding: "12px 0" }}>
+            {navItems.filter(i => !i.section).slice(0, 8).map(item => (
+              <div
+                key={item.id}
+                onClick={() => setCurrentView(item.id)}
+                title={item.label}
+                style={{ cursor: "pointer", padding: "8px", borderRadius: "8px", color: currentView === item.id ? "var(--accent)" : "var(--text-muted)", background: currentView === item.id ? "rgba(var(--accent-rgb),0.1)" : "transparent" }}
+              >
+                {item.icon}
+              </div>
+            ))}
+          </div>
+        )}
+        {!sidebarCollapsed && (<><div className="sidebar-turno-badge" style={{ margin: "16px 12px", padding: "20px 18px", gap: 14 }}>
           <div className="dot" style={{ width: 10, height: 10 }} />
           <div className="sidebar-turno-info">
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -399,9 +421,9 @@ function AppContent({ session, onLogout }) {
               </>
             );
           })()}
-        </nav>
+        </nav></>)}
 
-        <div className="sidebar-footer">
+        <div className="sidebar-footer" style={{ display: sidebarCollapsed ? "none" : undefined }}>
           <button
             onClick={toggleTheme}
             style={{

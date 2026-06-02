@@ -1016,7 +1016,12 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                         });
                                                                     }
                                                                 }}
-                                                                title={isConfigMode ? "Clicca per configurare questa cella" : "Clicca per vedere i pezzi prodotti"}
+                                                                onDoubleClick={() => {
+                                                                    if (!isConfigMode && !isEditing) {
+                                                                        startEditing(normComp, fino, cell.inv, proj, fase);
+                                                                    }
+                                                                }}
+                                                                title={isConfigMode ? "Clicca per configurare questa cella" : cell.records?.length > 0 ? "Clicca per vedere i pezzi prodotti" : "Doppio click per editare"}
                                                                 style={{
                                                                     width: "100%",
                                                                     height: 50,
@@ -1125,9 +1130,9 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                     padding: "4px 2px", width: "100%", borderTop: "1px solid var(--border-light)", marginTop: 4
                                                                 }}>
                                                                 {/* Inventario fisico (editabile) */}
-                                                                <div
+                                                                <button
                                                                     onClick={() => startEditing(normComp, fino, cell.inv, proj)}
-                                                                    title="Modifica inventario fisico"
+                                                                    title="Modifica inventario fisico - Clicca per editare"
                                                                     style={{
                                                                         width: "100%", fontSize: 12, fontWeight: 800,
                                                                         color: cell.inv > 0 ? "white" : "var(--text-muted)",
@@ -1135,11 +1140,23 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                         padding: "4px 2px", borderRadius: 6,
                                                                         border: cell.inv > 0 ? "none" : "1px dashed var(--border-light)",
                                                                         background: cell.inv > 0 ? "var(--accent)" : "transparent",
-                                                                        opacity: isConfigMode ? 0 : 1
+                                                                        opacity: isConfigMode ? 0 : 1,
+                                                                        transition: "all 0.2s",
+                                                                        background: cell.inv > 0 ? "var(--accent)" : "transparent"
+                                                                    }}
+                                                                    onMouseEnter={(e) => {
+                                                                        if (!isConfigMode) {
+                                                                            e.currentTarget.style.background = cell.inv > 0 ? "rgba(254, 159, 64, 0.8)" : "rgba(96, 165, 250, 0.1)";
+                                                                            e.currentTarget.style.textDecoration = "underline";
+                                                                        }
+                                                                    }}
+                                                                    onMouseLeave={(e) => {
+                                                                        e.currentTarget.style.background = cell.inv > 0 ? "var(--accent)" : "transparent";
+                                                                        e.currentTarget.style.textDecoration = "none";
                                                                     }}
                                                                 >
                                                                     {`Inv: ${cell.inv || 0}`}
-                                                                </div>
+                                                                </button>
 
                                                                 {/* SAP scarichi */}
                                                                 {true && (
