@@ -390,7 +390,7 @@ export default function PrioritaView({ showToast, globalDate }) {
             const unconfigured = {}; // {materiale_fino: {materiale, fino, qty}}
             if (sapRes) {
                 sapRes.forEach(r => {
-                    const matCode = (r.materiale || "").toUpperCase();
+                    const matCode = (r.materiale || "").toUpperCase().split("/")[0].trim();
                     const fino = String(r.fino || "").padStart(4, "0");
                     if (!fino || fino === "0000") return;
 
