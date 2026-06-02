@@ -1599,9 +1599,20 @@ const QuickConfigModal = ({ data, onClose, onSave, showToast }) => {
                 });
             }
             for (const row of rows) {
-                const { error } = await supabase.from("material_fino_overrides")
-                    .upsert(row, { onConflict: "materiale,fase,componente,progetto", ignoreDuplicates: false });
-                if (error) throw error;
+                const { data: existing } = await supabase.from("material_fino_overrides")
+                    .select("id")
+                    .eq("materiale", row.materiale)
+                    .eq("fase", row.fase)
+                    .eq("componente", row.componente)
+                    .eq("progetto", row.progetto)
+                    .maybeSingle();
+                if (existing) {
+                    const { error } = await supabase.from("material_fino_overrides").update(row).eq("id", existing.id);
+                    if (error) throw error;
+                } else {
+                    const { error } = await supabase.from("material_fino_overrides").insert(row);
+                    if (error) throw error;
+                }
             }
             showToast?.("Configurazione salvata!", "success");
             onSave();
