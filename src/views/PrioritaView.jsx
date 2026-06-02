@@ -472,8 +472,9 @@ export default function PrioritaView({ showToast, globalDate }) {
                     // Seconda passata: propaga sapPrev = sap della fase precedente visibile
                     seq.forEach(({ fino, fase, isAutoFino }, idx) => {
                         const inv = invMap[normComp]?.[fino] || 0;
-                        const { sap, sapRecords } = newMatrix[normComp][fino];
-                        const hasNoSapData = sap === 0 && sapRecords.length === 0;
+                        const cellData = newMatrix[normComp]?.[fino] || { sap: 0, sapRecords: [] };
+                        const { sap, sapRecords } = cellData;
+                        const hasNoSapData = sap === 0 && (sapRecords || []).length === 0;
 
                         // SAP↑ = SAP↓ della fase precedente non esclusa
                         // Sorgente specifica per alcune fasi (es. DCT300 WIP←FRW)
