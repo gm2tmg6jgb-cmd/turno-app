@@ -176,16 +176,16 @@ export default function PrioritaView({ showToast, globalDate }) {
     const matrixData = useMemo(() => {
         if (!filterExcludeSto && filterExcludeOperators.length === 0) return rawMatrixData;
         const filtered = {};
-        for (const [comp, finos] of Object.entries(rawMatrixData)) {
+        for (const [comp, fases] of Object.entries(rawMatrixData)) {
             filtered[comp] = {};
-            for (const [fino, cell] of Object.entries(finos)) {
+            for (const [fase, cell] of Object.entries(fases)) {
                 const filteredRecords = (cell.records || []).filter(r => {
                     if (filterExcludeSto && r.sto === "X") return false;
                     if (filterExcludeOperators.length > 0 && filterExcludeOperators.includes(r.acq_da)) return false;
                     return true;
                 });
                 const filteredSap = filteredRecords.reduce((sum, r) => sum + (r.qta_ottenuta || 0), 0);
-                filtered[comp][fino] = {
+                filtered[comp][fase] = {
                     ...cell,
                     sap: filteredSap,
                     remaining: (cell.inv || 0) - filteredSap + (cell.sapPrev || 0),
@@ -462,22 +462,20 @@ export default function PrioritaView({ showToast, globalDate }) {
                     const seq = finoSeqSorted[normComp] || [];
                     newMatrix[normComp] = {};
 
-                    // Prima passata: calcola sap per ogni cella
+                    // Prima passata: calcola sap per ogni cella (chiave = fase, unica nella sequenza)
                     seq.forEach(({ fino, fase, isAutoFino }) => {
                         const sap = sapMap[normComp]?.[fino]?.qty || 0;
                         const sapRecords = sapMap[normComp]?.[fino]?.records || [];
-                        newMatrix[normComp][fino] = { fino, fase, isAutoFino, sap, sapRecords };
+                        newMatrix[normComp][fase] = { fino, fase, isAutoFino, sap, sapRecords };
                     });
 
                     // Seconda passata: propaga sapPrev = sap della fase precedente visibile
                     seq.forEach(({ fino, fase, isAutoFino }, idx) => {
                         const inv = invMap[normComp]?.[fino] || 0;
-                        const cellData = newMatrix[normComp]?.[fino] || { sap: 0, sapRecords: [] };
+                        const cellData = newMatrix[normComp]?.[fase] || { sap: 0, sapRecords: [] };
                         const { sap, sapRecords } = cellData;
                         const hasNoSapData = sap === 0 && (sapRecords || []).length === 0;
 
-                        // SAP↑ = SAP↓ della fase precedente non esclusa
-                        // Sorgente specifica per alcune fasi (es. DCT300 WIP←FRW)
                         const sapPrevSourceFase = SAP_PREV_SOURCE[proj]?.[fase];
                         let sapPrev = 0;
                         const noSapPrev = !!(NO_SAP_PREV_PHASES[proj]?.includes(fase));
@@ -487,15 +485,14 @@ export default function PrioritaView({ showToast, globalDate }) {
                                 const sourceIdx = seq.findIndex(s => s.fase === sapPrevSourceFase);
                                 for (let i = sourceIdx; i >= 0; i--) {
                                     if (!excl[`${normComp}:${seq[i].fase}`]) {
-                                        sapPrev = newMatrix[normComp][seq[i].fino]?.sap || 0;
+                                        sapPrev = newMatrix[normComp][seq[i].fase]?.sap || 0;
                                         break;
                                     }
                                 }
                             } else {
-                                // Risali saltando celle escluse
                                 for (let i = idx - 1; i >= 0; i--) {
                                     if (!excl[`${normComp}:${seq[i].fase}`]) {
-                                        sapPrev = newMatrix[normComp][seq[i].fino]?.sap || 0;
+                                        sapPrev = newMatrix[normComp][seq[i].fase]?.sap || 0;
                                         break;
                                     }
                                 }
@@ -505,7 +502,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                         const isFirstActive = sapPrev === 0 && idx === 0;
                         const remaining = (isFirstActive && inv === 0) ? sap : (inv - sap + sapPrev);
 
-                        newMatrix[normComp][fino] = {
+                        newMatrix[normComp][fase] = {
                             fino, fase, inv, sap, sapPrev, remaining,
                             records: sapRecords, isFirstActive, isAutoFino, hasNoSapData, noSapPrev
                         };
@@ -643,26 +640,27 @@ export default function PrioritaView({ showToast, globalDate }) {
                 if (error) throw error;
             }
 
-            // Ricalcola rimanenza per questo fino e il successivo (aggiorna rawMatrixData)
+            // Ricalcola rimanenza per questa fase e la successiva (aggiorna rawMatrixData)
             setRawMatrixData(prev => {
                 const updated = { ...prev };
                 if (!updated[normComp]) return prev;
                 const seq = finoSequences[normComp] || [];
                 const idx = seq.findIndex(s => s.fino === fino);
                 if (idx === -1) return prev;
+                const fase = seq[idx].fase;
 
-                // Ricalcola fino corrente
-                const prevFino = idx > 0 ? seq[idx - 1].fino : null;
-                const sapPrev = prevFino ? (updated[normComp][prevFino]?.sap || 0) : 0;
-                const cell = updated[normComp][fino];
-                updated[normComp][fino] = { ...cell, inv: qty, remaining: qty - (cell?.sap || 0) + sapPrev };
+                // Ricalcola fase corrente
+                const prevFase = idx > 0 ? seq[idx - 1].fase : null;
+                const sapPrev = prevFase ? (updated[normComp][prevFase]?.sap || 0) : 0;
+                const cell = updated[normComp][fase];
+                updated[normComp][fase] = { ...cell, inv: qty, remaining: qty - (cell?.sap || 0) + sapPrev };
 
-                // Ricalcola fino successivo (perché il suo sapPrev cambia)
+                // Ricalcola fase successiva (il suo sapPrev cambia)
                 const nextEntry = seq[idx + 1];
                 if (nextEntry) {
-                    const nextCell = updated[normComp][nextEntry.fino];
-                    const newSap = updated[normComp][fino]?.sap || 0;
-                    updated[normComp][nextEntry.fino] = {
+                    const nextCell = updated[normComp][nextEntry.fase];
+                    const newSap = updated[normComp][fase]?.sap || 0;
+                    updated[normComp][nextEntry.fase] = {
                         ...nextCell,
                         sapPrev: newSap,
                         remaining: (nextCell?.inv || 0) - (nextCell?.sap || 0) + newSap
@@ -724,7 +722,7 @@ export default function PrioritaView({ showToast, globalDate }) {
     const startEditing = (comp, fino, currentInv, proj, faseHint) => {
         if (isConfigMode) {
             // Use faseHint when provided (avoids ambiguity when fino="0000" appears multiple times)
-            const fase = faseHint || matrixData[comp]?.[fino]?.fase;
+            const fase = faseHint;
             setQuickConfigModal({
                 project: proj || activeTab,
                 comp,
@@ -981,7 +979,7 @@ export default function PrioritaView({ showToast, globalDate }) {
 
                                                 {/* Celle */}
                                                 {seq.map(({ fino, fase }, idx) => {
-                                                    const cell = compMatrix[fino] || { inv: 0, sap: 0, sapPrev: 0, remaining: 0, records: [] };
+                                                    const cell = compMatrix[fase] || { inv: 0, sap: 0, sapPrev: 0, remaining: 0, records: [] };
                                                     const isEditing = editingCell?.comp === normComp && editingCell?.fino === fino;
                                                     const isSaving = savingCell?.comp === normComp && savingCell?.fino === fino;
                                                     const isFirstFino = idx === 0;
@@ -1023,7 +1021,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                     const isEditable = !(NON_EDITABLE_PHASES[proj] || []).includes(fase);
 
                                                     // Highlight operator & storno
-                                                    const rawCell = rawMatrixData[normComp]?.[fino];
+                                                    const rawCell = rawMatrixData[normComp]?.[fase];
                                                     const allRecords = rawCell?.records || [];
                                                     const hasHighlightedOperator = highlightOperator && allRecords.some(r => r.acq_da === highlightOperator);
                                                     const hasSto = allRecords.some(r => r.sto === "X");
