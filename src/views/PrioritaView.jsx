@@ -418,6 +418,11 @@ export default function PrioritaView({ showToast, globalDate }) {
             }
             setUnconfiguredSap(Object.values(unconfigured));
 
+            // ===== DEBUG COMPLETO SG2 ECO =====
+            console.log("=== SAPMAP SG2 ECO ===", JSON.stringify(
+                Object.fromEntries(Object.entries(sapMap["SG2 ECO"] || {}).map(([fino, v]) => [fino, v.qty]))
+            ));
+
             // Per componenti senza material_fino_overrides, aggiorna finoSeqSorted
             // usando i finos reali trovati in sapMap (invece dei placeholder)
             PROJECTS.forEach(proj => {
@@ -451,6 +456,11 @@ export default function PrioritaView({ showToast, globalDate }) {
                     });
                 });
             });
+
+            // ===== DEBUG SEQUENZA SG2 ECO =====
+            console.log("=== SEQ SG2 ECO ===", JSON.stringify(
+                (finoSeqSorted["SG2 ECO"] || []).map(s => `${PHASE_CODE[s.fase] || s.fase}=${s.fino}`)
+            ));
 
             // Per alcuni progetti, il sapPrev di una fase viene da una fase specifica (non la precedente)
             // 5. Calcolo WIP flow per componente
