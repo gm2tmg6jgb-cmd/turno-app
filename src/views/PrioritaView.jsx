@@ -492,16 +492,21 @@ export default function PrioritaView({ showToast, globalDate }) {
 
                         if (!noSapPrev) {
                             if (sapPrevSourceFase) {
-                                // Cerca la fase sorgente specificata (indipendentemente dalle esclusioni visive)
+                                // Cerca la fase sorgente specificata, risalendo se esclusa
                                 const sourceIdx = seq.findIndex(s => s.fase === sapPrevSourceFase);
-                                if (sourceIdx >= 0) {
-                                    sapPrevFino = seq[sourceIdx].fino;
+                                for (let i = sourceIdx; i >= 0; i--) {
+                                    if (!excl[`${normComp}:${seq[i].fase}`]) {
+                                        sapPrevFino = seq[i].fino;
+                                        break;
+                                    }
                                 }
                             } else {
-                                // Prendi direttamente la fase immediatamente precedente nella sequenza
-                                // Le esclusioni visive non interrompono il flusso dati
-                                if (idx > 0) {
-                                    sapPrevFino = seq[idx - 1].fino;
+                                // Risali la sequenza saltando le celle escluse (fasi non presenti per questo componente)
+                                for (let i = idx - 1; i >= 0; i--) {
+                                    if (!excl[`${normComp}:${seq[i].fase}`]) {
+                                        sapPrevFino = seq[i].fino;
+                                        break;
+                                    }
                                 }
                             }
                         }
@@ -536,7 +541,8 @@ export default function PrioritaView({ showToast, globalDate }) {
 
                         newMatrix[normComp][fino] = {
                             fino, fase, inv, sap, sapPrev, remaining, records: sapRecords,
-                            isFirstActive, isAutoFino, hasNoSapData
+                            isFirstActive, isAutoFino, hasNoSapData,
+                            noSapPrev // salvo il valore calcolato per il render
                         };
                     });
                 });
@@ -1247,7 +1253,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                 )}
 
                                                                 {/* Entrate dalla fase precedente */}
-                                                                {!isFirstFino && !(!!(NO_SAP_PREV_PHASES[proj]?.includes(fase)) !== !!noSapPrevCells[`${normComp}:${fase}`]) && (
+                                                                {!isFirstFino && !(rawCell?.noSapPrev ?? (!!(NO_SAP_PREV_PHASES[proj]?.includes(fase)) !== !!noSapPrevCells[`${normComp}:${fase}`])) && (
                                                                     <div
                                                                         title="Pezzi entrati dalla fase precedente"
                                                                         style={{
