@@ -468,9 +468,9 @@ export default function PrioritaView({ showToast, globalDate }) {
                         const sapRecords = sapMap[normComp]?.[fino]?.records || [];
                         const prevFino = idx > 0 ? seq[idx - 1].fino : null;
 
-                        // Trova il fino della fase precedente attiva (salta celle escluse)
-                        // Se c'è una fonte sapPrev specifica (es. DCT300 WIP←FRW), cerca da quella fase
-                        // in poi verso il basso saltando le escluse
+                        // Trova il fino della fase precedente per il flusso SAP↑
+                        // Le esclusioni visive NON bloccano il flusso dati: una cella nascosta
+                        // deve comunque passare i dati alla fase successiva
                         const sapPrevSourceFase = SAP_PREV_SOURCE[proj]?.[fase];
                         // XOR: toggle inverte il default (NO_SAP_PREV_PHASES = disabilitato di default)
                         const noSapPrev = !!(NO_SAP_PREV_PHASES[proj]?.includes(fase)) !== !!noSapPrevRef.current[`${normComp}:${fase}`];
@@ -478,21 +478,16 @@ export default function PrioritaView({ showToast, globalDate }) {
 
                         if (!noSapPrev) {
                             if (sapPrevSourceFase) {
-                                // Cerca la fase sorgente specificata, poi se esclusa cerca la precedente attiva
+                                // Cerca la fase sorgente specificata (indipendentemente dalle esclusioni visive)
                                 const sourceIdx = seq.findIndex(s => s.fase === sapPrevSourceFase);
-                                for (let i = sourceIdx; i >= 0; i--) {
-                                    if (!excl[`${normComp}:${seq[i].fase}`]) {
-                                        sapPrevFino = seq[i].fino;
-                                        break;
-                                    }
+                                if (sourceIdx >= 0) {
+                                    sapPrevFino = seq[sourceIdx].fino;
                                 }
                             } else {
-                                // Risali la sequenza saltando le celle escluse
-                                for (let i = idx - 1; i >= 0; i--) {
-                                    if (!excl[`${normComp}:${seq[i].fase}`]) {
-                                        sapPrevFino = seq[i].fino;
-                                        break;
-                                    }
+                                // Prendi direttamente la fase immediatamente precedente nella sequenza
+                                // Le esclusioni visive non interrompono il flusso dati
+                                if (idx > 0) {
+                                    sapPrevFino = seq[idx - 1].fino;
                                 }
                             }
                         }
