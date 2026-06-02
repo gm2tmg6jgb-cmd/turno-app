@@ -134,6 +134,11 @@ export default function PrioritaView({ showToast, globalDate }) {
     const [noSapPrevCells, setNoSapPrevCells] = useState(() => {
         try {
             const v = JSON.parse(localStorage.getItem("lab_no_sap_prev") || "{}");
+            // Forza SAP ↑ abilitato per ut_soft (MZA) su ECO
+            delete v["SG2 ECO:ut_soft"];
+            delete v["SG3 ECO:ut_soft"];
+            delete v["SG4 ECO:ut_soft"];
+            delete v["SG5 ECO:ut_soft"];
             noSapPrevRef.current = v;
             return v;
         } catch { return {}; }
