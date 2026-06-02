@@ -37,7 +37,7 @@ const LOCAL_ANAGRAFICA = {
 
 // Label fasi da ID
 const PHASE_CODE = {
-    "start_soft": "DRA", "dmc": "ZSA", "laser_welding": "SCA",
+    "start_soft": "DRA", "dmc": "ZSA", "slw": "SLW", "laser_welding": "SCA",
     "laser_welding_soft_2": "SCA", "shaping": "STW", "milling": "FRA",
     "broaching": "RAA", "hobbing": "FRW", "deburring": "EGW",
     "to_be_treated": "WIP", "ht": "HT", "shot_peening": "OKU",
@@ -50,7 +50,7 @@ const PHASE_CODE = {
 };
 
 const PHASE_LABEL = {
-    "start_soft": "Torn. Soft", "dmc": "DMC", "laser_welding": "Sald. Soft",
+    "start_soft": "Torn. Soft", "dmc": "DMC", "slw": "SLW", "laser_welding": "Sald. Soft",
     "laser_welding_soft_2": "Sald. Soft 2", "shaping": "Stozzatura", "milling": "Fresatura",
     "broaching": "Brocciatura", "hobbing": "Dentatura", "deburring": "Sbavatura",
     "to_be_treated": "Da Trattare", "ht": "Tratt. Term.", "shot_peening": "Pallinatura",
@@ -258,6 +258,13 @@ export default function PrioritaView({ showToast, globalDate }) {
                 "shot_peening", "start_hard", "laser_welding_2", "ut",
                 "grinding_cone", "grinding_cone_2", "teeth_grinding", "to_be_washed", "washing", "baa"
             ];
+            // DCT ECO: aggiungi slw tra start_soft e laser_welding
+            const LAB_SEQUENCE_ECO = [
+                "start_soft", "slw", "laser_welding", "ut_soft", "shaping",
+                "milling", "hobbing", "deburring", "to_be_treated", "ht",
+                "shot_peening", "start_hard", "laser_welding_2", "ut",
+                "grinding_cone", "grinding_cone_2", "teeth_grinding", "to_be_washed", "washing", "baa"
+            ];
             // DCT300: rimuovi ut_soft(MZA), milling(FRA), grinding_cone/2(SLA)
             //         aggiungi ore dopo deburring, teeth_grinding_post_dra dopo start_hard
             const LAB_SEQUENCE_DCT300 = [
@@ -267,6 +274,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                 "teeth_grinding", "to_be_washed", "washing", "baa"
             ];
             const LAB_SEQUENCE_BY_PROJ = {
+                "DCT ECO": LAB_SEQUENCE_ECO,
                 "DCT300": LAB_SEQUENCE_DCT300
             };
 
