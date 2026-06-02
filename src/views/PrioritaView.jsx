@@ -1171,29 +1171,29 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                 )}
                                                             </div>
 
-                                                            {/* Riga dettaglio inv/sap (Verticale) */}
+                                                            {/* Inventario fisico (sempre visibile e editabile) */}
+                                                            <div
+                                                                onClick={() => isEditable && startEditing(normComp, fino, cell.inv, proj)}
+                                                                title={isEditable ? "Modifica inventario fisico" : "Questa fase non è editabile"}
+                                                                style={{
+                                                                    width: "100%", fontSize: 12, fontWeight: 800,
+                                                                    color: cell.inv > 0 ? "white" : "var(--text-muted)",
+                                                                    textAlign: "center", cursor: isEditable ? "pointer" : "not-allowed",
+                                                                    padding: "4px 2px", borderRadius: 6, marginTop: 4,
+                                                                    border: cell.inv > 0 ? "none" : "1px dashed var(--border-light)",
+                                                                    background: cell.inv > 0 ? "var(--accent)" : "transparent",
+                                                                    opacity: isConfigMode ? 0 : isEditable ? 1 : 0.5
+                                                                }}
+                                                            >
+                                                                {`Inv: ${cell.inv || 0}`}
+                                                            </div>
+
+                                                            {/* Riga dettagli SAP (visibili solo se showDetails) */}
                                                             {showDetails && (
                                                                 <div style={{
                                                                     display: "flex", flexDirection: "column", gap: 3,
                                                                     padding: "4px 2px", width: "100%", borderTop: "1px solid var(--border-light)", marginTop: 4
                                                                 }}>
-                                                                {/* Inventario fisico (editabile) */}
-                                                                <div
-                                                                    onClick={() => isEditable && startEditing(normComp, fino, cell.inv, proj)}
-                                                                    title={isEditable ? "Modifica inventario fisico" : "Questa fase non è editabile"}
-                                                                    style={{
-                                                                        width: "100%", fontSize: 12, fontWeight: 800,
-                                                                        color: cell.inv > 0 ? "white" : "var(--text-muted)",
-                                                                        textAlign: "center", cursor: isEditable ? "pointer" : "not-allowed",
-                                                                        padding: "4px 2px", borderRadius: 6,
-                                                                        border: cell.inv > 0 ? "none" : "1px dashed var(--border-light)",
-                                                                        background: cell.inv > 0 ? "var(--accent)" : "transparent",
-                                                                        opacity: isConfigMode ? 0 : isEditable ? 1 : 0.5
-                                                                    }}
-                                                                >
-                                                                    {`Inv: ${cell.inv || 0}`}
-                                                                </div>
-
                                                                 {/* SAP scarichi */}
                                                                 {true && (
                                                                     <div
