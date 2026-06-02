@@ -613,21 +613,31 @@ export default function PrioritaView({ showToast, globalDate }) {
     };
 
     const resetInventarioPeriod = async () => {
-        const selectedDate = resetDate; // YYYY-MM-DD
-        const [hours, minutes] = resetTime.split(":").map(Number); // HH:MM
-
-        // Costruisce timestamp locale preciso (orario selezionato dall'utente)
-        const d = new Date(selectedDate + "T00:00:00");
-        d.setHours(hours, minutes, 0, 0);
-        const resetTimestampWithTime = d.toISOString();
-
-        setInventarioDate(selectedDate);
-        setInventarioDateFine(selectedDate);
-        setCellExclusions({});
-        setCellInclusions({});
-
+        setIsResetting(true);
         try {
-            const { error } = await supabase.from("inventario_fisico").upsert({
+            const selectedDate = resetDate; // YYYY-MM-DD
+            const [hours, minutes] = resetTime.split(":").map(Number); // HH:MM
+
+            // Costruisce timestamp locale preciso (orario selezionato dall'utente)
+            const d = new Date(selectedDate + "T00:00:00");
+            d.setHours(hours, minutes, 0, 0);
+            const resetTimestampWithTime = d.toISOString();
+
+            setInventarioDate(selectedDate);
+            setInventarioDateFine(selectedDate);
+            setCellExclusions({});
+            setCellInclusions({});
+
+            // Deleta tutti i record dell'inventario per il periodo
+            const { error: deleteError } = await supabase
+                .from("inventario_fisico")
+                .delete()
+                .eq("data_inventario", selectedDate);
+
+            if (deleteError) throw deleteError;
+
+            // Inserisci il marker di inizio inventario
+            const { error: upsertError } = await supabase.from("inventario_fisico").upsert({
                 componente: "MARKER_INIZIO_INVENTARIO",
                 fino: "0000",
                 quantita: 0,
@@ -638,20 +648,22 @@ export default function PrioritaView({ showToast, globalDate }) {
                 onConflict: "componente,fino"
             });
 
-            if (error) throw error;
+            if (upsertError) throw upsertError;
 
             // Aggiorna subito il display
             setInventarioOraInizio(resetTimestampWithTime);
             const formattedDate = new Date(selectedDate).toLocaleDateString("it-IT");
             showToast?.("✓ Periodo resettato a " + formattedDate + " ore " + resetTime, "success");
-        } catch (err) {
-            console.error("[Reset] Errore upsert:", err);
-            showToast?.("Errore: " + err.message, "error");
-        }
 
-        setResetConfirmModal(false);
-        // Forza fetchData anche se le date non sono cambiate (refreshKey cambia sempre)
-        setRefreshKey(k => k + 1);
+            setResetConfirmModal(false);
+            // Forza fetchData anche se le date non sono cambiate (refreshKey cambia sempre)
+            setRefreshKey(k => k + 1);
+        } catch (err) {
+            console.error("[Reset] Errore:", err);
+            showToast?.("Errore reset: " + err.message, "error");
+        } finally {
+            setIsResetting(false);
+        }
     };
 
     const startEditing = (comp, fino, currentInv, proj, faseHint) => {
