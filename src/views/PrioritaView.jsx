@@ -609,8 +609,8 @@ export default function PrioritaView({ showToast, globalDate }) {
     };
 
     const saveInventory = async (comp, fino, qty) => {
-        if (!fino || fino === "0000") {
-            showToast?.("Configura prima l'operazione (fino) tramite l'ingranaggio", "error");
+        if (!fino || fino === "0000" || fino === "null") {
+            showToast?.("Fino non configurato — usa ⚙️ Configura Celle per impostare l'operazione SAP", "error");
             return;
         }
         const normComp = comp.toUpperCase();
