@@ -258,11 +258,11 @@ export default function PrioritaView({ showToast, globalDate }) {
                 "shot_peening", "start_hard", "laser_welding_2", "ut",
                 "grinding_cone", "grinding_cone_2", "teeth_grinding", "to_be_washed", "washing", "baa"
             ];
-            // DCT ECO: aggiungi slw tra start_soft e laser_welding
+            // DCT ECO: aggiungi slw tra start_hard (DRA) e laser_welding_2 (SCA), dopo shot_peening (OKU)
             const LAB_SEQUENCE_ECO = [
-                "start_soft", "slw", "laser_welding", "ut_soft", "shaping",
+                "start_soft", "laser_welding", "ut_soft", "shaping",
                 "milling", "hobbing", "deburring", "to_be_treated", "ht",
-                "shot_peening", "start_hard", "laser_welding_2", "ut",
+                "shot_peening", "start_hard", "slw", "laser_welding_2", "ut",
                 "grinding_cone", "grinding_cone_2", "teeth_grinding", "to_be_washed", "washing", "baa"
             ];
             // DCT300: rimuovi ut_soft(MZA), milling(FRA), grinding_cone/2(SLA)
