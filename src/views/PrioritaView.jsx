@@ -1018,7 +1018,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                         );
                                                     }
 
-                                                    const isEditable = !(NON_EDITABLE_PHASES[proj] || []).includes(fase);
+                                                    const isEditable = !(NON_EDITABLE_PHASES[proj] || []).includes(fase) && fino && fino !== "0000";
 
                                                     // Highlight operator & storno
                                                     const rawCell = rawMatrixData[normComp]?.[fase];
