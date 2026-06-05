@@ -19,7 +19,6 @@ const AgentChatTab = ({ globalDate, turnoCorrente }) => {
 
   const sendQuery = async (e) => {
     e.preventDefault();
-    
     if (!input.trim()) return;
 
     const userMessage = {
@@ -27,22 +26,17 @@ const AgentChatTab = ({ globalDate, turnoCorrente }) => {
       content: input,
       timestamp: new Date()
     };
-    
+
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setLoading(true);
     setError(null);
 
     try {
-      // Get session token from Supabase
       const { data: { session } } = await supabase.auth.getSession();
-
-      if (!session) {
-        throw new Error('Sessione non trovata. Per favore fai il login di nuovo.');
-      }
+      if (!session) throw new Error('Sessione non trovata.');
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-
       const response = await fetch(`${supabaseUrl}/functions/v1/agent-ask`, {
         method: 'POST',
         headers: {
@@ -51,38 +45,30 @@ const AgentChatTab = ({ globalDate, turnoCorrente }) => {
         },
         body: JSON.stringify({
           query: input,
-          context: {
-            globalDate: globalDate,
-            turnoCorrente: turnoCorrente
-          }
+          context: { globalDate, turnoCorrente }
         })
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || errorData.error || errorData.message || 'Errore nella richiesta');
+        throw new Error(errorData.detail || errorData.error || 'Errore nella richiesta');
       }
 
       const data = await response.json();
-      
       const assistantMessage = {
         role: 'assistant',
         content: data.response,
         timestamp: new Date()
       };
-      
       setMessages(prev => [...prev, assistantMessage]);
-
     } catch (err) {
       setError(err.message);
-      
       const errorMessage = {
         role: 'assistant',
         content: `⚠️ Errore: ${err.message}`,
         timestamp: new Date(),
         isError: true
       };
-      
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setLoading(false);
@@ -126,8 +112,7 @@ const AgentChatTab = ({ globalDate, turnoCorrente }) => {
                     onClick={() => {
                       setInput(q);
                       setTimeout(() => {
-                        const form = document.querySelector('.input-form');
-                        if (form) form.dispatchEvent(new Event('submit', { bubbles: true }));
+                        document.querySelector('.input-form')?.dispatchEvent(new Event('submit', { bubbles: true }));
                       }, 100);
                     }}
                   >
@@ -139,18 +124,11 @@ const AgentChatTab = ({ globalDate, turnoCorrente }) => {
           )}
 
           {messages.map((msg, idx) => (
-            <div
-              key={idx}
-              className={`message ${msg.role} ${msg.isError ? 'error' : ''}`}
-            >
-              <div className="message-avatar">
-                {msg.role === 'user' ? '👤' : '🤖'}
-              </div>
+            <div key={idx} className={`message ${msg.role} ${msg.isError ? 'error' : ''}`}>
+              <div className="message-avatar">{msg.role === 'user' ? '👤' : '🤖'}</div>
               <div className="message-content">
                 <p>{msg.content}</p>
-                <small className="message-time">
-                  {msg.timestamp?.toLocaleTimeString('it-IT')}
-                </small>
+                <small className="message-time">{msg.timestamp?.toLocaleTimeString('it-IT')}</small>
               </div>
             </div>
           ))}
@@ -159,18 +137,8 @@ const AgentChatTab = ({ globalDate, turnoCorrente }) => {
             <div className="message assistant loading">
               <div className="message-avatar">🤖</div>
               <div className="message-content">
-                <div className="typing-indicator">
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                </div>
+                <div className="typing-indicator"><span></span><span></span><span></span></div>
               </div>
-            </div>
-          )}
-
-          {error && (
-            <div className="error-banner">
-              <strong>Errore:</strong> {error}
             </div>
           )}
 
@@ -186,11 +154,7 @@ const AgentChatTab = ({ globalDate, turnoCorrente }) => {
               placeholder="Chiedimi di turni, conflitti, ottimizzazioni..."
               disabled={loading}
             />
-            <button
-              type="submit"
-              disabled={loading || !input.trim()}
-              className="send-btn"
-            >
+            <button type="submit" disabled={loading || !input.trim()} className="send-btn">
               {loading ? '⏳' : '➤'}
             </button>
           </div>

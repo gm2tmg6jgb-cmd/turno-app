@@ -10,6 +10,7 @@ import Login from "./components/Login";
 import ChangelogModal from "./components/ChangelogModal";
 import { version } from "../package.json";
 import { useSessionTimeout } from "./lib/sessionTimeout";
+import AgentChatTab from "./components/AgentChatTab";
 
 // Views — lazy loaded per ridurre bundle iniziale
 const DashboardView = lazy(() => import("./views/DashboardView"));
@@ -674,6 +675,8 @@ function AppContent({ session, onLogout }) {
           )}
 
           {currentView === "inventory" && <InventoryView showToast={showToast} macchine={macchine} />}
+
+          {currentView === "agent" && <AgentChatTab globalDate={globalDate} turnoCorrente={turnoCorrente} />}
 
           {currentView === "sapHub" && (
             <SapHubView
