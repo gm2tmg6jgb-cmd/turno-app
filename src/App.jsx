@@ -256,6 +256,7 @@ function AppContent({ session, onLogout }) {
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine, adminOnly: true },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings, adminOnly: true },
     { id: "inventory", label: "Inventario", icon: Icons.report },
+    { id: "agent", label: "🤖 Agente Scheduling", icon: "🤖", status: "new" },
   ].filter(item => !item.adminOnly || isAdmin);
 
   const viewTitles = {
@@ -280,6 +281,7 @@ function AppContent({ session, onLogout }) {
     formazione: "Gestione Formazione Operatori",
     inventory: "Gestione Inventario Progetti",
     sapHub: "Hub Dati SAP",
+    agent: "Agente Scheduling",
   };
 
   const handleSendPlan = async () => {
