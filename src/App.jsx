@@ -10,6 +10,7 @@ import Login from "./components/Login";
 import ChangelogModal from "./components/ChangelogModal";
 import { version } from "../package.json";
 import { useSessionTimeout } from "./lib/sessionTimeout";
+import AgentChatTab from "./components/AgentChatTab";
 
 // Views — lazy loaded per ridurre bundle iniziale
 const DashboardView = lazy(() => import("./views/DashboardView"));
@@ -254,6 +255,7 @@ function AppContent({ session, onLogout }) {
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine, adminOnly: true },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings, adminOnly: true },
     { id: "inventory", label: "Inventario", icon: Icons.report },
+    { id: "agent", label: "🤖 Agente Scheduling", icon: "🤖", status: "new" },
   ].filter(item => !item.adminOnly || isAdmin);
 
   const viewTitles = {
@@ -414,9 +416,9 @@ function AppContent({ session, onLogout }) {
 
                 <div className="nav-section-label">Anagrafiche</div>
                 {renderItem(ni("anagraficaMacchine"))}
-                {renderItem(ni("zones"))}
                 {renderItem(ni("anagraficaFermi"))}
-                {renderItem(ni("anagraficaSap"))}
+                {renderItem(ni("inventory"))}
+                {renderItem(ni("agent"))}
 
               </>
             );
@@ -683,7 +685,7 @@ function AppContent({ session, onLogout }) {
               turnoCorrente={turnoCorrente}
             />
           )}
-
+          {currentView === "agent" && <AgentChatTab globalDate={globalDate} turnoCorrente={turnoCorrente} />}
           {currentView === "inventory" && <InventoryView showToast={showToast} macchine={macchine} />}
         </div>
         </Suspense>

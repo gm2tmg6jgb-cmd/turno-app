@@ -4,6 +4,69 @@ Tutte le modifiche significative di Turno App sono documentate in questo file.
 
 ---
 
+## [2.0.0] — 2026-06-05 — Agente di Scheduling Intelligente con Claude AI
+
+### ✨ Nuove Funzionalità Principali
+- **🤖 Agente di Scheduling**: nuovo modulo interattivo per analisi intelligente di turni e conflitti di scheduling
+  - Integrazione **Claude API** (Claude Opus 4.1) per risposte intelligenti in tempo reale
+  - Accesso ai dati storici degli **ultimi 30 giorni** per analisi comparative
+  - Risponde in italiano con suggerimenti pratici e dati-driven
+- **Edge Function Supabase**: backend serverless per gestire le richieste all'API Claude
+  - Autenticazione sicura tramite JWT
+  - Caricamento automatico del contesto: dipendenti, macchine, assegnazioni, presenze
+  - Supporto per query storiche e analisi comparative
+- **Chat Interface**: interfaccia conversazionale pulita e intuitiva
+  - 5 domande suggerite precompilate per iniziare rapidamente
+  - Visualizzazione dei messaggi in tempo reale
+  - Indicatore di caricamento durante le richieste
+  - Gestione dei messaggi di errore
+
+### 🎯 Capacità dell'Agente
+L'agente può analizzare e suggerire su:
+- **Conflitti di scheduling**: identificazione automatica di sovrapposizioni o carenze di personale
+- **Disponibilità operatori**: controllo in tempo reale della copertura per turni e giorni specifici
+- **Tempi di changeover**: calcolo e suggerimenti per transizioni tra linee
+- **Ottimizzazioni**: raccomandazioni basate su dati storici per efficienza produttiva
+- **Efficienza linee**: analisi dell'utilizzo delle macchine nel tempo
+- **Trend settimanali**: comparazione e pattern identificati negli ultimi 7-30 giorni
+
+### 🔧 Architettura Tecnica
+- **Supabase Edge Function** (`agent-ask`): elaborazione serverless delle richieste
+- **Client Supabase Auth**: passaggio automatico del token di sessione utente
+- **Parametri di contesto**: data attiva, turno selezionato, range di dati (ultimi 30 giorni)
+- **Caching**: dati caricati in parallelo per performance ottimale
+
+### 📦 Versionamento
+A partire da questa versione, adottiamo numerazione semantica completa (MAJOR.MINOR.PATCH) per tracciare correttamente l'evoluzione dell'app.
+
+---
+
+## [1.9.0] — 2026-05-21 — Report Produzione: UX, Fix e Analisi Fermi Avanzate
+
+### ✨ Nuove Funzionalità
+- **Analisi Fermi avanzate** (`ProductionReportView`):
+  - KPI aggiuntivi nell'header: **Macchina critica** (con più minuti fermi) e **Motivo più frequente**
+  - **Barre visuali** proporzionali nelle tabelle Top Motivi (rosso), Fermi per Macchina (arancione), Minuti per Turno (viola)
+  - **Andamento Settimanale**: mini-card per ogni giorno Lun→Dom con colori verde/giallo/rosso — visibile solo in vista Settimana; mostra tutti i 7 giorni inclusi quelli senza fermi
+  - **Heatmap Macchina × Turno**: matrice colorata con celle giallo/arancione/rosso in base ai fermi per combinazione macchina-turno
+- **Filtri in Analisi Fermi**: Data, Vista (Giorno/Settimana) e Turno ora disponibili direttamente nella vista Analisi Fermi senza tornare al Report
+- **Toggle button Vista e Turno** (`ProductionReportView`): i dropdown select sostituiti con toggle button (stile coerente con il resto dell'app)
+  - Vista: `Giorno` | `Settimana`
+  - Turno: `Tutti` | `A` | `B` | `C` | `D`
+  - Bottone attivo colorato con `var(--accent)` (arancione)
+
+### 🎨 Miglioramenti UI
+- **Titoli sopra i filtri**: "Report Produzione" come `h1` e descrizione data/turno come `h2`, posizionati sopra la barra filtri
+- **Tab tecnologie uniformi**: altezza minima e allineamento centrato (`minHeight: 46px`, `display: flex`) per visualizzazione coerente tra tab con e senza contatore fermi
+
+### 🐛 Bug Fix
+- **Colonne componenti visibili su tutti i tab**: selezionando un tab tecnologia (es. Saldatura Laser) le colonne SG1, DG-REV, DG ecc. non scomparivano più — rimosso il `techComponentMap` errato che restituiva array vuoto per tecnologie non mappate
+- **Errore JSX** in `ProductionReportView`: rimosso `</div>` orfano che causava crash di compilazione
+- **Guard `fermiAnalisi`**: il return vuoto ora include tutti i campi (`byData`, `byMachinaTurno`, `topMacchina`, `topMotivo`) per evitare crash quando non ci sono dati
+- **`maxMin` Fermi per Macchina**: corretto calcolo del massimo — usato `topMacchina.totalMin` (ordinato per minuti) invece di `byMacchina[0].totalMin` (ordinato per count)
+
+---
+
 ## [1.8.9] — 2026-05-20 — Miglioramenti Gestione Fermi + Export Excel + Vista Settimanale
 
 ### ✨ Nuove Funzionalità
