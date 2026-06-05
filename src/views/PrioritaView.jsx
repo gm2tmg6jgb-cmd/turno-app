@@ -37,7 +37,7 @@ const LOCAL_ANAGRAFICA = {
 
 // Label fasi da ID
 const PHASE_CODE = {
-    "start_soft": "DRA", "dmc": "ZSA", "laser_welding": "SCA",
+    "start_soft": "DRA", "dmc": "ZSA", "slw": "SLW", "laser_welding": "SCA",
     "laser_welding_soft_2": "SCA", "shaping": "STW", "milling": "FRA",
     "broaching": "RAA", "hobbing": "FRW", "deburring": "EGW",
     "to_be_treated": "WIP", "ht": "HT", "shot_peening": "OKU",
@@ -50,7 +50,7 @@ const PHASE_CODE = {
 };
 
 const PHASE_LABEL = {
-    "start_soft": "Torn. Soft", "dmc": "DMC", "laser_welding": "Sald. Soft",
+    "start_soft": "Torn. Soft", "dmc": "DMC", "slw": "SLW", "laser_welding": "Sald. Soft",
     "laser_welding_soft_2": "Sald. Soft 2", "shaping": "Stozzatura", "milling": "Fresatura",
     "broaching": "Brocciatura", "hobbing": "Dentatura", "deburring": "Sbavatura",
     "to_be_treated": "Da Trattare", "ht": "Tratt. Term.", "shot_peening": "Pallinatura",
@@ -134,6 +134,20 @@ export default function PrioritaView({ showToast, globalDate }) {
     const [noSapPrevCells, setNoSapPrevCells] = useState(() => {
         try {
             const v = JSON.parse(localStorage.getItem("lab_no_sap_prev") || "{}");
+            // Rimuovi dal localStorage tutte le fasi che NON sono in NO_SAP_PREV_PHASES
+            // (non devono mai essere bloccate da toggle accidentali)
+            const allNoSapPhasesPerProj = NO_SAP_PREV_PHASES; // { "DCT ECO": [...], ... }
+            Object.keys(v).forEach(key => {
+                const [compFase, fase] = key.split(":");
+                if (!fase) return;
+                // Controlla se questa fase è in qualche progetto in NO_SAP_PREV_PHASES
+                const isDefaultDisabled = Object.values(allNoSapPhasesPerProj).some(arr => arr.includes(fase));
+                // Se la fase NON è di default disabilitata, rimuovila (era un toggle accidentale)
+                if (!isDefaultDisabled) {
+                    delete v[key];
+                }
+            });
+            localStorage.setItem("lab_no_sap_prev", JSON.stringify(v));
             noSapPrevRef.current = v;
             return v;
         } catch { return {}; }
@@ -162,16 +176,16 @@ export default function PrioritaView({ showToast, globalDate }) {
     const matrixData = useMemo(() => {
         if (!filterExcludeSto && filterExcludeOperators.length === 0) return rawMatrixData;
         const filtered = {};
-        for (const [comp, finos] of Object.entries(rawMatrixData)) {
+        for (const [comp, fases] of Object.entries(rawMatrixData)) {
             filtered[comp] = {};
-            for (const [fino, cell] of Object.entries(finos)) {
+            for (const [fase, cell] of Object.entries(fases)) {
                 const filteredRecords = (cell.records || []).filter(r => {
                     if (filterExcludeSto && r.sto === "X") return false;
                     if (filterExcludeOperators.length > 0 && filterExcludeOperators.includes(r.acq_da)) return false;
                     return true;
                 });
                 const filteredSap = filteredRecords.reduce((sum, r) => sum + (r.qta_ottenuta || 0), 0);
-                filtered[comp][fino] = {
+                filtered[comp][fase] = {
                     ...cell,
                     sap: filteredSap,
                     remaining: (cell.inv || 0) - filteredSap + (cell.sapPrev || 0),
@@ -209,6 +223,29 @@ export default function PrioritaView({ showToast, globalDate }) {
     const fetchData = async () => {
         if (!inventarioDate || !inventarioDateFine) return;
         setLoading(true);
+
+        // Rimuovi dal localStorage tutte le fasi che NON devono essere bloccate (non in NO_SAP_PREV_PHASES)
+        try {
+            const stored = JSON.parse(localStorage.getItem("lab_no_sap_prev") || "{}");
+            let modified = false;
+            Object.keys(stored).forEach(key => {
+                const parts = key.split(":");
+                const fase = parts.slice(1).join(":");
+                if (!fase) return;
+                const isDefaultDisabled = Object.values(NO_SAP_PREV_PHASES).some(arr => arr.includes(fase));
+                if (!isDefaultDisabled) {
+                    delete stored[key];
+                    modified = true;
+                }
+            });
+            if (modified) {
+                localStorage.setItem("lab_no_sap_prev", JSON.stringify(stored));
+                noSapPrevRef.current = stored;
+            }
+        } catch (e) {
+            // ignore
+        }
+
         try {
             // 1. Anagrafica materiali
             const anagrafica = {};
@@ -258,6 +295,13 @@ export default function PrioritaView({ showToast, globalDate }) {
                 "shot_peening", "start_hard", "laser_welding_2", "ut",
                 "grinding_cone", "grinding_cone_2", "teeth_grinding", "to_be_washed", "washing", "baa"
             ];
+            // DCT ECO: aggiungi slw tra start_hard (DRA) e laser_welding_2 (SCA), dopo shot_peening (OKU)
+            const LAB_SEQUENCE_ECO = [
+                "start_soft", "laser_welding", "ut_soft", "shaping",
+                "milling", "hobbing", "deburring", "to_be_treated", "ht",
+                "shot_peening", "start_hard", "slw", "laser_welding_2", "ut",
+                "grinding_cone", "grinding_cone_2", "teeth_grinding", "to_be_washed", "washing", "baa"
+            ];
             // DCT300: rimuovi ut_soft(MZA), milling(FRA), grinding_cone/2(SLA)
             //         aggiungi ore dopo deburring, teeth_grinding_post_dra dopo start_hard
             const LAB_SEQUENCE_DCT300 = [
@@ -267,6 +311,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                 "teeth_grinding", "to_be_washed", "washing", "baa"
             ];
             const LAB_SEQUENCE_BY_PROJ = {
+                "DCT ECO": LAB_SEQUENCE_ECO,
                 "DCT300": LAB_SEQUENCE_DCT300
             };
 
@@ -284,9 +329,14 @@ export default function PrioritaView({ showToast, globalDate }) {
                         const override = dbOverrides.find(o =>
                             normalizeComp(o.comp, o.proj) === normComp && o.proj === proj && o.fase === fase
                         );
+                        // Se override esiste ma fino è "0000" o vuoto, usa il counter generato
+                        const overrideFino = override?.fino;
+                        const isAutoFino = !overrideFino || overrideFino === "0000";
+                        const validFino = isAutoFino ? String(finoCounter).padStart(4, "0") : overrideFino;
                         return {
-                            fino: override ? override.fino : String(finoCounter).padStart(4, "0"),
-                            fase: fase
+                            fino: validFino,
+                            fase: fase,
+                            isAutoFino // true = nessuna configurazione reale per questa cella
                         };
                     });
                 });
@@ -323,6 +373,7 @@ export default function PrioritaView({ showToast, globalDate }) {
             // Aggrega SAP per comp+fino
             const sapMap = {}; // {comp: {fino: {qty, records}}}
 
+
             // Filtro materiali e progetto stretti
             // Match esatto mat+fino ha priorità, mat senza fino è fallback generico (come ComponentFlowView)
             const validConfigMap = {};  // {mat_fino: {comp, fase}}
@@ -339,7 +390,7 @@ export default function PrioritaView({ showToast, globalDate }) {
             const unconfigured = {}; // {materiale_fino: {materiale, fino, qty}}
             if (sapRes) {
                 sapRes.forEach(r => {
-                    const matCode = (r.materiale || "").toUpperCase();
+                    const matCode = (r.materiale || "").toUpperCase().split("/")[0].trim();
                     const fino = String(r.fino || "").padStart(4, "0");
                     if (!fino || fino === "0000") return;
 
@@ -401,8 +452,8 @@ export default function PrioritaView({ showToast, globalDate }) {
                 });
             });
 
-            // Per alcuni progetti, il sapPrev di una fase viene da una fase specifica (non la precedente)
             // 5. Calcolo WIP flow per componente
+            // Prima passata: costruisci la mappa sap per ogni cella
             const newMatrix = {};
             PROJECTS.forEach(proj => {
                 const comps = PROJECT_COMPONENTS_LAB[proj] || [];
@@ -411,49 +462,49 @@ export default function PrioritaView({ showToast, globalDate }) {
                     const seq = finoSeqSorted[normComp] || [];
                     newMatrix[normComp] = {};
 
-                    seq.forEach(({ fino, fase }, idx) => {
-                        const inv = invMap[normComp]?.[fino] || 0;
+                    // Prima passata: calcola sap per ogni cella (chiave = fase, unica nella sequenza)
+                    seq.forEach(({ fino, fase, isAutoFino }) => {
                         const sap = sapMap[normComp]?.[fino]?.qty || 0;
                         const sapRecords = sapMap[normComp]?.[fino]?.records || [];
-                        const prevFino = idx > 0 ? seq[idx - 1].fino : null;
+                        newMatrix[normComp][fase] = { fino, fase, isAutoFino, sap, sapRecords };
+                    });
 
-                        // Trova il fino della fase precedente attiva (salta celle escluse)
-                        // Se c'è una fonte sapPrev specifica (es. DCT300 WIP←FRW), cerca da quella fase
-                        // in poi verso il basso saltando le escluse
+                    // Seconda passata: propaga sapPrev = sap della fase precedente visibile
+                    seq.forEach(({ fino, fase, isAutoFino }, idx) => {
+                        const inv = invMap[normComp]?.[fino] || 0;
+                        const cellData = newMatrix[normComp]?.[fase] || { sap: 0, sapRecords: [] };
+                        const { sap, sapRecords } = cellData;
+                        const hasNoSapData = sap === 0 && (sapRecords || []).length === 0;
+
                         const sapPrevSourceFase = SAP_PREV_SOURCE[proj]?.[fase];
-                        // XOR: toggle inverte il default (NO_SAP_PREV_PHASES = disabilitato di default)
-                        const noSapPrev = !!(NO_SAP_PREV_PHASES[proj]?.includes(fase)) !== !!noSapPrevRef.current[`${normComp}:${fase}`];
-                        let sapPrevFino = null;
+                        let sapPrev = 0;
+                        const noSapPrev = !!(NO_SAP_PREV_PHASES[proj]?.includes(fase));
 
-                        if (!noSapPrev) {
+                        if (!noSapPrev && idx > 0) {
                             if (sapPrevSourceFase) {
-                                // Cerca la fase sorgente specificata, poi se esclusa cerca la precedente attiva
                                 const sourceIdx = seq.findIndex(s => s.fase === sapPrevSourceFase);
                                 for (let i = sourceIdx; i >= 0; i--) {
                                     if (!excl[`${normComp}:${seq[i].fase}`]) {
-                                        sapPrevFino = seq[i].fino;
+                                        sapPrev = newMatrix[normComp][seq[i].fase]?.sap || 0;
                                         break;
                                     }
                                 }
                             } else {
-                                // Risali la sequenza saltando le celle escluse
                                 for (let i = idx - 1; i >= 0; i--) {
                                     if (!excl[`${normComp}:${seq[i].fase}`]) {
-                                        sapPrevFino = seq[i].fino;
+                                        sapPrev = newMatrix[normComp][seq[i].fase]?.sap || 0;
                                         break;
                                     }
                                 }
                             }
                         }
-                        const sapPrev = sapPrevFino ? (sapMap[normComp]?.[sapPrevFino]?.qty || 0) : 0;
-                        // Per la prima cella attiva (nessun sapPrev), se non c'è inventario manuale
-                        // mostra il SAP in uscita come valore (= pezzi disponibili per la fase successiva)
-                        const isFirstActive = sapPrevFino === null;
+
+                        const isFirstActive = sapPrev === 0 && idx === 0;
                         const remaining = (isFirstActive && inv === 0) ? sap : (inv - sap + sapPrev);
 
-                        newMatrix[normComp][fino] = {
-                            fino, fase, inv, sap, sapPrev, remaining, records: sapRecords,
-                            isFirstActive
+                        newMatrix[normComp][fase] = {
+                            fino, fase, inv, sap, sapPrev, remaining,
+                            records: sapRecords, isFirstActive, isAutoFino, hasNoSapData, noSapPrev
                         };
                     });
                 });
@@ -558,44 +609,60 @@ export default function PrioritaView({ showToast, globalDate }) {
     };
 
     const saveInventory = async (comp, fino, qty) => {
-        if (!fino || fino === "0000") {
-            showToast?.("Configura prima l'operazione (fino) tramite l'ingranaggio", "error");
-            return;
+        // Auto-generate dummy fino if not configured (e.g., HT with null fino)
+        let saveFino = fino;
+        if (!fino || fino === "0000" || fino === null) {
+            saveFino = `99${comp.slice(-2)}`.substring(0, 4).padStart(4, "0");
+            showToast?.(`Salvataggio con operazione generata: ${saveFino}`, "info");
         }
         const normComp = comp.toUpperCase();
-        setSavingCell({ comp: normComp, fino });
+        setSavingCell({ comp: normComp, fino: saveFino });
         try {
-            const { error } = await supabase.from("inventario_fisico")
-                .upsert({
-                    componente: normComp,
-                    fino,
-                    quantita: qty,
-                    data_inventario: inventarioDate,
-                    updated_at: new Date().toISOString()
-                }, { onConflict: "componente,fino" });
+            // Bypass per sviluppo locale senza Supabase
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+            const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+            const isDevMode = !supabaseUrl || supabaseUrl.includes('placeholder') || !supabaseAnonKey?.length || supabaseAnonKey.includes('placeholder');
 
-            if (error) throw error;
+            if (isDevMode) {
+                // Salva in localStorage per sviluppo locale
+                const key = `inv_${normComp}_${saveFino}`;
+                const data = { componente: normComp, fino: saveFino, quantita: qty, data_inventario: inventarioDate, updated_at: new Date().toISOString() };
+                localStorage.setItem(key, JSON.stringify(data));
+                showToast?.(`Salvato: ${comp} op.${saveFino} = ${qty}`, "success");
+            } else {
+                const { error } = await supabase.from("inventario_fisico")
+                    .upsert({
+                        componente: normComp,
+                        fino: saveFino,
+                        quantita: qty,
+                        data_inventario: inventarioDate,
+                        updated_at: new Date().toISOString()
+                    }, { onConflict: "componente,fino" });
 
-            // Ricalcola rimanenza per questo fino e il successivo (aggiorna rawMatrixData)
+                if (error) throw error;
+            }
+
+            // Ricalcola rimanenza per questa fase e la successiva (aggiorna rawMatrixData)
             setRawMatrixData(prev => {
                 const updated = { ...prev };
                 if (!updated[normComp]) return prev;
                 const seq = finoSequences[normComp] || [];
-                const idx = seq.findIndex(s => s.fino === fino);
+                const idx = seq.findIndex(s => s.fino === saveFino);
                 if (idx === -1) return prev;
+                const fase = seq[idx].fase;
 
-                // Ricalcola fino corrente
-                const prevFino = idx > 0 ? seq[idx - 1].fino : null;
-                const sapPrev = prevFino ? (updated[normComp][prevFino]?.sap || 0) : 0;
-                const cell = updated[normComp][fino];
-                updated[normComp][fino] = { ...cell, inv: qty, remaining: qty - (cell?.sap || 0) + sapPrev };
+                // Ricalcola fase corrente
+                const prevFase = idx > 0 ? seq[idx - 1].fase : null;
+                const sapPrev = prevFase ? (updated[normComp][prevFase]?.sap || 0) : 0;
+                const cell = updated[normComp][fase];
+                updated[normComp][fase] = { ...cell, inv: qty, remaining: qty - (cell?.sap || 0) + sapPrev };
 
-                // Ricalcola fino successivo (perché il suo sapPrev cambia)
+                // Ricalcola fase successiva (il suo sapPrev cambia)
                 const nextEntry = seq[idx + 1];
                 if (nextEntry) {
-                    const nextCell = updated[normComp][nextEntry.fino];
-                    const newSap = updated[normComp][fino]?.sap || 0;
-                    updated[normComp][nextEntry.fino] = {
+                    const nextCell = updated[normComp][nextEntry.fase];
+                    const newSap = updated[normComp][fase]?.sap || 0;
+                    updated[normComp][nextEntry.fase] = {
                         ...nextCell,
                         sapPrev: newSap,
                         remaining: (nextCell?.inv || 0) - (nextCell?.sap || 0) + newSap
@@ -613,31 +680,21 @@ export default function PrioritaView({ showToast, globalDate }) {
     };
 
     const resetInventarioPeriod = async () => {
-        setIsResetting(true);
+        const selectedDate = resetDate; // YYYY-MM-DD
+        const [hours, minutes] = resetTime.split(":").map(Number); // HH:MM
+
+        // Costruisce timestamp locale preciso (orario selezionato dall'utente)
+        const d = new Date(selectedDate + "T00:00:00");
+        d.setHours(hours, minutes, 0, 0);
+        const resetTimestampWithTime = d.toISOString();
+
+        setInventarioDate(selectedDate);
+        setInventarioDateFine(selectedDate);
+        setCellExclusions({});
+        setCellInclusions({});
+
         try {
-            const selectedDate = resetDate; // YYYY-MM-DD
-            const [hours, minutes] = resetTime.split(":").map(Number); // HH:MM
-
-            // Costruisce timestamp locale preciso (orario selezionato dall'utente)
-            const d = new Date(selectedDate + "T00:00:00");
-            d.setHours(hours, minutes, 0, 0);
-            const resetTimestampWithTime = d.toISOString();
-
-            setInventarioDate(selectedDate);
-            setInventarioDateFine(selectedDate);
-            setCellExclusions({});
-            setCellInclusions({});
-
-            // Deleta tutti i record dell'inventario per il periodo
-            const { error: deleteError } = await supabase
-                .from("inventario_fisico")
-                .delete()
-                .eq("data_inventario", selectedDate);
-
-            if (deleteError) throw deleteError;
-
-            // Inserisci il marker di inizio inventario
-            const { error: upsertError } = await supabase.from("inventario_fisico").upsert({
+            const { error } = await supabase.from("inventario_fisico").upsert({
                 componente: "MARKER_INIZIO_INVENTARIO",
                 fino: "0000",
                 quantita: 0,
@@ -648,28 +705,26 @@ export default function PrioritaView({ showToast, globalDate }) {
                 onConflict: "componente,fino"
             });
 
-            if (upsertError) throw upsertError;
+            if (error) throw error;
 
             // Aggiorna subito il display
             setInventarioOraInizio(resetTimestampWithTime);
             const formattedDate = new Date(selectedDate).toLocaleDateString("it-IT");
             showToast?.("✓ Periodo resettato a " + formattedDate + " ore " + resetTime, "success");
-
-            setResetConfirmModal(false);
-            // Forza fetchData anche se le date non sono cambiate (refreshKey cambia sempre)
-            setRefreshKey(k => k + 1);
         } catch (err) {
-            console.error("[Reset] Errore:", err);
-            showToast?.("Errore reset: " + err.message, "error");
-        } finally {
-            setIsResetting(false);
+            console.error("[Reset] Errore upsert:", err);
+            showToast?.("Errore: " + err.message, "error");
         }
+
+        setResetConfirmModal(false);
+        // Forza fetchData anche se le date non sono cambiate (refreshKey cambia sempre)
+        setRefreshKey(k => k + 1);
     };
 
     const startEditing = (comp, fino, currentInv, proj, faseHint) => {
         if (isConfigMode) {
             // Use faseHint when provided (avoids ambiguity when fino="0000" appears multiple times)
-            const fase = faseHint || matrixData[comp]?.[fino]?.fase;
+            const fase = faseHint;
             setQuickConfigModal({
                 project: proj || activeTab,
                 comp,
@@ -708,121 +763,84 @@ export default function PrioritaView({ showToast, globalDate }) {
         <div className="fade-in" style={{ padding: "20px", height: "100%", overflowY: "auto" }}>
 
             {/* Header toolbar */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ fontSize: 20 }}>📦</div>
-                    <div>
-                        <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.02em" }}>Laboratorio Inventario</div>
-                        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>WIP tracking con scarichi SAP</div>
+            <div style={{ marginBottom: 20 }}>
+                {/* Riga 1: titolo + filtri + azioni */}
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
+                    {/* Titolo */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 2 }}>
+                        <div style={{ fontSize: 20 }}>📦</div>
+                        <div>
+                            <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.02em" }}>Laboratorio Inventario</div>
+                            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>WIP tracking con scarichi SAP</div>
+                        </div>
                     </div>
-                </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {/* Periodo inventario */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, background: "var(--bg-tertiary)", padding: "6px 14px", borderRadius: 10, border: "1px solid var(--border)" }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", whiteSpace: "nowrap" }}>Dal</span>
-                        <input
-                            type="date"
-                            value={inventarioDate}
-                            onChange={e => setInventarioDate(e.target.value)}
-                            style={{ border: "none", background: "transparent", fontSize: 13, fontWeight: 800, color: "var(--accent)", cursor: "pointer", outline: "none" }}
-                        />
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", whiteSpace: "nowrap" }}>al</span>
-                        <input
-                            type="date"
-                            value={inventarioDateFine}
-                            onChange={e => setInventarioDateFine(e.target.value)}
-                            style={{ border: "none", background: "transparent", fontSize: 13, fontWeight: 800, color: "var(--accent)", cursor: "pointer", outline: "none" }}
-                        />
+                    {/* Separatore */}
+                    <div style={{ width: 1, height: 36, background: "var(--border-light)", alignSelf: "flex-end", marginBottom: 2 }} />
+
+                    {/* Dal */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Dal</span>
+                        <input type="date" value={inventarioDate} onChange={e => setInventarioDate(e.target.value)}
+                            style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border-light)", backgroundColor: "white", fontSize: 14, fontWeight: 600, color: "var(--text-primary)", outline: "none", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }} />
                     </div>
+
+                    {/* Al */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Al</span>
+                        <input type="date" value={inventarioDateFine} onChange={e => setInventarioDateFine(e.target.value)}
+                            style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border-light)", backgroundColor: "white", fontSize: 14, fontWeight: 600, color: "var(--text-primary)", outline: "none", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }} />
+                    </div>
+
+                    {/* Separatore */}
+                    <div style={{ width: 1, height: 36, background: "var(--border-light)", alignSelf: "flex-end", marginBottom: 2 }} />
+
+                    {/* Bottoni azione — stile uniforme */}
+                    {(() => {
+                        const btnBase = { display: "flex", alignItems: "center", gap: 6, padding: "0 14px", height: "38px", borderRadius: 8, border: "1px solid var(--border-light)", backgroundColor: "white", color: "#374151", fontSize: 14, fontWeight: 600, cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)", transition: "all 0.15s", fontFamily: "inherit", lineHeight: 1 };
+                        const hasActiveFilter = filterExcludeSto || filterExcludeOperators.length > 0;
+                        return (<>
+                            <button onClick={() => fetchData()} style={btnBase}>
+                                {Icons.refresh} Aggiorna
+                            </button>
+
+                            <button onClick={() => setShowFilterPanel(true)} style={{ ...btnBase, ...(hasActiveFilter ? { backgroundColor: "rgba(96,165,250,0.12)", color: "#60a5fa", border: "1px solid #60a5fa55" } : {}) }}>
+                                🔽 Filtra {hasActiveFilter ? "●" : ""}
+                            </button>
+
+                            <button onClick={() => setShowOperatorReport(true)} style={btnBase}>
+                                📊 Operatori
+                            </button>
+
+                            <button onClick={() => { const now = new Date(); setResetDate(now.toISOString().split("T")[0]); setResetTime(now.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })); setResetConfirmModal(true); }}
+                                style={{ ...btnBase, backgroundColor: "rgba(239,68,68,0.08)", color: "#ef4444", border: "1px solid #ef444433" }}
+                                title="Seleziona data e ora inizio inventario fisico.">
+                                🔄 Reset Periodo
+                            </button>
+
+                            <button onClick={() => setShowDetails(!showDetails)}
+                                style={{ ...btnBase, ...(showDetails ? { backgroundColor: "rgba(96,165,250,0.1)", color: "#60a5fa", border: "1px solid #60a5fa33" } : {}) }}>
+                                {showDetails ? "Nascondi Dettagli" : "Mostra Dettagli"}
+                            </button>
+
+                            <button onClick={() => setIsConfigMode(!isConfigMode)}
+                                title={isConfigMode ? "Esci dalla configurazione" : "Configura celle"}
+                                style={{ ...btnBase, ...(isConfigMode ? { backgroundColor: "var(--accent)", color: "white", border: "1px solid var(--accent)", boxShadow: "0 0 8px var(--accent)" } : {}) }}>
+                                {isConfigMode ? "✓ Salva Config" : "⚙️ Configura Celle"}
+                            </button>
+                        </>);
+                    })()}
 
                     {/* Orario inizio inventario */}
                     {inventarioOraInizio && (() => {
                         const d = new Date(inventarioOraInizio);
-                        const data = d.toLocaleDateString("it-IT");
-                        const ora = d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
                         return (
-                            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", paddingLeft: 12 }}>
-                                📋 Inventario fisico del {data} ore {ora}
+                            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", marginLeft: "auto", alignSelf: "flex-end", paddingBottom: 2 }}>
+                                📋 Inventario fisico del {d.toLocaleDateString("it-IT")} ore {d.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}
                             </div>
                         );
                     })()}
                 </div>
-
-                <button
-                    onClick={() => fetchData()}
-                    className="btn btn-secondary btn-sm"
-                    style={{ display: "flex", alignItems: "center", gap: 6 }}
-                >
-                    {Icons.refresh} Aggiorna
-                </button>
-
-                <button
-                    onClick={() => setShowFilterPanel(true)}
-                    className="btn btn-secondary btn-sm"
-                    style={{
-                        display: "flex", alignItems: "center", gap: 6,
-                        background: (filterExcludeSto || filterExcludeOperators.length > 0) ? "rgba(96,165,250,0.12)" : undefined,
-                        color: (filterExcludeSto || filterExcludeOperators.length > 0) ? "#60a5fa" : undefined,
-                        border: (filterExcludeSto || filterExcludeOperators.length > 0) ? "1px solid #60a5fa55" : undefined
-                    }}
-                >
-                    🔽 Filtra {(filterExcludeSto || filterExcludeOperators.length > 0) ? "●" : ""}
-                </button>
-
-                <button
-                    onClick={() => setShowOperatorReport(true)}
-                    className="btn btn-secondary btn-sm"
-                    style={{ display: "flex", alignItems: "center", gap: 6 }}
-                >
-                    📊 Operatori
-                </button>
-
-                <button
-                    onClick={() => {
-                        const now = new Date();
-                        const todayStr = now.toISOString().split("T")[0];
-                        const timeStr = now.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" });
-                        setResetDate(todayStr);
-                        setResetTime(timeStr);
-                        setResetConfirmModal(true);
-                    }}
-                    className="btn btn-secondary btn-sm"
-                    style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(239, 68, 68, 0.1)", color: "#ef4444", border: "1px solid #ef444433" }}
-                    title="Seleziona data e ora inizio inventario fisico. L'inventario precedente rimane nel database."
-                >
-                    🔄 Reset Periodo
-                </button>
-
-                <button
-                    onClick={() => setShowDetails(!showDetails)}
-                    className="btn"
-                    style={{
-                        padding: "8px 12px", display: "flex", alignItems: "center", gap: 6,
-                        fontWeight: 700,
-                        background: showDetails ? "rgba(96,165,250,0.1)" : "var(--bg-tertiary)",
-                        color: showDetails ? "#60a5fa" : "var(--text-secondary)",
-                        border: "1px solid " + (showDetails ? "#60a5fa33" : "var(--border)")
-                    }}
-                >
-                    {showDetails ? "Nascondi Dettagli" : "Mostra Dettagli"}
-                </button>
-
-                <button
-                    onClick={() => setIsConfigMode(!isConfigMode)}
-                    className="btn"
-                    title={isConfigMode ? "Esci dalla configurazione" : "Configura celle"}
-                    style={{
-                        padding: "8px 14px", display: "flex", alignItems: "center", gap: 6,
-                        fontWeight: 700, fontSize: 16,
-                        background: isConfigMode ? "var(--accent)" : "var(--bg-tertiary)",
-                        color: isConfigMode ? "white" : "var(--text-secondary)",
-                        border: "1px solid var(--border)",
-                        boxShadow: isConfigMode ? "0 0 10px var(--accent)" : "none"
-                    }}
-                >
-                    {isConfigMode ? "✓" : "⚙️"}
-                </button>
             </div>
 
             {/* Legenda */}
@@ -963,7 +981,7 @@ export default function PrioritaView({ showToast, globalDate }) {
 
                                                 {/* Celle */}
                                                 {seq.map(({ fino, fase }, idx) => {
-                                                    const cell = compMatrix[fino] || { inv: 0, sap: 0, sapPrev: 0, remaining: 0, records: [] };
+                                                    const cell = compMatrix[fase] || { inv: 0, sap: 0, sapPrev: 0, remaining: 0, records: [] };
                                                     const isEditing = editingCell?.comp === normComp && editingCell?.fino === fino;
                                                     const isSaving = savingCell?.comp === normComp && savingCell?.fino === fino;
                                                     const isFirstFino = idx === 0;
@@ -1005,10 +1023,11 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                     const isEditable = !(NON_EDITABLE_PHASES[proj] || []).includes(fase);
 
                                                     // Highlight operator & storno
-                                                    const rawCell = rawMatrixData[normComp]?.[fino];
+                                                    const rawCell = rawMatrixData[normComp]?.[fase];
                                                     const allRecords = rawCell?.records || [];
                                                     const hasHighlightedOperator = highlightOperator && allRecords.some(r => r.acq_da === highlightOperator);
                                                     const hasSto = allRecords.some(r => r.sto === "X");
+                                                    const inv = cell.inv || 0;
 
                                                     return (
                                                         <div key={fase + "_" + fino} style={{
@@ -1028,12 +1047,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                         });
                                                                     }
                                                                 }}
-                                                                onDoubleClick={() => {
-                                                                    if (!isConfigMode && !isEditing) {
-                                                                        startEditing(normComp, fino, cell.inv, proj, fase);
-                                                                    }
-                                                                }}
-                                                                title={isConfigMode ? "Clicca per configurare questa cella" : cell.records?.length > 0 ? "Clicca per vedere i pezzi prodotti" : "Doppio click per editare"}
+                                                                title={isConfigMode ? "Clicca per configurare questa cella" : "Clicca per vedere i pezzi prodotti"}
                                                                 style={{
                                                                     width: "100%",
                                                                     height: 50,
@@ -1088,6 +1102,28 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                     }}>S</div>
                                                                 )}
 
+                                                                {/* Badge configurazione mancante — fino auto-generato */}
+                                                                {!isConfigMode && rawCell?.isAutoFino && (
+                                                                    <div title="Fino non configurato — vai su ⚙️ Configura Celle per impostare l'operazione SAP" style={{
+                                                                        position: "absolute", top: -5, left: -5,
+                                                                        background: "#ef4444", color: "white",
+                                                                        borderRadius: "50%", width: 14, height: 14,
+                                                                        fontSize: 9, fontWeight: 900,
+                                                                        display: "flex", alignItems: "center", justifyContent: "center"
+                                                                    }}>!</div>
+                                                                )}
+
+                                                                {/* Badge nessun dato SAP nel periodo (fino configurato ma vuoto) */}
+                                                                {!isConfigMode && !rawCell?.isAutoFino && rawCell?.hasNoSapData && inv === 0 && (
+                                                                    <div title="Nessuno scarico SAP in questo periodo" style={{
+                                                                        position: "absolute", top: -5, left: -5,
+                                                                        background: "#f59e0b", color: "white",
+                                                                        borderRadius: "50%", width: 14, height: 14,
+                                                                        fontSize: 9, fontWeight: 900,
+                                                                        display: "flex", alignItems: "center", justifyContent: "center"
+                                                                    }}>?</div>
+                                                                )}
+
                                                                 {isConfigMode && (
                                                                     <>
                                                                         {/* Hide/Exclude button - top left */}
@@ -1135,45 +1171,33 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                 )}
                                                             </div>
 
-                                                            {/* Riga dettaglio inv/sap (Verticale) */}
+                                                            {/* Inventario fisico (sempre visibile e editabile) */}
+                                                            <div
+                                                                onClick={() => isEditable && startEditing(normComp, fino, cell.inv, proj)}
+                                                                title={isEditable ? "Modifica inventario fisico" : "Questa fase non è editabile"}
+                                                                style={{
+                                                                    width: "100%", fontSize: 12, fontWeight: 800,
+                                                                    color: cell.inv > 0 ? "white" : "var(--text-muted)",
+                                                                    textAlign: "center", cursor: isEditable ? "pointer" : "not-allowed",
+                                                                    padding: "4px 2px", borderRadius: 6, marginTop: 4,
+                                                                    border: cell.inv > 0 ? "none" : "1px dashed var(--border-light)",
+                                                                    background: cell.inv > 0 ? "var(--accent)" : "transparent",
+                                                                    opacity: isConfigMode ? 0 : isEditable ? 1 : 0.5
+                                                                }}
+                                                            >
+                                                                {`Inv: ${cell.inv || 0}`}
+                                                            </div>
+
+                                                            {/* Riga dettagli SAP (visibili solo se showDetails) */}
                                                             {showDetails && (
                                                                 <div style={{
                                                                     display: "flex", flexDirection: "column", gap: 3,
                                                                     padding: "4px 2px", width: "100%", borderTop: "1px solid var(--border-light)", marginTop: 4
                                                                 }}>
-                                                                {/* Inventario fisico (editabile) */}
-                                                                <button
-                                                                    onClick={() => startEditing(normComp, fino, cell.inv, proj)}
-                                                                    title="Modifica inventario fisico - Clicca per editare"
-                                                                    style={{
-                                                                        width: "100%", fontSize: 12, fontWeight: 800,
-                                                                        color: cell.inv > 0 ? "white" : "var(--text-muted)",
-                                                                        textAlign: "center", cursor: "pointer",
-                                                                        padding: "4px 2px", borderRadius: 6,
-                                                                        border: cell.inv > 0 ? "none" : "1px dashed var(--border-light)",
-                                                                        background: cell.inv > 0 ? "var(--accent)" : "transparent",
-                                                                        opacity: isConfigMode ? 0 : 1,
-                                                                        transition: "all 0.2s",
-                                                                        background: cell.inv > 0 ? "var(--accent)" : "transparent"
-                                                                    }}
-                                                                    onMouseEnter={(e) => {
-                                                                        if (!isConfigMode) {
-                                                                            e.currentTarget.style.background = cell.inv > 0 ? "rgba(254, 159, 64, 0.8)" : "rgba(96, 165, 250, 0.1)";
-                                                                            e.currentTarget.style.textDecoration = "underline";
-                                                                        }
-                                                                    }}
-                                                                    onMouseLeave={(e) => {
-                                                                        e.currentTarget.style.background = cell.inv > 0 ? "var(--accent)" : "transparent";
-                                                                        e.currentTarget.style.textDecoration = "none";
-                                                                    }}
-                                                                >
-                                                                    {`Inv: ${cell.inv || 0}`}
-                                                                </button>
-
                                                                 {/* SAP scarichi */}
                                                                 {true && (
                                                                     <div
-                                                                        onClick={() => !isConfigMode && cell.records.length > 0 && setSelectedDetail({
+                                                                        onClick={() => !isConfigMode && (cell.records?.length ?? 0) > 0 && setSelectedDetail({
                                                                             title: `${comp} — op.${fino} (${PHASE_CODE[fase] || fase})`,
                                                                             records: cell.records,
                                                                             fino, fase
@@ -1182,7 +1206,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                         style={{
                                                                             width: "100%", fontSize: 12, fontWeight: 800,
                                                                             color: "#60a5fa",
-                                                                            textAlign: "center", cursor: cell.records.length > 0 ? "pointer" : "default",
+                                                                            textAlign: "center", cursor: (cell.records?.length ?? 0) > 0 ? "pointer" : "default",
                                                                             padding: "4px 2px", borderRadius: 6,
                                                                             border: "1px solid rgba(96,165,250,0.3)",
                                                                             background: "rgba(96,165,250,0.1)",
@@ -1194,7 +1218,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                 )}
 
                                                                 {/* Entrate dalla fase precedente */}
-                                                                {!isFirstFino && !(!!(NO_SAP_PREV_PHASES[proj]?.includes(fase)) !== !!noSapPrevCells[`${normComp}:${fase}`]) && (
+                                                                {!isFirstFino && !(rawCell?.noSapPrev ?? (!!(NO_SAP_PREV_PHASES[proj]?.includes(fase)) !== !!noSapPrevCells[`${normComp}:${fase}`])) && (
                                                                     <div
                                                                         title="Pezzi entrati dalla fase precedente"
                                                                         style={{
@@ -1246,7 +1270,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                             <div>
                                 <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{selectedDetail.title}</h3>
                                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
-                                    Scarichi SAP dal {new Date(inventarioDate + "T12:00:00").toLocaleDateString("it-IT")} al {new Date(inventarioDateFine + "T12:00:00").toLocaleDateString("it-IT")} — {selectedDetail.records.length} record
+                                    Scarichi SAP dal {new Date(inventarioDate + "T12:00:00").toLocaleDateString("it-IT")} al {new Date(inventarioDateFine + "T12:00:00").toLocaleDateString("it-IT")} — {selectedDetail.records?.length ?? 0} record
                                 </div>
                             </div>
                             <button onClick={() => setSelectedDetail(null)}
@@ -1582,12 +1606,14 @@ const QuickConfigModal = ({ data, onClose, onSave, showToast }) => {
                     .eq("materiale", row.materiale)
                     .eq("fase", row.fase)
                     .eq("componente", row.componente)
+                    .eq("progetto", row.progetto)
                     .maybeSingle();
-
                 if (existing) {
-                    await supabase.from("material_fino_overrides").update(row).eq("id", existing.id);
+                    const { error } = await supabase.from("material_fino_overrides").update(row).eq("id", existing.id);
+                    if (error) throw error;
                 } else {
-                    await supabase.from("material_fino_overrides").insert(row);
+                    const { error } = await supabase.from("material_fino_overrides").insert(row);
+                    if (error) throw error;
                 }
             }
             showToast?.("Configurazione salvata!", "success");

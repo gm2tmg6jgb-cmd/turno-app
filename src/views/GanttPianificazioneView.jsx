@@ -1172,11 +1172,11 @@ export default function GanttPianificazioneView({ showToast }) {
                 )}
                 {loadingConferme && <span style={{ fontSize: 11, color: "var(--text-muted)" }}>⟳ aggiornamento...</span>}
                 <div style={{ flex: 1 }} />
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    <span style={{ fontSize: 13, color: "var(--text-muted)" }}>Settimana:</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Settimana</span>
                     <input type="date" value={weekStart}
                         onChange={e => setWeekStart(getMonday(e.target.value))}
-                        style={{ padding: "6px 10px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: 13 }} />
+                        style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border-light)", backgroundColor: "white", fontSize: 14, fontWeight: 600, color: "var(--text-primary)", outline: "none", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }} />
                 </div>
             </div>
 

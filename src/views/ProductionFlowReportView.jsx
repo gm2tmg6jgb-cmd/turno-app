@@ -765,29 +765,28 @@ export default function ProductionFlowReportView({ macchine = [], tecnologie = [
           {/* Turno selector */}
           <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
             <label style={{ fontSize: "10px", fontWeight: "700", color: "var(--text-muted)", letterSpacing: "0.5px", textTransform: "uppercase" }}>Turno</label>
-            <select
-              value={turnoCorrente || "ALL"}
-              onChange={(e) => setTurnoCorrente?.(e.target.value)}
-              style={{
-                padding: "0 12px",
-                borderRadius: "10px",
-                border: "1px solid var(--border)",
-                backgroundColor: "var(--bg-card)",
-                color: "var(--text-primary)",
-                fontWeight: "700",
-                fontSize: "14px",
-                outline: "none",
-                cursor: "pointer",
-                width: "160px",
-                height: "38px",
-                boxSizing: "border-box"
-              }}
-            >
-              <option value="ALL">Tutti i turni</option>
-              {TURNI.map(t => (
-                <option key={t.id} value={t.id}>Turno {t.id} — {t.coordinatore}</option>
+            <div style={{ display: "flex", borderRadius: "8px", border: "1px solid var(--border-light)", overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
+              {[{ value: "ALL", label: "Tutti" }, ...["A", "B", "C", "D"].map(t => ({ value: t, label: t }))].map(({ value, label }, idx, arr) => (
+                <button
+                  key={value}
+                  onClick={() => setTurnoCorrente?.(value)}
+                  style={{
+                    padding: "8px 12px",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    border: "none",
+                    borderRight: idx < arr.length - 1 ? "1px solid var(--border-light)" : "none",
+                    cursor: "pointer",
+                    backgroundColor: (turnoCorrente || "ALL") === value ? "var(--accent)" : "white",
+                    color: (turnoCorrente || "ALL") === value ? "white" : "#374151",
+                    boxShadow: (turnoCorrente || "ALL") === value ? "0 1px 3px rgba(0,0,0,0.15)" : "none",
+                    transition: "all 0.15s",
+                  }}
+                >
+                  {label}
+                </button>
               ))}
-            </select>
+            </div>
           </div>
 
           {activeTech === "TUTTO" && (

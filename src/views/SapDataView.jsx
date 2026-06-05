@@ -10,6 +10,7 @@ export default function SapDataView({ macchine = [] }) {
 
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
+    const [selectedTurno, setSelectedTurno] = useState("ALL");
 
     const PAGE_SIZE = 100;
     const [page, setPage] = useState(0);
@@ -45,6 +46,7 @@ export default function SapDataView({ macchine = [] }) {
     const applyFilters = (q) => {
         if (startDate) q = q.gte("data", startDate);
         if (endDate) q = q.lte("data", endDate);
+        if (selectedTurno !== "ALL") q = q.eq("turno_id", selectedTurno);
         if (search.trim()) {
             q = q.or(`materiale.ilike.%${search.trim()}%,work_center_sap.ilike.%${search.trim()}%`);
         }
@@ -77,7 +79,7 @@ export default function SapDataView({ macchine = [] }) {
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchSapData();
-    }, [page, search, startDate, endDate]);
+    }, [page, search, startDate, endDate, selectedTurno]);
 
     // Fetch una-tantum: anagrafica e conteggio totale
     useEffect(() => {
@@ -182,34 +184,37 @@ export default function SapDataView({ macchine = [] }) {
                     </div>
                 )}
 
-                <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-                    <div style={{ flex: 1, minWidth: 200 }}>
-                        <input
-                            type="text"
-                            className="input"
-                            placeholder="Cerca materiale o centro di lavoro..."
-                            value={search}
-                            onChange={e => { setPage(0); setSearch(e.target.value); }}
-                        />
+                {/* Filtri */}
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+                    {/* Data da */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Dal</span>
+                        <input type="date" value={startDate} onChange={e => { setPage(0); setStartDate(e.target.value); }}
+                            style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border-light)", backgroundColor: "white", fontSize: 14, fontWeight: 600, color: "var(--text-primary)", outline: "none", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }} />
                     </div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <div style={{ width: 140 }}>
-                            <input
-                                type="date"
-                                className="input"
-                                value={startDate}
-                                onChange={e => { setPage(0); setStartDate(e.target.value); }}
-                            />
+                    {/* Data al */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Al</span>
+                        <input type="date" value={endDate} onChange={e => { setPage(0); setEndDate(e.target.value); }}
+                            style={{ padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border-light)", backgroundColor: "white", fontSize: 14, fontWeight: 600, color: "var(--text-primary)", outline: "none", cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }} />
+                    </div>
+                    {/* Turno */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Turno</span>
+                        <div style={{ display: "flex", borderRadius: 8, border: "1px solid var(--border-light)", overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
+                            {[{ value: "ALL", label: "Tutti" }, ...["A","B","C","D"].map(t => ({ value: t, label: t }))].map(({ value, label }, idx, arr) => (
+                                <button key={value} onClick={() => { setPage(0); setSelectedTurno(value); }}
+                                    style={{ padding: "0 12px", height: "38px", fontSize: 14, fontWeight: 600, border: "none", borderRight: idx < arr.length - 1 ? "1px solid var(--border-light)" : "none", cursor: "pointer", backgroundColor: selectedTurno === value ? "var(--accent)" : "white", color: selectedTurno === value ? "white" : "#374151", boxShadow: selectedTurno === value ? "0 1px 3px rgba(0,0,0,0.15)" : "none", transition: "all 0.15s" }}>
+                                    {label}
+                                </button>
+                            ))}
                         </div>
-                        <span style={{ color: "var(--text-muted)", fontSize: 13 }}>al</span>
-                        <div style={{ width: 140 }}>
-                            <input
-                                type="date"
-                                className="input"
-                                value={endDate}
-                                onChange={e => { setPage(0); setEndDate(e.target.value); }}
-                            />
-                        </div>
+                    </div>
+                    {/* Cerca */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1, minWidth: 200 }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Cerca</span>
+                        <input type="text" className="input" placeholder="Cerca materiale o centro di lavoro..." value={search}
+                            onChange={e => { setPage(0); setSearch(e.target.value); }} />
                     </div>
                 </div>
 

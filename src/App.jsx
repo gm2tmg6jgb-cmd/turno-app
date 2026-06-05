@@ -10,7 +10,6 @@ import Login from "./components/Login";
 import ChangelogModal from "./components/ChangelogModal";
 import { version } from "../package.json";
 import { useSessionTimeout } from "./lib/sessionTimeout";
-import AgentChatTab from "./components/AgentChatTab";
 
 // Views — lazy loaded per ridurre bundle iniziale
 const DashboardView = lazy(() => import("./views/DashboardView"));
@@ -32,10 +31,12 @@ const PrioritaView = lazy(() => import("./views/PrioritaView"));
 const ProductionDelaysView = lazy(() => import("./views/ProductionDelaysView"));
 const ThroughputView = lazy(() => import("./views/ThroughputView"));
 const GanttPianificazioneView = lazy(() => import("./views/GanttPianificazioneView"));
+const SapHubView = lazy(() => import("./views/SapHubView"));
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 function AppContent({ session, onLogout }) {
   const [currentView, setCurrentView] = useState("componentFlow");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [hasNewVersion, setHasNewVersion] = useState(() => {
     return localStorage.getItem("lastSeenVersion") !== version;
@@ -54,8 +55,6 @@ function AppContent({ session, onLogout }) {
   const repartoCorrente = ""; // Intenzionalmente vuota: mostra tutti i reparti. Estendibile in futuro con un selettore.
   const [turnoCorrente, setTurnoCorrente] = useState(() => localStorage.getItem("turnoCorrente") || getActiveGroup());
   const [globalDate, setGlobalDate] = useState(() => getLocalDate(new Date()));
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem("sidebarCollapsed") === "true");
-  const toggleSidebar = () => setSidebarCollapsed(v => { localStorage.setItem("sidebarCollapsed", String(!v)); return !v; });
 
   useEffect(() => {
     localStorage.setItem("turnoCorrente", turnoCorrente);
@@ -251,11 +250,11 @@ function AppContent({ session, onLogout }) {
     { id: "prioritiesSummary", label: "Riepilogo Priorità", icon: Icons.dashboard, status: "new" },
     { id: "productionFlowReport", label: "Flusso Report Produzione", icon: Icons.report, status: "new" },
     { id: "productionReport", label: "Report Produzione", icon: Icons.report },
+    { id: "sapHub", label: "Hub Dati SAP", icon: Icons.settings },
     { id: "productionDelays", label: "Gestione Ritardi Produzione", icon: Icons.alert, status: "new" },
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine, adminOnly: true },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings, adminOnly: true },
     { id: "inventory", label: "Inventario", icon: Icons.report },
-    { id: "agent", label: "🤖 Agente Scheduling", icon: "🤖", status: "new" },
   ].filter(item => !item.adminOnly || isAdmin);
 
   const viewTitles = {
@@ -279,6 +278,7 @@ function AppContent({ session, onLogout }) {
     skills: "Matrice Competenze",
     formazione: "Gestione Formazione Operatori",
     inventory: "Gestione Inventario Progetti",
+    sapHub: "Hub Dati SAP",
   };
 
   const handleSendPlan = async () => {
@@ -304,37 +304,23 @@ function AppContent({ session, onLogout }) {
     <div className="app">
       {/* Sidebar */}
       <div className={`sidebar${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
-        <div className="sidebar-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div className="sidebar-logo" style={{ marginBottom: 0 }}>
+        <div className="sidebar-header">
+          <div className="sidebar-logo">
             <div className="sidebar-logo-icon">B</div>
             {!sidebarCollapsed && <div className="sidebar-logo-text">BAP1 - Production</div>}
           </div>
           <button
-            onClick={toggleSidebar}
-            title={sidebarCollapsed ? "Espandi sidebar" : "Comprimi sidebar"}
-            style={{ background: "none", border: "1px solid var(--border)", borderRadius: "6px", cursor: "pointer", color: "var(--text-muted)", padding: "4px 6px", fontSize: "12px", lineHeight: 1, flexShrink: 0 }}
+            onClick={() => setSidebarCollapsed(c => !c)}
+            title={sidebarCollapsed ? "Espandi menu" : "Comprimi menu"}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", fontSize: 16, padding: "2px 4px", borderRadius: 4, lineHeight: 1, marginLeft: "auto" }}
           >
-            {sidebarCollapsed ? "▶" : "◀"}
+            {sidebarCollapsed ? "»" : "«"}
           </button>
         </div>
 
-        {sidebarCollapsed && (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px", padding: "12px 0" }}>
-            {navItems.filter(i => !i.section).slice(0, 8).map(item => (
-              <div
-                key={item.id}
-                onClick={() => setCurrentView(item.id)}
-                title={item.label}
-                style={{ cursor: "pointer", padding: "8px", borderRadius: "8px", color: currentView === item.id ? "var(--accent)" : "var(--text-muted)", background: currentView === item.id ? "rgba(var(--accent-rgb),0.1)" : "transparent" }}
-              >
-                {item.icon}
-              </div>
-            ))}
-          </div>
-        )}
-        {!sidebarCollapsed && (<><div className="sidebar-turno-badge" style={{ margin: "16px 12px", padding: "20px 18px", gap: 14 }}>
-          <div className="dot" style={{ width: 10, height: 10 }} />
-          <div className="sidebar-turno-info">
+        <div className="sidebar-turno-badge" style={{ margin: "8px 10px", padding: "10px 12px", gap: 8, justifyContent: sidebarCollapsed ? "center" : undefined }}>
+          <div className="dot" style={{ width: 10, height: 10, flexShrink: 0 }} />
+          {!sidebarCollapsed && <div className="sidebar-turno-info">
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <div className="label" style={{ flex: 1, fontSize: 11 }}>Turno Attivo</div>
               {turnoCorrente !== getActiveGroup() && (
@@ -377,7 +363,7 @@ function AppContent({ session, onLogout }) {
               style={{ background: "transparent", border: "none", color: "var(--text-primary)", fontWeight: 700, fontSize: 15, cursor: "pointer", padding: "4px 0", outline: "none", width: "100%", fontFamily: "inherit", marginTop: 4 }}
             />
 
-          </div>
+          </div>}
         </div>
 
         <nav className="sidebar-nav">
@@ -385,47 +371,48 @@ function AppContent({ session, onLogout }) {
           {(() => {
             const ni = (id) => navItems.find(i => i.id === id);
             const renderItem = (item) => item ? (
-              <div key={item.id} className={`nav-item ${currentView === item.id ? "active" : ""}`} onClick={() => setCurrentView(item.id)}>
+              <div key={item.id} className={`nav-item ${currentView === item.id ? "active" : ""}`} onClick={() => setCurrentView(item.id)} title={sidebarCollapsed ? item.label : undefined} style={sidebarCollapsed ? { justifyContent: "center", padding: "8px" } : undefined}>
                 {item.icon}
-                <span style={{ display: "flex", alignItems: "center", flex: 1 }}>
+                {!sidebarCollapsed && <span style={{ display: "flex", alignItems: "center", flex: 1 }}>
                   {item.label}
                   {item.status && <span className={`nav-status-badge ${item.status}`}>{item.status}</span>}
-                </span>
-                {item.badge && <span className="badge">{item.badge}</span>}
+                </span>}
+                {!sidebarCollapsed && item.badge && <span className="badge">{item.badge}</span>}
               </div>
             ) : null;
             return (
               <>
-                <div className="nav-section-label">Operatività</div>
+                {!sidebarCollapsed && <div className="nav-section-label">Operatività</div>}
                 {renderItem(ni("dashboard"))}
                 {renderItem(ni("assegnazioni"))}
                 {renderItem(ni("planning"))}
 
-                <div className="nav-section-label">Sviluppo HR</div>
+                {!sidebarCollapsed && <div className="nav-section-label">Sviluppo HR</div>}
                 {renderItem(ni("skills"))}
                 {renderItem(ni("formazione"))}
 
-                <div className="nav-section-label">Report & Dati</div>
+                {!sidebarCollapsed && <div className="nav-section-label">Report & Dati</div>}
                 {renderItem(ni("componentFlow"))}
                 {renderItem(ni("ganttPianificazione"))}
                 {renderItem(ni("priorita"))}
                 {renderItem(ni("productionFlowReport"))}
                 {renderItem(ni("productionReport"))}
+                {renderItem(ni("sapHub"))}
                 {renderItem(ni("lpaPlan"))}
                 {renderItem(ni("op10"))}
 
-                <div className="nav-section-label">Anagrafiche</div>
+                {!sidebarCollapsed && <div className="nav-section-label">Anagrafiche</div>}
                 {renderItem(ni("anagraficaMacchine"))}
+                {renderItem(ni("zones"))}
                 {renderItem(ni("anagraficaFermi"))}
-                {renderItem(ni("inventory"))}
-                {renderItem(ni("agent"))}
+                {renderItem(ni("anagraficaSap"))}
 
               </>
             );
           })()}
-        </nav></>)}
+        </nav>
 
-        <div className="sidebar-footer" style={{ display: sidebarCollapsed ? "none" : undefined }}>
+        <div className="sidebar-footer">
           <button
             onClick={toggleTheme}
             style={{
@@ -685,8 +672,17 @@ function AppContent({ session, onLogout }) {
               turnoCorrente={turnoCorrente}
             />
           )}
-          {currentView === "agent" && <AgentChatTab globalDate={globalDate} turnoCorrente={turnoCorrente} />}
+
           {currentView === "inventory" && <InventoryView showToast={showToast} macchine={macchine} />}
+
+          {currentView === "sapHub" && (
+            <SapHubView
+              macchine={macchine}
+              showToast={showToast}
+              setCurrentView={setCurrentView}
+              globalDate={globalDate}
+            />
+          )}
         </div>
         </Suspense>
         </ErrorBoundary>
@@ -702,6 +698,21 @@ export default function App() {
   const [session, setSession] = useState(undefined);
 
   useEffect(() => {
+    // Bypass per sviluppo locale senza Supabase
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || supabaseUrl.includes('placeholder') || !supabaseAnonKey?.length || supabaseAnonKey.includes('placeholder')) {
+      // Usa sessione localStorage in sviluppo locale
+      const savedSession = localStorage.getItem('devSession');
+      if (savedSession) {
+        setSession(JSON.parse(savedSession));
+      } else {
+        setSession(null); // Mostra login screen
+      }
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
     });
@@ -712,7 +723,15 @@ export default function App() {
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+    if (supabaseUrl?.includes('placeholder') || supabaseAnonKey?.includes('placeholder')) {
+      localStorage.removeItem('devSession');
+      setSession(null);
+    } else {
+      await supabase.auth.signOut();
+    }
   };
 
   if (session === undefined) {
