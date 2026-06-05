@@ -404,6 +404,9 @@ function AppContent({ session, onLogout }) {
                 {renderItem(ni("lpaPlan"))}
                 {renderItem(ni("op10"))}
 
+                {!sidebarCollapsed && <div className="nav-section-label">AI</div>}
+                {renderItem(ni("agent"))}
+
                 {!sidebarCollapsed && <div className="nav-section-label">Anagrafiche</div>}
                 {renderItem(ni("anagraficaMacchine"))}
                 {renderItem(ni("zones"))}
