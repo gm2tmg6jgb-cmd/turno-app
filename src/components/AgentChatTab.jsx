@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { askAgent } from '../api/agentHandler';
 import './AgentChatTab.css';
 
 const AgentChatTab = ({ globalDate, turnoCorrente }) => {
@@ -33,28 +34,12 @@ const AgentChatTab = ({ globalDate, turnoCorrente }) => {
     setError(null);
 
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      // Use public function (no auth required) for better reliability
-      const response = await fetch(`${supabaseUrl}/functions/v1/agent-ask-public`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          query: input,
-          context: { globalDate, turnoCorrente }
-        })
-      });
+      // Use local agent handler (no Supabase dependency)
+      const response = await askAgent(input, { globalDate, turnoCorrente });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || errorData.error || 'Errore nella richiesta');
-      }
-
-      const data = await response.json();
       const assistantMessage = {
         role: 'assistant',
-        content: data.response,
+        content: response,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, assistantMessage]);
