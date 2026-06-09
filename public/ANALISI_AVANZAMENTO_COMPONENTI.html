@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analisi Avanzamento Componenti - Turno App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        .date-info {
+            display: flex;
+            gap: 30px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        .date-item {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .date-label {
+            color: #999;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+
+        .date-value {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+        }
+
+        .card-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card-content {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .metric:last-child {
+            border-bottom: none;
+        }
+
+        .metric-label {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .metric-value {
+            font-weight: bold;
+            font-size: 16px;
+            color: #667eea;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-text {
+            font-size: 12px;
+            color: #999;
+            margin-top: 5px;
+            text-align: right;
+        }
+
+        .table-section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+            overflow-x: auto;
+        }
+
+        .table-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: #f8f9fa;
+            padding: 15px;
+            text-align: left;
+            font-weight: bold;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            font-size: 13px;
+            text-transform: uppercase;
+        }
+
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+
+        tr:hover {
+            background: #f8f9fa;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .status-on-track {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-at-risk {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-critical {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .icon {
+            font-size: 20px;
+        }
+
+        .bottleneck-section {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .bottleneck-title {
+            font-weight: bold;
+            color: #856404;
+            margin-bottom: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .bottleneck-content {
+            color: #856404;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .bottleneck-list {
+            list-style: none;
+            margin-top: 10px;
+        }
+
+        .bottleneck-list li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        .bottleneck-list li:before {
+            content: "⚠️";
+            position: absolute;
+            left: 0;
+        }
+
+        .recommendation {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .recommendation-title {
+            font-weight: bold;
+            color: #0c5460;
+            margin-bottom: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .recommendation-content {
+            color: #0c5460;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .recommendation-list {
+            list-style: none;
+            margin-top: 10px;
+        }
+
+        .recommendation-list li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+
+        .recommendation-list li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            font-weight: bold;
+        }
+
+        .footer {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            color: #666;
+            font-size: 13px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .component-cell {
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .timeline-bar {
+            display: flex;
+            height: 24px;
+            border-radius: 4px;
+            background: #f0f0f0;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+
+        .timeline-segment {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .segment-soft {
+            background: #667eea;
+        }
+
+        .segment-ht {
+            background: #f5a623;
+        }
+
+        .segment-hard {
+            background: #764ba2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Analisi Avanzamento Componenti</h1>
+            <p class="subtitle">Report Dettagliato dello Stato di Produzione - Turno App</p>
+            <div class="date-info">
+                <div class="date-item">
+                    <span class="date-label">Data Generazione</span>
+                    <span class="date-value" id="date-generated">-</span>
+                </div>
+                <div class="date-item">
+                    <span class="date-label">Periodo Analisi</span>
+                    <span class="date-value">Maggio 2026</span>
+                </div>
+                <div class="date-item">
+                    <span class="date-label">Ultimo Aggiornamento</span>
+                    <span class="date-value">9 Giugno 2026</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- KPI CARDS -->
+        <div class="grid">
+            <div class="card">
+                <div class="card-title">
+                    <span class="icon">⚙️</span>
+                    Componenti Totali
+                </div>
+                <div class="card-content">
+                    <div class="metric">
+                        <span class="metric-label">Progetti in Produzione</span>
+                        <span class="metric-value">3</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Componenti Monitorati</span>
+                        <span class="metric-value">7+</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Varianti Active</span>
+                        <span class="metric-value">5</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">
+                    <span class="icon">📈</span>
+                    Throughput Medio
+                </div>
+                <div class="card-content">
+                    <div class="metric">
+                        <span class="metric-label">Target Giornaliero</span>
+                        <span class="metric-value">550 pz/giorno</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Ciclo Produzione</span>
+                        <span class="metric-value">~115 ore</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">OEE Medio</span>
+                        <span class="metric-value">85%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">
+                    <span class="icon">⏱️</span>
+                    Tempi Critici
+                </div>
+                <div class="card-content">
+                    <div class="metric">
+                        <span class="metric-label">Forno (Bottleneck)</span>
+                        <span class="metric-value">56 ore</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Rettifica Denti</span>
+                        <span class="metric-value">15.1 ore</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Tornitura Soft</span>
+                        <span class="metric-value">11.8 ore</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BOTTLENECK ANALYSIS -->
+        <div class="bottleneck-section">
+            <div class="bottleneck-title">
+                <span>🚨</span>
+                Bottleneck Identificati
+            </div>
+            <div class="bottleneck-content">
+                <ul class="bottleneck-list">
+                    <li><strong>Forno (Trattamento Termico)</strong> - 56 ore per ciclo completo
+                        <br><small>Capacità: 176 pz/carica. Componenti mixati senza separazione. È il collo di bottiglia principale.</small>
+                    </li>
+                    <li><strong>Rettifica Denti (Z19-Z21)</strong> - Fase critica per urgency
+                        <br><small>FG5/7 (8Fe) richiede setup extra +2-3h. Frequenti inversioni di priorità.</small>
+                    </li>
+                    <li><strong>Tornitura Soft (Z1-Z3)</strong> - Contesa tra 3 progetti
+                        <br><small>12 macchine DRA. Changeover ~1h. Accesso iniziale critico per scheduling.</small>
+                    </li>
+                    <li><strong>Tornitura Hard (Z15-Z18)</strong> - Dipendente dal forno
+                        <br><small>Setup +2h tra configurazioni geometriche diverse. Load balancing critico.</small>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- RECOMMENDATIONS -->
+        <div class="recommendation">
+            <div class="recommendation-title">
+                <span>💡</span>
+                Raccomandazioni Strategiche
+            </div>
+            <div class="recommendation-content">
+                <ul class="recommendation-list">
+                    <li><strong>Ottimizzare sequenza forno</strong> - Pianificare cariche per urgency. Se FG5/7 è -34%, caricarlo nelle prime cariche.</li>
+                    <li><strong>Dedicare zone per urgency</strong> - Z19-Z21 (rettifica): allocare macchine dedicate per FG5/7 quando urgency > 30%</li>
+                    <li><strong>Monitorare changeover soft</strong> - Ridurre setup tra DCT300 e 8Fe. Target: <45 min vs attuali 60 min.</li>
+                    <li><strong>Agente AI per smart scheduling</strong> - Implementare algoritmo che suggerisce changeover real-time basato su urgency delta</li>
+                    <li><strong>Tracciamento RG+DH</strong> - Sincronizzare RG (anelli) con SG (ingranaggi) per assembly finale coordinato</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- DETAILED TABLE -->
+        <div class="table-section">
+            <div class="table-title">📋 Stato Componenti - Timeline Produzione</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Componente</th>
+                        <th>Progetto</th>
+                        <th>Target Giorn.</th>
+                        <th>Fase Critica</th>
+                        <th>Tempo Totale</th>
+                        <th>Status</th>
+                        <th>Timeline Flusso</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="component-cell">SG5·DCT300</td>
+                        <td>DCT300</td>
+                        <td>550 pz</td>
+                        <td>Forno (ht)</td>
+                        <td>114.9 h</td>
+                        <td><span class="status-badge status-at-risk">-17%</span></td>
+                        <td>
+                            <div class="timeline-bar">
+                                <div class="timeline-segment segment-soft" style="width: 15%;" title="Soft: 11.8h">Soft</div>
+                                <div class="timeline-segment segment-ht" style="width: 50%;" title="HT: 56h">HT</div>
+                                <div class="timeline-segment segment-hard" style="width: 35%;" title="Hard: 46.7h">Hard</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="component-cell">FG5/7·8Fe</td>
+                        <td>8Fe</td>
+                        <td>550 pz</td>
+                        <td>Rettifica Denti</td>
+                        <td>~120 h</td>
+                        <td><span class="status-badge status-critical">-34%</span></td>
+                        <td>
+                            <div class="timeline-bar">
+                                <div class="timeline-segment segment-soft" style="width: 12%;" title="Soft: 11.8h + setup">Soft+</div>
+                                <div class="timeline-segment segment-ht" style="width: 50%;" title="HT: 56h">HT</div>
+                                <div class="timeline-segment segment-hard" style="width: 38%;" title="Hard: 52h+ setup">Hard+</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="component-cell">SG2·DCT ECO</td>
+                        <td>DCT ECO</td>
+                        <td>550 pz</td>
+                        <td>Forno (ht)</td>
+                        <td>~110 h</td>
+                        <td><span class="status-badge status-on-track">OK</span></td>
+                        <td>
+                            <div class="timeline-bar">
+                                <div class="timeline-segment segment-soft" style="width: 12%;" title="Soft: 11.8h">Soft</div>
+                                <div class="timeline-segment segment-ht" style="width: 50%;" title="HT: 56h">HT</div>
+                                <div class="timeline-segment segment-hard" style="width: 38%;" title="Hard: 42h">Hard</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="component-cell">RG FD1·ECO</td>
+                        <td>DCT ECO</td>
+                        <td>Parallelo</td>
+                        <td>Assembly Laser</td>
+                        <td>20-30 h</td>
+                        <td><span class="status-badge status-on-track">OK</span></td>
+                        <td>
+                            <div class="timeline-bar">
+                                <div class="timeline-segment segment-hard" style="width: 100%;" title="RG Tornitura+Finitura: 20-30h">RG+DH</div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="component-cell">DG-REV·DCT300</td>
+                        <td>DCT300</td>
+                        <td>550 pz</td>
+                        <td>Forno (ht)</td>
+                        <td>114.9 h</td>
+                        <td><span class="status-badge status-at-risk">-10%</span></td>
+                        <td>
+                            <div class="timeline-bar">
+                                <div class="timeline-segment segment-soft" style="width: 15%;" title="Soft + Saldatura">Soft</div>
+                                <div class="timeline-segment segment-ht" style="width: 50%;" title="HT: 56h">HT</div>
+                                <div class="timeline-segment segment-hard" style="width: 35%;" title="Hard: 46.7h">Hard</div>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- PHASE BREAKDOWN -->
+        <div class="grid">
+            <div class="card">
+                <div class="card-title">
+                    <span class="icon">🔧</span>
+                    Fase Soft (T11)
+                </div>
+                <div class="card-content">
+                    <div class="metric">
+                        <span class="metric-label">Zone Coinvolte</span>
+                        <span class="metric-value">Z1-Z14</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Tempo Medio</span>
+                        <span class="metric-value">11.8 h</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Changeover Setup</span>
+                        <span class="metric-value">~1h</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 25%;"></div>
+                    </div>
+                    <div class="progress-text">Impatto: 10% del ciclo totale</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">
+                    <span class="icon">🔥</span>
+                    Trattamento Termico
+                </div>
+                <div class="card-content">
+                    <div class="metric">
+                        <span class="metric-label">Durata Ciclo</span>
+                        <span class="metric-value">56 h</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Capacità Carica</span>
+                        <span class="metric-value">176 pz</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Cariche per Lotto</span>
+                        <span class="metric-value">7 cariche</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 48%;"></div>
+                    </div>
+                    <div class="progress-text">Impatto: 49% del ciclo totale - ⚠️ BOTTLENECK</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">
+                    <span class="icon">⚙️</span>
+                    Fase Hard (T12)
+                </div>
+                <div class="card-content">
+                    <div class="metric">
+                        <span class="metric-label">Zone Coinvolte</span>
+                        <span class="metric-value">Z15-Z26</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Tempo Medio</span>
+                        <span class="metric-value">46.7 h</span>
+                    </div>
+                    <div class="metric">
+                        <span class="metric-label">Changeover Setup</span>
+                        <span class="metric-value">~2h</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 40%;"></div>
+                    </div>
+                    <div class="progress-text">Impatto: 41% del ciclo totale</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- INTERTWINING ANALYSIS -->
+        <div class="table-section">
+            <div class="table-title">🔄 Analisi Intertwining - Zone Critiche di Contesa</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Zone</th>
+                        <th>Team</th>
+                        <th>Macchine</th>
+                        <th>Componenti in Contesa</th>
+                        <th>Livello Contesa</th>
+                        <th>Strategia Consigliata</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Z1-Z3</strong></td>
+                        <td>T11 SOFT</td>
+                        <td>12x DRA (Tornitura Soft)</td>
+                        <td>SG1-SG7 (DCT300), SG2-SG8 (8Fe), SG2-SG5 (ECO)</td>
+                        <td><span class="status-badge status-at-risk">MEDIA</span></td>
+                        <td>Changeover parallelo tra progetti. Setup <1h.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Z9-Z11</strong></td>
+                        <td>T11 SOFT</td>
+                        <td>16x FRW (Dentatura)</td>
+                        <td>SG3-SG7, SG2-SG8, FG5/7 (critica)</td>
+                        <td><span class="status-badge status-at-risk">MEDIA-ALTA</span></td>
+                        <td>FG5/7 prioritaria se urgency >30%. Zone dedicate per urgency.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>FORNO</strong></td>
+                        <td>TERMICO</td>
+                        <td>1x Forno (176 pz/carica)</td>
+                        <td>Tutti componenti SG + FG5/7 mixati</td>
+                        <td><span class="status-badge status-critical">CRITICA</span></td>
+                        <td>Pianificare sequenza cariche per urgency. NO mixdown casuale.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Z15-Z18</strong></td>
+                        <td>T12 HARD</td>
+                        <td>10x DRA (Tornitura Hard)</td>
+                        <td>Tutti SG post-tempra, FG5/7</td>
+                        <td><span class="status-badge status-at-risk">MEDIA</span></td>
+                        <td>Load-balancing tra 4 zone. Setup +2h per geometria diversa.</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Z19-Z21</strong></td>
+                        <td>T12 HARD</td>
+                        <td>12x SLW (Rettifica Denti)</td>
+                        <td>SG3-SG7, FG5/7 (critica)</td>
+                        <td><span class="status-badge status-critical">CRITICA</span></td>
+                        <td>FG5/7 causa INVERSIONI frequenti. Setup extra +2-3h per libero.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- SCHEDULING RECOMMENDATIONS -->
+        <div class="table-section">
+            <div class="table-title">🎯 Raccomandazioni di Scheduling Settimanale</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Settimana</th>
+                        <th>Azione Prioritaria</th>
+                        <th>Componente Focus</th>
+                        <th>Zone Critiche</th>
+                        <th>Output Atteso</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Set. 1-2</strong></td>
+                        <td>Completare soft + forno SG5, DG-REV</td>
+                        <td>SG5·DCT300</td>
+                        <td>Z1-Z3, Z9-Z11, FORNO</td>
+                        <td>+550 pz soft, inizio forno</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Set. 2-3</strong></td>
+                        <td>Accelerare FG5/7 soft per urgency -34%</td>
+                        <td>FG5/7·8Fe</td>
+                        <td>Z1-Z3 (dedicate), Z9-Z11</td>
+                        <td>FG5/7 ready per forno prima</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Set. 3-4</strong></td>
+                        <td>Sequenzare cariche forno per urgency</td>
+                        <td>Tutti SG + FG5/7</td>
+                        <td>FORNO (orchestrazione)</td>
+                        <td>Cariche 1-3 completate</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Set. 4-5</strong></td>
+                        <td>Lancio T12 HARD con priorità FG5/7</td>
+                        <td>SG5 + FG5/7</td>
+                        <td>Z15-Z18, Z19-Z21 (dedicate FG)</td>
+                        <td>+400 pz hard completati</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Set. 5-6</strong></td>
+                        <td>Finalizzazione assembly RG+DH</td>
+                        <td>RG FD1/FD2 + DH</td>
+                        <td>Z27-Z34</td>
+                        <td>Completamento lotto intero</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- AGENT AI INSIGHTS -->
+        <div class="bottleneck-section">
+            <div class="bottleneck-title">
+                <span>🤖</span>
+                Insights dall'Agente di Scheduling Intelligente
+            </div>
+            <div class="bottleneck-content">
+                <p><strong>Status Attuale (9 Giugno 2026):</strong></p>
+                <ul class="bottleneck-list">
+                    <li><strong>SG5·DCT300</strong> è -17% (3366/4000 pz). Fase: Forno. Timing attuale sulla tabella di marcia.</li>
+                    <li><strong>FG5/7·8Fe</strong> è -34% (4154/6300 pz). Fase: Dentatura soft. <em>CRITICA: 17 punti percentuali di ritardo rispetto SG5</em>. Il sistema suggerisce changeover immediato a Z1 per prioritizzarla nel forno.</li>
+                    <li><strong>SG2·DCT ECO</strong> è on-track (OK). Fase: Dentatura soft.</li>
+                    <li><strong>Forno</strong> è il collo di bottiglia. Se FG5/7 non accelera soft, arriverà al forno dopo SG5 e aspetterà un'altra carica (56h di attesa!).</li>
+                </ul>
+                <p style="margin-top: 15px;"><strong>Azione Consigliata:</strong></p>
+                <ul class="bottleneck-list">
+                    <li>Changeover immediato a Z1-Z3: dedicare 2 macchine DRA per FG5/7. Tempo setup: ~30 min. Guadagno: -8% urgency in 2-3 giorni.</li>
+                    <li>Z19-Z21 (Rettifica): preparare zone dedicate per FG5/7 con setup pre-caricato. Setup da 3h → 1.5h.</li>
+                    <li>Forno: pianificare cariche 1-3 con 50% FG5/7 per assicurare che esce prima di SG5 in hard.</li>
+                </ul>
+            </div>
+        </div>
+
+        <footer>
+            <p>Generated by Agente di Scheduling Intelligente - Turno App v2.0</p>
+            <p style="margin-top: 10px; color: #999;">Per domande o aggiornamenti, consulta il COMPONENT_FLOW_MAP.md e COMPONENT_FLOW_TIMELINE.md nel progetto.</p>
+        </footer>
+    </div>
+
+    <script>
+        // Set current date
+        document.getElementById('date-generated').textContent = new Date().toLocaleDateString('it-IT', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+
+        // Simple animations on scroll
+        const cards = document.querySelectorAll('.card');
+        cards.forEach((card, index) => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            setTimeout(() => {
+                card.style.transition = 'all 0.6s ease';
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, index * 100);
+        });
+    </script>
+</body>
+</html>
