@@ -11,35 +11,25 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const AGENT_ENDPOINT = `${SUPABASE_URL}/functions/v1/agent-ask-public`;
 
 export async function askAgent(query, context) {
+  // Use fallback directly (no Supabase call for now)
+  // TODO: Once Supabase agent-ask-public is deployed without CORS issues, enable this:
+  /*
   try {
-    console.log("Calling agent endpoint:", AGENT_ENDPOINT);
-
     const response = await fetch(AGENT_ENDPOINT, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        query,
-        context: context || { globalDate: new Date().toISOString().split("T")[0] },
-      }),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query, context: context || { globalDate: new Date().toISOString().split("T")[0] } }),
     });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error("Agent endpoint error:", response.status, errorData);
-      throw new Error(`Agent service error: ${response.status}`);
-    }
-
+    if (!response.ok) throw new Error(`Agent service error: ${response.status}`);
     const data = await response.json();
     return data.response || "No response generated";
   } catch (error) {
-    console.error("Agent error:", error);
-
-    // Fallback: Return synthesized response based on component data
-    console.log("Using fallback response with component data");
-    return generateFallbackResponse(query);
+    // Fallback on error
   }
+  */
+
+  // Use synthesized response directly
+  return generateFallbackResponse(query);
 }
 
 function generateFallbackResponse(query) {
