@@ -23,6 +23,10 @@ serve(async (req) => {
   }
 
   try {
+    // Log incoming request for debugging
+    const authHeader = req.headers.get("Authorization");
+    console.log("Agent request received. Auth header present:", !!authHeader);
+
     const { query, context } = await req.json();
 
     if (!query) {
