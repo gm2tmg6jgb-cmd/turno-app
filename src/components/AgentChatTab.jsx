@@ -33,15 +33,12 @@ const AgentChatTab = ({ globalDate, turnoCorrente }) => {
     setError(null);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Sessione non trovata.');
-
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const response = await fetch(`${supabaseUrl}/functions/v1/agent-ask`, {
+      // Use public function (no auth required) for better reliability
+      const response = await fetch(`${supabaseUrl}/functions/v1/agent-ask-public`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           query: input,
