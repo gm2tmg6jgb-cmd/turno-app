@@ -1,5 +1,5 @@
-// Local Agent Handler - Direct Claude API via Supabase Proxy
-// Calls agent-ask-public function which handles Claude API calls on backend
+// Local Agent Handler - Direct responses with smart keyword matching
+// No Supabase dependency - uses synthesized responses
 
 const COMPONENT_DATA = [
   { componente: "SG5", progetto: "DCT300", fase_label: "Trattamento Termico", percentuale_avanzamento: 83, urgency_delta: -17, stato: "in_progress" },
@@ -7,62 +7,158 @@ const COMPONENT_DATA = [
   { componente: "SG2", progetto: "DCT ECO", fase_label: "Dentatura", percentuale_avanzamento: 96, urgency_delta: 2, stato: "in_progress" },
 ];
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const AGENT_ENDPOINT = `${SUPABASE_URL}/functions/v1/agent-ask-public`;
-
 export async function askAgent(query, context) {
-  // Use fallback directly (no Supabase call for now)
-  // TODO: Once Supabase agent-ask-public is deployed without CORS issues, enable this:
-  /*
-  try {
-    const response = await fetch(AGENT_ENDPOINT, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, context: context || { globalDate: new Date().toISOString().split("T")[0] } }),
-    });
-    if (!response.ok) throw new Error(`Agent service error: ${response.status}`);
-    const data = await response.json();
-    return data.response || "No response generated";
-  } catch (error) {
-    // Fallback on error
-  }
-  */
-
-  // Use synthesized response directly
+  // Use synthesized response based on query keyword matching
   return generateFallbackResponse(query);
 }
 
 function generateFallbackResponse(query) {
   const queryLower = query.toLowerCase();
+  console.log("🤖 Agent query:", queryLower);
 
-  // Synthesize responses based on query
+  // Define response templates
   const responses = {
-    "stato": `📊 **STATO PRODUZIONE - 9 Giugno 2026**\n\n🔴 **SITUAZIONE CRITICA - FG5/7·8Fe**\nAttualmente indietro di 34 punti percentuali!\n\n📋 Componenti in Produzione:\n\n✅ **SG5·DCT300**: 83% completato\n   • Fase attuale: Trattamento Termico (Forno)\n   • Urgency: -17% (leggermente indietro)\n   • Azioni: Completare forno entro stasera\n\n🔴 **FG5/7·8Fe** (CRITICA): 67% completato\n   • Fase attuale: Dentatura\n   • Urgency: -34% (MOLTO INDIETRO - PRIORITARIA)\n   • Azioni URGENTI:\n     1. Changeover immediato Z1-Z3\n     2. Dedicare macchine DRA per soft turning\n     3. Setup pre-caricato per rettifica denti\n     4. Guadagno stimato: -8% urgency in 2-3 giorni\n\n✅ **SG2·DCT ECO**: 96% completato\n   • Fase attuale: Dentatura\n   • Urgency: +2% (on track)\n   • Azioni: Continuare normale\n\n⚠️ **BOTTLENECK PRINCIPALE**: Forno (56 ore per ciclo)`,
+    stato: `📊 **STATO PRODUZIONE - 9 Giugno 2026**
 
-    "bottleneck": `🚨 **BOTTLENECK IDENTIFICATI**\n\n1️⃣ **FORNO (Trattamento Termico)** - 56 ORE\n   • Capacità: 176 pz/carica\n   • Cariche per lotto 1200 pz: 7 cariche\n   • Tempo totale: 56 ore (2.3 giorni)\n   • Impatto: 49% del ciclo totale\n   • Soluzione: Ottimizzare sequenza cariche per urgency\n\n2️⃣ **Rettifica Denti (Z19-Z21)** - 15.1 ORE\n   • 12 macchine SLW in 3 zone parallele\n   • FG5/7 (8Fe) richiede setup extra +2-3h\n   • Cause inversioni priorità frequenti\n   • Soluzione: Zone dedicate per FG5/7 quando urgency >30%\n\n3️⃣ **Tornitura Soft (Z1-Z3)** - 11.8 ORE\n   • 12 macchine DRA\n   • Contesa tra 3 progetti (DCT300, 8Fe, ECO)\n   • Changeover setup ~1h tra progetti\n   • Soluzione: Ridurre setup a <45 min\n\n4️⃣ **Tornitura Hard (Z15-Z18)** - 46.7 ORE\n   • 10 macchine DRA\n   • Setup +2h per geometrie diverse\n   • Load-balancing critico\n   • Soluzione: Pianificazione parallela per più geometrie`,
+🔴 **SITUAZIONE CRITICA - FG5/7·8Fe** (Indietro di 34 punti percentuali!)
 
-    "fg5": `⚠️ **ANALISI CRITICA: FG5/7·8Fe**\n\n**Status Attuale:**\n• Percentuale completamento: 67%\n• Urgency: -34% (17 punti percentuali INDIETRO rispetto SG5)\n• Fase attuale: Dentatura (Z9-Z11)\n• Stato: IN_PROGRESS\n\n**Perché è Critica?**\n1. Ingranaggio libero → tolleranze strette (±0.05mm)\n2. Rettifica denti richiede setup specializzato +2-3h\n3. È il componente con urgency più negativa\n4. Se non accelera, arriverà al forno quando SG5 sta uscendo\n\n**Azioni Consigliate (IMMEDIATE):**\n✓ Changeover a Z1-Z3: dedicare 2 macchine DRA per soft turning\n✓ Guadagno: -8% urgency in 2-3 giorni\n✓ Z19-Z21 (rettifica): preparare setup pre-caricato\n✓ Riduci setup da 3h → 1.5h per FG5/7 specializzato\n✓ Forno: pianificare cariche 1-3 con 50% FG5/7\n\n**Timeline Prevista:**\n• Oggi: completare dentatura soft\n• Domani: soft hard + forno\n• Dopodomani: rettifica denti (critica)\n• 3 giorni: finalizzazione`,
+📋 Componenti in Produzione:
 
-    "default": `🤖 **AGENTE DI SCHEDULING INTELLIGENTE**\n\n**Dati Componenti Disponibili:**\n• SG5·DCT300: 83% (Forno)\n• FG5/7·8Fe: 67% CRITICA -34% (Dentatura)\n• SG2·DCT ECO: 96% (Dentatura)\n\n**Puoi chiedermi:**\n✓ "Qual è lo stato della produzione?"\n✓ "Quali sono i bottleneck?"\n✓ "Analizza FG5/7"\n✓ "Quando finisce il forno?"\n✓ "Cosa consigli per urgency?"\n✓ "Analizza utilizzo linea 8Fe"`,
+✅ **SG5·DCT300**: 83% completato
+   • Fase attuale: Trattamento Termico (Forno)
+   • Urgency: -17% (leggermente indietro)
+   • Azioni: Completare forno entro stasera
+
+🔴 **FG5/7·8Fe** (CRITICA): 67% completato
+   • Fase attuale: Dentatura
+   • Urgency: -34% (MOLTO INDIETRO - PRIORITARIA)
+   • Azioni URGENTI:
+     1. Changeover immediato Z1-Z3
+     2. Dedicare macchine DRA per soft turning
+     3. Setup pre-caricato per rettifica denti
+     4. Guadagno stimato: -8% urgency in 2-3 giorni
+
+✅ **SG2·DCT ECO**: 96% completato
+   • Fase attuale: Dentatura
+   • Urgency: +2% (on track)
+   • Azioni: Continuare normale
+
+⚠️ **BOTTLENECK PRINCIPALE**: Forno (56 ore per ciclo)`,
+
+    bottleneck: `🚨 **BOTTLENECK IDENTIFICATI**
+
+1️⃣ **FORNO (Trattamento Termico)** - 56 ORE
+   • Capacità: 176 pz/carica
+   • Cariche per lotto: 7 cariche = 56 ore totali
+   • Impatto: 49% del ciclo completo
+   • Soluzione: Ottimizzare sequenza cariche per urgency
+
+2️⃣ **Rettifica Denti (Z19-Z21)** - 15.1 ORE
+   • FG5/7 (8Fe) richiede setup extra +2-3h
+   • Causa inversioni di priorità frequenti
+   • Soluzione: Zone dedicate quando urgency >30%
+
+3️⃣ **Tornitura Soft (Z1-Z3)** - 11.8 ORE
+   • Contesa tra 3 progetti
+   • Changeover setup ~1h
+   • Soluzione: Ridurre setup a <45 min
+
+4️⃣ **Tornitura Hard (Z15-Z18)** - 46.7 ORE
+   • Setup +2h per geometrie diverse
+   • Load-balancing critico`,
+
+    fg5: `⚠️ **ANALISI CRITICA: FG5/7·8Fe**
+
+**Status Attuale:**
+• Completamento: 67%
+• Urgency: -34% (MOLTO INDIETRO!)
+• Fase: Dentatura (Z9-Z11)
+• Priorità: CRITICA
+
+**Perché è Critica?**
+1. Ingranaggio libero → tolleranze stritte (±0.05mm)
+2. Rettifica richiede setup +2-3h
+3. Componente con urgency più negativa
+4. Se non accelera, perde priorità nel forno
+
+**Azioni Consigliate (IMMEDIATE):**
+✓ Changeover Z1-Z3: 2 macchine DRA dedicate
+✓ Guadagno: -8% urgency in 2-3 giorni
+✓ Setup pre-caricato per rettifica
+✓ Forno: prioritizzare FG5/7 cariche 1-3`,
+
+    forno: `⏱️ **ANALISI FORNO (Trattamento Termico)**
+
+**Tempi Critici:**
+• Tempo per carica: 8 ore FISSO
+• Capacità: 176 pz/carica
+• Cariche necessarie: 7 cariche
+• Tempo TOTALE: 56 ore (2.3 giorni)
+
+**Status Attuale:**
+• SG5: 83% (IN FORNO ADESSO)
+• FG5/7: In coda, attende priorità
+• SG2: Pronto tra 1-2 giorni
+
+**Strategia Consigliata:**
+✓ Cariche 1-3: 50% FG5/7 (più critico)
+✓ Cariche 4-7: completare SG5, SG2
+✓ Ottimizzare sequenza per urgency
+
+**È il BOTTLENECK PRINCIPALE (49% del ciclo)**`,
+
+    sg5: `📊 **ANALISI SG5·DCT300**
+
+**Status Attuale:**
+• Completamento: 83%
+• Urgency: -17% (leggermente indietro)
+• Fase: Trattamento Termico (FORNO)
+
+**Timeline:**
+• Soft turning: ✅ COMPLETATO
+• Dentatura: ✅ COMPLETATO
+• Forno: 🔄 IN CORSO (56 ore)
+• Hard turning: ⏳ Domani
+• Rettifica: ⏳ Dopodomani
+
+**Non è critico come FG5/7**
+→ Completamento atteso: 12 giugno`,
+
+    default: `🤖 **AGENTE DI SCHEDULING INTELLIGENTE**
+
+**Status Componenti (9 Giugno):**
+• SG5·DCT300: 83% (-17% urgency) → FORNO
+• FG5/7·8Fe: 67% (-34% CRITICA) → DENTATURA
+• SG2·DCT ECO: 96% (+2% ok) → DENTATURA
+
+**Puoi chiedermi:**
+✓ "Qual è lo stato della produzione?"
+✓ "Quali sono i bottleneck?"
+✓ "Analizza FG5/7" o "Analizza SG5"
+✓ "Quanto tempo nel forno?"
+✓ "Cosa consigli?"`,
   };
 
-  // Match query to response
-  for (const [key, response] of Object.entries(responses)) {
-    if (key !== "default" && queryLower.includes(key)) {
-      return response;
+  // Smart keyword matching with priority
+  const patterns = [
+    { key: "fg5", keywords: ["fg5", "fg 5", "fg5/7", "free gear", "8fe"] },
+    { key: "forno", keywords: ["forno", "heat treatment", "termico", "tempra", "ricottura"] },
+    { key: "sg5", keywords: ["sg5", "sg 5", "dct300"] },
+    { key: "bottleneck", keywords: ["bottleneck", "collo", "criticità", "problema"] },
+    { key: "stato", keywords: ["stato", "situazione", "produzione", "come va", "attuale"] },
+  ];
+
+  // Check for matching patterns
+  for (const { key, keywords } of patterns) {
+    for (const keyword of keywords) {
+      if (queryLower.includes(keyword)) {
+        console.log(`✓ Matched: "${keyword}" → ${key}`);
+        return responses[key];
+      }
     }
   }
 
-  // Check for specific keywords
-  if (queryLower.includes("stato") || queryLower.includes("produzione")) {
-    return responses.stato;
-  }
-  if (queryLower.includes("bottleneck") || queryLower.includes("collo")) {
-    return responses.bottleneck;
-  }
-  if (queryLower.includes("fg5") || queryLower.includes("fg 5")) {
-    return responses.fg5;
-  }
-
+  // Default response
+  console.log("ℹ️ Using default response");
   return responses.default;
 }
