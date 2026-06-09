@@ -45,23 +45,19 @@ serve(async (req) => {
       { data: assegnazioni, error: errAss },
       { data: presenze, error: errPres },
       { data: componentiAvanzamento, error: errComp },
-      { data: componentiSummary, error: errSummary },
     ] = await Promise.all([
-      supabase.from("dipendenti").select("id, nome, reparto_id, turno_default"),
-      supabase.from("macchine").select("id, nome, reparto_id, personale_minimo"),
-      supabase.from("assegnazioni").select("dipendente_id, macchina_id, data_inizio, data_fine"),
-      supabase.from("presenze").select("dipendente_id, data, turno_id, presente, motivo_assenza").gte("data", thirtyDaysAgo).lte("data", today),
-      supabase.from("componente_avanzamento").select("progetto, componente, fase_id, fase_label, pezzi_totali, pezzi_prodotti, stato, percentuale_avanzamento, urgency_delta"),
-      supabase.from("v_componente_avanzamento_summary").select("*"),
+      supabase.from("dipendenti").select("id, nome, reparto_id, turno_default").limit(100),
+      supabase.from("macchine").select("id, nome, reparto_id, personale_minimo").limit(100),
+      supabase.from("assegnazioni").select("dipendente_id, macchina_id, data_inizio, data_fine").limit(100),
+      supabase.from("presenze").select("dipendente_id, data, turno_id, presente, motivo_assenza").gte("data", thirtyDaysAgo).lte("data", today).limit(100),
+      supabase.from("componente_avanzamento").select("progetto, componente, fase_id, fase_label, pezzi_totali, pezzi_prodotti, stato, percentuale_avanzamento, urgency_delta").limit(100),
     ]);
 
-    if (errDip || errMac || errAss || errPres) {
-      console.error("DB Errors:", { errDip, errMac, errAss, errPres });
-    }
-
-    if (errComp) {
-      console.warn("Componente avanzamento table not available:", errComp);
-    }
+    if (errDip) console.error("Dipendenti error:", errDip);
+    if (errMac) console.error("Macchine error:", errMac);
+    if (errAss) console.error("Assegnazioni error:", errAss);
+    if (errPres) console.error("Presenze error:", errPres);
+    if (errComp) console.error("Componente avanzamento error:", errComp);
 
     const systemPrompt = `You are an AI assistant specialized in production scheduling, component advancement tracking, and manufacturing optimization.
 You have detailed knowledge of:
@@ -84,15 +80,35 @@ When a component is >30% behind (-30% urgency), recommend immediate priority act
 Focus on analysis - you cannot modify data directly.`;
 
 
-    // Format component progress data
-    const componentProgressInfo = componentiSummary?.length
-      ? componentiSummary.map((c: any) =>
-          `${c.componente}·${c.progetto}: ${c.percentuale_media?.toFixed(1) || 0}% completato, ` +
-          `urgency ${c.urgency_delta_media?.toFixed(1) || 0}%, ` +
-          `fase attuale: ${c.fase_attuale || 'pending'}, ` +
-          `fasi: ${c.fasi_completate}/${c.total_fasi} completate`
-        ).join('\n')
-      : "Dati componenti non disponibili";
+    // Format component progress data from raw table data
+    const componentsByKey = new Map<string, any[]>();
+    if (componentiAvanzamento?.length) {
+      componentiAvanzamento.forEach((c: any) => {
+        const key = `${c.componente}·${c.progetto}`;
+        if (!componentsByKey.has(key)) {
+          componentsByKey.set(key, []);
+        }
+        componentsByKey.get(key)!.push(c);
+      });
+    }
+
+    const componentProgressInfo = componentsByKey.size > 0
+      ? Array.from(componentsByKey.entries())
+          .map(([key, fasi]) => {
+            const avgPercentuale = fasi.reduce((sum, f) => sum + (f.percentuale_avanzamento || 0), 0) / fasi.length;
+            const avgUrgency = fasi.reduce((sum, f) => sum + (f.urgency_delta || 0), 0) / fasi.length;
+            const completedFases = fasi.filter(f => f.stato === 'completed').length;
+            const currentFase = fasi.find(f => f.stato === 'in_progress')?.fase_label || fasi.find(f => f.stato === 'pending')?.fase_label || 'unknown';
+
+            return `${key}: ${avgPercentuale.toFixed(1)}% completato, urgency ${avgUrgency.toFixed(1)}%, fase attuale: ${currentFase}, fasi: ${completedFases}/${fasi.length} completate`;
+          })
+          .sort((a, b) => {
+            const urgencyA = parseFloat(a.match(/urgency ([-\d.]+)/)?.[1] || "0");
+            const urgencyB = parseFloat(b.match(/urgency ([-\d.]+)/)?.[1] || "0");
+            return urgencyA - urgencyB; // Most critical first (most negative)
+          })
+          .join('\n')
+      : "Dati componenti non disponibili (tabella componente_avanzamento non contiene dati)";
 
     const contextInfo = `
 === PRODUCTION STATUS (${context?.globalDate || new Date().toISOString().split("T")[0]}) ===
@@ -117,8 +133,10 @@ BOTTLENECK ANALYSIS:
 
 URGENT ACTIONS NEEDED:
 ${
-  componentiSummary?.some((c: any) => c.urgency_delta_media < -30)
+  componentiAvanzamento?.some((c: any) => c.urgency_delta && c.urgency_delta < -30)
     ? '⚠️ CRITICA: Component(s) >30% behind schedule - recommend priority changeover'
+    : componentiAvanzamento?.some((c: any) => c.urgency_delta && c.urgency_delta < -15)
+    ? '⚠️ ATTENZIONE: Component(s) >15% behind - monitor closely'
     : 'Status normal'
 }
 `;
