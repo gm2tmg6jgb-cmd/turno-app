@@ -714,6 +714,19 @@ export default function PrioritaView({ showToast, globalDate }) {
         setCellInclusions({});
 
         try {
+            // 1. DELETE existing inventory data for this period
+            const { error: deleteError } = await supabase
+                .from("inventario_fisico")
+                .delete()
+                .gte("data_inventario", selectedDate)
+                .lte("data_inventario", inventarioDateFine);
+
+            if (deleteError) {
+                console.warn("[Reset] Delete warning (may not exist):", deleteError);
+                // Continue anyway, marker insert is what matters
+            }
+
+            // 2. INSERT reset marker
             const { error } = await supabase.from("inventario_fisico").upsert({
                 componente: "MARKER_INIZIO_INVENTARIO",
                 fino: "0000",
