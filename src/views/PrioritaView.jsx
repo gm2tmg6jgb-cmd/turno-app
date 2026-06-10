@@ -1116,17 +1116,6 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                     }}>S</div>
                                                                 )}
 
-                                                                {/* Badge configurazione mancante — fino auto-generato */}
-                                                                {!isConfigMode && rawCell?.isAutoFino && (
-                                                                    <div title="Fino non configurato — vai su ⚙️ Configura Celle per impostare l'operazione SAP" style={{
-                                                                        position: "absolute", top: -5, left: -5,
-                                                                        background: "#ef4444", color: "white",
-                                                                        borderRadius: "50%", width: 14, height: 14,
-                                                                        fontSize: 9, fontWeight: 900,
-                                                                        display: "flex", alignItems: "center", justifyContent: "center"
-                                                                    }}>!</div>
-                                                                )}
-
                                                                 {isConfigMode && (
                                                                     <>
                                                                         {/* Hide/Exclude button - top left */}
