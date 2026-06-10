@@ -86,7 +86,9 @@ const SAP_PREV_SOURCE = {
 
 // Fasi per cui non si usa sapPrev (OP10 non disponibile → solo scarichi SAP)
 const NO_SAP_PREV_PHASES = {
-    "DCT ECO": ["laser_welding", "laser_welding_2", "shaping"]
+    "DCT ECO": ["laser_welding", "laser_welding_2", "shaping"],
+    "8Fe": ["laser_welding", "laser_welding_2", "shaping"],
+    "DCT300": ["laser_welding", "laser_welding_2", "shaping"]
 };
 
 // Fasi non editabili per progetto
