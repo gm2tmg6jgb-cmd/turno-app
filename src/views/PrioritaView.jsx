@@ -383,17 +383,12 @@ export default function PrioritaView({ showToast, globalDate }) {
                 setInventarioOraInizio(markerDataOra);
             }
             // 4. SAP conferme nel periodo inventario
-            let sapQuery = supabase.from("conferme_sap")
-                .select("data,materiale,fino,qta_ottenuta,work_center_sap,macchina_id,turno_id,acq_da,sto")
-                .gte("data", inventarioDate)
-                .lte("data", inventarioDateFine);
-
-            // Filtra per orario se markerDataOra è disponibile
-            if (markerDataOra) {
-                sapQuery = sapQuery.gte("data_ora", markerDataOra);
-            }
-
-            const { data: sapRes } = await fetchAllRows(() => sapQuery);
+            const { data: sapRes } = await fetchAllRows(() =>
+                supabase.from("conferme_sap")
+                    .select("data,materiale,fino,qta_ottenuta,work_center_sap,macchina_id,turno_id,acq_da,sto")
+                    .gte("data", inventarioDate)
+                    .lte("data", inventarioDateFine)
+            );
 
             // Aggrega SAP per comp+fino
             const sapMap = {}; // {comp: {fino: {qty, records}}}
