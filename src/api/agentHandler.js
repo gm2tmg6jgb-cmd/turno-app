@@ -124,6 +124,58 @@ function generateFallbackResponse(query) {
 **Non è critico come FG5/7**
 → Completamento atteso: 12 giugno`,
 
+    urgency: `⚡ **CONSIGLI PER URGENCY**
+
+**Situazione Attuale:**
+• SG5·DCT300: -17% (LEGGERMENTE INDIETRO)
+• FG5/7·8Fe: -34% (CRITICA - 17 PUNTI INDIETRO!)
+• SG2·DCT ECO: +2% (ON TRACK)
+
+**Azioni Urgenti per FG5/7 (PRIORITARIA):**
+✓ **Changeover Immediato Z1-Z3**
+  - Dedicare 2 macchine DRA per soft turning
+  - Setup time: ~30 min
+  - Guadagno: -8% urgency in 2-3 giorni
+
+✓ **Ottimizzare Forno**
+  - Pianificare cariche 1-3 con 50% FG5/7
+  - Non aspettare completamento SG5
+  - Guadagno: -5% urgency
+
+✓ **Setup Pre-caricato Z19-Z21**
+  - Rettifica denti: riduci setup da 3h → 1.5h
+  - Guadagno: -3% urgency
+
+**Impatto Totale Stimato:**
+Se implementi TUTTE le azioni → -16% urgency complessivo in 3 giorni
+→ FG5/7 passa da -34% a -18%`,
+
+    soft: `🔧 **ANALISI SOFT TURNING (Z1-Z3)**
+
+**Macchine Disponibili (Tornitura Soft):**
+• 12 macchine DRA totali (DRA10061-10071, etc.)
+• Attualmente: SG5·DCT300 in corso
+
+**Quale Macchina per Changeover FG5/7?**
+✓ **Dedicare 2 macchine DRA:**
+  - DRA10063 o DRA10064 (specializzate 8Fe)
+  - Setup time: ~30 minuti
+  - Throughput: ~78 pz/h per macchina
+
+**Timeline Changeover:**
+• Setup + test: 30 min
+• Inizio FG5/7: +1 ora da adesso
+• Completamento lotto 1200 pz: ~15-16 ore
+
+**Guadagno Stimato:**
+• FG5/7 accelera: -8% urgency
+• SG5 continua normalmente: 2-3 macchine restanti
+• Load-balancing: distribuire su altre zone
+
+**Alternative:**
+❌ Non switchare SG5 (è già a -17%)
+✓ Aggiungere capacità = soluzione migliore`,
+
     default: `🤖 **AGENTE DI SCHEDULING INTELLIGENTE**
 
 **Status Componenti (9 Giugno):**
@@ -142,7 +194,9 @@ function generateFallbackResponse(query) {
   // Smart keyword matching with priority
   const patterns = [
     { key: "fg5", keywords: ["fg5", "fg 5", "fg5/7", "free gear", "8fe"] },
+    { key: "urgency", keywords: ["urgency", "urgenza", "priorità", "critico", "consigli"] },
     { key: "forno", keywords: ["forno", "heat treatment", "termico", "tempra", "ricottura"] },
+    { key: "soft", keywords: ["soft", "soft turning", "z1", "z1-z3", "tornitura soft", "macchina", "dra"] },
     { key: "sg5", keywords: ["sg5", "sg 5", "dct300"] },
     { key: "bottleneck", keywords: ["bottleneck", "collo", "criticità", "problema"] },
     { key: "stato", keywords: ["stato", "situazione", "produzione", "come va", "attuale"] },
