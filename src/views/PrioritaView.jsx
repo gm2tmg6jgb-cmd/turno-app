@@ -1096,7 +1096,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                     />
                                                                 ) : (
                                                                     <div style={{
-                                                                        fontSize: Math.abs(cell.remaining) >= 1000 ? 14 : 18,
+                                                                        fontSize: 16,
                                                                         fontWeight: 900,
                                                                         color: remainingColor(cell.remaining),
                                                                         opacity: cell.remaining === 0 ? 0.35 : 1
