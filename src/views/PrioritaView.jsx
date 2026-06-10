@@ -111,7 +111,8 @@ export default function PrioritaView({ showToast, globalDate }) {
         const today = new Date();
         const day = today.getDay();
         const diff = today.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
-        const monday = new Date(today.setDate(diff));
+        const monday = new Date(today); // Create a copy!
+        monday.setDate(diff);
         return monday.toISOString().split("T")[0];
     };
 
