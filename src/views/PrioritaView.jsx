@@ -109,8 +109,8 @@ export default function PrioritaView({ showToast, globalDate }) {
     // Calculate first day of week (Monday) and today
     const getWeekStartDate = () => {
         const today = new Date();
-        const day = today.getDay();
-        const diff = today.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
+        const day = today.getDay(); // 0=Sunday, 1=Monday, etc.
+        const diff = today.getDate() - (day === 0 ? 6 : day - 1); // Correct formula for Monday
         const monday = new Date(today); // Create a copy!
         monday.setDate(diff);
         return monday.toISOString().split("T")[0];
