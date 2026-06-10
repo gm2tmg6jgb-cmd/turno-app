@@ -4,7 +4,21 @@ Tutte le modifiche significative di Turno App sono documentate in questo file.
 
 ---
 
-## [2.1.0] — 2026-06-10 — Fix Laboratorio Inventario, UI e Filtri SAP
+## [2.1.0] — 2026-06-10 — Fix Laboratorio Inventario, UI, Filtri SAP e Dashboard Analisi
+
+### ✨ Nuove Funzionalità
+- **Dashboard Analisi Inventario**: nuova vista per analizzare avanzamento componenti con intelligenza predittiva
+  - **KPI Cards**: urgency score (0-100), % completamento, bottleneck principale, tempo ciclo medio
+  - **Timeline previsionale**: stima data completamento con confronto target vs realtà
+  - **Tabella dettagliata**: per ogni fase, mostra quantità, scarti, % input, tempo ciclo
+  - **Heatmap bottleneck**: identifica quali fasi rallentano il flusso di produzione
+  - **Raccomandazioni intelligenti**: azioni suggerite con priorità (HIGH/MEDIUM/LOW) basate su dati
+
+### 🧠 Logica di Analisi
+- Calcolo **urgency score**: % ritardo rispetto target pianificato (0-100, verde <20, giallo 20-60, rosso >60)
+- Identificazione **bottleneck**: quale fase ha il massimo scostamento dal target
+- **Previsione completamento**: stima giorni rimanenti basata su tempo di ciclo medio per fase
+- **Raccomandazioni automatiche**: aumenta capacità bottleneck, accelera fasi critiche, verifica discrepanze inventario
 
 ### 🐛 Bug Fix
 - **Laboratorio Inventario (PrioritaView)**: risolto bug che impediva l'inserimento dati inventario su SG2 MZA (e celle simili)
