@@ -1333,7 +1333,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                     const d = new Date(wDate + "T12:00:00"); d.setDate(d.getDate() - 1); setWDate(d.toISOString().split("T")[0]);
                                 }}>←</button>
                                 <input type="date" value={wDate} onChange={e => setWDate(e.target.value)}
-                                    style={{ padding: "8px 10px", border: "1px solid var(--border-light)", borderLeft: "none", borderRight: "none", background: "white", fontSize: 14, fontWeight: 600, color: "var(--text-primary)", outline: "none", cursor: "pointer" }} />
+                                    style={{ padding: "8px 10px", height: "38px", border: "1px solid var(--border-light)", borderLeft: "none", borderRight: "none", background: "white", fontSize: 14, fontWeight: 600, color: "var(--text-primary)", outline: "none", cursor: "pointer" }} />
                                 <button style={{ padding: "8px 10px", borderRadius: "0 8px 8px 0", border: "1px solid var(--border-light)", background: "white", cursor: "pointer", fontSize: 13, fontWeight: 600 }} onClick={() => {
                                     const d = new Date(wDate + "T12:00:00"); d.setDate(d.getDate() + 1); setWDate(d.toISOString().split("T")[0]);
                                 }}>→</button>

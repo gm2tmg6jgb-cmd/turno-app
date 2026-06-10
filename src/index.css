@@ -669,6 +669,7 @@ tbody tr:hover {
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 8px 12px;
+  height: 38px;
   font-size: 14px;
   color: var(--text-primary);
   font-family: inherit;
