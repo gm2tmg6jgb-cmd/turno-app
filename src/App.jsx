@@ -33,6 +33,7 @@ const ProductionDelaysView = lazy(() => import("./views/ProductionDelaysView"));
 const ThroughputView = lazy(() => import("./views/ThroughputView"));
 const GanttPianificazioneView = lazy(() => import("./views/GanttPianificazioneView"));
 const SapHubView = lazy(() => import("./views/SapHubView"));
+const InventarioAnalysisView = lazy(() => import("./views/InventarioAnalysisView"));
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 function AppContent({ session, onLogout }) {
@@ -253,6 +254,7 @@ function AppContent({ session, onLogout }) {
     { id: "productionFlowReport", label: "Flusso Report Produzione", icon: Icons.report, status: "new" },
     { id: "productionReport", label: "Report Produzione", icon: Icons.report },
     { id: "sapHub", label: "Hub Dati SAP", icon: Icons.settings },
+    { id: "inventarioAnalysis", label: "Analisi Inventario", icon: "📊", status: "new" },
     { id: "productionDelays", label: "Gestione Ritardi Produzione", icon: Icons.alert, status: "new" },
     { id: "anagraficaMacchine", label: "Anagrafica Macchine", icon: Icons.machine, adminOnly: true },
     { id: "anagraficaFermi", label: "Anagrafica Fermi", icon: Icons.settings, adminOnly: true },
@@ -282,6 +284,7 @@ function AppContent({ session, onLogout }) {
     formazione: "Gestione Formazione Operatori",
     inventory: "Gestione Inventario Progetti",
     sapHub: "Hub Dati SAP",
+    inventarioAnalysis: "Dashboard Analisi Inventario",
     agent: "Agente Scheduling",
   };
 
@@ -689,6 +692,13 @@ function AppContent({ session, onLogout }) {
               macchine={macchine}
               showToast={showToast}
               setCurrentView={setCurrentView}
+              globalDate={globalDate}
+            />
+          )}
+
+          {currentView === "inventarioAnalysis" && (
+            <InventarioAnalysisView
+              showToast={showToast}
               globalDate={globalDate}
             />
           )}
