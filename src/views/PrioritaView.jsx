@@ -106,12 +106,35 @@ const normalizeComp = (c, proj = null) => {
 
 
 export default function PrioritaView({ showToast, globalDate }) {
-    const [inventarioDate, setInventarioDate] = useState(() =>
-        localStorage.getItem("lab_inv_date") || new Date().toISOString().split("T")[0]
-    );
-    const [inventarioDateFine, setInventarioDateFine] = useState(() =>
-        localStorage.getItem("lab_inv_date_fine") || new Date().toISOString().split("T")[0]
-    );
+    // Calculate first day of week (Monday) and today
+    const getWeekStartDate = () => {
+        const today = new Date();
+        const day = today.getDay();
+        const diff = today.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
+        const monday = new Date(today.setDate(diff));
+        return monday.toISOString().split("T")[0];
+    };
+
+    const getTodayDate = () => new Date().toISOString().split("T")[0];
+
+    const [inventarioDate, setInventarioDate] = useState(() => {
+        const saved = localStorage.getItem("lab_inv_date");
+        // Clean up invalid dates (year 2023 is invalid for current context)
+        if (saved && saved.includes("2023")) {
+            localStorage.removeItem("lab_inv_date");
+            return getWeekStartDate();
+        }
+        return saved || getWeekStartDate();
+    });
+    const [inventarioDateFine, setInventarioDateFine] = useState(() => {
+        const saved = localStorage.getItem("lab_inv_date_fine");
+        // Clean up invalid dates
+        if (saved && saved.includes("2023")) {
+            localStorage.removeItem("lab_inv_date_fine");
+            return getTodayDate();
+        }
+        return saved || getTodayDate();
+    });
     const noSapPrevRef = React.useRef({});
     const [finoSequences, setFinoSequences] = useState({}); // {comp: [{fino, fase}]}
     const [rawMatrixData, setRawMatrixData] = useState({}); // dati non filtrati
