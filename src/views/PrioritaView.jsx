@@ -1175,7 +1175,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                     textAlign: "center", cursor: isEditable ? "pointer" : "not-allowed",
                                                                     padding: "4px 2px", borderRadius: 6, marginTop: 4,
                                                                     border: cell.inv > 0 ? "none" : "1px dashed var(--border-light)",
-                                                                    background: cell.inv > 0 ? "var(--accent)" : "transparent",
+                                                                    background: cell.inv > 0 ? "var(--success)" : "transparent",
                                                                     opacity: isConfigMode ? 0 : isEditable ? 1 : 0.5
                                                                 }}
                                                             >
