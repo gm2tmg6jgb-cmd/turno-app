@@ -1127,17 +1127,6 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                     }}>!</div>
                                                                 )}
 
-                                                                {/* Badge nessun dato SAP nel periodo (fino configurato ma vuoto) */}
-                                                                {!isConfigMode && !rawCell?.isAutoFino && rawCell?.hasNoSapData && inv === 0 && (
-                                                                    <div title="Nessuno scarico SAP in questo periodo" style={{
-                                                                        position: "absolute", top: -5, left: -5,
-                                                                        background: "#f59e0b", color: "white",
-                                                                        borderRadius: "50%", width: 14, height: 14,
-                                                                        fontSize: 9, fontWeight: 900,
-                                                                        display: "flex", alignItems: "center", justifyContent: "center"
-                                                                    }}>?</div>
-                                                                )}
-
                                                                 {isConfigMode && (
                                                                     <>
                                                                         {/* Hide/Exclude button - top left */}
