@@ -220,9 +220,10 @@ export default function PrioritaView({ showToast, globalDate }) {
         return filtered;
     }, [rawMatrixData, filterExcludeSto, filterExcludeOperators]);
 
-    useEffect(() => {
-        if (globalDate) setInventarioDate(globalDate);
-    }, [globalDate]);
+    // NOTE: Don't sync with globalDate - we want to keep the week start date, not today
+    // useEffect(() => {
+    //     if (globalDate) setInventarioDate(globalDate);
+    // }, [globalDate]);
 
     useEffect(() => {
         if (!isConfigMode) {
