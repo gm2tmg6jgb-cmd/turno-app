@@ -42,6 +42,7 @@ function AppContent({ session, onLogout }) {
   const [hasNewVersion, setHasNewVersion] = useState(() => {
     return localStorage.getItem("lastSeenVersion") !== version;
   });
+  const [logoutConfirmModal, setLogoutConfirmModal] = useState(false);
 
   // Auto-logout dopo 15 minuti di inattività
   useSessionTimeout(15, onLogout);
@@ -486,7 +487,7 @@ function AppContent({ session, onLogout }) {
           </div>
 
           <button
-            onClick={onLogout}
+            onClick={() => setLogoutConfirmModal(true)}
             style={{
               width: "100%",
               marginTop: 8,
@@ -698,6 +699,64 @@ function AppContent({ session, onLogout }) {
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       {showChangelog && <ChangelogModal onClose={() => setShowChangelog(false)} />}
+
+      {logoutConfirmModal && (
+        <div style={{
+          position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1000,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", backdropFilter: "blur(4px)"
+        }} onClick={() => setLogoutConfirmModal(false)}>
+          <div style={{
+            background: "var(--bg-card)", borderRadius: 16,
+            width: "90%", maxWidth: 360,
+            display: "flex", flexDirection: "column",
+            boxShadow: "0 20px 40px rgba(0,0,0,0.5)", border: "1px solid var(--border)",
+            overflow: "hidden"
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{
+              padding: "16px 20px", borderBottom: "1px solid var(--border)",
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              background: "rgba(239, 68, 68, 0.08)"
+            }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#ef4444" }}>🚪 Conferma Logout</h3>
+              <button onClick={() => setLogoutConfirmModal(false)}
+                style={{ background: "rgba(255,255,255,0.05)", border: "none", width: 32, height: 32, borderRadius: "50%", cursor: "pointer", color: "var(--text-muted)", fontSize: 16 }}>✕</button>
+            </div>
+            <div style={{ padding: 20 }}>
+              <p style={{ fontSize: 14, color: "var(--text-primary)", margin: 0 }}>
+                Sei sicuro di voler uscire da TurnoApp?
+              </p>
+            </div>
+            <div style={{
+              display: "flex", gap: 10, padding: 16, borderTop: "1px solid var(--border)",
+              background: "var(--bg-tertiary)", justifyContent: "flex-end"
+            }}>
+              <button
+                onClick={() => setLogoutConfirmModal(false)}
+                style={{
+                  padding: "8px 16px", borderRadius: 8, border: "1px solid var(--border)",
+                  background: "var(--bg-secondary)", color: "var(--text-primary)",
+                  fontSize: 13, fontWeight: 600, cursor: "pointer"
+                }}
+              >
+                Annulla
+              </button>
+              <button
+                onClick={() => {
+                  setLogoutConfirmModal(false);
+                  onLogout();
+                }}
+                style={{
+                  padding: "8px 16px", borderRadius: 8, border: "none",
+                  background: "#ef4444", color: "white",
+                  fontSize: 13, fontWeight: 600, cursor: "pointer"
+                }}
+              >
+                Esci
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
