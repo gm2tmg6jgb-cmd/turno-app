@@ -698,10 +698,12 @@ export default function PrioritaView({ showToast, globalDate }) {
     };
 
     const resetInventarioPeriod = async () => {
-        const selectedDate = resetDate; // YYYY-MM-DD
-        const [hours, minutes] = resetTime.split(":").map(Number); // HH:MM
+        // Use automatic week start date (lunedì), not user selection
+        const selectedDate = inventarioDate; // YYYY-MM-DD (primo giorno settimana)
+        const hours = 0; // Always reset at 00:00
+        const minutes = 0;
 
-        // Costruisce timestamp locale preciso (orario selezionato dall'utente)
+        // Costruisce timestamp locale preciso (sempre 00:00)
         const d = new Date(selectedDate + "T00:00:00");
         d.setHours(hours, minutes, 0, 0);
         const resetTimestampWithTime = d.toISOString();
@@ -1471,53 +1473,19 @@ export default function PrioritaView({ showToast, globalDate }) {
                         </div>
                         <div style={{ padding: 20 }}>
                             <p style={{ fontSize: 14, color: "var(--text-primary)", margin: "0 0 16px 0" }}>
-                                Seleziona data e ora inizio inventario fisico. I dati precedenti rimangono salvati nel database.
+                                Reset inventario fisico per la settimana in corso. I dati precedenti rimangono salvati.
                             </p>
-
-                            {/* Data input */}
-                            <div style={{ marginBottom: 16 }}>
-                                <label style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>
-                                    Data inizio
-                                </label>
-                                <input
-                                    type="date"
-                                    value={resetDate}
-                                    onChange={(e) => setResetDate(e.target.value)}
-                                    style={{
-                                        width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)",
-                                        background: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: 14,
-                                        boxSizing: "border-box"
-                                    }}
-                                />
-                            </div>
-
-                            {/* Time input */}
-                            <div style={{ marginBottom: 16 }}>
-                                <label style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", display: "block", marginBottom: 6 }}>
-                                    Ora inizio
-                                </label>
-                                <input
-                                    type="time"
-                                    value={resetTime}
-                                    onChange={(e) => setResetTime(e.target.value)}
-                                    style={{
-                                        width: "100%", padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)",
-                                        background: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: 14,
-                                        boxSizing: "border-box"
-                                    }}
-                                />
-                            </div>
 
                             <div style={{
                                 background: "rgba(96, 165, 250, 0.08)", padding: 12, borderRadius: 10, marginBottom: 16,
                                 border: "1px solid rgba(96, 165, 250, 0.2)"
                             }}>
                                 <span style={{ fontSize: 13, fontWeight: 700, color: "#60a5fa" }}>
-                                    ✓ {new Date(resetDate).toLocaleDateString("it-IT")} ore {resetTime}
+                                    ✓ Periodo: {new Date(inventarioDate).toLocaleDateString("it-IT")} → {new Date(inventarioDateFine).toLocaleDateString("it-IT")}
                                 </span>
                             </div>
                             <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0 }}>
-                                ℹ️ L'inventario precedente rimane nel database. I dati SAP ripartiranno da questa data/ora.
+                                ℹ️ Reset da lunedì della settimana alle 00:00. I dati SAP ripartiranno da questa settimana.
                             </p>
                         </div>
                         <div style={{
