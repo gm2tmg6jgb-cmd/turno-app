@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Calcolo Capacità Fasi</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; margin-bottom: 10px; font-size: 28px; }
+        .subtitle { color: #666; margin-bottom: 30px; font-size: 14px; }
+
+        .timeline {
+            position: relative;
+            padding: 40px 0;
+            margin: 30px 0;
+        }
+        .timeline-item {
+            position: relative;
+            padding-left: 60px;
+            margin-bottom: 30px;
+        }
+        .timeline-dot {
+            position: absolute;
+            left: 0;
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            top: 0;
+        }
+        .timeline-content {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 3px solid #667eea;
+        }
+        .time { color: #667eea; font-weight: bold; font-size: 16px; }
+        .label { color: #666; font-size: 13px; margin-top: 5px; }
+
+        .calc-section {
+            background: #f0f4ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #667eea;
+        }
+        .calc-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+        }
+        .calc-row:last-child { border-bottom: none; }
+        .calc-label { color: #555; }
+        .calc-value {
+            font-weight: bold;
+            color: #667eea;
+            font-family: 'Courier New', monospace;
+        }
+
+        .result {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 8px;
+            text-align: center;
+            margin-top: 20px;
+        }
+        .result-value {
+            font-size: 42px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .result-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .input-group {
+            margin: 15px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+        }
+        input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            margin-top: 20px;
+            width: 100%;
+        }
+        button:hover { opacity: 0.9; }
+
+        .example { background: #fff3cd; padding: 15px; border-radius: 6px; margin-bottom: 20px; }
+        .example-title { font-weight: bold; color: #856404; margin-bottom: 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>⚡ Calcolo Capacità tra Fasi</h1>
+            <p class="subtitle">Stima di pezzi producibili nel gap tra un lotto e l'altro nella stessa fase</p>
+
+            <div class="example">
+                <div class="example-title">📋 Esempio: SG6-DCT in Fase "Tornitura Soft"</div>
+                <ul style="margin-left: 20px; color: #666; font-size: 13px;">
+                    <li>Lotto A (SG6-DCT) esce dalla fase alle <strong>10:00</strong></li>
+                    <li>Lotto B (SG7-8Fe) entra nella fase alle <strong>10:30</strong></li>
+                    <li>Gap disponibile: <strong>30 minuti</strong></li>
+                    <li>Change over della fase: <strong>5 minuti</strong> (che tu specifichi)</li>
+                    <li>JPH della fase: <strong>60 pezzi/ora</strong> (che tu specifichi)</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 style="margin-bottom: 20px;">🔧 Inserisci i dati</h2>
+
+            <div class="grid-2">
+                <div class="input-group">
+                    <label>Orario uscita Lotto A (HH:MM)</label>
+                    <input type="time" id="oraEscita" value="10:00">
+                </div>
+                <div class="input-group">
+                    <label>Orario entrata Lotto B (HH:MM)</label>
+                    <input type="time" id="oraEntrata" value="10:30">
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <div class="input-group">
+                    <label>Change over (minuti)</label>
+                    <input type="number" id="changeOver" value="5" min="0">
+                </div>
+                <div class="input-group">
+                    <label>JPH - Pezzi per ora</label>
+                    <input type="number" id="jph" value="60" min="0">
+                </div>
+            </div>
+
+            <button onclick="calcola()">Calcola Capacità</button>
+        </div>
+
+        <div class="card" id="risultato" style="display:none;">
+            <h2 style="margin-bottom: 20px;">📊 Timeline</h2>
+
+            <div class="timeline">
+                <div class="timeline-item">
+                    <div class="timeline-dot">1</div>
+                    <div class="timeline-content">
+                        <div class="time" id="t1">10:00</div>
+                        <div class="label">Lotto A esce dalla fase</div>
+                    </div>
+                </div>
+
+                <div class="timeline-item" style="opacity: 0.5;">
+                    <div class="timeline-dot" style="background: #ccc;">⏳</div>
+                    <div class="timeline-content" style="background: #e9ecef; border-left-color: #999;">
+                        <div class="time" style="color: #999;" id="gap">30 minuti</div>
+                        <div class="label">Tempo disponibile per altri pezzi</div>
+                    </div>
+                </div>
+
+                <div class="timeline-item">
+                    <div class="timeline-dot" style="background: #28a745;">2</div>
+                    <div class="timeline-content" style="border-left-color: #28a745;">
+                        <div class="time" style="color: #28a745;" id="t2">10:30</div>
+                        <div class="label">Lotto B entra nella fase</div>
+                    </div>
+                </div>
+            </div>
+
+            <h2 style="margin-bottom: 20px;">🧮 Calcolo</h2>
+
+            <div class="calc-section">
+                <div class="calc-row">
+                    <span class="calc-label">Gap totale</span>
+                    <span class="calc-value" id="calcGap">30 min</span>
+                </div>
+                <div class="calc-row">
+                    <span class="calc-label">Meno: Change over</span>
+                    <span class="calc-value" id="calcCO">- 5 min</span>
+                </div>
+                <div class="calc-row" style="border: none; padding: 15px 0; background: white; margin: 10px -20px -20px; padding: 15px 20px; border-top: 2px solid rgba(102, 126, 234, 0.2);">
+                    <span class="calc-label" style="font-weight: bold;">Tempo netto</span>
+                    <span class="calc-value" id="calcNetto">25 min (0.42 ore)</span>
+                </div>
+                <div class="calc-row">
+                    <span class="calc-label">Moltiplicato JPH</span>
+                    <span class="calc-value" id="calcJPH">× 60 pz/ora</span>
+                </div>
+            </div>
+
+            <div class="result">
+                <div class="result-label">Pezzi potenziali nel gap</div>
+                <div class="result-value" id="risultatoPezzi">25</div>
+                <div class="result-label">producibili prima del prossimo lotto</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function calcola() {
+            const oraEscita = document.getElementById('oraEscita').value;
+            const oraEntrata = document.getElementById('oraEntrata').value;
+            const changeOver = parseFloat(document.getElementById('changeOver').value) || 0;
+            const jph = parseFloat(document.getElementById('jph').value) || 0;
+
+            if (!oraEscita || !oraEntrata) {
+                alert('Inserisci entrambi gli orari');
+                return;
+            }
+
+            // Calcola differenza in minuti
+            const [h1, m1] = oraEscita.split(':').map(Number);
+            const [h2, m2] = oraEntrata.split(':').map(Number);
+            const minEscita = h1 * 60 + m1;
+            const minEntrata = h2 * 60 + m2;
+            let gapMinuti = minEntrata - minEscita;
+
+            if (gapMinuti < 0) gapMinuti += 24 * 60; // Se è il giorno dopo
+
+            const tempoNetto = gapMinuti - changeOver;
+            const tempoNettoOre = tempoNetto / 60;
+            const pezziPotenziali = Math.round(tempoNettoOre * jph);
+
+            // Aggiorna UI
+            document.getElementById('t1').textContent = oraEscita;
+            document.getElementById('t2').textContent = oraEntrata;
+            document.getElementById('gap').textContent = `${gapMinuti} minuti`;
+
+            document.getElementById('calcGap').textContent = `${gapMinuti} min`;
+            document.getElementById('calcCO').textContent = `- ${changeOver} min`;
+            document.getElementById('calcNetto').textContent = `${tempoNetto} min (${tempoNettoOre.toFixed(2)} ore)`;
+            document.getElementById('calcJPH').textContent = `× ${jph} pz/ora`;
+            document.getElementById('risultatoPezzi').textContent = pezziPotenziali;
+
+            document.getElementById('risultato').style.display = 'block';
+
+            // Scroll to result
+            document.getElementById('risultato').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Calcola al caricamento
+        calcola();
+    </script>
+</body>
+</html>

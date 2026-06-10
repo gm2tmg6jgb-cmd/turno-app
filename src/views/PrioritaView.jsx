@@ -381,12 +381,17 @@ export default function PrioritaView({ showToast, globalDate }) {
                 setInventarioOraInizio(markerDataOra);
             }
             // 4. SAP conferme nel periodo inventario
-            const { data: sapRes } = await fetchAllRows(() =>
-                supabase.from("conferme_sap")
-                    .select("data,materiale,fino,qta_ottenuta,work_center_sap,macchina_id,turno_id,acq_da,sto")
-                    .gte("data", inventarioDate)
-                    .lte("data", inventarioDateFine)
-            );
+            let sapQuery = supabase.from("conferme_sap")
+                .select("data,materiale,fino,qta_ottenuta,work_center_sap,macchina_id,turno_id,acq_da,sto")
+                .gte("data", inventarioDate)
+                .lte("data", inventarioDateFine);
+
+            // Filtra per orario se markerDataOra è disponibile
+            if (markerDataOra) {
+                sapQuery = sapQuery.gte("data_ora", markerDataOra);
+            }
+
+            const { data: sapRes } = await fetchAllRows(() => sapQuery);
 
             // Aggrega SAP per comp+fino
             const sapMap = {}; // {comp: {fino: {qty, records}}}
@@ -436,39 +441,9 @@ export default function PrioritaView({ showToast, globalDate }) {
             }
             setUnconfiguredSap(Object.values(unconfigured));
 
-            // Per componenti senza material_fino_overrides, aggiorna finoSeqSorted
-            // usando i finos reali trovati in sapMap (invece dei placeholder)
-            PROJECTS.forEach(proj => {
-                const LAB_SEQUENCE = LAB_SEQUENCE_BY_PROJ[proj] || LAB_SEQUENCE_DEFAULT;
-                (PROJECT_COMPONENTS_LAB[proj] || []).forEach(comp => {
-                    const normComp = normalizeComp(comp, proj);
-                    const seq = finoSeqSorted[normComp] || [];
-                    const compSapFinos = Object.keys(sapMap[normComp] || {}).sort();
-                    if (compSapFinos.length === 0) return;
-
-                    // Conta quante celle hanno finos reali da dbOverrides
-                    const configuredFinos = new Set(
-                        dbOverrides
-                            .filter(o => normalizeComp(o.comp, o.proj) === normComp && o.proj === proj)
-                            .map(o => o.fino)
-                    );
-                    const hasFullConfig = seq.every(s => configuredFinos.has(s.fino));
-                    if (hasFullConfig) return; // già tutto configurato
-
-                    // Assegna finos reali SAP alle fasi in ordine
-                    let finoIdx = 0;
-                    finoSeqSorted[normComp] = LAB_SEQUENCE.map((fase, i) => {
-                        // Se esiste un override DB per questa fase, usalo
-                        const override = dbOverrides.find(o =>
-                            normalizeComp(o.comp, o.proj) === normComp && o.proj === proj && o.fase === fase
-                        );
-                        if (override) return { fino: override.fino, fase };
-                        // Altrimenti usa il prossimo fino reale da SAP
-                        const sapFino = compSapFinos[finoIdx++] || String(i + 1).padStart(4, "0");
-                        return { fino: sapFino, fase };
-                    });
-                });
-            });
+            // Mantieni finoSequences auto-generati — non ricalcolare da SAP perché
+            // l'ordine SAP potrebbe non corrispondere all'ordine delle fasi
+            // e causa mismatch tra fino renderizzati e fino cercati in saveInventory
 
             // 5. Calcolo WIP flow per componente
             // Prima passata: costruisci la mappa sap per ogni cella
@@ -646,7 +621,6 @@ export default function PrioritaView({ showToast, globalDate }) {
                 const key = `inv_${normComp}_${saveFino}`;
                 const data = { componente: normComp, fino: saveFino, quantita: qty, data_inventario: inventarioDate, updated_at: new Date().toISOString() };
                 localStorage.setItem(key, JSON.stringify(data));
-                showToast?.(`Salvato: ${comp} op.${saveFino} = ${qty}`, "success");
             } else {
                 const { error } = await supabase.from("inventario_fisico")
                     .upsert({
@@ -666,7 +640,12 @@ export default function PrioritaView({ showToast, globalDate }) {
                 if (!updated[normComp]) return prev;
                 const seq = finoSequences[normComp] || [];
                 const idx = seq.findIndex(s => s.fino === saveFino);
-                if (idx === -1) return prev;
+                if (idx === -1) {
+                    // Fallback: se non trovi il fino nella sequenza, non puoi aggiornare rawMatrixData
+                    // Ma il salvataggio nel DB è avvenuto, quindi ritorna comunque
+                    console.warn(`[saveInventory] Fino ${saveFino} non trovato in sequenza per ${normComp}. Sequenza:`, seq.map(s => s.fino));
+                    return prev;
+                }
                 const fase = seq[idx].fase;
 
                 // Ricalcola fase corrente
@@ -688,6 +667,8 @@ export default function PrioritaView({ showToast, globalDate }) {
                 }
                 return updated;
             });
+
+            showToast?.(`Salvato: ${comp} op.${saveFino} = ${qty}`, "success");
 
         } catch (err) {
             console.error("[PrioritaView] Errore salvataggio inventario:", err);
@@ -1497,8 +1478,29 @@ export default function PrioritaView({ showToast, globalDate }) {
                                     ✓ Periodo: {new Date(inventarioDate).toLocaleDateString("it-IT")} → {new Date(inventarioDateFine).toLocaleDateString("it-IT")}
                                 </span>
                             </div>
+
+                            <div style={{ marginBottom: 16 }}>
+                                <label style={{ fontSize: 12, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 8 }}>
+                                    Orario inizio inventario fisico
+                                </label>
+                                <input
+                                    type="time"
+                                    value={resetTime}
+                                    onChange={e => setResetTime(e.target.value)}
+                                    style={{
+                                        width: "100%", padding: "8px 12px", borderRadius: 8,
+                                        border: "1px solid var(--border-light)", backgroundColor: "var(--bg-secondary)",
+                                        fontSize: 14, fontWeight: 600, color: "var(--text-primary)",
+                                        outline: "none"
+                                    }}
+                                />
+                                <span style={{ fontSize: 11, color: "var(--text-muted)", display: "block", marginTop: 6 }}>
+                                    📋 Transazioni SAP prima di questo orario verranno escluse
+                                </span>
+                            </div>
+
                             <p style={{ fontSize: 12, color: "var(--text-muted)", margin: 0 }}>
-                                ℹ️ Reset da lunedì della settimana alle 00:00. I dati SAP ripartiranno da questa settimana.
+                                ℹ️ Inventario da lunedì alle {resetTime}. I dati SAP ripartiranno da questo momento.
                             </p>
                         </div>
                         <div style={{
