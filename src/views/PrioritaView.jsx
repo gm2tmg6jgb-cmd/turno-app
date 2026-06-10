@@ -119,22 +119,15 @@ export default function PrioritaView({ showToast, globalDate }) {
     const getTodayDate = () => new Date().toISOString().split("T")[0];
 
     const [inventarioDate, setInventarioDate] = useState(() => {
-        const saved = localStorage.getItem("lab_inv_date");
-        // Clean up invalid dates (year 2023 is invalid for current context)
-        if (saved && saved.includes("2023")) {
-            localStorage.removeItem("lab_inv_date");
-            return getWeekStartDate();
-        }
-        return saved || getWeekStartDate();
+        // Always use calculated week start date, don't use localStorage for this
+        // (laboratorio needs fresh calculation)
+        localStorage.removeItem("lab_inv_date");
+        return getWeekStartDate();
     });
     const [inventarioDateFine, setInventarioDateFine] = useState(() => {
-        const saved = localStorage.getItem("lab_inv_date_fine");
-        // Clean up invalid dates
-        if (saved && saved.includes("2023")) {
-            localStorage.removeItem("lab_inv_date_fine");
-            return getTodayDate();
-        }
-        return saved || getTodayDate();
+        // Always use today's date, don't use localStorage for this
+        localStorage.removeItem("lab_inv_date_fine");
+        return getTodayDate();
     });
     const noSapPrevRef = React.useRef({});
     const [finoSequences, setFinoSequences] = useState({}); // {comp: [{fino, fase}]}
