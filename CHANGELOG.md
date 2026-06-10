@@ -4,6 +4,29 @@ Tutte le modifiche significative di Turno App sono documentate in questo file.
 
 ---
 
+## [2.1.0] — 2026-06-10 — Fix Laboratorio Inventario, UI e Filtri SAP
+
+### 🐛 Bug Fix
+- **Laboratorio Inventario (PrioritaView)**: risolto bug che impediva l'inserimento dati inventario su SG2 MZA (e celle simili)
+  - Rimossa ricalcolazione della sequenza `fino` basata su dati SAP (causava mismatch tra cella renderizzata e cella salvata)
+  - Aggiunto fallback e logging in `saveInventory` per casi di fino non trovato
+  - Aggiunto toast di conferma al salvataggio inventario
+
+### ✨ Nuove Funzionalità
+- **Filtro SAP per orario di inizio inventario**: nel reset periodo è ora possibile impostare l'orario di inizio inventario fisico
+  - Le transazioni SAP precedenti a tale orario vengono escluse dal calcolo del WIP
+  - Nuovo input "time" nel modal di Reset Periodo
+- **Conferma Logout**: aggiunta modal di conferma ("Sei sicuro di voler uscire?") al click su "🚪 Esci", per evitare disconnessioni accidentali
+- **Regola NO_SAP_PREV_PHASES estesa a 8Fe e DCT300**: le fasi `laser_welding`, `laser_welding_2` e `shaping` (senza OP10 disponibile) ora seguono la stessa logica di calcolo WIP già applicata a DCT ECO, per tutti e 3 i progetti
+
+### 🎨 Miglioramenti UI
+- **Light mode di default**: l'app ora si apre in tema chiaro per i nuovi utenti (chi ha già una preferenza salvata la mantiene)
+- **Altezza standard 38px** per tutti i bottoni e i campi input/select/date, per un'interfaccia più coerente
+- **Laboratorio Inventario**: rimossi i badge "?" (nessuno scarico SAP) e "!" (fino non configurato) dalle celle, ritenuti poco utili
+- **Font size uniforme (16px)** per i valori numerici nelle celle del Laboratorio Inventario, indipendentemente dal numero di cifre
+
+---
+
 ## [2.0.0] — 2026-06-05 — Agente di Scheduling Intelligente con Claude AI
 
 ### ✨ Nuove Funzionalità Principali
