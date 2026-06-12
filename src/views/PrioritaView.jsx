@@ -173,7 +173,8 @@ export default function PrioritaView({ showToast, globalDate }) {
     });
     const [isConfigMode, setIsConfigMode] = useState(false);
     const [quickConfigModal, setQuickConfigModal] = useState(null);
-    const [showDetails, setShowDetails] = useState(true);
+    const [showSap, setShowSap] = useState(true);
+    const [showInventory, setShowInventory] = useState(true);
     const [activeTab, setActiveTab] = useState("DCT ECO");
     const [unconfiguredSap, setUnconfiguredSap] = useState([]); // [{materiale, fino, qty}]
     const [resetConfirmModal, setResetConfirmModal] = useState(false); // Modal reset
@@ -204,10 +205,11 @@ export default function PrioritaView({ showToast, globalDate }) {
                     return true;
                 });
                 const filteredSap = filteredRecords.reduce((sum, r) => sum + (r.qta_ottenuta || 0), 0);
+                const filteredRawRemaining = (cell.inv || 0) - filteredSap + (cell.sapPrev || 0);
                 filtered[comp][fase] = {
                     ...cell,
                     sap: filteredSap,
-                    remaining: (cell.inv || 0) - filteredSap + (cell.sapPrev || 0),
+                    remaining: (cell.noPrevInput && filteredRawRemaining < 0) ? 0 : filteredRawRemaining,
                     records: filteredRecords
                 };
             }
@@ -393,7 +395,6 @@ export default function PrioritaView({ showToast, globalDate }) {
             // Aggrega SAP per comp+fino
             const sapMap = {}; // {comp: {fino: {qty, records}}}
 
-
             // Filtro materiali e progetto stretti
             // Match esatto mat+fino ha priorità, mat senza fino è fallback generico (come ComponentFlowView)
             const validConfigMap = {};  // {mat_fino: {comp, fase}}
@@ -438,6 +439,29 @@ export default function PrioritaView({ showToast, globalDate }) {
             }
             setUnconfiguredSap(Object.values(unconfigured));
 
+            // 4b. Prelievi BAA da MB51 (tabella prelievi_baa) — alimenta la fase "baa"
+            const { data: baaRes } = await fetchAllRows(() =>
+                supabase.from("prelievi_baa")
+                    .select("data,orario,materiale,quantita")
+                    .gte("data", inventarioDate)
+                    .lte("data", inventarioDateFine)
+            );
+            const baaMap = {}; // {comp: {qty, records}}
+            if (baaRes) {
+                baaRes.forEach(r => {
+                    const matCode = (r.materiale || "").toUpperCase().split("/")[0].trim();
+                    // Il materiale di "baa" coincide con quello dell'ultima fase (washing): usa l'override
+                    // esplicito per fase "baa" se presente, altrimenti quello di "washing"
+                    const override = dbOverrides.find(o => o.mat === matCode && o.fase === "baa")
+                        || dbOverrides.find(o => o.mat === matCode && o.fase === "washing");
+                    if (!override || !PROJECTS.includes(override.proj)) return;
+                    const comp = normalizeComp(override.comp, override.proj);
+                    if (!baaMap[comp]) baaMap[comp] = { qty: 0, records: [] };
+                    baaMap[comp].qty += Math.abs(r.quantita || 0);
+                    baaMap[comp].records.push({ ...r, matCode });
+                });
+            }
+
             // Mantieni finoSequences auto-generati — non ricalcolare da SAP perché
             // l'ordine SAP potrebbe non corrispondere all'ordine delle fasi
             // e causa mismatch tra fino renderizzati e fino cercati in saveInventory
@@ -454,48 +478,59 @@ export default function PrioritaView({ showToast, globalDate }) {
 
                     // Prima passata: calcola sap per ogni cella (chiave = fase, unica nella sequenza)
                     seq.forEach(({ fino, fase, isAutoFino }) => {
-                        const sap = sapMap[normComp]?.[fino]?.qty || 0;
-                        const sapRecords = sapMap[normComp]?.[fino]?.records || [];
+                        const sap = fase === "baa"
+                            ? (baaMap[normComp]?.qty || 0)
+                            : (sapMap[normComp]?.[fino]?.qty || 0);
+                        const sapRecords = fase === "baa"
+                            ? (baaMap[normComp]?.records || [])
+                            : (sapMap[normComp]?.[fino]?.records || []);
                         newMatrix[normComp][fase] = { fino, fase, isAutoFino, sap, sapRecords };
                     });
 
-                    // Seconda passata: propaga sapPrev = sap della fase precedente visibile
+                    // Seconda passata: propaga sapPrev = sap della fase precedente visibile.
+                    // Le celle nascoste (escluse) senza dati SAP propri sono "trasparenti":
+                    // passano i dati ricevuti (sapPrev) alla prima cella visibile successiva
+                    // e il proprio contenuto viene azzerato.
+                    let carry = 0;
                     seq.forEach(({ fino, fase, isAutoFino }, idx) => {
                         const inv = invMap[normComp]?.[fino] || 0;
                         const cellData = newMatrix[normComp]?.[fase] || { sap: 0, sapRecords: [] };
                         const { sap, sapRecords } = cellData;
                         const hasNoSapData = sap === 0 && (sapRecords || []).length === 0;
+                        const isHidden = !!excl[`${normComp}:${fase}`];
 
                         const sapPrevSourceFase = SAP_PREV_SOURCE[proj]?.[fase];
                         let sapPrev = 0;
-                        const noSapPrev = !!(NO_SAP_PREV_PHASES[proj]?.includes(fase));
+                        const noSapPrev = !!(NO_SAP_PREV_PHASES[proj]?.includes(fase)) !== !!noSapPrevRef.current[`${normComp}:${fase}`];
 
                         if (!noSapPrev && idx > 0) {
                             if (sapPrevSourceFase) {
                                 const sourceIdx = seq.findIndex(s => s.fase === sapPrevSourceFase);
-                                for (let i = sourceIdx; i >= 0; i--) {
-                                    if (!excl[`${normComp}:${seq[i].fase}`]) {
-                                        sapPrev = newMatrix[normComp][seq[i].fase]?.sap || 0;
-                                        break;
-                                    }
+                                if (sourceIdx >= 0) {
+                                    sapPrev = newMatrix[normComp][seq[sourceIdx].fase]?.sap || 0;
                                 }
                             } else {
-                                for (let i = idx - 1; i >= 0; i--) {
-                                    if (!excl[`${normComp}:${seq[i].fase}`]) {
-                                        sapPrev = newMatrix[normComp][seq[i].fase]?.sap || 0;
-                                        break;
-                                    }
-                                }
+                                sapPrev = carry;
                             }
                         }
 
-                        const isFirstActive = sapPrev === 0 && idx === 0;
-                        const remaining = (isFirstActive && inv === 0) ? sap : (inv - sap + sapPrev);
+                        const noPrevInput = idx === 0 || noSapPrev;
+                        const rawRemaining = inv - sap + sapPrev;
+                        const remaining = (noPrevInput && rawRemaining < 0) ? 0 : rawRemaining;
 
-                        newMatrix[normComp][fase] = {
-                            fino, fase, inv, sap, sapPrev, remaining,
-                            records: sapRecords, isFirstActive, isAutoFino, hasNoSapData, noSapPrev
-                        };
+                        if (isHidden && hasNoSapData) {
+                            carry = sapPrev;
+                            newMatrix[normComp][fase] = {
+                                fino, fase, inv, sap: 0, sapPrev: 0, remaining: 0,
+                                records: sapRecords, isAutoFino, hasNoSapData, noSapPrev, noPrevInput
+                            };
+                        } else {
+                            carry = sap;
+                            newMatrix[normComp][fase] = {
+                                fino, fase, inv, sap, sapPrev, remaining,
+                                records: sapRecords, isAutoFino, hasNoSapData, noSapPrev, noPrevInput
+                            };
+                        }
                     });
                 });
             });
@@ -829,9 +864,14 @@ export default function PrioritaView({ showToast, globalDate }) {
                                 🔄 Reset Periodo
                             </button>
 
-                            <button onClick={() => setShowDetails(!showDetails)}
-                                style={{ ...btnBase, ...(showDetails ? { backgroundColor: "rgba(96,165,250,0.1)", color: "#60a5fa", border: "1px solid #60a5fa33" } : {}) }}>
-                                {showDetails ? "Nascondi Dettagli" : "Mostra Dettagli"}
+                            <button onClick={() => setShowSap(!showSap)}
+                                style={{ ...btnBase, ...(showSap ? { backgroundColor: "rgba(96,165,250,0.1)", color: "#60a5fa", border: "1px solid #60a5fa33" } : {}) }}>
+                                {showSap ? "Nascondi SAP" : "Mostra SAP"}
+                            </button>
+
+                            <button onClick={() => setShowInventory(!showInventory)}
+                                style={{ ...btnBase, ...(showInventory ? { backgroundColor: "rgba(96,165,250,0.1)", color: "#60a5fa", border: "1px solid #60a5fa33" } : {}) }}>
+                                {showInventory ? "Nascondi Inventario" : "Mostra Inventario"}
                             </button>
 
                             <button onClick={() => setIsConfigMode(!isConfigMode)}
@@ -1160,7 +1200,8 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                 )}
                                                             </div>
 
-                                                            {/* Inventario fisico (sempre visibile e editabile) */}
+                                                            {/* Inventario fisico (editabile, visibile solo se showInventory) */}
+                                                            {showInventory && (
                                                             <div
                                                                 onClick={() => isEditable && startEditing(normComp, fino, cell.inv, proj)}
                                                                 title={isEditable ? "Modifica inventario fisico" : "Questa fase non è editabile"}
@@ -1176,9 +1217,10 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                             >
                                                                 {`Inv: ${cell.inv || 0}`}
                                                             </div>
+                                                            )}
 
-                                                            {/* Riga dettagli SAP (visibili solo se showDetails) */}
-                                                            {showDetails && (
+                                                            {/* Riga dettagli SAP (visibili solo se showSap) */}
+                                                            {showSap && (
                                                                 <div style={{
                                                                     display: "flex", flexDirection: "column", gap: 3,
                                                                     padding: "4px 2px", width: "100%", borderTop: "1px solid var(--border-light)", marginTop: 4

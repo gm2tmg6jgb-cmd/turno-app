@@ -838,7 +838,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 boxShadow: isExpanded ? "0 20px 60px rgba(0,0,0,0.4)" : "0 10px 30px rgba(0,0,0,0.08)",
                 overflow: "hidden",
                 gridColumn: isExpanded ? "auto" : "span 1",
-                height: isExpanded ? "100%" : "auto"
+                height: "100%"
             }}>
                 {/* Header con Gradiente Soft */}
                 <div style={{
@@ -936,7 +936,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
             </div>
 
                 {/* Content con Scroll Interno */}
-                <div style={{ flex: 1, overflow: "auto", padding: isExpanded ? "24px" : "12px" }}>
+                <div style={{ flex: 1, overflow: "auto", padding: isExpanded ? "24px" : "12px", scrollbarGutter: "stable" }}>
                     <div style={{ minWidth: "max-content" }}>
                         {/* Phases Row */}
                         <div style={{ display: "flex", marginBottom: "16px", paddingLeft: "110px" }}>
@@ -1465,7 +1465,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     style={{
                         display: "grid",
                         gridTemplateColumns: "1fr 1fr",
-                        gridTemplateRows: "1fr 1fr",
+                        gridAutoRows: "1fr",
                         gap: "12px",
                         height: "calc(100vh - 90px)",
                         padding: "0",

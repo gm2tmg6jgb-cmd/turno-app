@@ -405,6 +405,7 @@ function AppContent({ session, onLogout }) {
                 {renderItem(ni("productionFlowReport"))}
                 {renderItem(ni("productionReport"))}
                 {renderItem(ni("sapHub"))}
+                {renderItem(ni("inventarioAnalysis"))}
                 {renderItem(ni("lpaPlan"))}
                 {renderItem(ni("op10"))}
 

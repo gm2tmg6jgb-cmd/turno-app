@@ -1,246 +1,238 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { PROCESS_STEPS } from '../data/constants';
 
-export function useInventoryAnalysis(project, component, startDate, endDate) {
-  const [data, setData] = useState(null);
+const PHASE_ORDER = PROCESS_STEPS.map(s => s.id);
+const phaseSortIndex = (id) => {
+  const idx = PHASE_ORDER.indexOf(id);
+  return idx === -1 ? 999 : idx;
+};
+const phaseLabel = (id) => PROCESS_STEPS.find(s => s.id === id)?.label || id;
+
+// Lista dei progetti per cui esiste un piano di avanzamento
+export function useAvailableProjects() {
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('componente_avanzamento')
+        .select('progetto');
+
+      if (cancelled) return;
+      if (!error && data) {
+        setProjects([...new Set(data.map(r => r.progetto))]);
+      }
+      setLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  return { projects, loading };
+}
+
+// Analisi di tutti i componenti di un progetto in un'unica vista
+export function useProjectAnalysis(project) {
+  const [components, setComponents] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!project || !component || !startDate || !endDate) return;
+    if (!project) {
+      setComponents([]);
+      return;
+    }
 
+    let cancelled = false;
     const fetchAnalysis = async () => {
       setLoading(true);
       setError(null);
       try {
-        // 1. Fetch SAP conferme nel periodo
-        const { data: sapData, error: sapError } = await supabase
-          .from('conferme_sap')
-          .select('data, materiale, fino, qta_ottenuta, qta_scarto, work_center_sap, macchina_id')
-          .gte('data', startDate)
-          .lte('data', endDate);
-
-        if (sapError) throw sapError;
-
-        // 2. Fetch target da componente_avanzamento
-        const { data: targetData, error: targetError } = await supabase
+        const { data: rows, error: err } = await supabase
           .from('componente_avanzamento')
           .select('*')
-          .eq('componente', component)
-          .eq('progetto', project)
-          .single();
+          .eq('progetto', project);
 
-        // targetError non è critico se la riga non esiste
+        if (err) throw err;
+        if (cancelled) return;
 
-        // 3. Aggregazione e calcoli
-        const analysis = calculateAnalysis(sapData, targetData, startDate, endDate);
-        setData(analysis);
+        const byComponent = {};
+        (rows || []).forEach(r => {
+          if (!byComponent[r.componente]) byComponent[r.componente] = [];
+          byComponent[r.componente].push(r);
+        });
+
+        const result = Object.entries(byComponent)
+          .map(([componente, compRows]) => ({
+            componente,
+            ...calculateAnalysis(compRows)
+          }))
+          // Componenti più urgenti per primi
+          .sort((a, b) => b.urgencyScore - a.urgencyScore);
+
+        setComponents(result);
       } catch (err) {
-        console.error('[useInventoryAnalysis] Error:', err);
-        setError(err.message);
+        console.error('[useProjectAnalysis] Error:', err);
+        if (!cancelled) setError(err.message);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchAnalysis();
-  }, [project, component, startDate, endDate]);
+    return () => { cancelled = true; };
+  }, [project]);
 
-  return { data, loading, error };
+  return { components, loading, error };
 }
 
-function calculateAnalysis(sapData, targetData, startDate, endDate) {
-  // Aggregazione SAP per fase
-  const phaseInventory = aggregateSAPByPhase(sapData);
+function calculateAnalysis(rows) {
+  if (!rows || rows.length === 0) return null;
 
-  // Calcolo ciclo time medio per fase
-  const cycleTimesPerPhase = calculateCycleTimes(sapData);
+  const phases = rows
+    .map(r => ({
+      id: r.fase_id,
+      label: r.fase_label || phaseLabel(r.fase_id),
+      totale: r.pezzi_totali || 0,
+      prodotti: r.pezzi_prodotti || 0,
+      pct: Math.round(Number(r.percentuale_avanzamento) || 0),
+      stato: r.stato || 'pending',
+      dataInizio: r.data_inizio,
+      dataFinePrevista: r.data_fine_prevista,
+      dataFineEffettiva: r.data_fine_effettiva,
+      urgencyDelta: Math.round(Number(r.urgency_delta) || 0),
+      note: r.note,
+      updatedAt: r.updated_at
+    }))
+    .sort((a, b) => phaseSortIndex(a.id) - phaseSortIndex(b.id));
 
-  // Identificazione bottleneck
-  const bottleneckPhase = identifyBottleneck(phaseInventory, targetData);
+  const targetTotal = phases[0]?.totale || 0;
 
-  // Calcolo urgency score
-  const urgencyScore = calculateUrgencyScore(targetData, phaseInventory, cycleTimesPerPhase);
-
-  // Previsione completamento
-  const completionDate = estimateCompletionDate(phaseInventory, cycleTimesPerPhase, targetData);
-
-  // Raccomandazioni intelligenti
-  const recommendations = generateRecommendations(
-    phaseInventory,
-    bottleneckPhase,
-    urgencyScore,
-    cycleTimesPerPhase,
-    targetData
+  // Avanzamento generale: media delle percentuali di tutte le fasi
+  const overallProgress = Math.round(
+    phases.reduce((sum, p) => sum + p.pct, 0) / phases.length
   );
 
-  return {
-    phaseInventory,
-    targetProgress: targetData || {},
-    cycleTimesPerPhase,
-    bottleneckPhase,
-    urgencyScore,
-    recommendations,
-    completionDate,
-    analysisRange: { startDate, endDate }
-  };
-}
+  // Fasi non ancora completate
+  const activePhases = phases.filter(p => p.stato !== 'completed');
+  const completedCount = phases.length - activePhases.length;
 
-function aggregateSAPByPhase(sapData) {
-  if (!sapData || sapData.length === 0) return [];
+  // Urgency score: deriva dal peggior ritardo (urgency_delta) tra le fasi attive
+  const worstDelta = activePhases.length > 0
+    ? Math.min(...activePhases.map(p => p.urgencyDelta))
+    : 0;
+  const urgencyScore = Math.round(Math.min(100, Math.max(0, -worstDelta * 2)));
 
-  const phaseMap = {};
-  sapData.forEach(row => {
-    const workCenter = row.work_center_sap || 'unknown';
-    if (!phaseMap[workCenter]) {
-      phaseMap[workCenter] = {
-        phase: workCenter,
-        quantity: 0,
-        scrap: 0,
-        records: []
+  // Bottleneck: fase attiva con il delta peggiore
+  let bottleneck = null;
+  if (activePhases.length > 0) {
+    const worst = activePhases.reduce((a, b) => (a.urgencyDelta <= b.urgencyDelta ? a : b));
+    if (worst.urgencyDelta < 0) {
+      bottleneck = {
+        phase: worst.label,
+        impact: Math.abs(worst.urgencyDelta),
+        reason: worst.note || `${worst.label} è al ${worst.pct}% (${worst.prodotti}/${worst.totale} pz)`
       };
     }
-    phaseMap[workCenter].quantity += row.qta_ottenuta || 0;
-    phaseMap[workCenter].scrap += row.qta_scarto || 0;
-    phaseMap[workCenter].records.push(row);
-  });
-
-  return Object.values(phaseMap).sort((a, b) => b.quantity - a.quantity);
-}
-
-function calculateCycleTimes(sapData) {
-  if (!sapData || sapData.length === 0) return {};
-
-  const phaseTimings = {};
-  sapData.forEach(row => {
-    const workCenter = row.work_center_sap || 'unknown';
-    if (!phaseTimings[workCenter]) {
-      phaseTimings[workCenter] = { dates: [] };
-    }
-    phaseTimings[workCenter].dates.push(new Date(row.data));
-  });
-
-  const cycleTimes = {};
-  Object.entries(phaseTimings).forEach(([phase, timing]) => {
-    if (timing.dates.length > 1) {
-      const minDate = Math.min(...timing.dates.map(d => d.getTime()));
-      const maxDate = Math.max(...timing.dates.map(d => d.getTime()));
-      const daysDiff = (maxDate - minDate) / (1000 * 60 * 60 * 24);
-      cycleTimes[phase] = Math.round((daysDiff * 24) / Math.max(1, timing.dates.length)); // ore medie
-    }
-  });
-
-  return cycleTimes;
-}
-
-function identifyBottleneck(phaseInventory, targetData) {
-  if (!phaseInventory || phaseInventory.length === 0) {
-    return { phase: 'unknown', impact: 0, reason: 'No data' };
   }
 
-  // Semplice: la fase con meno quantità è il bottleneck (collo di bottiglia)
-  const bottleneck = phaseInventory[phaseInventory.length - 1];
-  const impact = Math.round(((phaseInventory[0].quantity - bottleneck.quantity) / phaseInventory[0].quantity) * 100);
+  // Fase corrente: prima fase non completata
+  const currentPhase = activePhases[0] || null;
+
+  // Stima ritardo accumulato: fasi attive la cui data fine prevista è già passata
+  const today = new Date();
+  let delayDays = 0;
+  activePhases.forEach(p => {
+    if (p.dataFinePrevista) {
+      const prevista = new Date(p.dataFinePrevista);
+      if (prevista < today) {
+        const delay = Math.ceil((today - prevista) / (1000 * 60 * 60 * 24));
+        delayDays = Math.max(delayDays, delay);
+      }
+    }
+  });
+
+  // Data di completamento stimata = fine prevista ultima fase + ritardo accumulato
+  const lastPhase = phases[phases.length - 1];
+  let completionDateOriginal = null;
+  let completionDate = null;
+  if (lastPhase?.dataFinePrevista) {
+    completionDateOriginal = new Date(lastPhase.dataFinePrevista);
+    completionDate = delayDays > 0
+      ? new Date(completionDateOriginal.getTime() + delayDays * 24 * 60 * 60 * 1000)
+      : completionDateOriginal;
+  }
+
+  // Ultimo aggiornamento dati
+  const lastUpdated = phases.reduce((latest, p) => {
+    if (!p.updatedAt) return latest;
+    const d = new Date(p.updatedAt);
+    return (!latest || d > latest) ? d : latest;
+  }, null);
+
+  const recommendations = generateRecommendations(phases, activePhases, delayDays);
 
   return {
-    phase: bottleneck.phase,
-    impact,
-    reason: `${bottleneck.phase} ha processato solo ${bottleneck.quantity} pezzi vs ${phaseInventory[0].quantity} in input`
+    phases,
+    targetTotal,
+    completedCount,
+    totalPhases: phases.length,
+    currentPhase,
+    overallProgress,
+    urgencyScore,
+    bottleneck,
+    completionDate,
+    completionDateOriginal,
+    delayDays,
+    lastUpdated,
+    recommendations
   };
 }
 
-function calculateUrgencyScore(targetData, phaseInventory, cycleTimesPerPhase) {
-  if (!targetData) return 50; // default
+function generateRecommendations(phases, activePhases, delayDays) {
+  const recs = [];
 
-  const totalQty = phaseInventory.reduce((sum, p) => sum + p.quantity, 0);
-  const targetQty = targetData.qta_target_totale || 1;
-  const completionPct = Math.min(100, (totalQty / targetQty) * 100);
-
-  // Base: % ritardo rispetto target
-  let score = Math.max(0, 100 - completionPct);
-
-  // Moltiplicatori
-  if (completionPct < 50) score *= 1.5; // molto indietro
-  if (phaseInventory.length > 0 && phaseInventory[phaseInventory.length - 1].quantity < targetQty * 0.3) {
-    score *= 1.3; // bottleneck severo
-  }
-
-  return Math.round(Math.min(100, score));
-}
-
-function estimateCompletionDate(phaseInventory, cycleTimesPerPhase, targetData) {
-  if (!targetData) return null;
-
-  const totalQty = phaseInventory.reduce((sum, p) => sum + p.quantity, 0);
-  const remainingQty = Math.max(0, (targetData.qta_target_totale || 0) - totalQty);
-
-  if (remainingQty <= 0) {
-    return new Date(); // Already complete
-  }
-
-  const avgCycleTimeHours = Object.values(cycleTimesPerPhase).length > 0
-    ? Math.round(Object.values(cycleTimesPerPhase).reduce((a, b) => a + b, 0) / Object.values(cycleTimesPerPhase).length)
-    : 24; // default 1 day per phase
-
-  const hoursRemaining = remainingQty * (avgCycleTimeHours / Math.max(1, phaseInventory[0]?.quantity || 1));
-  const daysRemaining = Math.ceil(hoursRemaining / 8); // 8 ore lavoro al giorno
-
-  const today = new Date();
-  const estimatedDate = new Date(today.getTime() + daysRemaining * 24 * 60 * 60 * 1000);
-
-  return estimatedDate;
-}
-
-function generateRecommendations(phaseInventory, bottleneckPhase, urgencyScore, cycleTimesPerPhase, targetData) {
-  const recommendations = [];
-
-  // Raccomandazione 1: Bottleneck
-  if (bottleneckPhase.impact > 30) {
-    recommendations.push({
-      action: `Aumenta capacità in ${bottleneckPhase.phase}`,
-      impact: 'HIGH',
-      priority: 1,
-      details: `Questa fase ha un ritardo del ${bottleneckPhase.impact}%. Aggiungi turni o parallelizza lavorazioni.`
-    });
-  }
-
-  // Raccomandazione 2: Urgency critica
-  if (urgencyScore > 70) {
-    recommendations.push({
-      action: 'Attiva piano di recupero urgente',
-      impact: 'HIGH',
-      priority: 2,
-      details: `Urgency score ${urgencyScore}/100. Considerare straordinari o ressourceing da altri progetti.`
-    });
-  }
-
-  // Raccomandazione 3: Discrepanza inventario
-  if (phaseInventory.length > 0) {
-    const maxQty = phaseInventory[0].quantity;
-    const minQty = phaseInventory[phaseInventory.length - 1].quantity;
-    const discrepancy = Math.round(((maxQty - minQty) / maxQty) * 100);
-    if (discrepancy > 20) {
-      recommendations.push({
-        action: 'Verifica discrepanze nei flussi intermedi',
+  activePhases.forEach(p => {
+    if (p.urgencyDelta <= -25) {
+      recs.push({
+        action: `Recupera ritardo critico in "${p.label}"`,
+        impact: 'HIGH',
+        priority: 1,
+        details: `${p.label} è al ${p.pct}% (${p.prodotti}/${p.totale} pz), ${Math.abs(p.urgencyDelta)}% sotto target. ${p.note || ''}`.trim()
+      });
+    } else if (p.urgencyDelta <= -10) {
+      recs.push({
+        action: `Monitora "${p.label}"`,
         impact: 'MEDIUM',
-        priority: 3,
-        details: `Differenza di ${discrepancy}% tra prima e ultima fase. Controllare scarti e riscritti.`
+        priority: 2,
+        details: `${p.label} è al ${p.pct}% (${p.prodotti}/${p.totale} pz), ${Math.abs(p.urgencyDelta)}% sotto target. ${p.note || ''}`.trim()
       });
     }
-  }
+  });
 
-  // Raccomandazione 4: Tempo ciclo elevato
-  const avgCycleTime = Object.values(cycleTimesPerPhase).length > 0
-    ? Object.values(cycleTimesPerPhase).reduce((a, b) => a + b, 0) / Object.values(cycleTimesPerPhase).length
-    : 0;
-  if (avgCycleTime > 48) {
-    recommendations.push({
-      action: 'Ottimizza tempo di ciclo',
-      impact: 'MEDIUM',
-      priority: 4,
-      details: `Tempo medio di ciclo ${Math.round(avgCycleTime)}h è elevato. Controllare settaggi macchine.`
+  if (delayDays > 0) {
+    recs.push({
+      action: `Pianificazione a rischio: completamento stimato in ritardo di ${delayDays} ${delayDays === 1 ? 'giorno' : 'giorni'}`,
+      impact: delayDays > 2 ? 'HIGH' : 'MEDIUM',
+      priority: 1,
+      details: `Una o più fasi hanno superato la data di fine prevista. Valutare straordinari o riallocazione risorse sulle fasi in ritardo.`
     });
   }
 
-  return recommendations.sort((a, b) => a.priority - b.priority);
+  // Fasi ancora in pending la cui data inizio prevista è già trascorsa
+  const today = new Date();
+  phases.forEach(p => {
+    if (p.stato === 'pending' && p.dataInizio && new Date(p.dataInizio) < today) {
+      recs.push({
+        action: `"${p.label}" doveva già essere iniziata`,
+        impact: 'MEDIUM',
+        priority: 3,
+        details: `Data inizio prevista: ${new Date(p.dataInizio).toLocaleDateString('it-IT')}. Verificare disponibilità risorse a monte.`
+      });
+    }
+  });
+
+  return recs.sort((a, b) => a.priority - b.priority);
 }
