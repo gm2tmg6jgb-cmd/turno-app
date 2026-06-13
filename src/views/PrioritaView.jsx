@@ -86,8 +86,8 @@ const SAP_PREV_SOURCE = {
 
 // Fasi per cui non si usa sapPrev (OP10 non disponibile → solo scarichi SAP)
 const NO_SAP_PREV_PHASES = {
-    "DCT ECO": ["laser_welding", "laser_welding_2", "shaping"],
-    "8Fe": ["laser_welding", "laser_welding_2", "shaping"],
+    "DCT ECO": ["shaping"],
+    "8Fe": ["shaping"],
     "DCT300": ["laser_welding", "laser_welding_2", "shaping"]
 };
 
@@ -501,7 +501,7 @@ export default function PrioritaView({ showToast, globalDate }) {
 
                         const sapPrevSourceFase = SAP_PREV_SOURCE[proj]?.[fase];
                         let sapPrev = 0;
-                        const noSapPrev = !!(NO_SAP_PREV_PHASES[proj]?.includes(fase)) !== !!noSapPrevRef.current[`${normComp}:${fase}`];
+                        const noSapPrev = !!(NO_SAP_PREV_PHASES[proj]?.includes(fase)) && !noSapPrevRef.current[`${normComp}:${fase}`];
 
                         if (!noSapPrev && idx > 0) {
                             if (sapPrevSourceFase) {
@@ -519,7 +519,9 @@ export default function PrioritaView({ showToast, globalDate }) {
                         const remaining = (noPrevInput && rawRemaining < 0) ? 0 : rawRemaining;
 
                         if (isHidden && hasNoSapData) {
-                            carry = sapPrev;
+                            // Cella trasparente: il carry passa inalterato alla cella successiva,
+                            // anche se noSapPrev ha azzerato il sapPrev "visibile" di questa fase
+                            // (altrimenti il dato in ingresso si perde, es. SG2 ut_soft → hobbing)
                             newMatrix[normComp][fase] = {
                                 fino, fase, inv, sap: 0, sapPrev: 0, remaining: 0,
                                 records: sapRecords, isAutoFino, hasNoSapData, noSapPrev, noPrevInput
