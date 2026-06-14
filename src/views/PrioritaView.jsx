@@ -323,7 +323,7 @@ export default function PrioritaView({ showToast, globalDate }) {
                 "start_soft", "ore", "laser_welding", "ut_soft", "shaping",
                 "milling", "hobbing", "deburring", "to_be_treated", "ht",
                 "shot_peening", "start_hard", "slw", "laser_welding_2", "ut",
-                "grinding_cone", "grinding_cone_2", "teeth_grinding", "to_be_washed", "washing", "baa"
+                "grinding_cone", "grinding_cone_2", "teeth_grinding", "washing", "baa"
             ];
             // DCT300: rimuovi ut_soft(MZA), milling(FRA), grinding_cone/2(SLA)
             //         aggiungi ore dopo deburring, teeth_grinding_post_dra dopo start_hard
