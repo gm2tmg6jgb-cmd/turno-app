@@ -325,6 +325,13 @@ export default function PrioritaView({ showToast, globalDate }) {
                 "shot_peening", "start_hard", "slw", "laser_welding_2", "ut",
                 "grinding_cone", "grinding_cone_2", "teeth_grinding", "washing", "baa"
             ];
+            // SG3 non usa shaping (stw) e milling (fra)
+            const LAB_SEQUENCE_ECO_SG3 = [
+                "start_soft", "ore", "laser_welding", "ut_soft",
+                "hobbing", "deburring", "to_be_treated", "ht",
+                "shot_peening", "start_hard", "slw", "laser_welding_2", "ut",
+                "grinding_cone", "grinding_cone_2", "teeth_grinding", "washing", "baa"
+            ];
             // DCT300: rimuovi ut_soft(MZA), milling(FRA), grinding_cone/2(SLA)
             //         aggiungi ore dopo deburring, teeth_grinding_post_dra dopo start_hard
             const LAB_SEQUENCE_DCT300 = [
@@ -346,7 +353,11 @@ export default function PrioritaView({ showToast, globalDate }) {
                     // Create sequence with sample fino values to ensure components always display
                     const finoPrefix = String((Object.keys(finoSeqSorted).length % 99) + 1).padStart(2, "0");
                     let finoCounter = 0;
-                    const LAB_SEQUENCE = LAB_SEQUENCE_BY_PROJ[proj] || LAB_SEQUENCE_DEFAULT;
+                    let LAB_SEQUENCE = LAB_SEQUENCE_BY_PROJ[proj] || LAB_SEQUENCE_DEFAULT;
+                    // Per SG3 (tutti i progetti), rimuovi shaping e milling
+                    if (comp === "SG3") {
+                        LAB_SEQUENCE = LAB_SEQUENCE_ECO_SG3;
+                    }
                     finoSeqSorted[normComp] = LAB_SEQUENCE.map(fase => {
                         finoCounter++;
                         const override = dbOverrides.find(o =>
@@ -396,27 +407,60 @@ export default function PrioritaView({ showToast, globalDate }) {
             // Aggrega SAP per comp+fino
             const sapMap = {}; // {comp: {fino: {qty, records}}}
 
+            // Map di fasi valide per componente: per SG3, scarta shaping e milling
+            const validPhasesForComp = {};
+            Object.entries(finoSeqSorted).forEach(([comp, fases]) => {
+                validPhasesForComp[comp] = new Set(fases.map(f => f.fase));
+            });
+
             // Filtro materiali e progetto stretti
             // Match esatto mat+fino ha priorità, mat senza fino è fallback generico (come ComponentFlowView)
             const validConfigMap = {};  // {mat_fino: {comp, fase}}
             const genericMatMap = {};   // {mat: {comp, fase}} per override con fino=null
             dbOverrides.forEach(o => {
                 if (!PROJECTS.includes(o.proj)) return;
+                // Normalizza materiale: maiuscolo, trim
+                const upMat = (o.mat || "").toUpperCase().trim();
                 if (o.fino) {
-                    validConfigMap[`${o.mat}_${o.fino}`] = { comp: normalizeComp(o.comp, o.proj), fase: o.fase };
+                    validConfigMap[`${upMat}_${o.fino}`] = { comp: normalizeComp(o.comp, o.proj), fase: o.fase, proj: o.proj };
                 } else {
-                    genericMatMap[o.mat] = { comp: normalizeComp(o.comp, o.proj), fase: o.fase };
+                    genericMatMap[upMat] = { comp: normalizeComp(o.comp, o.proj), fase: o.fase, proj: o.proj };
                 }
             });
 
             const unconfigured = {}; // {materiale_fino: {materiale, fino, qty}}
             if (sapRes) {
                 sapRes.forEach(r => {
-                    const matCode = (r.materiale || "").toUpperCase().split("/")[0].trim();
+                    const matCode = (r.materiale || "").toUpperCase().trim();
                     const fino = String(r.fino || "").padStart(4, "0");
                     if (!fino || fino === "0000") return;
 
-                    const config = validConfigMap[`${matCode}_${fino}`] || genericMatMap[matCode];
+                    // Filtro work center per HT: accetta solo HOK11001
+                    // Se il fino corrisponde a HT e il work_center non è HOK11001, scarta
+                    let config = validConfigMap[`${matCode}_${fino}`];
+                    if (config?.fase === "ht" && (r.work_center_sap || "").toUpperCase() !== "HOK11001") {
+                        return; // Scarta questo record, non è dal work center corretto
+                    }
+
+                    // Fallback generico solo se non abbiamo un match esatto
+                    if (!config) {
+                        let genericConfig = genericMatMap[matCode];
+
+                        // Se il materiale non ha suffisso (es. M0162644), prova con /S e /T
+                        if (!genericConfig && !matCode.includes("/")) {
+                            genericConfig = genericMatMap[`${matCode}/S`] || genericMatMap[`${matCode}/T`];
+                        }
+
+                        // Per ECO: permetti fallback solo se il materiale NON è configurato per altri fino
+                        const anagEntry = anagrafica[matCode];
+                        const isEcoMaterial = anagEntry?.proj === "DCT ECO";
+                        const configCount = Object.keys(validConfigMap).filter(k => k.startsWith(matCode + "_")).length;
+
+                        // Usa fallback se: non è ECO, oppure non è configurato per altri fino
+                        if (genericConfig && (!isEcoMaterial || configCount === 0)) {
+                            config = genericConfig;
+                        }
+                    }
                     if (!config) {
                         // Raccogli solo materiali che appartengono a progetti configurati
                         const anagEntry = anagrafica[matCode];
@@ -428,6 +472,10 @@ export default function PrioritaView({ showToast, globalDate }) {
                     }
 
                     const comp = config.comp;
+                    // Scarta i dati se la fase non è valida per questo componente
+                    if (!validPhasesForComp[comp]?.has(config.fase)) {
+                        return;
+                    }
                     if (!sapMap[comp]) sapMap[comp] = {};
                     if (!sapMap[comp][fino]) sapMap[comp][fino] = { qty: 0, records: [] };
                     sapMap[comp][fino].qty += (r.qta_ottenuta || 0);
@@ -450,7 +498,7 @@ export default function PrioritaView({ showToast, globalDate }) {
             const baaMap = {}; // {comp: {qty, records}}
             if (baaRes) {
                 baaRes.forEach(r => {
-                    const matCode = (r.materiale || "").toUpperCase().split("/")[0].trim();
+                    const matCode = (r.materiale || "").toUpperCase().trim();
                     // Il materiale di "baa" coincide con quello dell'ultima fase (washing): usa l'override
                     // esplicito per fase "baa" se presente, altrimenti quello di "washing"
                     const override = dbOverrides.find(o => o.mat === matCode && o.fase === "baa")
@@ -485,7 +533,11 @@ export default function PrioritaView({ showToast, globalDate }) {
                         const sapRecords = fase === "baa"
                             ? (baaMap[normComp]?.records || [])
                             : (sapMap[normComp]?.[fino]?.records || []);
-                        newMatrix[normComp][fase] = { fino, fase, isAutoFino, sap, sapRecords };
+                        // Per SG3, salta shaping e milling
+                    if (normComp.includes("SG3") && (fase === "shaping" || fase === "milling")) {
+                        return; // Non aggiungere questa fase alla matrice
+                    }
+                    newMatrix[normComp][fase] = { fino, fase, isAutoFino, sap, sapRecords };
                     });
 
                     // Seconda passata: propaga sapPrev = sap della fase precedente visibile.
@@ -1603,38 +1655,69 @@ const QuickConfigModal = ({ data, onClose, onSave, showToast }) => {
         }
         setIsSaving(true);
         try {
-            const rows = [
-                {
+            const isEco = data.project === "DCT ECO";
+            const dbComp = form.componente.toUpperCase().trim();
+
+            // Per ECO: elimina tutti i codici esistenti per questa fase, salva solo uno
+            if (isEco) {
+                const { data: existing } = await supabase.from("material_fino_overrides")
+                    .select("id")
+                    .eq("fase", data.phase)
+                    .eq("componente", dbComp)
+                    .eq("progetto", data.project);
+
+                // Elimina tutti i codici vecchi
+                if (existing && existing.length > 0) {
+                    for (const row of existing) {
+                        await supabase.from("material_fino_overrides").delete().eq("id", row.id);
+                    }
+                }
+
+                // Salva solo il primo codice
+                const newRow = {
                     materiale: form.codice.toUpperCase().trim(),
                     fino: form.fino ? String(form.fino).padStart(4, "0") : null,
                     fase: data.phase,
-                    componente: form.componente.toUpperCase().trim(),
+                    componente: dbComp,
                     progetto: data.project
+                };
+                const { error } = await supabase.from("material_fino_overrides").insert(newRow);
+                if (error) throw error;
+            } else {
+                // Per altri progetti: salva normalmente con codice1 e codice2 opzionale
+                const rows = [
+                    {
+                        materiale: form.codice.toUpperCase().trim(),
+                        fino: form.fino ? String(form.fino).padStart(4, "0") : null,
+                        fase: data.phase,
+                        componente: dbComp,
+                        progetto: data.project
+                    }
+                ];
+                if (form.codice2.trim()) {
+                    rows.push({
+                        materiale: form.codice2.toUpperCase().trim(),
+                        fino: form.fino ? String(form.fino).padStart(4, "0") : null,
+                        fase: data.phase,
+                        componente: dbComp,
+                        progetto: data.project
+                    });
                 }
-            ];
-            if (form.codice2.trim()) {
-                rows.push({
-                    materiale: form.codice2.toUpperCase().trim(),
-                    fino: form.fino ? String(form.fino).padStart(4, "0") : null,
-                    fase: data.phase,
-                    componente: form.componente.toUpperCase().trim(),
-                    progetto: data.project
-                });
-            }
-            for (const row of rows) {
-                const { data: existing } = await supabase.from("material_fino_overrides")
-                    .select("id")
-                    .eq("materiale", row.materiale)
-                    .eq("fase", row.fase)
-                    .eq("componente", row.componente)
-                    .eq("progetto", row.progetto)
-                    .maybeSingle();
-                if (existing) {
-                    const { error } = await supabase.from("material_fino_overrides").update(row).eq("id", existing.id);
-                    if (error) throw error;
-                } else {
-                    const { error } = await supabase.from("material_fino_overrides").insert(row);
-                    if (error) throw error;
+                for (const row of rows) {
+                    const { data: existing } = await supabase.from("material_fino_overrides")
+                        .select("id")
+                        .eq("materiale", row.materiale)
+                        .eq("fase", row.fase)
+                        .eq("componente", row.componente)
+                        .eq("progetto", row.progetto)
+                        .maybeSingle();
+                    if (existing) {
+                        const { error } = await supabase.from("material_fino_overrides").update(row).eq("id", existing.id);
+                        if (error) throw error;
+                    } else {
+                        const { error } = await supabase.from("material_fino_overrides").insert(row);
+                        if (error) throw error;
+                    }
                 }
             }
             showToast?.("Configurazione salvata!", "success");
@@ -1649,6 +1732,14 @@ const QuickConfigModal = ({ data, onClose, onSave, showToast }) => {
 
     if (isLoading) return null;
 
+    const isEco = data.project === "DCT ECO";
+    const fields = [
+        { key: "fino", label: "Fino (Operazione SAP)", placeholder: "es. 0100" },
+        { key: "codice", label: "Codice Materiale 1", placeholder: "es. M0162644" },
+        ...(isEco ? [] : [{ key: "codice2", label: "Codice Materiale 2 (opzionale)", placeholder: "es. M0162644/S" }]),
+        { key: "componente", label: "Componente", placeholder: "es. SG4 ECO" },
+    ];
+
     return (
         <Modal
             title={`⚙️ Configura fase: ${PHASE_LABEL[data.phase] || data.phase}`}
@@ -1658,12 +1749,7 @@ const QuickConfigModal = ({ data, onClose, onSave, showToast }) => {
             zIndex={3000}
         >
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                {[
-                    { key: "fino", label: "Fino (Operazione SAP)", placeholder: "es. 0100" },
-                    { key: "codice", label: "Codice Materiale 1", placeholder: "es. M0162644" },
-                    { key: "codice2", label: "Codice Materiale 2 (opzionale)", placeholder: "es. M0162644/S" },
-                    { key: "componente", label: "Componente", placeholder: "es. SG4 ECO" },
-                ].map(field => (
+                {fields.map(field => (
                     <div key={field.key} className="form-group">
                         <label className="form-label">{field.label}</label>
                         <input
