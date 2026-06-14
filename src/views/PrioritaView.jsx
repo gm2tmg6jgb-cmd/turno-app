@@ -317,9 +317,10 @@ export default function PrioritaView({ showToast, globalDate }) {
                 "shot_peening", "start_hard", "laser_welding_2", "ut",
                 "grinding_cone", "grinding_cone_2", "teeth_grinding", "to_be_washed", "washing", "baa"
             ];
-            // DCT ECO: aggiungi slw tra start_hard (DRA) e laser_welding_2 (SCA), dopo shot_peening (OKU)
+            // DCT ECO: aggiungi ore tra start_soft (DRA) e laser_welding (SCA)
+            // aggiungi slw tra start_hard (DRA) e laser_welding_2 (SCA), dopo shot_peening (OKU)
             const LAB_SEQUENCE_ECO = [
-                "start_soft", "laser_welding", "ut_soft", "shaping",
+                "start_soft", "ore", "laser_welding", "ut_soft", "shaping",
                 "milling", "hobbing", "deburring", "to_be_treated", "ht",
                 "shot_peening", "start_hard", "slw", "laser_welding_2", "ut",
                 "grinding_cone", "grinding_cone_2", "teeth_grinding", "to_be_washed", "washing", "baa"
