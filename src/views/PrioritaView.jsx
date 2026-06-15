@@ -332,6 +332,20 @@ export default function PrioritaView({ showToast, globalDate }) {
                 "shot_peening", "start_hard", "slw", "laser_welding_2", "ut",
                 "grinding_cone", "grinding_cone_2", "teeth_grinding", "washing", "baa"
             ];
+            // SG3 in 8Fe: senza shaping e milling
+            const LAB_SEQUENCE_8FE_SG3 = [
+                "start_soft", "dmc", "laser_welding", "laser_welding_soft_2", "ut_soft",
+                "hobbing", "deburring", "to_be_treated", "ht",
+                "shot_peening", "start_hard", "laser_welding_2", "ut",
+                "grinding_cone", "grinding_cone_2", "slw", "washing", "baa"
+            ];
+            // SGR in 8Fe: solo le fasi necessarie per SGR (con SLW, WSH, BAA)
+            const LAB_SEQUENCE_8FE_SGR = [
+                "start_soft", "dmc", "laser_welding", "laser_welding_soft_2", "ut_soft", "shaping",
+                "milling", "hobbing", "deburring", "to_be_treated", "ht",
+                "shot_peening", "start_hard", "laser_welding_2", "ut",
+                "grinding_cone", "grinding_cone_2", "slw", "washing", "baa"
+            ];
             // 8Fe: rimuovi to_be_washed (WIP), inserisci DMC tra DRA e ZSA, doppio SCA (SCA1 e SCA2) dopo ZSA, aggiungi SLW, WSH, BAA dopo SLA
             const LAB_SEQUENCE_8FE = [
                 "start_soft", "dmc", "laser_welding", "laser_welding_soft_2", "ut_soft", "shaping",
@@ -362,9 +376,15 @@ export default function PrioritaView({ showToast, globalDate }) {
                     const finoPrefix = String((Object.keys(finoSeqSorted).length % 99) + 1).padStart(2, "0");
                     let finoCounter = 0;
                     let LAB_SEQUENCE = LAB_SEQUENCE_BY_PROJ[proj] || LAB_SEQUENCE_DEFAULT;
-                    // Per SG3 (tutti i progetti), rimuovi shaping e milling
+                    // Per SG3 e SGR: usa sequenze specifiche per progetto
                     if (comp === "SG3") {
-                        LAB_SEQUENCE = LAB_SEQUENCE_ECO_SG3;
+                        if (proj === "8Fe") {
+                            LAB_SEQUENCE = LAB_SEQUENCE_8FE_SG3;
+                        } else {
+                            LAB_SEQUENCE = LAB_SEQUENCE_ECO_SG3;
+                        }
+                    } else if (comp === "SGR" && proj === "8Fe") {
+                        LAB_SEQUENCE = LAB_SEQUENCE_8FE_SGR;
                     }
                     finoSeqSorted[normComp] = LAB_SEQUENCE.map(fase => {
                         finoCounter++;
