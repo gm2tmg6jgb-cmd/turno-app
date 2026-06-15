@@ -332,9 +332,9 @@ export default function PrioritaView({ showToast, globalDate }) {
                 "shot_peening", "start_hard", "slw", "laser_welding_2", "ut",
                 "grinding_cone", "grinding_cone_2", "teeth_grinding", "washing", "baa"
             ];
-            // 8Fe: rimuovi to_be_washed (WIP), inserisci DMC tra DRA e SCA
+            // 8Fe: rimuovi to_be_washed (WIP), inserisci DMC tra DRA e SCA, doppio SCA dopo ZSA
             const LAB_SEQUENCE_8FE = [
-                "start_soft", "dmc", "laser_welding", "ut_soft", "shaping",
+                "start_soft", "dmc", "laser_welding", "laser_welding", "ut_soft", "shaping",
                 "milling", "hobbing", "deburring", "to_be_treated", "ht",
                 "shot_peening", "start_hard", "laser_welding_2", "ut",
                 "grinding_cone", "grinding_cone_2", "teeth_grinding", "washing", "baa"
