@@ -1462,7 +1462,7 @@ export default function ProductionReportView({
                   DCT 300
                 </th>
                 <th
-                  colSpan={14}
+                  colSpan={11}
                   style={{
                     border: "1px solid var(--border)",
                     padding: "8px",
@@ -1474,6 +1474,20 @@ export default function ProductionReportView({
                   }}
                 >
                   8Fe
+                </th>
+                <th
+                  colSpan={3}
+                  style={{
+                    border: "1px solid var(--border)",
+                    padding: "8px",
+                    textAlign: "center",
+                    backgroundColor: "#FFE4E6",
+                    fontWeight: "bold",
+                    fontSize: "13px",
+                    color: "#E11D48",
+                  }}
+                >
+                  DH
                 </th>
                 <th
                   colSpan={6}
