@@ -37,8 +37,8 @@ const LOCAL_ANAGRAFICA = {
 
 // Label fasi da ID
 const PHASE_CODE = {
-    "start_soft": "DRA", "dmc": "ZSA", "slw": "SLW", "laser_welding": "SCA",
-    "laser_welding_soft_2": "SCA", "shaping": "STW", "milling": "FRA",
+    "start_soft": "DRA", "dmc": "ZSA", "slw": "SLW", "laser_welding": "SCA1",
+    "laser_welding_soft_2": "SCA2", "shaping": "STW", "milling": "FRA",
     "broaching": "RAA", "hobbing": "FRW", "deburring": "EGW",
     "to_be_treated": "WIP", "ht": "HT", "shot_peening": "OKU",
     "start_hard": "DRA", "laser_welding_2": "SCA", "ut_soft": "MZA",
@@ -332,9 +332,9 @@ export default function PrioritaView({ showToast, globalDate }) {
                 "shot_peening", "start_hard", "slw", "laser_welding_2", "ut",
                 "grinding_cone", "grinding_cone_2", "teeth_grinding", "washing", "baa"
             ];
-            // 8Fe: rimuovi to_be_washed (WIP), inserisci DMC tra DRA e SCA, doppio SCA dopo ZSA
+            // 8Fe: rimuovi to_be_washed (WIP), inserisci DMC tra DRA e ZSA, doppio SCA (SCA1 e SCA2) dopo ZSA
             const LAB_SEQUENCE_8FE = [
-                "start_soft", "dmc", "laser_welding", "laser_welding", "ut_soft", "shaping",
+                "start_soft", "dmc", "laser_welding", "laser_welding_soft_2", "ut_soft", "shaping",
                 "milling", "hobbing", "deburring", "to_be_treated", "ht",
                 "shot_peening", "start_hard", "laser_welding_2", "ut",
                 "grinding_cone", "grinding_cone_2", "teeth_grinding", "washing", "baa"
