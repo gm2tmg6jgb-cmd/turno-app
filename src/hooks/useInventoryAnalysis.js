@@ -50,10 +50,23 @@ export function useProjectAnalysis(project) {
       setLoading(true);
       setError(null);
       try {
+        // Calcola inizio e fine della settimana corrente (lunedì a domenica)
+        const today = new Date();
+        const dayOfWeek = today.getDay();
+        const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+        const mondayOfWeek = new Date(today.setDate(diff));
+        const sundayOfWeek = new Date(mondayOfWeek);
+        sundayOfWeek.setDate(sundayOfWeek.getDate() + 6);
+
+        const mondayStr = mondayOfWeek.toISOString().split('T')[0];
+        const sundayStr = sundayOfWeek.toISOString().split('T')[0];
+
         const { data: rows, error: err } = await supabase
           .from('componente_avanzamento')
           .select('*')
-          .eq('progetto', project);
+          .eq('progetto', project)
+          .gte('updated_at', mondayStr + 'T00:00:00')
+          .lte('updated_at', sundayStr + 'T23:59:59');
 
         if (err) throw err;
         if (cancelled) return;
