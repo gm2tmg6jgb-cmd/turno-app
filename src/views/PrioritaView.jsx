@@ -332,12 +332,12 @@ export default function PrioritaView({ showToast, globalDate }) {
                 "shot_peening", "start_hard", "slw", "laser_welding_2", "ut",
                 "grinding_cone", "grinding_cone_2", "teeth_grinding", "washing", "baa"
             ];
-            // 8Fe: rimuovi to_be_washed (WIP), inserisci DMC tra DRA e ZSA, doppio SCA (SCA1 e SCA2) dopo ZSA
+            // 8Fe: rimuovi to_be_washed (WIP), inserisci DMC tra DRA e ZSA, doppio SCA (SCA1 e SCA2) dopo ZSA, aggiungi SLW, WSH, BAA dopo SLA
             const LAB_SEQUENCE_8FE = [
                 "start_soft", "dmc", "laser_welding", "laser_welding_soft_2", "ut_soft", "shaping",
                 "milling", "hobbing", "deburring", "to_be_treated", "ht",
                 "shot_peening", "start_hard", "laser_welding_2", "ut",
-                "grinding_cone", "grinding_cone_2", "teeth_grinding", "washing", "baa"
+                "grinding_cone", "grinding_cone_2", "slw", "washing", "baa"
             ];
             // DCT300: rimuovi ut_soft(MZA), milling(FRA), grinding_cone/2(SLA)
             //         aggiungi ore dopo deburring, teeth_grinding_post_dra dopo start_hard
