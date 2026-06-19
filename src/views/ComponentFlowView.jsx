@@ -841,14 +841,16 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 gridColumn: isExpanded ? "auto" : "span 1",
                 height: "100%"
             }}>
-                {/* Header con Gradiente Soft */}
+                {/* Header con Gradiente Soft - Fixed sopra il contenuto */}
                 <div style={{
                     padding: isExpanded ? "20px 30px" : "10px 20px",
                     background: `linear-gradient(90deg, ${theme.bg}, transparent)`,
                     borderBottom: `1px solid ${theme.main}22`,
                     display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center"
+                    justifyContent: "space--between",
+                    alignItems: "center",
+                    position: "relative",
+                    zIndex: 5
                 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
