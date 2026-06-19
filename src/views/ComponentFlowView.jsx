@@ -1530,7 +1530,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     onClick={() => setExpandedProject(null)}
                 >
                     <div
-                        style={{ width: "100%", height: "100%", maxWidth: "1600px", display: "flex", flexDirection: "column" }}
+                        style={{ width: "100%", maxHeight: "90vh", maxWidth: "1600px", display: "flex", flexDirection: "column", overflow: "auto" }}
                         onClick={e => e.stopPropagation()}
                     >
                         {renderProjectBox(expandedProject, true)}
