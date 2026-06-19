@@ -95,7 +95,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     const [selectedDetail, setSelectedDetail] = useState(null);
     const [detailTab, setDetailTab] = useState("records");
     const [showThroughput, setShowThroughput] = useState(false);
-    const [zoomLevel, setZoomLevel] = useState(1);
+    const [zoomLevel, setZoomLevel] = useState(0.9);
     const [isConfigMode, setIsConfigMode] = useState(false);
     const [quickConfigModal, setQuickConfigModal] = useState(null); // { project, comp, phase }
     const [dynamicOverrides] = useState([]);
@@ -861,44 +861,6 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                         </div>
 
                         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        {/* Zoom Controls */}
-                        <div style={{ display: "flex", alignItems: "center", gap: "4px", background: `${theme.main}18`, borderRadius: "8px", padding: "4px 8px", border: `1px solid ${theme.main}55` }}>
-                            <button
-                                onClick={(e) => { e.stopPropagation(); setZoomLevel(Math.max(0.8, zoomLevel - 0.1)); }}
-                                title="Zoom out"
-                                style={{
-                                    background: "transparent",
-                                    border: "none",
-                                    cursor: "pointer",
-                                    color: theme.main,
-                                    fontSize: "16px",
-                                    fontWeight: "700",
-                                    padding: "2px 6px",
-                                    opacity: zoomLevel <= 0.8 ? 0.5 : 1
-                                }}
-                            >
-                                −
-                            </button>
-                            <span style={{ fontSize: "11px", fontWeight: "700", color: theme.main, minWidth: "32px", textAlign: "center" }}>
-                                {Math.round(zoomLevel * 100)}%
-                            </span>
-                            <button
-                                onClick={(e) => { e.stopPropagation(); setZoomLevel(Math.min(1.5, zoomLevel + 0.1)); }}
-                                title="Zoom in"
-                                style={{
-                                    background: "transparent",
-                                    border: "none",
-                                    cursor: "pointer",
-                                    color: theme.main,
-                                    fontSize: "16px",
-                                    fontWeight: "700",
-                                    padding: "2px 6px",
-                                    opacity: zoomLevel >= 1.5 ? 0.5 : 1
-                                }}
-                            >
-                                +
-                            </button>
-                        </div>
                         {/* Expand Button */}
                         <button
                             onClick={(e) => { e.stopPropagation(); setExpandedProject(isExpanded ? null : proj); if (!isExpanded) setZoomLevel(0.9); }}
@@ -1405,6 +1367,48 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                     {label}
                                 </button>
                             ))}
+                        </div>
+                    </div>
+
+                    {/* ZOOM */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Zoom</span>
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px", background: "white", borderRadius: "8px", padding: "4px 8px", border: "1px solid var(--border-light)", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
+                            <button
+                                onClick={() => setZoomLevel(Math.max(0.8, zoomLevel - 0.1))}
+                                title="Zoom out"
+                                style={{
+                                    background: "transparent",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    color: "#374151",
+                                    fontSize: "14px",
+                                    fontWeight: "700",
+                                    padding: "4px 6px",
+                                    opacity: zoomLevel <= 0.8 ? 0.5 : 1
+                                }}
+                            >
+                                −
+                            </button>
+                            <span style={{ fontSize: "12px", fontWeight: "700", color: "#374151", minWidth: "36px", textAlign: "center" }}>
+                                {Math.round(zoomLevel * 100)}%
+                            </span>
+                            <button
+                                onClick={() => setZoomLevel(Math.min(1.5, zoomLevel + 0.1))}
+                                title="Zoom in"
+                                style={{
+                                    background: "transparent",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    color: "#374151",
+                                    fontSize: "14px",
+                                    fontWeight: "700",
+                                    padding: "4px 6px",
+                                    opacity: zoomLevel >= 1.5 ? 0.5 : 1
+                                }}
+                            >
+                                +
+                            </button>
                         </div>
                     </div>
 

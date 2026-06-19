@@ -54,7 +54,8 @@ export function useProjectAnalysis(project) {
         const today = new Date();
         const dayOfWeek = today.getDay();
         const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-        const mondayOfWeek = new Date(today.setDate(diff));
+        const mondayOfWeek = new Date(today);
+        mondayOfWeek.setDate(diff);
         const sundayOfWeek = new Date(mondayOfWeek);
         sundayOfWeek.setDate(sundayOfWeek.getDate() + 6);
 
