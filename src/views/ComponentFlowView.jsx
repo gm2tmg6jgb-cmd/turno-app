@@ -1569,7 +1569,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                         </div>
                         {/* Tab bar */}
                         <div style={{ display: "flex", gap: 8, padding: "12px 24px", borderBottom: "1px solid var(--border)" }}>
-                            {[{ id: "records", label: "📋 Produzione" }, { id: "throughput", label: "⏱ Throughput" }].map(tab => (
+                            {[{ id: "records", label: "📋 Produzione" }, { id: "movements", label: "🔄 Movimentazioni" }].map(tab => (
                                 <button key={tab.id} onClick={() => setDetailTab(tab.id)} style={{
                                     padding: "6px 14px", borderRadius: 6, cursor: "pointer",
                                     border: "1px solid var(--border)",
@@ -1629,66 +1629,76 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                     </tbody>
                                 </table>
                             ) : (
-                                /* Tab Throughput */
-                                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                                        <p style={{ margin: 0, fontSize: 12, color: "var(--text-muted)" }}>
-                                            Tempo stimato per fase · Lotto {detailCompBase.lotto ?? 1200} pz · OEE {Math.round((detailCompBase.oee ?? 0.85) * 100)}%
-                                        </p>
-                                        <button
-                                            onClick={() => {
-                                                const cfg = loadThroughputConfig();
-                                                const compKey = `${selectedDetail.proj}::${selectedDetail.comp}`;
-                                                const compCfg = cfg.components[compKey] || {};
-                                                setThroughputConfigModal({
-                                                    proj: selectedDetail.proj,
-                                                    comp: selectedDetail.comp,
-                                                    lotto: detailCompBase.lotto ?? 1200,
-                                                    oee: detailCompBase.oee ?? 0.85,
-                                                    changeOverH: compCfg.changeOverH ?? 1,
-                                                    phases: (compCfg.phases || []).map(p => ({ ...p }))
-                                                });
-                                            }}
-                                            style={{
-                                                padding: "4px 8px",
-                                                fontSize: "12px",
-                                                background: "var(--bg-tertiary)",
-                                                color: "var(--text-secondary)",
-                                                border: "1px solid var(--border)",
-                                                borderRadius: "4px",
-                                                cursor: "pointer",
-                                                whiteSpace: "nowrap"
-                                            }}
-                                            title="Configura lotto e OEE"
-                                        >
-                                            ⚙️ Configura
-                                        </button>
+                                /* Tab Movimentazioni */
+                                <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                                    {/* SEZIONE OPERAZIONI PRODUZIONE */}
+                                    <div>
+                                        <h4 style={{ margin: "0 0 12px 0", fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>Operazioni Produzione</h4>
+                                        {filtered.filter(r => r.sto !== "X").length > 0 ? (
+                                            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                                                <thead>
+                                                    <tr style={{ background: "var(--bg-tertiary)" }}>
+                                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)", borderRadius: "6px 0 0 0" }}>Data</th>
+                                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Materiale</th>
+                                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Acqu.da</th>
+                                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Macchina</th>
+                                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Fino</th>
+                                                        <th style={{ padding: "10px", textAlign: "right", fontSize: "12px", color: "var(--text-muted)", borderRadius: "0 6px 0 0" }}>Q.tà</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {filtered.filter(r => r.sto !== "X").map((r, idx) => (
+                                                        <tr key={idx} style={{ borderBottom: "1px solid var(--border-light)", background: idx % 2 === 0 ? "transparent" : "rgba(0,0,0,0.02)" }}>
+                                                            <td style={{ padding: "10px", fontSize: "12px", color: "var(--text-secondary)" }}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
+                                                            <td style={{ padding: "10px", fontSize: "12px", color: "var(--accent)", fontWeight: 600 }}>{r.materiale}</td>
+                                                            <td style={{ padding: "10px", fontSize: "12px", color: "var(--text-secondary)" }}>{r.acq_da || "—"}</td>
+                                                            <td style={{ padding: "10px", fontSize: "12px", color: "var(--text-secondary)" }}>{r.macchina || r.macchina_id || r.work_center_sap || r.macchinaConfigured || "—"}</td>
+                                                            <td style={{ padding: "10px", fontSize: "12px", color: "var(--text-secondary)" }}>{r.fino || "—"}</td>
+                                                            <td style={{ padding: "10px", fontSize: "12px", color: "var(--accent)", fontWeight: 600, textAlign: "right" }}>{r.qta_ottenuta || 0}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        ) : (
+                                            <p style={{ padding: "20px", textAlign: "center", color: "var(--text-muted)", fontSize: "12px" }}>
+                                                Nessuna operazione di produzione {filterExcludeSto || filterExcludeOperators.length > 0 ? "con i filtri attuali" : ""}.
+                                            </p>
+                                        )}
                                     </div>
-                                    {throughputPhases.map(p => {
-                                        const isCurrent = p.phaseId === selectedDetail.phaseId;
-                                        const isPast = throughputPhases.findIndex(x => x.phaseId === selectedDetail.phaseId) >
-                                                       throughputPhases.findIndex(x => x.phaseId === p.phaseId);
-                                        return (
-                                            <div key={p.phaseId} style={{
-                                                display: "flex", alignItems: "center", gap: 12,
-                                                padding: "10px 14px", borderRadius: 8,
-                                                background: isCurrent ? "rgba(var(--accent-rgb,60,110,240),0.12)" : "var(--bg-tertiary)",
-                                                border: isCurrent ? "1.5px solid var(--accent)" : "1px solid var(--border)",
-                                                opacity: isPast ? 0.45 : 1
-                                            }}>
-                                                <span style={{ fontSize: 13, fontWeight: isCurrent ? 800 : 600, flex: 1, color: isCurrent ? "var(--accent)" : "var(--text-primary)" }}>
-                                                    {isCurrent ? "▶ " : ""}{p.label}
-                                                </span>
-                                                <span style={{ fontSize: 14, fontWeight: 900, color: isCurrent ? "var(--accent)" : "var(--text-secondary)" }}>{p.h}h</span>
-                                                <span style={{ fontSize: 11, color: "var(--text-muted)" }}>cum. {p.cumH}h</span>
-                                            </div>
-                                        );
-                                    })}
-                                    <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 8, background: "var(--bg-card)", border: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                        <span style={{ fontWeight: 700 }}>Totale attraversamento</span>
-                                        <span style={{ fontSize: 20, fontWeight: 900, color: "var(--accent)" }}>
-                                            {throughputTotalH}h &nbsp;<span style={{ fontSize: 13, color: "var(--text-muted)", fontWeight: 400 }}>≈ {(throughputTotalH / 24).toFixed(1)} gg</span>
-                                        </span>
+
+                                    {/* SEZIONE STORNI */}
+                                    <div>
+                                        <h4 style={{ margin: "0 0 12px 0", fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>Storni</h4>
+                                        {filtered.filter(r => r.sto === "X").length > 0 ? (
+                                            <table style={{ width: "100%", borderCollapse: "collapse", background: "rgba(239,68,68,0.05)", borderRadius: "8px", overflow: "hidden" }}>
+                                                <thead>
+                                                    <tr style={{ background: "rgba(239,68,68,0.1)" }}>
+                                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)", borderRadius: "6px 0 0 0" }}>Data</th>
+                                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Materiale</th>
+                                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Acqu.da</th>
+                                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Macchina</th>
+                                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Fino</th>
+                                                        <th style={{ padding: "10px", textAlign: "right", fontSize: "12px", color: "var(--text-muted)", borderRadius: "0 6px 0 0" }}>Q.tà Scarto</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {filtered.filter(r => r.sto === "X").map((r, idx) => (
+                                                        <tr key={idx} style={{ borderBottom: "1px solid rgba(239,68,68,0.1)", background: idx % 2 === 0 ? "transparent" : "rgba(239,68,68,0.02)" }}>
+                                                            <td style={{ padding: "10px", fontSize: "12px", color: "var(--text-secondary)" }}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
+                                                            <td style={{ padding: "10px", fontSize: "12px", color: "#ef4444", fontWeight: 600 }}>{r.materiale}</td>
+                                                            <td style={{ padding: "10px", fontSize: "12px", color: "var(--text-secondary)" }}>{r.acq_da || "—"}</td>
+                                                            <td style={{ padding: "10px", fontSize: "12px", color: "var(--text-secondary)" }}>{r.macchina || r.macchina_id || r.work_center_sap || r.macchinaConfigured || "—"}</td>
+                                                            <td style={{ padding: "10px", fontSize: "12px", color: "var(--text-secondary)" }}>{r.fino || "—"}</td>
+                                                            <td style={{ padding: "10px", fontSize: "12px", color: "#ef4444", fontWeight: 600, textAlign: "right" }}>{r.qta_scarto || 0}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        ) : (
+                                            <p style={{ padding: "20px", textAlign: "center", color: "var(--text-muted)", fontSize: "12px" }}>
+                                                Nessuno storno {filterExcludeSto || filterExcludeOperators.length > 0 ? "con i filtri attuali" : ""}.
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                             )}
