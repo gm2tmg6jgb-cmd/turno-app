@@ -899,7 +899,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                         </div>
                         {/* Expand Button */}
                         <button
-                            onClick={(e) => { e.stopPropagation(); setExpandedProject(isExpanded ? null : proj); }}
+                            onClick={(e) => { e.stopPropagation(); setExpandedProject(isExpanded ? null : proj); if (!isExpanded) setZoomLevel(0.9); }}
                             title={isExpanded ? "Chiudi" : "Espandi al centro"}
                             style={{
                                 border: `1px solid ${theme.main}55`,
