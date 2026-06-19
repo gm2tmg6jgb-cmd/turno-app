@@ -1373,7 +1373,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     {/* ZOOM */}
                     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                         <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Zoom</span>
-                        <div style={{ display: "flex", alignItems: "center", gap: "4px", background: "white", borderRadius: "8px", padding: "4px 8px", border: "1px solid var(--border-light)", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px", background: "white", borderRadius: "8px", padding: "4px 8px", border: "1px solid var(--border-light)", boxShadow: "0 1px 2px rgba(0,0,0,0.05)", height: "38px" }}>
                             <button
                                 onClick={() => setZoomLevel(Math.max(0.8, zoomLevel - 0.1))}
                                 title="Zoom out"
