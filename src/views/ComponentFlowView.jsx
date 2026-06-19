@@ -95,7 +95,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     const [selectedDetail, setSelectedDetail] = useState(null);
     const [detailTab, setDetailTab] = useState("records");
     const [showThroughput, setShowThroughput] = useState(false);
-    const [zoomedProject, setZoomedProject] = useState(null);
+    const [zoomLevel, setZoomLevel] = useState(1);
     const [isConfigMode, setIsConfigMode] = useState(false);
     const [quickConfigModal, setQuickConfigModal] = useState(null); // { project, comp, phase }
     const [dynamicOverrides] = useState([]);
@@ -858,31 +858,45 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                             </h3>
                         </div>
 
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                        {/* Zoom Button */}
-                        {!isExpanded && (
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        {/* Zoom Controls */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "4px", background: `${theme.main}18`, borderRadius: "8px", padding: "4px 8px", border: `1px solid ${theme.main}55` }}>
                             <button
-                                onClick={(e) => { e.stopPropagation(); setZoomedProject(proj); }}
-                                title="Zoom tabella"
+                                onClick={(e) => { e.stopPropagation(); setZoomLevel(Math.max(0.8, zoomLevel - 0.1)); }}
+                                title="Zoom out"
                                 style={{
-                                    border: `1px solid ${theme.main}55`,
-                                    background: `${theme.main}18`,
-                                    borderRadius: "10px",
-                                    padding: "6px 14px",
+                                    background: "transparent",
+                                    border: "none",
                                     cursor: "pointer",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: "6px",
                                     color: theme.main,
-                                    fontSize: "13px",
+                                    fontSize: "16px",
                                     fontWeight: "700",
-                                    transition: "all 0.15s",
-                                    whiteSpace: "nowrap"
+                                    padding: "2px 6px",
+                                    opacity: zoomLevel <= 0.8 ? 0.5 : 1
                                 }}
                             >
-                                🔍 Zoom
+                                −
                             </button>
-                        )}
+                            <span style={{ fontSize: "11px", fontWeight: "700", color: theme.main, minWidth: "32px", textAlign: "center" }}>
+                                {Math.round(zoomLevel * 100)}%
+                            </span>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); setZoomLevel(Math.min(1.5, zoomLevel + 0.1)); }}
+                                title="Zoom in"
+                                style={{
+                                    background: "transparent",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    color: theme.main,
+                                    fontSize: "16px",
+                                    fontWeight: "700",
+                                    padding: "2px 6px",
+                                    opacity: zoomLevel >= 1.5 ? 0.5 : 1
+                                }}
+                            >
+                                +
+                            </button>
+                        </div>
                         {/* Expand Button */}
                         <button
                             onClick={(e) => { e.stopPropagation(); setExpandedProject(isExpanded ? null : proj); }}
@@ -962,7 +976,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
 
                 {/* Content con Scroll Interno */}
                 <div style={{ flex: 1, overflow: "auto", padding: isExpanded ? "24px" : "12px", scrollbarGutter: "stable" }}>
-                    <div style={{ minWidth: "max-content" }}>
+                    <div style={{ minWidth: "max-content", transform: `scale(${zoomLevel})`, transformOrigin: "top left", display: "inline-block", width: "100%" }}>
                         {/* Phases Row */}
                         <div style={{ display: "flex", marginBottom: "16px", paddingLeft: "110px" }}>
                             {projectVisibleSteps.map((s, sIdx) => {
@@ -1520,274 +1534,6 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                         onClick={e => e.stopPropagation()}
                     >
                         {renderProjectBox(expandedProject, true)}
-                    </div>
-                </div>
-            )}
-
-            {/* Zoom Modal */}
-            {zoomedProject && (
-                <div style={{
-                    position: "fixed", inset: 0,
-                    backgroundColor: "rgba(0,0,0,0.75)",
-                    zIndex: 2500,
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    backdropFilter: "blur(8px)",
-                    padding: "16px"
-                }}
-                onClick={() => setZoomedProject(null)}
-                >
-                    <div
-                        style={{
-                            width: "100%",
-                            height: "100%",
-                            maxWidth: "1200px",
-                            display: "flex",
-                            flexDirection: "column",
-                            background: "var(--bg-card)",
-                            borderRadius: "16px",
-                            border: "1px solid var(--border)",
-                            boxShadow: "0 20px 60px rgba(0,0,0,0.4)",
-                            overflow: "hidden"
-                        }}
-                        onClick={e => e.stopPropagation()}
-                    >
-                        {/* Header */}
-                        <div style={{
-                            padding: "20px 24px",
-                            borderBottom: "1px solid var(--border)",
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center"
-                        }}>
-                            <h3 style={{ margin: 0, fontSize: "20px", fontWeight: "900", color: "var(--text-primary)" }}>
-                                {zoomedProject === "RG + DH" ? "8Fe - RG + DH" : zoomedProject} — Dettagli Avanzamento
-                            </h3>
-                            <button
-                                onClick={() => setZoomedProject(null)}
-                                style={{
-                                    background: "transparent",
-                                    border: "none",
-                                    fontSize: "24px",
-                                    cursor: "pointer",
-                                    color: "var(--text-muted)"
-                                }}
-                            >
-                                ✕
-                            </button>
-                        </div>
-
-                        {/* Content */}
-                        <div style={{ flex: 1, overflow: "auto", padding: "24px" }}>
-                            <div style={{ minWidth: "max-content", display: "flex", flexDirection: "column", gap: "20px" }}>
-                                {(() => {
-                                    const projectComps = componentsByProject[zoomedProject] || [];
-                                    const projectExclusions = EXCLUDED_PHASES[zoomedProject] || [];
-                                    let projectVisibleSteps = PROCESS_STEPS.filter(s => !projectExclusions.includes(s.id));
-
-                                    if (zoomedProject === "DCT ECO") {
-                                        const utStep = projectVisibleSteps.find(s => s.id === "ut");
-                                        if (utStep) {
-                                            projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "ut");
-                                            const slaIdx = projectVisibleSteps.findIndex(s => s.id === "grinding_cone");
-                                            projectVisibleSteps.splice(slaIdx !== -1 ? slaIdx : projectVisibleSteps.length, 0, utStep);
-                                        }
-                                        const utSoftStep = projectVisibleSteps.find(s => s.id === "ut_soft");
-                                        if (utSoftStep) {
-                                            projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "ut_soft");
-                                            const stwIdx = projectVisibleSteps.findIndex(s => s.id === "shaping");
-                                            projectVisibleSteps.splice(stwIdx !== -1 ? stwIdx : 0, 0, utSoftStep);
-                                        }
-                                    }
-                                    if (zoomedProject === "8Fe") {
-                                        const utStep = projectVisibleSteps.find(s => s.id === "ut");
-                                        if (utStep) {
-                                            projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "ut");
-                                            const sca2Idx = projectVisibleSteps.findIndex(s => s.id === "laser_welding_soft_2");
-                                            projectVisibleSteps.splice(sca2Idx !== -1 ? sca2Idx + 1 : projectVisibleSteps.length, 0, utStep);
-                                        }
-                                    }
-                                    if (zoomedProject === "RG + DH") {
-                                        projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "mza_pre_ht" && s.id !== "start_hard_2");
-                                        const draSoftStep = projectVisibleSteps.find(s => s.id === "start_soft");
-                                        if (draSoftStep) {
-                                            projectVisibleSteps = projectVisibleSteps.filter(s => s.id !== "start_soft");
-                                            const zsaIdx = projectVisibleSteps.findIndex(s => s.id === "dmc");
-                                            projectVisibleSteps.splice(zsaIdx !== -1 ? zsaIdx : 0, 0, draSoftStep);
-                                        }
-                                        const draHardStep = projectVisibleSteps.find(s => s.id === "start_hard");
-                                        if (draHardStep) {
-                                            projectVisibleSteps = projectVisibleSteps.filter(s => !["start_hard", "spherical_turning", "labor_hours", "assembly", "sca_post_deburring", "mza_pre_ht"].includes(s.id));
-                                            const okuIdx = projectVisibleSteps.findIndex(s => s.id === "shot_peening");
-                                            const insertIdx = okuIdx !== -1 ? okuIdx + 1 : projectVisibleSteps.length;
-                                            const phaseIds = ["start_hard", "spherical_turning", "labor_hours", "assembly", "sca_post_deburring"];
-                                            const phasesToInsert = phaseIds.map(id => PROCESS_STEPS.find(s => s.id === id)).filter(Boolean);
-                                            projectVisibleSteps.splice(insertIdx, 0, ...phasesToInsert);
-                                        }
-                                    }
-
-                                    const baaIdx = projectVisibleSteps.findIndex(s => s.id === "baa");
-                                    if (baaIdx !== -1) {
-                                        projectVisibleSteps.splice(baaIdx, 0, { id: "__sep__", label: "", code: "", separator: true });
-                                    }
-
-                                    return (
-                                        <>
-                                            {/* Header Fasi */}
-                                            <div style={{ display: "flex", marginBottom: "16px", paddingLeft: "130px" }}>
-                                                {projectVisibleSteps.map((s, sIdx) => {
-                                                    if (s.separator) return <div key={sIdx} style={{ width: "60px", flexShrink: 0 }} />;
-                                                    return (
-                                                        <div key={sIdx} style={{
-                                                            width: "120px",
-                                                            textAlign: "center",
-                                                            flexShrink: 0,
-                                                            background: s.id === "ht" ? "rgba(0, 212, 255, 0.4)" : "transparent",
-                                                            borderRadius: "4px 4px 0 0",
-                                                            borderLeft: s.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none",
-                                                            borderRight: s.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none",
-                                                            padding: "8px 4px"
-                                                        }}>
-                                                            <div style={{ fontSize: "18px", fontWeight: "900", color: "var(--text-primary)" }}>{s.code}</div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-
-                                            {/* Righe Componenti */}
-                                            {projectComps.map((comp, cIdx) => (
-                                                <div key={comp} style={{
-                                                    display: "flex",
-                                                    alignItems: "center",
-                                                    paddingBottom: "16px",
-                                                    borderBottom: "1px solid var(--border-light)"
-                                                }}>
-                                                    <div style={{
-                                                        width: "130px",
-                                                        flexShrink: 0,
-                                                        fontSize: "22px",
-                                                        fontWeight: "900",
-                                                        color: "var(--text-primary)",
-                                                        whiteSpace: "nowrap",
-                                                        overflow: "hidden",
-                                                        textOverflow: "ellipsis"
-                                                    }}>
-                                                        {comp}
-                                                    </div>
-
-                                                    <div style={{ display: "flex" }}>
-                                                        {projectVisibleSteps.map((step, idx) => {
-                                                            if (step.separator) return (
-                                                                <div key={idx} style={{
-                                                                    width: "60px",
-                                                                    flexShrink: 0,
-                                                                    display: "flex",
-                                                                    justifyContent: "center"
-                                                                }}>
-                                                                    <div style={{ height: "100%", borderLeft: "2px dashed var(--border-light)", opacity: 0.5 }} />
-                                                                </div>
-                                                            );
-                                                            const data = matrixData[zoomedProject]?.[comp]?.[step.id];
-                                                            let qty = data?.value || 0;
-                                                            const scartiValue = scartiData[zoomedProject]?.[comp]?.[step.id]?.value || 0;
-                                                            let isHardExcluded = COMPONENT_EXCLUSIONS[comp]?.includes(step.id);
-
-                                                            if (zoomedProject === "DCT300" && ["SG7", "SGR", "RG"].includes(comp) && step.id === "grinding_cone") isHardExcluded = true;
-                                                            if (zoomedProject === "DCT300" && ["SG3", "SGR"].includes(comp) && step.id === "start_soft") isHardExcluded = true;
-                                                            if (zoomedProject === "8Fe" && comp !== "SG3" && step.id === "laser_welding_soft_2") isHardExcluded = true;
-                                                            if (["RG + DH", "8Fe", "DCT300"].includes(zoomedProject) && comp.startsWith("DH") && !["start_hard", "laser_welding_2"].includes(step.id)) isHardExcluded = true;
-                                                            if (zoomedProject === "DCT ECO" && comp.startsWith("RG") && step.id === "grinding_cone") isHardExcluded = true;
-                                                            if (zoomedProject === "DCT ECO" && ["SG2", "SG3", "SGR"].includes(comp) && (step.id === "ut" || step.id === "ut_soft")) isHardExcluded = false;
-
-                                                            const isDynamicExcluded = !!cellExclusions[`${zoomedProject}:${comp}:${step.id}`];
-                                                            const isDynamicIncluded = !!cellInclusions[`${zoomedProject}:${comp}:${step.id}`];
-
-                                                            if (isHardExcluded && !isDynamicIncluded) return <div key={idx} style={{ width: "120px", flexShrink: 0 }} />;
-                                                            if (isDynamicExcluded) return <div key={idx} style={{ width: "120px", flexShrink: 0 }} />;
-
-                                                            let currentTarget = 0;
-                                                            if (viewMode === "weekly") {
-                                                                const base = targetOverrides[zoomedProject] || 0;
-                                                                const recordsUpToday = (data?.records || []).filter(r => r.data <= wDate);
-                                                                qty = recordsUpToday.reduce((sum, r) => sum + (r.qta_ottenuta || 0), 0);
-                                                                const numGiorni = new Set(recordsUpToday.map(r => r.data).filter(Boolean)).size;
-                                                                currentTarget = base * numGiorni;
-                                                            } else {
-                                                                const base = targetOverrides[zoomedProject] || 0;
-                                                                if (localTurno !== "ALL") {
-                                                                    currentTarget = Math.round(base / 4);
-                                                                } else {
-                                                                    currentTarget = base;
-                                                                }
-                                                            }
-
-                                                            const isSuccess = qty >= currentTarget && qty > 0;
-                                                            const hasProduction = qty > 0;
-
-                                                            return (
-                                                                <div key={idx} style={{
-                                                                    width: "120px",
-                                                                    display: "flex",
-                                                                    justifyContent: "center",
-                                                                    flexShrink: 0,
-                                                                    background: step.id === "ht" ? "rgba(0, 212, 255, 0.15)" : "transparent",
-                                                                    borderLeft: step.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none",
-                                                                    borderRight: step.id === "ht" ? "1px solid rgba(0, 212, 255, 0.3)" : "none",
-                                                                    padding: "8px 4px"
-                                                                }}>
-                                                                    <div
-                                                                        onClick={() => {
-                                                                            const cellData = matrixData[zoomedProject]?.[comp]?.[step.id];
-                                                                            if (cellData?.records?.length > 0) {
-                                                                                const configuredMachine = cellMachineMap[`${zoomedProject}:${comp}:${step.id}`] || null;
-                                                                                const enrichedRecords = cellData.records.map(r => ({
-                                                                                    ...r,
-                                                                                    macchinaConfigured: configuredMachine
-                                                                                }));
-                                                                                setZoomedProject(null);
-                                                                                setSelectedDetail({
-                                                                                    title: `${comp} · ${step.label}`,
-                                                                                    records: enrichedRecords,
-                                                                                    phaseId: step.id,
-                                                                                    proj: zoomedProject,
-                                                                                    comp,
-                                                                                });
-                                                                            }
-                                                                        }}
-                                                                        style={{
-                                                                            width: "110px",
-                                                                            height: "60px",
-                                                                            background: !hasProduction ? "var(--bg-tertiary)" : (isSuccess ? "#22c55e" : "#ef4444"),
-                                                                            borderRadius: "10px",
-                                                                            display: "flex",
-                                                                            alignItems: "center",
-                                                                            justifyContent: "center",
-                                                                            color: hasProduction ? "white" : "#374151",
-                                                                            fontSize: "24px",
-                                                                            fontWeight: "900",
-                                                                            boxShadow: hasProduction ? "0 4px 12px rgba(0,0,0,0.15)" : "none",
-                                                                            cursor: "pointer",
-                                                                            border: "1px solid rgba(255,255,255,0.1)",
-                                                                            transition: "all 0.2s"
-                                                                        }}
-                                                                    >
-                                                                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
-                                                                            <div>{qty}</div>
-                                                                            {scartiValue > 0 && <div style={{ fontSize: "14px", color: "rgba(255, 255, 255, 0.7)" }}>s:{scartiValue}</div>}
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </>
-                                    );
-                                })()}
-                            </div>
-                        </div>
                     </div>
                 </div>
             )}
