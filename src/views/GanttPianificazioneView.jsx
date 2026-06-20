@@ -1330,7 +1330,7 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
     const [filterPhase,   setFilterPhase]   = useState("all");
     const filterProject = "all";
     const [filterUrgency, setFilterUrgency] = useState("all");
-    const cols = 4;
+    const cols = 3;
 
     // Naviga alla card della macchina indicata (scroll + flash highlight).
     // Se la card è filtrata, resetta i filtri e riprova dopo il render.
@@ -1589,16 +1589,16 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
 
 
             {/* KPI cards */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12, marginBottom: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 28 }}>
                 {[
                     { label: "Macchine condivise", value: machineStatus.length, color: "var(--text-primary)" },
                     { label: "🔴 Urgenti / 🟠",    value: urgent,  color: urgent  > 0 ? "#ef4444" : "#10b981" },
                     { label: "🟡 Attenzione oggi", value: warning, color: warning > 0 ? "#f59e0b" : "#10b981" },
                     { label: "🟢 In regola",        value: ok,      color: "#10b981" },
                 ].map(c => (
-                    <div key={c.label} style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px" }}>
-                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 4 }}>{c.label}</div>
-                        <div style={{ fontSize: 28, fontWeight: 800, color: c.color }}>{c.value}</div>
+                    <div key={c.label} style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 12, padding: "20px 24px" }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-muted)", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.05em" }}>{c.label}</div>
+                        <div style={{ fontSize: 36, fontWeight: 900, color: c.color, lineHeight: 1 }}>{c.value}</div>
                     </div>
                 ))}
             </div>
@@ -1803,9 +1803,9 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                 <div key={machine.machineId} id={`machine-card-${machine.machineId}`} style={{ ...urgencyStyle(machine.urgency, machine.prodUrgency), borderRadius: 12, overflow: "hidden", outline: highlightedCard === machine.machineId ? "3px solid var(--accent)" : "none", transition: "outline 0.3s" }}>
 
                     {/* Header macchina */}
-                    <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--border)", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                        <span style={{ fontWeight: 800, fontSize: 17, color: "var(--text-primary)" }}>{machine.machineId}</span>
-                        <span style={{ fontSize: 12, padding: "3px 9px", borderRadius: 5, background: machine.phaseColor + "22", color: machine.phaseColor, fontWeight: 600 }}>
+                    <div style={{ padding: "20px 24px", borderBottom: "2px solid var(--border)", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                        <span style={{ fontWeight: 900, fontSize: 22, color: "var(--text-primary)", lineHeight: 1 }}>{machine.machineId}</span>
+                        <span style={{ fontSize: 13, padding: "4px 11px", borderRadius: 6, background: machine.phaseColor + "22", color: machine.phaseColor, fontWeight: 700 }}>
                             {machine.phaseLabel}
                         </span>
                         {coLabel(machine.urgency)}
@@ -1883,7 +1883,7 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                         const nowColor = lastExec?.toColor  || lastSap?.color      || curItem?.color;
 
                         return (
-                            <div style={{ padding: "10px 16px", borderBottom: "1px solid var(--border)", background: bgColor }}>
+                            <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border)", background: bgColor }}>
 
                                 {/* Changeover già scaduti → azione immediata */}
                                 {machine.overdueCOs.map((co, i) => {
@@ -1891,10 +1891,10 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                                     const fromLabel = i === 0 ? nowLabel : machine.overdueCOs[i - 1].toLabel;
                                     const fromColor = i === 0 ? nowColor : machine.overdueCOs[i - 1].toColor;
                                     return (
-                                        <div key={i} style={{ marginBottom: hasNext ? 6 : 0 }}>
-                                            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                                                <span style={{ fontSize: 15, flexShrink: 0 }}>🚨</span>
-                                                <div style={{ fontSize: 13, flex: 1 }}>
+                                        <div key={i} style={{ marginBottom: hasNext ? 8 : 0 }}>
+                                            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                                                <span style={{ fontSize: 18, flexShrink: 0 }}>🚨</span>
+                                                <div style={{ fontSize: 15, flex: 1, lineHeight: 1.4 }}>
                                                     <strong style={{ color: "#ef4444" }}>
                                                         Adesso —{fromLabel && <>{" "}<span style={{ color: fromColor }}>● {fromLabel}</span> →</>}{" "}
                                                         <span style={{ color: co.toColor }}>● {co.toLabel}</span>
@@ -2026,7 +2026,7 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                     })()}
 
                     {/* Avanzamento per componente */}
-                    <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 14 }}>
+                    <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 18 }}>
                         {machine.itemsWithProgress.map(item => {
                             const pct = item.pct;
                             const barColor = pct >= 80 ? "#10b981" : pct >= 50 ? "#f59e0b" : "#ef4444";
@@ -2034,14 +2034,14 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                             const delta = pct - expectedPct;
 
                             return (
-                                <div key={item.compKey} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                                <div key={item.compKey} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                                     {/* Label + delta */}
                                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                                            <div style={{ width: 10, height: 10, borderRadius: "50%", background: item.color, flexShrink: 0 }} />
-                                            <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>{item.shortLabel}</span>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                            <div style={{ width: 12, height: 12, borderRadius: "50%", background: item.color, flexShrink: 0 }} />
+                                            <span style={{ fontSize: 16, fontWeight: 800, color: "var(--text-primary)" }}>{item.shortLabel}</span>
                                         </div>
-                                        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 15, fontWeight: 700 }}>
                                             <span style={{ color: "#10b981", fontWeight: 700 }}>{item.produced.toLocaleString("it-IT")}</span>
                                             <span style={{ color: "var(--text-muted)" }}>/ {item.target.toLocaleString("it-IT")}</span>
                                             {item.target > 0 && consumedH > 6 && (
