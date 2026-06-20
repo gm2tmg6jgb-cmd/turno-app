@@ -1160,8 +1160,17 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                     const rawCell = rawMatrixData[normComp]?.[fase];
                                                     const allRecords = rawCell?.records || [];
                                                     const hasHighlightedOperator = highlightOperator && allRecords.some(r => r.acq_da === highlightOperator);
-                                                    const hasSto = allRecords.some(r => r.sto === "X");
                                                     const inv = cell.inv || 0;
+
+                                                    // Logica netto storni/analisti (usa sempre rawMatrixData)
+                                                    const ANALYST_CODES_CELL = ["STEFPUTR"];
+                                                    const stornoQty = allRecords.filter(r => r.sto === "X").reduce((s, r) => s + (r.qta_ottenuta || 0), 0);
+                                                    const analystQty = allRecords.filter(r => r.sto !== "X" && ANALYST_CODES_CELL.includes((r.acq_da || "").toUpperCase())).reduce((s, r) => s + (r.qta_ottenuta || 0), 0);
+                                                    const rawSap = allRecords.reduce((s, r) => s + (r.qta_ottenuta || 0), 0);
+                                                    const nettoSap = rawSap - stornoQty - analystQty;
+                                                    const nettoRemaining = inv - nettoSap + (cell.sapPrev || 0);
+                                                    const hasDelta = stornoQty > 0 || analystQty > 0;
+                                                    const hasFilteredOut = (filterExcludeSto || filterExcludeOperators.length > 0) && rawSap > (cell.sap || 0);
 
                                                     return (
                                                         <div key={fase + "_" + fino} style={{
@@ -1225,15 +1234,16 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                     </div>
                                                                 )}
 
-                                                                {/* Badge storno — visibile quando ci sono record con sto="X" */}
-                                                                {hasSto && !isConfigMode && (
-                                                                    <div title="Contiene storni (sto=X)" style={{
+                                                                {/* Badge F — viola se modifiche (storni/analisti), arancio se filtro attivo */}
+                                                                {(hasDelta || hasFilteredOut) && !isConfigMode && (
+                                                                    <div title={hasFilteredOut ? `Filtro attivo: esclusi ${rawSap - (cell.sap || 0)} pz` : `Modifiche: storni ${stornoQty} · analisti ${analystQty}`} style={{
                                                                         position: "absolute", top: -5, right: -5,
-                                                                        background: "#f59e0b", color: "white",
+                                                                        background: hasFilteredOut ? "#f59e0b" : "#8b5cf6", color: "white",
                                                                         borderRadius: "50%", width: 14, height: 14,
                                                                         fontSize: 8, fontWeight: 900,
-                                                                        display: "flex", alignItems: "center", justifyContent: "center"
-                                                                    }}>S</div>
+                                                                        display: "flex", alignItems: "center", justifyContent: "center",
+                                                                        boxShadow: hasFilteredOut ? "0 1px 4px rgba(245,158,11,0.6)" : "0 1px 4px rgba(139,92,246,0.6)"
+                                                                    }}>F</div>
                                                                 )}
 
                                                                 {isConfigMode && (
@@ -1282,6 +1292,15 @@ export default function PrioritaView({ showToast, globalDate }) {
                                                                     </>
                                                                 )}
                                                             </div>
+
+                                                            {/* Netto rimanenza (esclude storni e analisti) */}
+                                                            {hasDelta && !isConfigMode && (
+                                                                <div title={`Rimanenza netta: inv(${inv}) - nettoSAP(${nettoSap}) + prev(${cell.sapPrev || 0})`} style={{
+                                                                    fontSize: 11, fontWeight: 900, textAlign: "center",
+                                                                    color: nettoRemaining < 0 ? "#ef4444" : "var(--text-muted)",
+                                                                    lineHeight: 1, whiteSpace: "nowrap", marginTop: 2
+                                                                }}>→{nettoRemaining}</div>
+                                                            )}
 
                                                             {/* Inventario fisico (editabile, visibile solo se showInventory) */}
                                                             {showInventory && (

@@ -1145,12 +1145,14 @@ export default function GanttPianificazioneView({ showToast }) {
 
     // ─── Styles ───────────────────────────────────────────────────────────
     const cardStyle = { background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", marginBottom: 20 };
-    const tabBtnStyle = (active, color) => ({
-        padding: "10px 20px", borderRadius: 8, cursor: "pointer", fontSize: 14, fontWeight: active ? 700 : 400,
-        border: `2px solid ${active ? (color || "var(--accent)") : "var(--border)"}`,
-        background: active ? (color ? color + "22" : "var(--accent-dim)") : "var(--bg-secondary)",
-        color: active ? (color || "var(--accent)") : "var(--text-secondary)",
+    const tabBtnStyle = (active) => ({
+        padding: "0px 16px", height: 38, cursor: "pointer", fontSize: 14, fontWeight: 600,
+        border: "none", borderRight: "1px solid var(--border-light)",
+        background: active ? "var(--accent)" : "white",
+        color: active ? "white" : "rgb(55, 65, 81)",
+        boxShadow: active ? "0 1px 3px rgba(0,0,0,0.15)" : "none",
         transition: "all 0.15s",
+        whiteSpace: "nowrap",
     });
 
     if (loading) return (
@@ -1181,12 +1183,12 @@ export default function GanttPianificazioneView({ showToast }) {
             </div>
 
             {/* ── Main Tabs ── */}
-            <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
-                <button style={tabBtnStyle(activeTab === "status",  "#10b981")} onClick={() => setActiveTab("status")}>📊 Stato Settimana</button>
-                <button style={tabBtnStyle(activeTab === "gantt",   "#3c6ef0")} onClick={() => setActiveTab("gantt")}>📅 Gantt Pianificazione</button>
-                <button style={tabBtnStyle(activeTab === "report",  "#ef4444")} onClick={() => setActiveTab("report")}>📉 Report Mancato Target</button>
-                <button style={tabBtnStyle(activeTab === "flusso",  "#f59e0b")} onClick={() => setActiveTab("flusso")}>🔄 Flusso Componenti</button>
-                <button style={tabBtnStyle(activeTab === "config",  "#9b59b6")} onClick={() => setActiveTab("config")}>⚙️ Configurazione</button>
+            <div style={{ display: "flex", borderRadius: 8, border: "1px solid var(--border-light)", overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,0.05)", marginBottom: 24, width: "fit-content" }}>
+                <button style={tabBtnStyle(activeTab === "status")} onClick={() => setActiveTab("status")}>📊 Stato Settimana</button>
+                <button style={tabBtnStyle(activeTab === "gantt")} onClick={() => setActiveTab("gantt")}>📅 Gantt Pianificazione</button>
+                <button style={tabBtnStyle(activeTab === "report")} onClick={() => setActiveTab("report")}>📉 Report Mancato Target</button>
+                <button style={tabBtnStyle(activeTab === "flusso")} onClick={() => setActiveTab("flusso")}>🔄 Flusso Componenti</button>
+                <button style={{ ...tabBtnStyle(activeTab === "config"), borderRight: "none" }} onClick={() => setActiveTab("config")}>⚙️ Configurazione</button>
             </div>
 
             {/* ══════════════════════════ TAB 1: STATO SETTIMANA ══════════════════════════ */}
@@ -1532,12 +1534,13 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
         return <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 4, background: "#10b98120", color: "#10b981", fontWeight: 700 }}>🟢 OK</span>;
     };
 
-    const chipStyle = (active, color) => ({
-        padding: "5px 12px", borderRadius: 20, cursor: "pointer", fontSize: 12, fontWeight: active ? 700 : 400,
-        border: `1px solid ${active ? (color || "var(--accent)") : "var(--border)"}`,
-        background: active ? (color ? color + "22" : "var(--accent-dim)") : "var(--bg-secondary)",
-        color: active ? (color || "var(--accent)") : "var(--text-secondary)",
-        whiteSpace: "nowrap",
+    const chipStyle = (active) => ({
+        padding: "0px 14px", height: 38, cursor: "pointer", fontSize: 14, fontWeight: 600,
+        border: "none", borderRight: "1px solid var(--border-light)",
+        background: active ? "var(--accent)" : "white",
+        color: active ? "white" : "rgb(55, 65, 81)",
+        boxShadow: active ? "0 1px 3px rgba(0,0,0,0.15)" : "none",
+        transition: "all 0.15s", whiteSpace: "nowrap",
     });
 
     return (
@@ -1545,15 +1548,17 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
             {/* ── Barra filtri ── */}
             <div style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: 10, padding: "12px 16px", marginBottom: 16, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
                 {/* Filtro urgenza */}
-                <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                     <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600, marginRight: 2 }}>STATO</span>
+                    <div style={{ display: "flex", borderRadius: 8, border: "1px solid var(--border-light)", overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
                     {[
                         { id: "all",    label: "Tutte" },
                         { id: "urgent", label: "🔔 Con CO" },
                         { id: "ok",     label: "🟢 Senza CO" },
-                    ].map(f => (
-                        <button key={f.id} style={chipStyle(filterUrgency === f.id)} onClick={() => setFilterUrgency(f.id)}>{f.label}</button>
+                    ].map((f, i, arr) => (
+                        <button key={f.id} style={{ ...chipStyle(filterUrgency === f.id), ...(i === arr.length - 1 ? { borderRight: "none" } : {}) }} onClick={() => setFilterUrgency(f.id)}>{f.label}</button>
                     ))}
+                    </div>
                     {/* Badge-filter attivo da click su card — mostra etichetta + X per rimuovere */}
                     {["co_3","co_2","co_1","prod_2","prod_1"].includes(filterUrgency) && (
                         <span style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 20,
@@ -1568,14 +1573,16 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                 <div style={{ width: 1, height: 20, background: "var(--border)" }} />
 
                 {/* Filtro fase */}
-                <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                     <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600, marginRight: 2 }}>FASE</span>
+                    <div style={{ display: "flex", borderRadius: 8, border: "1px solid var(--border-light)", overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
                     <button style={chipStyle(filterPhase === "all")} onClick={() => setFilterPhase("all")}>Tutte</button>
-                    {availablePhases.map(p => (
-                        <button key={p.filterId} style={chipStyle(filterPhase === p.filterId, p.color)} onClick={() => setFilterPhase(filterPhase === p.filterId ? "all" : p.filterId)}>
+                    {availablePhases.map((p, i, arr) => (
+                        <button key={p.filterId} style={{ ...chipStyle(filterPhase === p.filterId), ...(i === arr.length - 1 ? { borderRight: "none" } : {}) }} onClick={() => setFilterPhase(filterPhase === p.filterId ? "all" : p.filterId)}>
                             {p.label}
                         </button>
                     ))}
+                    </div>
                 </div>
 
             </div>
@@ -2868,21 +2875,22 @@ function ConfigTab({ projectTargets, saveProjectTargets, changeoverConfig, setCh
     const [draft, setDraft] = useState(() => ({ ...projectTargets }));
 
     const subTabBtn = (id) => ({
-        padding: "7px 16px", borderRadius: 6, cursor: "pointer", fontSize: 13,
-        border: `1px solid ${configSubTab === id ? "var(--accent)" : "var(--border)"}`,
-        background: configSubTab === id ? "var(--accent-dim)" : "var(--bg-secondary)",
-        color: configSubTab === id ? "var(--accent)" : "var(--text-secondary)",
-        fontWeight: configSubTab === id ? 700 : 400,
+        padding: "0px 16px", height: 38, cursor: "pointer", fontSize: 14, fontWeight: 600,
+        border: "none", borderRight: "1px solid var(--border-light)",
+        background: configSubTab === id ? "var(--accent)" : "white",
+        color: configSubTab === id ? "white" : "rgb(55, 65, 81)",
+        boxShadow: configSubTab === id ? "0 1px 3px rgba(0,0,0,0.15)" : "none",
+        transition: "all 0.15s", whiteSpace: "nowrap",
     });
 
     return (
         <>
-            <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", borderRadius: 8, border: "1px solid var(--border-light)", overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,0.05)", marginBottom: 20, width: "fit-content" }}>
                 <button style={subTabBtn("targets")}    onClick={() => setConfigSubTab("targets")}>🎯 Target Giornalieri</button>
                 <button style={subTabBtn("throughput")} onClick={() => setConfigSubTab("throughput")}>⚡ Throughput (JPH)</button>
                 <button style={subTabBtn("changeover")} onClick={() => setConfigSubTab("changeover")}>⏱ Ore Changeover</button>
                 <button style={subTabBtn("op10")}       onClick={() => setConfigSubTab("op10")}>🔗 Op10 (Stock Upstream)</button>
-                <button style={subTabBtn("dct300orders")} onClick={() => setConfigSubTab("dct300orders")}>
+                <button style={{ ...subTabBtn("dct300orders"), borderRight: "none" }} onClick={() => setConfigSubTab("dct300orders")}>
                     📦 Ordini DCT300{dct300Orders ? " ✓" : ""}
                 </button>
             </div>

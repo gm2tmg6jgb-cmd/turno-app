@@ -220,10 +220,16 @@ export default function DashboardView({
     // -------------------------------------------------------------------------
 
     // 1. FILTRO per Turno Corrente
-    // L'utente si aspetta di vedere solo i dipendenti appartenenti al turno selezionato (es. "D")
+    // Includi dipendenti del turno di default + quelli con assegnazione temporanea di turno per oggi
     const filteredDipendenti = dipendenti.filter(d => {
         if (d.attivo === false) return false;
-        if (!turnoCorrente) return true; // Mostra tutti se nessun turno è selezionato
+        if (!turnoCorrente) return true;
+        // Assegnazione temporanea: pianificazione per oggi con turno diverso dal default
+        const pianoOggi = pianificazione.find(p => p.dipendente_id === d.id && p.data === today && p.turno_id);
+        if (pianoOggi) {
+            // Mostra nell'assegnazione temporanea, escludi dal turno di default
+            return pianoOggi.turno_id === turnoCorrente;
+        }
         return d.turno_default === turnoCorrente;
     });
 
@@ -724,7 +730,7 @@ export default function DashboardView({
                 )}
 
                 {activeTab === "pianificazione" && (
-                    <PlanningView
+                    <div id="piano-turno-print-area"><PlanningView
                         dipendenti={dipendenti}
                         setDipendenti={setDipendenti}
                         presenze={presenze}
@@ -734,7 +740,7 @@ export default function DashboardView({
                         globalDate={globalDate}
                         motivi={motivi}
                         showToast={showToast}
-                    />
+                    /></div>
                 )}
 
                 {activeTab === "limitazioni" && (

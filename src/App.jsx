@@ -289,13 +289,40 @@ function AppContent({ session, onLogout }) {
   };
 
   const handleSendPlan = async () => {
-    // Logic to "Send" the plan. For now, we simulate a successful action.
-    // In a real app, this might trigger an email or saving a snapshot.
-    // Simulate API call
-    showToast("Invio piano turno in corso...", "info");
-    await new Promise(r => setTimeout(r, 1000));
-
-    showToast(`Piano turno del ${new Date().toLocaleDateString()} inviato correttamente a CP / HR!`, "success"); // Simulated recipient
+    const target = document.getElementById("piano-turno-print-area");
+    if (!target) {
+      showToast("Naviga alla tab Pianificazione per esportare il piano turno", "info");
+      return;
+    }
+    showToast("Generazione PDF in corso...", "info");
+    try {
+      const [html2canvasModule, { jsPDF }] = await Promise.all([
+        import("html2canvas"),
+        import("jspdf"),
+      ]);
+      const html2canvas = html2canvasModule.default;
+      const canvas = await html2canvas(target, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+      const imgData = canvas.toDataURL("image/jpeg", 0.92);
+      const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a3" });
+      const pW = pdf.internal.pageSize.getWidth();
+      const pH = pdf.internal.pageSize.getHeight();
+      const imgH = (canvas.height * pW) / canvas.width;
+      let pos = 0;
+      pdf.addImage(imgData, "JPEG", 0, pos, pW, imgH);
+      let left = imgH - pH;
+      while (left > 0) {
+        pos -= pH;
+        pdf.addPage();
+        pdf.addImage(imgData, "JPEG", 0, pos, pW, imgH);
+        left -= pH;
+      }
+      const dateStr = globalDate || new Date().toISOString().split("T")[0];
+      pdf.save(`piano_turno_${dateStr}.pdf`);
+      showToast("PDF scaricato", "success");
+    } catch (err) {
+      console.error(err);
+      showToast("Errore generazione PDF", "error");
+    }
   };
 
   if (isLoading) {
