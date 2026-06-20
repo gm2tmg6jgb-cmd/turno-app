@@ -15,7 +15,7 @@ export default function AnagraficaView({ dipendenti, setDipendenti, showToast, t
     const [currentDipId, setCurrentDipId] = useState(null);
     const [newDip, setNewDip] = useState({
         nome: "", cognome: "", turno: "D", reparto: "T11", tipo: "indeterminato",
-        competenze: {}, ruolo: "operatore", agenzia: "", scadenza: "", l104: "",
+        competenze: {}, ruolo: "operatore", data_assunzione: "", scadenza: "", l104: "",
         attivo: true, data_fine_rapporto: "",
         ferie_residue: 0, rol_residui: 0
     });
@@ -50,7 +50,7 @@ export default function AnagraficaView({ dipendenti, setDipendenti, showToast, t
                     reparto_id: newDip.reparto_id || newDip.reparto || "T11",
                     tipo: newDip.tipo,
                     ruolo: newDip.ruolo,
-                    agenzia: newDip.tipo === 'interinale' ? (newDip.agenzia || null) : null,
+                    data_assunzione: newDip.data_assunzione || null,
                     scadenza: newDip.tipo === 'interinale' ? (newDip.scadenza || null) : null,
                     l104: newDip.l104 || null,
                     attivo: newDip.attivo ?? true,
@@ -81,7 +81,7 @@ export default function AnagraficaView({ dipendenti, setDipendenti, showToast, t
                     tipo: newDip.tipo,
                     ruolo: newDip.ruolo,
                     // Optional fields
-                    agenzia: newDip.tipo === 'interinale' ? (newDip.agenzia || null) : null,
+                    data_assunzione: newDip.data_assunzione || null,
                     scadenza: newDip.tipo === 'interinale' ? (newDip.scadenza || null) : null,
                     l104: newDip.l104 || null,
                     attivo: newDip.attivo ?? true,
@@ -117,7 +117,7 @@ export default function AnagraficaView({ dipendenti, setDipendenti, showToast, t
             tipo: "indeterminato",
             competenze: {},
             ruolo: "operatore",
-            agenzia: "",
+            data_assunzione: "",
             scadenza: "",
             l104: "",
             attivo: true,
@@ -158,7 +158,7 @@ export default function AnagraficaView({ dipendenti, setDipendenti, showToast, t
                 <select className="select-input" style={{ width: 160 }} value={filterTipo} onChange={(e) => setFilterTipo(e.target.value)}>
                     <option value="all">Tutti i tipi</option>
                     <option value="indeterminato">Indeterminato</option>
-                    <option value="interinale">Interinale</option>
+                    <option value="interinale">Somministrato</option>
                 </select>
 
                 <select className="select-input" style={{ width: 140 }} value={filterStato} onChange={(e) => setFilterStato(e.target.value)}>
@@ -216,7 +216,7 @@ export default function AnagraficaView({ dipendenti, setDipendenti, showToast, t
                                                         <div style={{ fontWeight: 700, fontSize: 14, color: "var(--text-primary)" }}>{d.cognome} {d.nome}</div>
                                                         {d.tipo === 'interinale' && (
                                                             <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
-                                                                <span style={{ color: "#EC4899", fontWeight: 600 }}>INTERINALE</span>
+                                                                <span style={{ color: "#EC4899", fontWeight: 600 }}>SOMMINISTRATO</span>
                                                             </div>
                                                         )}
                                                         {d.attivo === false && (
@@ -239,11 +239,12 @@ export default function AnagraficaView({ dipendenti, setDipendenti, showToast, t
                                                     )}
                                                 </div>
 
-                                                {d.tipo === 'interinale' && d.scadenza && (
+                                                {(d.tipo === 'interinale' && d.scadenza) || d.data_assunzione ? (
                                                     <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6, borderTop: "1px solid var(--border-light)", paddingTop: 6 }}>
-                                                        ⏳ {new Date(d.scadenza).toLocaleDateString()} {d.agenzia && <span>• {d.agenzia}</span>}
+                                                        {d.data_assunzione && <span>📅 Ass. {new Date(d.data_assunzione).toLocaleDateString("it-IT")}</span>}
+                                                        {d.tipo === 'interinale' && d.scadenza && <span> · ⏳ Sc. {new Date(d.scadenza).toLocaleDateString("it-IT")}</span>}
                                                     </div>
-                                                )}
+                                                ) : null}
                                             </div>
                                         ))}
                                     </div>
@@ -295,7 +296,7 @@ export default function AnagraficaView({ dipendenti, setDipendenti, showToast, t
                                 <label className="form-label">Tipo Contratto</label>
                                 <select className="select-input" value={newDip.tipo} onChange={(e) => setNewDip({ ...newDip, tipo: e.target.value })}>
                                     <option value="indeterminato">Indeterminato</option>
-                                    <option value="interinale">Interinale</option>
+                                    <option value="interinale">Somministrato</option>
                                 </select>
                             </div>
                             <div className="form-group">
@@ -328,7 +329,7 @@ export default function AnagraficaView({ dipendenti, setDipendenti, showToast, t
                                     disabled={newDip.tipo === 'interinale'}
                                     value={newDip.ferie_residue}
                                     onChange={(e) => setNewDip({ ...newDip, ferie_residue: e.target.value })}
-                                    title={newDip.tipo === 'interinale' ? 'Non applicabile a dipendenti interinali' : ''}
+                                    title={newDip.tipo === 'interinale' ? 'Non applicabile a dipendenti somministrati' : ''}
                                 />
                             </div>
                             <div className="form-group">
@@ -340,7 +341,7 @@ export default function AnagraficaView({ dipendenti, setDipendenti, showToast, t
                                     disabled={newDip.tipo === 'interinale'}
                                     value={newDip.rol_residui}
                                     onChange={(e) => setNewDip({ ...newDip, rol_residui: e.target.value })}
-                                    title={newDip.tipo === 'interinale' ? 'Non applicabile a dipendenti interinali' : ''}
+                                    title={newDip.tipo === 'interinale' ? 'Non applicabile a dipendenti somministrati' : ''}
                                 />
                             </div>
 
@@ -351,18 +352,18 @@ export default function AnagraficaView({ dipendenti, setDipendenti, showToast, t
                                 </div>
                             </div>
                         </div>
-                        {newDip.tipo === "interinale" && (
-                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 4 }}>
-                                <div className="form-group">
-                                    <label className="form-label">Agenzia</label>
-                                    <input className="input" value={newDip.agenzia || ""} onChange={(e) => setNewDip({ ...newDip, agenzia: e.target.value })} />
-                                </div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 4 }}>
+                            <div className="form-group">
+                                <label className="form-label">Data Assunzione</label>
+                                <input className="input" type="date" value={newDip.data_assunzione || ""} onChange={(e) => setNewDip({ ...newDip, data_assunzione: e.target.value })} />
+                            </div>
+                            {newDip.tipo === "interinale" && (
                                 <div className="form-group">
                                     <label className="form-label">Scadenza Contratto</label>
                                     <input className="input" type="date" value={newDip.scadenza || ""} onChange={(e) => setNewDip({ ...newDip, scadenza: e.target.value })} />
                                 </div>
-                            </div>
-                        )}
+                            )}
+                        </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                             <div style={{ fontSize: 11, color: "var(--text-muted)", fontStyle: "italic" }}>
                                 Le competenze si gestiscono dalla pagina "Matrice Competenze".
