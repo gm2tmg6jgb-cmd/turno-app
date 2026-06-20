@@ -1500,6 +1500,60 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
         return alerts.sort((a, b) => a.daysLeft - b.daysLeft);
     }, [machineStatus]);
 
+    // ── Raccomandazioni spostamento su macchina backup ──
+    // Per ogni macchina, se un componente è in ritardo E esiste una macchina backup
+    // con meno carico (prodUrgency più bassa), raccomanda lo spostamento.
+    const backupRecommendations = useMemo(() => {
+        // Mappa machineId → machineStatus per lookup rapido
+        const byId = Object.fromEntries(machineStatus.map(m => [m.machineId, m]));
+        const result = {}; // machineId → [{ compKey, label, backupMachineId, backupUrgency, currentPct, backupPct }]
+
+        for (const machine of machineStatus) {
+            const recs = [];
+            for (const item of machine.itemsWithProgress) {
+                if (item.target <= 0) continue;
+                const currentPct = item.target > 0 ? Math.round((item.produced / item.target) * 100) : 0;
+                // Solo componenti in ritardo rispetto all'avanzamento settimana
+                const expectedPct = consumedH > 0 ? Math.round((consumedH / WEEK_HOURS) * 100) : 0;
+                if (currentPct >= expectedPct - 5) continue; // non in ritardo significativo
+
+                // Cerca macchine backup per questo componente+fase
+                const phases = item.relevantPhases?.length ? item.relevantPhases : [machine.phase];
+                for (const phaseId of phases) {
+                    const backups = compPhaseBackups[`${item.proj}::${item.comp}::${phaseId}`] || [];
+                    for (const backupId of backups) {
+                        const bm = byId[backupId];
+                        if (!bm) continue;
+                        // La backup ha un carico produttivo inferiore?
+                        const backupItem = bm.itemsWithProgress.find(bi => bi.compKey === item.compKey);
+                        const backupPct = backupItem
+                            ? Math.round((backupItem.produced / backupItem.target) * 100)
+                            : null;
+                        // Raccomanda se la backup ha urgency produttiva minore o è libera
+                        const worthMoving = bm.prodUrgency < machine.prodUrgency || (!backupItem && bm.changeovers.length === 0);
+                        if (worthMoving) {
+                            recs.push({
+                                compKey: item.compKey,
+                                label: item.shortLabel,
+                                proj: item.proj,
+                                comp: item.comp,
+                                phaseId,
+                                backupMachineId: backupId,
+                                backupUrgency: bm.prodUrgency,
+                                currentPct,
+                                backupPct,
+                                remaining: item.remaining,
+                                backupFree: !backupItem,
+                            });
+                        }
+                    }
+                }
+            }
+            if (recs.length) result[machine.machineId] = recs;
+        }
+        return result;
+    }, [machineStatus, compPhaseBackups, consumedH]);
+
     const urgencyStyle = (u, pu) => {
         const combined = Math.max(u, pu);
         if (combined >= 3) return { border: "2px solid #ef4444", background: "#ef444408" };
@@ -1836,32 +1890,32 @@ function StatusTab({ machineStatus, weeklyTargets, sapByKey, sapByVariant, lastS
                         )}
                     </div>
 
-                    {/* ── Macchine di backup per componente+fase ── */}
-                    {(() => {
-                        const rows = [];
-                        for (const item of machine.itemsWithProgress) {
-                            const phases = item.relevantPhases?.length ? item.relevantPhases : [machine.phase];
-                            for (const phaseId of phases) {
-                                const bm = compPhaseBackups[`${item.proj}::${item.comp}::${phaseId}`];
-                                if (bm?.length) rows.push({ label: item.label, backups: bm });
-                            }
-                        }
-                        if (!rows.length) return null;
-                        return (
-                            <div style={{ padding: "6px 16px", borderBottom: "1px solid var(--border)", background: "rgba(59,130,246,0.05)", display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-                                <span style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 600 }}>🔄 Backup:</span>
-                                {rows.map((row, i) => (
-                                    <span key={i} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                                        <strong style={{ fontSize: 12 }}>{row.label}:</strong>
-                                        {row.backups.map(b => (
-                                            <span key={b} style={{ fontFamily: "monospace", fontWeight: 700, background: "var(--info-muted)", color: "var(--info)", borderRadius: 4, padding: "1px 7px", fontSize: 12 }}>{b}</span>
-                                        ))}
-                                    </span>
-                                ))}
-                                <span style={{ fontSize: 11, color: "var(--text-muted)", fontStyle: "italic" }}>— valuta C/O se occupata</span>
+                    {/* ── Raccomandazione spostamento su macchina backup ── */}
+                    {(backupRecommendations[machine.machineId] || []).map((rec, i) => (
+                        <div key={i} style={{ padding: "12px 24px", borderBottom: "1px solid var(--border)", background: "rgba(139,92,246,0.06)", display: "flex", alignItems: "flex-start", gap: 10 }}>
+                            <span style={{ fontSize: 18, flexShrink: 0 }}>🔀</span>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 15, fontWeight: 700, color: "#7c3aed", marginBottom: 4 }}>
+                                    Sposta <span style={{ fontFamily: "monospace" }}>{rec.label}</span> su{" "}
+                                    <button
+                                        onClick={() => scrollToMachine(rec.backupMachineId)}
+                                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontWeight: 800, color: "#7c3aed", fontSize: 15, textDecoration: "underline dotted", fontFamily: "monospace" }}>
+                                        {rec.backupMachineId}
+                                    </button>
+                                </div>
+                                <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                                    Questa macchina:{" "}
+                                    <strong style={{ color: "#ef4444" }}>{rec.currentPct}%</strong>
+                                    {" "}completato —{" "}
+                                    {rec.backupFree
+                                        ? <span style={{ color: "#10b981", fontWeight: 700 }}>backup libera</span>
+                                        : <span>backup al{" "}<strong style={{ color: "#10b981" }}>{rec.backupPct}%</strong></span>
+                                    }
+                                    {" "}· {rec.remaining.toLocaleString("it-IT")} pz rimanenti
+                                </div>
                             </div>
-                        );
-                    })()}
+                        </div>
+                    ))}
 
                     {/* Raccomandazione automatica — sempre visibile */}
                     {(() => {
