@@ -345,12 +345,14 @@ export default function AnagraficaView({ dipendenti, setDipendenti, showToast, t
                                 </div>
                             )}
 
-                            <div className="form-group" style={{ gridColumn: "span 2" }}>
-                                <div className="alert alert-info" style={{ marginTop: 0, padding: "8px 12px" }}>
-                                    <span style={{ fontSize: 14, marginRight: 6 }}>🔒</span>
-                                    Le limitazioni fisiche e prescrizioni mediche sono gestite nell'area <strong>Privacy Alta</strong>.
+                            {newDip.tipo !== 'interinale' && (
+                                <div className="form-group" style={{ gridColumn: "span 2" }}>
+                                    <div className="alert alert-info" style={{ marginTop: 0, padding: "8px 12px" }}>
+                                        <span style={{ fontSize: 14, marginRight: 6 }}>🔒</span>
+                                        Le limitazioni fisiche e prescrizioni mediche sono gestite nell'area <strong>Privacy Alta</strong>.
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                         </div>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 4 }}>
                             <div className="form-group">
