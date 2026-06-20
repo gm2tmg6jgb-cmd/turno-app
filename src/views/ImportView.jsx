@@ -23,6 +23,8 @@ const COL_DEFS_PROD = [
     { key: "fino", label: "Fino (N. Op.)", patterns: ["fino"] },
     { key: "acq_da", label: "Acquisito da", patterns: ["acq. da", "acq.da", "acquisito da", "acq_da", "operatore", "operator", "acq"] },
     { key: "sto", label: "Storno", patterns: ["sto", "storno", "reversal"] },
+    { key: "ordine", label: "Numero Ordine", patterns: ["ordine", "order", "ordine produzione", "ord. prod.", "ord.prod", "production order"] },
+    { key: "rack", label: "Rack", patterns: ["rack", "rastrelliera", "pallet", "contenitore"] },
 ];
 
 const COL_DEFS_FERMI = [
@@ -338,10 +340,12 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                         qta_ottenuta: 0,
                         qta_scarto: 0,
                         turno_id,
-                        ora: formatTime(get(row, mapping.ora)),
+                        orario: formatTime(get(row, mapping.ora)),
                         fino,
                         acq_da,
                         sto,
+                        ordine: String(get(row, mapping.ordine) || "").trim() || null,
+                        rack: String(get(row, mapping.rack) || "").trim() || null,
                     };
                 }
                 const qta_ott = parseFloat(get(row, mapping.qta_ottenuta)) || 0;
@@ -447,7 +451,7 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                 const r = { ...item };
                 delete r.matched;
                 delete r.macchina_nome;
-                if (importType === "produzione") delete r.ora;
+                // ora non è una colonna del DB (il campo si chiama orario)
                 return {
                     ...r,
                     data_import: new Date().toISOString(),

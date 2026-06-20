@@ -122,6 +122,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     const [cellsAffectedByOperator, setCellsAffectedByOperator] = useState({});
     const [showOperatorReport, setShowOperatorReport] = useState(false);
     const [showRiepilogoModal, setShowRiepilogoModal] = useState(false);
+    const [riepilogoDetail, setRiepilogoDetail] = useState(null);
     const [highlightOperator, setHighlightOperator] = useState(null); // operatore da evidenziare
     const [searchOperator, setSearchOperator] = useState(""); // ricerca nel report operatori
     const [throughputConfigModal, setThroughputConfigModal] = useState(null); // { proj, comp, lotto, oee }
@@ -163,14 +164,62 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     }, [detailPhases, detailCompKey, selectedDetail?.phaseId]);
     const throughputTotalH = throughputPhases.at(-1)?.cumH || 0;
 
-    const handlePrint = () => {
-        // Mark for printing and trigger print dialog
+    const handlePrint = async () => {
         const printArea = document.querySelector('[data-print-area="boxes"]');
-        if (!printArea) {
-            alert('Elemento di stampa non trovato');
-            return;
+        if (!printArea) { alert('Elemento di stampa non trovato'); return; }
+
+        // Importa dinamicamente per non appesantire il bundle iniziale
+        const [html2canvasModule, { jsPDF }] = await Promise.all([
+            import("html2canvas"),
+            import("jspdf")
+        ]);
+        const html2canvas = html2canvasModule.default;
+
+        // Salva stili originali
+        const originalOverflow = printArea.style.overflow;
+        const originalWidth = printArea.style.width;
+        const originalMaxWidth = printArea.style.maxWidth;
+
+        // Espandi temporaneamente per catturare tutto
+        printArea.style.overflow = "visible";
+        printArea.style.width = "max-content";
+        printArea.style.maxWidth = "none";
+
+        // Cattura ogni box separatamente
+        const boxes = Array.from(printArea.children);
+        const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a3" });
+        const pageW = pdf.internal.pageSize.getWidth();
+        const pageH = pdf.internal.pageSize.getHeight();
+        const margin = 10;
+
+        for (let i = 0; i < boxes.length; i++) {
+            const box = boxes[i];
+            const boxOverflow = box.style.overflow;
+            const boxMaxH = box.style.maxHeight;
+            box.style.overflow = "visible";
+            box.style.maxHeight = "none";
+
+            const canvas = await html2canvas(box, { scale: 1.5, useCORS: true, logging: false, backgroundColor: "#ffffff" });
+
+            box.style.overflow = boxOverflow;
+            box.style.maxHeight = boxMaxH;
+
+            const imgData = canvas.toDataURL("image/jpeg", 0.92);
+            const imgW = pageW - margin * 2;
+            const imgH = (canvas.height * imgW) / canvas.width;
+            const finalH = Math.min(imgH, pageH - margin * 2);
+
+            if (i > 0) pdf.addPage();
+            pdf.addImage(imgData, "JPEG", margin, margin, imgW, finalH);
         }
-        window.print();
+
+        // Ripristina stili
+        printArea.style.overflow = originalOverflow;
+        printArea.style.width = originalWidth;
+        printArea.style.maxWidth = originalMaxWidth;
+
+        const dateStr = wDate || new Date().toISOString().split("T")[0];
+        pdf.save(`avanzamento_componenti_${dateStr}.pdf`);
     };
 
     useEffect(() => {
@@ -442,7 +491,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
             });
 
             // Fetch dati produzione
-            const selectFields = "data, materiale, work_center_sap, macchina_id, qta_ottenuta, qta_scarto, turno_id, fino, importato_il, acq_da, sto";
+            const selectFields = "data, materiale, work_center_sap, macchina_id, qta_ottenuta, qta_scarto, turno_id, fino, importato_il, acq_da, sto, ordine, rack, orario";
             const queryFactory = () => {
                 let q = supabase.from("conferme_sap").select(selectFields);
                 if (viewMode === "weekly") {
@@ -1093,13 +1142,16 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                         const hasFilteredOut = (filterExcludeSto || filterExcludeOperators.length > 0)
                                             && (rawQty > qty || rawRecordCount > filteredRecordCount);
 
-                                        // Calcolo netto: produzione - storni - analisti
+                                                        // Calcolo netto: usa rawMatrixData (dati non filtrati) per coerenza con Movimentazioni
                                         const ANALYST_CODES_CELL = ["STEFPUTR"];
-                                        const relevantRecords = viewMode === "weekly" ? cellRecords.filter(r => r.data <= wDate) : cellRecords;
-                                        const cellStornoQty = relevantRecords.filter(r => r.sto === "X").reduce((s, r) => s + (r.qta_ottenuta || 0), 0);
-                                        const cellAnalystQty = relevantRecords.filter(r => r.sto !== "X" && ANALYST_CODES_CELL.includes((r.acq_da || "").toUpperCase())).reduce((s, r) => s + (r.qta_ottenuta || 0), 0);
-                                        const cellNetto = qty - cellAnalystQty - cellStornoQty;
-                                        const hasDelta = (cellStornoQty > 0 || cellAnalystQty > 0) && cellNetto !== qty;
+                                        const rawAllRecs = viewMode === "weekly"
+                                            ? (rawCellData?.records || []).filter(r => r.data <= wDate)
+                                            : (rawCellData?.records || []);
+                                        const cellStornoQty = rawAllRecs.filter(r => r.sto === "X").reduce((s, r) => s + (r.qta_ottenuta || 0), 0);
+                                        const cellAnalystQty = rawAllRecs.filter(r => r.sto !== "X" && ANALYST_CODES_CELL.includes((r.acq_da || "").toUpperCase())).reduce((s, r) => s + (r.qta_ottenuta || 0), 0);
+                                        const rawTotalQty = rawAllRecs.reduce((s, r) => s + (r.qta_ottenuta || 0), 0);
+                                        const cellNetto = rawTotalQty - cellStornoQty - cellAnalystQty;
+                                        const hasDelta = (cellStornoQty > 0 || cellAnalystQty > 0);
 
                                         return (
                                             <div key={idx} style={{
@@ -1179,15 +1231,15 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                             {scartiValue > 0 && <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.7)" }}>s:{scartiValue}</div>}
                                                         </div>
 
-                                                        {hasFilteredOut && (
-                                                            <div title={`Filtro attivo: ${rawQty - qty} pz esclusi`} style={{
+                                                        {(hasFilteredOut || hasDelta) && (
+                                                            <div title={hasFilteredOut ? `Filtro attivo: ${rawQty - qty} pz esclusi` : `Modifiche: storni ${cellStornoQty} · analisti ${cellAnalystQty}`} style={{
                                                                 position: "absolute", top: -6, right: -6,
-                                                                background: "#f59e0b",
+                                                                background: hasFilteredOut ? "#f59e0b" : "#8b5cf6",
                                                                 borderRadius: "50%",
                                                                 width: 14, height: 14,
                                                                 display: "flex", alignItems: "center", justifyContent: "center",
                                                                 fontSize: 9, fontWeight: 900, color: "white",
-                                                                boxShadow: "0 1px 4px rgba(245,158,11,0.6)",
+                                                                boxShadow: hasFilteredOut ? "0 1px 4px rgba(245,158,11,0.6)" : "0 1px 4px rgba(139,92,246,0.6)",
                                                                 pointerEvents: "none"
                                                             }}>F</div>
                                                         )}
@@ -1676,13 +1728,14 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                     </tbody>
                                 </table>
                             ) : (
-                                /* Tab Movimentazioni */
+                                /* Tab Movimentazioni — usa TUTTI i record (non filtrati) */
                                 (() => {
+                                    const allMovRecs = selectedDetail.records;
                                     const ANALYST_CODES = ["STEFPUTR"];
                                     const isAnalyst = r => ANALYST_CODES.includes((r.acq_da || "").toUpperCase());
-                                    const prodRows = filtered.filter(r => r.sto !== "X" && !isAnalyst(r));
-                                    const analystRows = filtered.filter(r => r.sto !== "X" && isAnalyst(r));
-                                    const stornoRows = filtered.filter(r => r.sto === "X");
+                                    const prodRows = allMovRecs.filter(r => r.sto !== "X" && !isAnalyst(r));
+                                    const analystRows = allMovRecs.filter(r => r.sto !== "X" && isAnalyst(r));
+                                    const stornoRows = allMovRecs.filter(r => r.sto === "X");
                                     const thStyle = { padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)", whiteSpace: "nowrap" };
                                     const tdStyle = { padding: "10px", fontSize: "12px", color: "var(--text-secondary)", whiteSpace: "nowrap" };
                                     const CommonHeader = ({ bg, accent }) => (
@@ -2021,8 +2074,92 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 const combined = [...stornoRows.map(r => ({ ...r, _tipo: "Storno" })), ...analystRows.map(r => ({ ...r, _tipo: "Analista" }))];
                 combined.sort((a, b) => (a.data || "").localeCompare(b.data || ""));
                 return (
-                    <Modal title="📋 Riepilogo Movimentazioni" onClose={() => setShowRiepilogoModal(false)} width={780}>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                    <Modal title="📋 Riepilogo Movimentazioni" onClose={() => setShowRiepilogoModal(false)} width={780}
+                        headerExtra={
+                            <button onClick={async () => {
+                                const { jsPDF } = await import("jspdf");
+                                const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+                                const pW = pdf.internal.pageSize.getWidth();
+                                const pH = pdf.internal.pageSize.getHeight();
+                                const M = 14; // margine
+                                const dateStr = wDate || new Date().toISOString().split("T")[0];
+                                const dateEU = dateStr.split("-").reverse().join("/");
+
+                                // Intestazione
+                                pdf.setFontSize(16); pdf.setFont("helvetica", "bold");
+                                pdf.text("Riepilogo Movimentazioni", M, M + 6);
+                                pdf.setFontSize(10); pdf.setFont("helvetica", "normal");
+                                pdf.setTextColor(120, 120, 120);
+                                pdf.text(`Data: ${dateEU}`, M, M + 12);
+                                pdf.setTextColor(0, 0, 0);
+
+                                // Riquadri totali
+                                const cards = [
+                                    { label: "Q.tà Produzione", value: qProd, r: 16, g: 185, b: 129 },
+                                    { label: "Attività Analisti", value: qAnalisti, r: 245, g: 158, b: 11 },
+                                    { label: "Storni", value: qStorni, r: 239, g: 68, b: 68 },
+                                    { label: "Netto", value: netto, r: netto >= 0 ? 16 : 239, g: netto >= 0 ? 185 : 68, b: netto >= 0 ? 129 : 68 },
+                                ];
+                                const cardW = (pW - M * 2 - 6) / 4;
+                                cards.forEach((c, i) => {
+                                    const x = M + i * (cardW + 2);
+                                    const y = M + 18;
+                                    pdf.setFillColor(c.r, c.g, c.b);
+                                    pdf.roundedRect(x, y, cardW, 18, 2, 2, "F");
+                                    pdf.setFont("helvetica", "bold"); pdf.setFontSize(7); pdf.setTextColor(255, 255, 255);
+                                    pdf.text(c.label.toUpperCase(), x + cardW / 2, y + 6, { align: "center" });
+                                    pdf.setFontSize(14);
+                                    pdf.text(c.value.toLocaleString("it-IT"), x + cardW / 2, y + 14, { align: "center" });
+                                });
+                                pdf.setTextColor(0, 0, 0);
+
+                                // Tabella
+                                const cols = ["Tipo", "Data", "Materiale", "Acq. da", "Macchina", "Fino", "Q.tà", "Q.tà Scarto"];
+                                const colW = [18, 22, 40, 28, 28, 16, 18, 22];
+                                let y = M + 44;
+                                const rowH = 7;
+
+                                // Header tabella
+                                pdf.setFillColor(240, 240, 240);
+                                pdf.rect(M, y, pW - M * 2, rowH, "F");
+                                pdf.setFont("helvetica", "bold"); pdf.setFontSize(8);
+                                let x = M + 2;
+                                cols.forEach((col, i) => { pdf.text(col, x, y + 5); x += colW[i]; });
+                                y += rowH;
+
+                                pdf.setFont("helvetica", "normal"); pdf.setFontSize(8);
+                                combined.forEach((r, idx) => {
+                                    if (y + rowH > pH - M) { pdf.addPage(); y = M; }
+                                    if (idx % 2 === 0) { pdf.setFillColor(250, 250, 250); pdf.rect(M, y, pW - M * 2, rowH, "F"); }
+                                    // Badge tipo
+                                    const isSto = r._tipo === "Storno";
+                                    pdf.setFillColor(isSto ? 239 : 245, isSto ? 68 : 158, isSto ? 68 : 11);
+                                    pdf.roundedRect(M + 1, y + 1, 14, 5, 1, 1, "F");
+                                    pdf.setTextColor(255, 255, 255); pdf.setFontSize(6);
+                                    pdf.text(r._tipo, M + 8, y + 4.5, { align: "center" });
+                                    pdf.setTextColor(0, 0, 0); pdf.setFontSize(8);
+                                    x = M + 2 + colW[0];
+                                    const cells = [
+                                        r.data ? r.data.split("-").reverse().join("/") : "—",
+                                        (r.materiale || r.codice_materiale || "—").substring(0, 18),
+                                        (r.acq_da || "—"),
+                                        (r.macchina || r.centro_di_lavoro || "—").substring(0, 12),
+                                        r.fino || "—",
+                                        (r.qta_ottenuta || 0).toLocaleString("it-IT"),
+                                        (r.qta_scarto || 0).toLocaleString("it-IT"),
+                                    ];
+                                    cells.forEach((cell, i) => { pdf.text(String(cell), x, y + 5); x += colW[i + 1]; });
+                                    y += rowH;
+                                });
+                                if (combined.length === 0) { pdf.setTextColor(150,150,150); pdf.text("Nessun dato", M, y + 5); }
+
+                                pdf.save(`riepilogo_movimentazioni_${dateStr}.pdf`);
+                            }} style={{ padding: "4px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg-tertiary)", color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                                ⬇ PDF
+                            </button>
+                        }
+                    >
+                        <div id="riepilogo-content" style={{ display: "flex", flexDirection: "column", gap: 20 }}>
                             {/* Totali */}
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
                                 {[
@@ -2058,11 +2195,16 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                             {combined.length === 0 ? (
                                                 <tr><td colSpan={8} style={{ ...tdS, textAlign: "center", color: "var(--text-muted)" }}>Nessun dato</td></tr>
                                             ) : combined.map((r, i) => (
-                                                <tr key={i} style={{ background: i % 2 === 0 ? "transparent" : "var(--bg-tertiary)" }}>
+                                                <tr key={i}
+                                                    onClick={() => setRiepilogoDetail(r)}
+                                                    style={{ background: i % 2 === 0 ? "transparent" : "var(--bg-tertiary)", cursor: "pointer" }}
+                                                    onMouseEnter={e => e.currentTarget.style.background = "rgba(96,165,250,0.08)"}
+                                                    onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? "transparent" : "var(--bg-tertiary)"}
+                                                >
                                                     <td style={tdS}>
                                                         <span style={{ background: r._tipo === "Storno" ? "rgba(239,68,68,0.12)" : "rgba(245,158,11,0.12)", color: r._tipo === "Storno" ? "#ef4444" : "#f59e0b", borderRadius: 4, padding: "2px 6px", fontSize: 11, fontWeight: 600 }}>{r._tipo}</span>
                                                     </td>
-                                                    <td style={tdS}>{r.data}</td>
+                                                    <td style={tdS}>{r.data ? r.data.split("-").reverse().join("/") : "—"}</td>
                                                     <td style={tdS}>{r.materiale || r.codice_materiale || "—"}</td>
                                                     <td style={{ ...tdS, color: r._tipo === "Analista" ? "#f59e0b" : undefined, fontWeight: r._tipo === "Analista" ? 600 : undefined }}>{r.acq_da || "—"}</td>
                                                     <td style={tdS}>{r.macchina || r.centro_di_lavoro || "—"}</td>
@@ -2077,8 +2219,52 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                             </div>
                         </div>
                     </Modal>
+
                 );
             })()}
+
+            {riepilogoDetail && (
+                <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 3100, display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: "rgba(0,0,0,0.4)", backdropFilter: "blur(2px)" }}
+                    onClick={() => setRiepilogoDetail(null)}>
+                    <div style={{ background: "var(--bg-card)", borderRadius: 16, width: 480, boxShadow: "0 20px 40px rgba(0,0,0,0.2)", border: "1px solid var(--border)" }}
+                        onClick={e => e.stopPropagation()}>
+                        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <div>
+                                <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text-primary)" }}>{riepilogoDetail.materiale || "—"}</div>
+                                <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
+                                    <span style={{ background: riepilogoDetail._tipo === "Storno" ? "rgba(239,68,68,0.12)" : "rgba(245,158,11,0.12)", color: riepilogoDetail._tipo === "Storno" ? "#ef4444" : "#f59e0b", borderRadius: 4, padding: "1px 6px", fontSize: 11, fontWeight: 600, marginRight: 8 }}>{riepilogoDetail._tipo}</span>
+                                    {riepilogoDetail.data ? riepilogoDetail.data.split("-").reverse().join("/") : "—"}
+                                </div>
+                            </div>
+                            <button onClick={() => setRiepilogoDetail(null)} style={{ background: "transparent", border: "none", fontSize: 18, cursor: "pointer", color: "var(--text-muted)" }}>✕</button>
+                        </div>
+                        <div style={{ padding: "16px 20px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 20px" }}>
+                            {[
+                                { label: "Orario", value: riepilogoDetail.orario || "—" },
+                                { label: "Turno", value: riepilogoDetail.turno_id || "—" },
+                                { label: "Numero Ordine", value: riepilogoDetail.ordine || "—" },
+                                { label: "Rack", value: riepilogoDetail.rack || "—" },
+                                { label: "Acquisito da", value: riepilogoDetail.acq_da || "—" },
+                                { label: "Fino (N. Op.)", value: riepilogoDetail.fino || "—" },
+                                { label: "Macchina", value: riepilogoDetail.macchina || riepilogoDetail.macchina_id || "—" },
+                                { label: "Work Center SAP", value: riepilogoDetail.work_center_sap || "—" },
+                                { label: "Q.tà Ottenuta", value: (riepilogoDetail.qta_ottenuta || 0).toLocaleString("it-IT") },
+                                { label: "Q.tà Scarto", value: (riepilogoDetail.qta_scarto || 0).toLocaleString("it-IT") },
+                                { label: "Storno", value: riepilogoDetail.sto || "—" },
+                                { label: "Importato il", value: riepilogoDetail.importato_il ? new Date(riepilogoDetail.importato_il).toLocaleString("it-IT") : "—" },
+                            ].map(({ label, value }) => (
+                                <div key={label}>
+                                    <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 2 }}>{label}</div>
+                                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{value}</div>
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{ padding: "12px 20px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end" }}>
+                            <button onClick={() => setRiepilogoDetail(null)} style={{ padding: "6px 16px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg-tertiary)", cursor: "pointer", fontSize: 13 }}>Chiudi</button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {showOperatorReport && (
                 <Modal

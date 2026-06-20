@@ -10,7 +10,7 @@
  *     </div>
  *   </Modal>
  */
-export default function Modal({ title, subtitle, onClose, children, width, zIndex }) {
+export default function Modal({ title, subtitle, onClose, children, width, zIndex, headerExtra }) {
     return (
         <div
             className="modal-backdrop"
@@ -28,9 +28,12 @@ export default function Modal({ title, subtitle, onClose, children, width, zInde
                             {title && <h3 className="modal-title">{title}</h3>}
                             {subtitle && <p className="modal-subtitle">{subtitle}</p>}
                         </div>
-                        {onClose && (
-                            <button className="modal-close" onClick={onClose} aria-label="Chiudi">✕</button>
-                        )}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            {headerExtra}
+                            {onClose && (
+                                <button className="modal-close" onClick={onClose} aria-label="Chiudi">✕</button>
+                            )}
+                        </div>
                     </div>
                 )}
                 {children}
