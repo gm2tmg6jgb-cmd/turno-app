@@ -11,6 +11,7 @@ export default function AnagraficaView({ dipendenti, setDipendenti, showToast, t
     const [filterStato, setFilterStato] = useState("attivo"); // New state filter: active by default
     const [showAllShifts, setShowAllShifts] = useState(false); // Toggle state
     const [showModal, setShowModal] = useState(false);
+    const [deleteConfirm, setDeleteConfirm] = useState(null); // { id, nome }
     const [isEditing, setIsEditing] = useState(false);
     const [currentDipId, setCurrentDipId] = useState(null);
     const [newDip, setNewDip] = useState({
@@ -129,6 +130,15 @@ export default function AnagraficaView({ dipendenti, setDipendenti, showToast, t
         setCurrentDipId(null);
     };
 
+    const handleDelete = async () => {
+        if (!deleteConfirm) return;
+        const { error } = await supabase.from("dipendenti").delete().eq("id", deleteConfirm.id);
+        if (error) { showToast("Errore eliminazione: " + error.message, "error"); return; }
+        setDipendenti(prev => prev.filter(d => d.id !== deleteConfirm.id));
+        setDeleteConfirm(null);
+        showToast("Dipendente eliminato", "success");
+    };
+
     const openEdit = (dip) => {
         setNewDip({
             ...dip,
@@ -225,8 +235,13 @@ export default function AnagraficaView({ dipendenti, setDipendenti, showToast, t
                                                             </div>
                                                         )}
                                                     </div>
-                                                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--primary)" }}>
-                                                        Turno {d.turno_default || d.turno || "D"}
+                                                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                                        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--primary)" }}>Turno {d.turno_default || d.turno || "D"}</span>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setDeleteConfirm({ id: d.id, nome: `${d.cognome} ${d.nome}` }); }}
+                                                            style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", color: "var(--danger)", fontSize: 14, lineHeight: 1 }}
+                                                            title="Elimina dipendente"
+                                                        >🗑</button>
                                                     </div>
                                                 </div>
 
@@ -374,6 +389,20 @@ export default function AnagraficaView({ dipendenti, setDipendenti, showToast, t
                     </Modal>
                 )
             }
+            {deleteConfirm && (
+                <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ background: "var(--bg-card)", borderRadius: 12, padding: 28, maxWidth: 400, width: "90%", boxShadow: "0 8px 32px rgba(0,0,0,0.2)" }}>
+                        <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 8, color: "var(--danger)" }}>Elimina dipendente</div>
+                        <div style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 24 }}>
+                            Sei sicuro di voler eliminare <strong>{deleteConfirm.nome}</strong>? L'operazione è irreversibile.
+                        </div>
+                        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                            <button className="btn btn-secondary" onClick={() => setDeleteConfirm(null)}>Annulla</button>
+                            <button className="btn btn-danger" onClick={handleDelete}>Elimina</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div >
     );
 }
