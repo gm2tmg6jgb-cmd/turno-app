@@ -2924,6 +2924,145 @@ function ThroughputSubTab({ sharedMachines, cfg, dbFasi, onRefreshFasi, showToas
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+function MacchineSubTab({ showToast, cardStyle }) {
+    const [overrides, setOverrides]     = useState([]);
+    const [loading, setLoading]         = useState(true);
+    const [saving, setSaving]           = useState(false);
+    const [newRow, setNewRow]           = useState({ materiale: "", fino: "", fase: "", componente: "", progetto: "", macchina_id: "" });
+    const [editingId, setEditingId]     = useState(null);
+    const [editDraft, setEditDraft]     = useState({});
+
+    const load = useCallback(async () => {
+        setLoading(true);
+        const { data, error } = await supabase.from("material_fino_overrides").select("id,materiale,fino,fase,componente,progetto,macchina_id").order("progetto").order("componente").order("macchina_id");
+        if (error) { showToast("Errore caricamento: " + error.message, "error"); }
+        else setOverrides(data || []);
+        setLoading(false);
+    }, [showToast]);
+
+    useEffect(() => { load(); }, [load]);
+
+    const handleAdd = async () => {
+        if (!newRow.materiale || !newRow.macchina_id || !newRow.fase) { showToast("Compila almeno materiale, fase e macchina", "error"); return; }
+        setSaving(true);
+        const { error } = await supabase.from("material_fino_overrides").insert([newRow]);
+        setSaving(false);
+        if (error) { showToast("Errore: " + error.message, "error"); return; }
+        setNewRow({ materiale: "", fino: "", fase: "", componente: "", progetto: "", macchina_id: "" });
+        showToast("Macchina aggiunta", "success");
+        load();
+    };
+
+    const handleSaveEdit = async (id) => {
+        setSaving(true);
+        const { error } = await supabase.from("material_fino_overrides").update(editDraft).eq("id", id);
+        setSaving(false);
+        if (error) { showToast("Errore: " + error.message, "error"); return; }
+        setEditingId(null);
+        showToast("Salvato", "success");
+        load();
+    };
+
+    const handleDelete = async (id) => {
+        if (!confirm("Eliminare questa riga?")) return;
+        const { error } = await supabase.from("material_fino_overrides").delete().eq("id", id);
+        if (error) { showToast("Errore: " + error.message, "error"); return; }
+        showToast("Eliminato", "success");
+        load();
+    };
+
+    const fieldStyle = { padding: "5px 8px", borderRadius: 4, border: "1px solid var(--border)", background: "var(--bg-secondary)", color: "var(--text-primary)", fontSize: 13, width: "100%" };
+    const phases = Object.entries(PHASE_LABELS).filter(([id]) => id !== "baa");
+
+    return (
+        <div style={cardStyle}>
+            <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", gap: 10, alignItems: "center" }}>
+                <div>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>Macchine per Componente / Fase</span>
+                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>Ogni riga associa un materiale+fase ad una macchina — determina quali macchine appaiono nelle schede changeover.</div>
+                </div>
+                <div style={{ flex: 1 }} />
+                <button onClick={load} style={{ padding: "5px 12px", borderRadius: 6, border: "1px solid var(--border)", background: "var(--bg-secondary)", cursor: "pointer", fontSize: 13 }}>🔄 Ricarica</button>
+            </div>
+
+            {/* Tabella */}
+            <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead>
+                        <tr style={{ background: "var(--bg-tertiary)", textAlign: "left" }}>
+                            {["Materiale","Fino","Fase","Componente","Progetto","Macchina",""].map(h => (
+                                <th key={h} style={{ padding: "8px 12px", fontWeight: 700, fontSize: 12, color: "var(--text-muted)", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>{h}</th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {loading && <tr><td colSpan={7} style={{ padding: 20, textAlign: "center", color: "var(--text-muted)" }}>Caricamento...</td></tr>}
+                        {!loading && overrides.map(row => (
+                            <tr key={row.id} style={{ borderBottom: "1px solid var(--border-light)" }}>
+                                {editingId === row.id ? (
+                                    <>
+                                        {["materiale","fino","componente","progetto"].map(f => (
+                                            <td key={f} style={{ padding: "6px 8px" }}>
+                                                <input value={editDraft[f] || ""} onChange={e => setEditDraft(p => ({ ...p, [f]: e.target.value }))} style={fieldStyle} />
+                                            </td>
+                                        ))}
+                                        <td style={{ padding: "6px 8px" }}>
+                                            <select value={editDraft.fase || ""} onChange={e => setEditDraft(p => ({ ...p, fase: e.target.value }))} style={fieldStyle}>
+                                                <option value="">—</option>
+                                                {phases.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+                                            </select>
+                                        </td>
+                                        <td style={{ padding: "6px 8px" }}>
+                                            <input value={editDraft.macchina_id || ""} onChange={e => setEditDraft(p => ({ ...p, macchina_id: e.target.value }))} style={{ ...fieldStyle, fontFamily: "monospace", fontWeight: 700 }} />
+                                        </td>
+                                        <td style={{ padding: "6px 8px", whiteSpace: "nowrap", display: "flex", gap: 6 }}>
+                                            <button onClick={() => handleSaveEdit(row.id)} disabled={saving} style={{ padding: "4px 10px", borderRadius: 4, border: "none", background: "#10b981", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>✓</button>
+                                            <button onClick={() => setEditingId(null)} style={{ padding: "4px 8px", borderRadius: 4, border: "1px solid var(--border)", background: "transparent", cursor: "pointer", fontSize: 12 }}>✕</button>
+                                        </td>
+                                    </>
+                                ) : (
+                                    <>
+                                        <td style={{ padding: "8px 12px", fontFamily: "monospace", fontWeight: 600 }}>{row.materiale}</td>
+                                        <td style={{ padding: "8px 12px", color: "var(--text-muted)" }}>{row.fino || "—"}</td>
+                                        <td style={{ padding: "8px 12px" }}>{PHASE_LABELS[row.fase] || row.fase}</td>
+                                        <td style={{ padding: "8px 12px" }}>{row.componente || "—"}</td>
+                                        <td style={{ padding: "8px 12px" }}>{row.progetto || "—"}</td>
+                                        <td style={{ padding: "8px 12px", fontFamily: "monospace", fontWeight: 700, color: "var(--accent)" }}>{row.macchina_id}</td>
+                                        <td style={{ padding: "8px 12px", whiteSpace: "nowrap", display: "flex", gap: 6 }}>
+                                            <button onClick={() => { setEditingId(row.id); setEditDraft({ ...row }); }} style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid var(--border)", background: "var(--bg-tertiary)", cursor: "pointer", fontSize: 12 }}>✏️</button>
+                                            <button onClick={() => handleDelete(row.id)} style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid #ef444440", background: "#ef444410", color: "#ef4444", cursor: "pointer", fontSize: 12 }}>🗑</button>
+                                        </td>
+                                    </>
+                                )}
+                            </tr>
+                        ))}
+                        {/* Riga nuova */}
+                        <tr style={{ background: "rgba(59,130,246,0.04)", borderTop: "2px solid var(--border)" }}>
+                            {["materiale","fino","componente","progetto"].map(f => (
+                                <td key={f} style={{ padding: "6px 8px" }}>
+                                    <input placeholder={f} value={newRow[f]} onChange={e => setNewRow(p => ({ ...p, [f]: e.target.value }))} style={fieldStyle} />
+                                </td>
+                            ))}
+                            <td style={{ padding: "6px 8px" }}>
+                                <select value={newRow.fase} onChange={e => setNewRow(p => ({ ...p, fase: e.target.value }))} style={fieldStyle}>
+                                    <option value="">— fase —</option>
+                                    {phases.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+                                </select>
+                            </td>
+                            <td style={{ padding: "6px 8px" }}>
+                                <input placeholder="es. DRA72" value={newRow.macchina_id} onChange={e => setNewRow(p => ({ ...p, macchina_id: e.target.value }))} style={{ ...fieldStyle, fontFamily: "monospace", fontWeight: 700 }} />
+                            </td>
+                            <td style={{ padding: "6px 8px" }}>
+                                <button onClick={handleAdd} disabled={saving} style={{ padding: "5px 14px", borderRadius: 4, border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>+ Aggiungi</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+}
+
 function ConfigTab({ projectTargets, saveProjectTargets, changeoverConfig, setChangeoverConfig, bundleConfig, configSubTab, setConfigSubTab, sharedMachines, cfg, dbFasi, onRefreshFasi, upstreamMachineConfig, saveUpstreamMachine, stockOverrides, saveStockOverride, showToast, cardStyle, dct300Orders, saveDct300Orders, clearDct300Orders, weekStart }) {
     // Copia locale per editing (non committato finché non si preme Salva)
     const [draft, setDraft] = useState(() => ({ ...projectTargets }));
@@ -2944,6 +3083,7 @@ function ConfigTab({ projectTargets, saveProjectTargets, changeoverConfig, setCh
                 <button style={subTabBtn("throughput")} onClick={() => setConfigSubTab("throughput")}>⚡ Throughput (JPH)</button>
                 <button style={subTabBtn("changeover")} onClick={() => setConfigSubTab("changeover")}>⏱ Ore Changeover</button>
                 <button style={subTabBtn("op10")}       onClick={() => setConfigSubTab("op10")}>🔗 Op10 (Stock Upstream)</button>
+                <button style={subTabBtn("macchine")}   onClick={() => setConfigSubTab("macchine")}>🖥 Macchine</button>
                 <button style={{ ...subTabBtn("dct300orders"), borderRight: "none" }} onClick={() => setConfigSubTab("dct300orders")}>
                     📦 Ordini DCT300{dct300Orders ? " ✓" : ""}
                 </button>
@@ -3057,6 +3197,11 @@ function ConfigTab({ projectTargets, saveProjectTargets, changeoverConfig, setCh
                     showToast={showToast}
                     cardStyle={cardStyle}
                 />
+            )}
+
+            {/* Sub-tab: Macchine */}
+            {configSubTab === "macchine" && (
+                <MacchineSubTab showToast={showToast} cardStyle={cardStyle} />
             )}
 
             {/* Sub-tab: Ordini Cliente DCT300 */}
