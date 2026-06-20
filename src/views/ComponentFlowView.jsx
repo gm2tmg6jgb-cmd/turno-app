@@ -121,6 +121,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     const [showFilterModal, setShowFilterModal] = useState(false);
     const [cellsAffectedByOperator, setCellsAffectedByOperator] = useState({});
     const [showOperatorReport, setShowOperatorReport] = useState(false);
+    const [showRiepilogoModal, setShowRiepilogoModal] = useState(false);
     const [highlightOperator, setHighlightOperator] = useState(null); // operatore da evidenziare
     const [searchOperator, setSearchOperator] = useState(""); // ricerca nel report operatori
     const [throughputConfigModal, setThroughputConfigModal] = useState(null); // { proj, comp, lotto, oee }
@@ -1079,6 +1080,27 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                         const cellRecords = data?.records || [];
                                         const hasHighlightedOperator = highlightOperator && cellRecords.some(r => r.acq_da === highlightOperator);
 
+                                        // Dati filtrati: controlla se rawMatrixData ha più pezzi/record di matrixData
+                                        const rawCellData = rawMatrixData[proj]?.[comp]?.[step.id];
+                                        const rawRecords = rawCellData?.records || [];
+                                        const rawQty = viewMode === "weekly"
+                                            ? rawRecords.filter(r => r.data <= wDate).reduce((s, r) => s + (r.qta_ottenuta || 0), 0)
+                                            : (rawCellData?.value || 0);
+                                        const rawRecordCount = viewMode === "weekly"
+                                            ? rawRecords.filter(r => r.data <= wDate).length
+                                            : rawRecords.length;
+                                        const filteredRecordCount = data?.records?.length || 0;
+                                        const hasFilteredOut = (filterExcludeSto || filterExcludeOperators.length > 0)
+                                            && (rawQty > qty || rawRecordCount > filteredRecordCount);
+
+                                        // Calcolo netto: produzione - storni - analisti
+                                        const ANALYST_CODES_CELL = ["STEFPUTR"];
+                                        const relevantRecords = viewMode === "weekly" ? cellRecords.filter(r => r.data <= wDate) : cellRecords;
+                                        const cellStornoQty = relevantRecords.filter(r => r.sto === "X").reduce((s, r) => s + (r.qta_ottenuta || 0), 0);
+                                        const cellAnalystQty = relevantRecords.filter(r => r.sto !== "X" && ANALYST_CODES_CELL.includes((r.acq_da || "").toUpperCase())).reduce((s, r) => s + (r.qta_ottenuta || 0), 0);
+                                        const cellNetto = qty - cellAnalystQty - cellStornoQty;
+                                        const hasDelta = (cellStornoQty > 0 || cellAnalystQty > 0) && cellNetto !== qty;
+
                                         return (
                                             <div key={idx} style={{
                                                 width: "85px",
@@ -1091,7 +1113,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                             }}>
                                                 <div
                                                     className="production-cell-container"
-                                                    style={{ position: "relative" }}
+                                                    style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}
                                                     onClick={(e) => {
                                                         if (isConfigMode) {
                                                             e.stopPropagation();
@@ -1104,10 +1126,13 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                         } else {
                                                             // Normal mode: show SAP production details
                                                             const cellData = matrixData[proj]?.[comp]?.[step.id];
-                                                            if (cellData?.records?.length > 0) {
-                                                                // Enrichisci record con macchina configurata se assente
-                                                                const configuredMachine = cellMachineMap[`${proj}:${comp}:${step.id}`] || null;
-                                                                const enrichedRecords = cellData.records.map(r => ({
+                                                            const configuredMachine = cellMachineMap[`${proj}:${comp}:${step.id}`] || null;
+                                                            // Usa rawMatrixData come fallback se tutti i record sono stati filtrati
+                                                            const sourceRecords = cellData?.records?.length > 0
+                                                                ? cellData.records
+                                                                : (hasFilteredOut ? rawCellData?.records : null);
+                                                            if (sourceRecords?.length > 0) {
+                                                                const enrichedRecords = sourceRecords.map(r => ({
                                                                     ...r,
                                                                     macchinaConfigured: configuredMachine
                                                                 }));
@@ -1153,6 +1178,19 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                             <div>{qty}</div>
                                                             {scartiValue > 0 && <div style={{ fontSize: "11px", color: "rgba(255, 255, 255, 0.7)" }}>s:{scartiValue}</div>}
                                                         </div>
+
+                                                        {hasFilteredOut && (
+                                                            <div title={`Filtro attivo: ${rawQty - qty} pz esclusi`} style={{
+                                                                position: "absolute", top: -6, right: -6,
+                                                                background: "#f59e0b",
+                                                                borderRadius: "50%",
+                                                                width: 14, height: 14,
+                                                                display: "flex", alignItems: "center", justifyContent: "center",
+                                                                fontSize: 9, fontWeight: 900, color: "white",
+                                                                boxShadow: "0 1px 4px rgba(245,158,11,0.6)",
+                                                                pointerEvents: "none"
+                                                            }}>F</div>
+                                                        )}
 
                                                         {step.id !== "baa" && !configuredCells.has(`${proj}::${comp.replace(/\s*-\s*(1A|21A)$/i, "").trim()}::${step.id}`) && (
                                                             <div style={{
@@ -1230,6 +1268,11 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                             </>
                                                         )}
                                                     </div>
+                                                    {hasDelta && (
+                                                        <div style={{ fontSize: "16px", fontWeight: 900, color: cellNetto < 0 ? "#ef4444" : "var(--text-muted)", lineHeight: 1, whiteSpace: "nowrap" }}>
+                                                            →{cellNetto}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                         );
@@ -1416,6 +1459,9 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                         const btnBase = { display: "flex", alignItems: "center", gap: 6, padding: "0 14px", height: "38px", borderRadius: 8, border: "1px solid var(--border-light)", backgroundColor: "white", color: "#374151", fontSize: 14, fontWeight: 600, cursor: "pointer", boxShadow: "0 1px 2px rgba(0,0,0,0.05)", transition: "all 0.15s", fontFamily: "inherit", lineHeight: 1 };
                         const hasFilter = filterExcludeSto || filterExcludeOperators.length > 0;
                         return (<>
+                            <button onClick={() => setShowRiepilogoModal(true)} style={btnBase} title="Riepilogo storni e attività analisti">
+                                📋 Riepilogo
+                            </button>
                             <button onClick={() => setShowFilterModal(!showFilterModal)}
                                 style={{ ...btnBase, ...(hasFilter ? { backgroundColor: "rgba(96,165,250,0.12)", color: "#60a5fa", border: "1px solid #60a5fa55" } : {}) }}>
                                 🔽 Filtra {hasFilter ? "●" : ""}
@@ -1555,8 +1601,8 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     <div style={{
                         background: "var(--bg-card)",
                         borderRadius: "16px",
-                        width: "90%",
-                        maxWidth: "600px",
+                        width: "95%",
+                        maxWidth: "860px",
                         maxHeight: "80vh",
                         display: "flex",
                         flexDirection: "column",
@@ -1580,7 +1626,13 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                             ))}
                         </div>
                         <div style={{ padding: "20px 24px", overflowY: "auto" }}>
-                            {detailTab === "records" ? (
+                            {(() => {
+                                const filtered = selectedDetail.records.filter(r => {
+                                    if (filterExcludeSto && r.sto === "X") return false;
+                                    if (filterExcludeOperators.length > 0 && filterExcludeOperators.includes(r.acq_da)) return false;
+                                    return true;
+                                });
+                                return detailTab === "records" ? (
                                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                                     <thead>
                                         <tr style={{ background: "var(--bg-tertiary)" }}>
@@ -1589,19 +1641,14 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                             <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Op</th>
                                             {selectedDetail.phaseId === "baa"
                                                 ? <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Orario</th>
-                                                : <><th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Turno</th>
-                                                   <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Macchina</th></>
+                                                : [<th key="t" style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Turno</th>,
+                                                   <th key="m" style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Macchina</th>]
                                             }
                                             <th style={{ padding: "10px", textAlign: "right", fontSize: "12px", color: "var(--text-muted)" }}>Q.tà</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {(() => {
-                                            const filtered = selectedDetail.records.filter(r => {
-                                                if (filterExcludeSto && r.sto === "X") return false;
-                                                if (filterExcludeOperators.length > 0 && filterExcludeOperators.includes(r.acq_da)) return false;
-                                                return true;
-                                            });
                                             return filtered.length > 0 ? (
                                                 filtered.map((r, i) => (
                                                     <tr key={i} style={{ borderBottom: "1px solid var(--border-light)" }}>
@@ -1610,8 +1657,8 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                         <td style={{ padding: "10px", fontSize: "13px", fontWeight: "600" }}>{r.fino || "—"}</td>
                                                         {selectedDetail.phaseId === "baa"
                                                             ? <td style={{ padding: "10px", fontSize: "13px" }}>{r.orario || "—"}</td>
-                                                            : <><td style={{ padding: "10px", fontSize: "13px" }}>{r.turno_id}</td>
-                                                               <td style={{ padding: "10px", fontSize: "13px", fontWeight: "bold" }}>{r.macchina || r.macchina_id || r.work_center_sap || r.macchinaConfigured || "—"}</td></>
+                                                            : [<td key="t" style={{ padding: "10px", fontSize: "13px" }}>{r.turno_id}</td>,
+                                                               <td key="m" style={{ padding: "10px", fontSize: "13px", fontWeight: "bold" }}>{r.macchina || r.macchina_id || r.work_center_sap || r.macchinaConfigured || "—"}</td>]
                                                         }
                                                         <td style={{ padding: "10px", fontSize: "14px", fontWeight: "bold", textAlign: "right", color: "#3c6ef0" }}>
                                                             {selectedDetail.phaseId === "baa" ? Math.abs(r.quantita || 0) : r.qta_ottenuta}
@@ -1630,78 +1677,108 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                 </table>
                             ) : (
                                 /* Tab Movimentazioni */
-                                <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                                    {/* SEZIONE OPERAZIONI PRODUZIONE */}
-                                    <div>
-                                        <h4 style={{ margin: "0 0 12px 0", fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>Operazioni Produzione</h4>
-                                        {filtered.filter(r => r.sto !== "X").length > 0 ? (
-                                            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                                                <thead>
-                                                    <tr style={{ background: "var(--bg-tertiary)" }}>
-                                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)", borderRadius: "6px 0 0 0" }}>Data</th>
-                                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Materiale</th>
-                                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Acqu.da</th>
-                                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Macchina</th>
-                                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Fino</th>
-                                                        <th style={{ padding: "10px", textAlign: "right", fontSize: "12px", color: "var(--text-muted)", borderRadius: "0 6px 0 0" }}>Q.tà</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {filtered.filter(r => r.sto !== "X").map((r, idx) => (
-                                                        <tr key={idx} style={{ borderBottom: "1px solid var(--border-light)", background: idx % 2 === 0 ? "transparent" : "rgba(0,0,0,0.02)" }}>
-                                                            <td style={{ padding: "10px", fontSize: "12px", color: "var(--text-secondary)" }}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
-                                                            <td style={{ padding: "10px", fontSize: "12px", color: "var(--accent)", fontWeight: 600 }}>{r.materiale}</td>
-                                                            <td style={{ padding: "10px", fontSize: "12px", color: "var(--text-secondary)" }}>{r.acq_da || "—"}</td>
-                                                            <td style={{ padding: "10px", fontSize: "12px", color: "var(--text-secondary)" }}>{r.macchina || r.macchina_id || r.work_center_sap || r.macchinaConfigured || "—"}</td>
-                                                            <td style={{ padding: "10px", fontSize: "12px", color: "var(--text-secondary)" }}>{r.fino || "—"}</td>
-                                                            <td style={{ padding: "10px", fontSize: "12px", color: "var(--accent)", fontWeight: 600, textAlign: "right" }}>{r.qta_ottenuta || 0}</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        ) : (
-                                            <p style={{ padding: "20px", textAlign: "center", color: "var(--text-muted)", fontSize: "12px" }}>
-                                                Nessuna operazione di produzione {filterExcludeSto || filterExcludeOperators.length > 0 ? "con i filtri attuali" : ""}.
-                                            </p>
-                                        )}
-                                    </div>
+                                (() => {
+                                    const ANALYST_CODES = ["STEFPUTR"];
+                                    const isAnalyst = r => ANALYST_CODES.includes((r.acq_da || "").toUpperCase());
+                                    const prodRows = filtered.filter(r => r.sto !== "X" && !isAnalyst(r));
+                                    const analystRows = filtered.filter(r => r.sto !== "X" && isAnalyst(r));
+                                    const stornoRows = filtered.filter(r => r.sto === "X");
+                                    const thStyle = { padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)", whiteSpace: "nowrap" };
+                                    const tdStyle = { padding: "10px", fontSize: "12px", color: "var(--text-secondary)", whiteSpace: "nowrap" };
+                                    const CommonHeader = ({ bg, accent }) => (
+                                        <thead>
+                                            <tr style={{ background: bg || "var(--bg-tertiary)" }}>
+                                                <th style={{ ...thStyle, borderRadius: "6px 0 0 0" }}>Data</th>
+                                                <th style={thStyle}>Materiale</th>
+                                                <th style={accent ? { ...thStyle, color: accent, fontWeight: 700 } : thStyle}>Acqu.da</th>
+                                                <th style={thStyle}>Macchina</th>
+                                                <th style={thStyle}>Fino</th>
+                                                <th style={{ ...thStyle, textAlign: "right" }}>Q.tà</th>
+                                                <th style={{ ...thStyle, textAlign: "right", borderRadius: "0 6px 0 0" }}>Q.tà Scarto</th>
+                                            </tr>
+                                        </thead>
+                                    );
+                                    return (
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                                        {/* SEZIONE OPERAZIONI PRODUZIONE */}
+                                        <div>
+                                            <h4 style={{ margin: "0 0 12px 0", fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>Operazioni Produzione</h4>
+                                            {prodRows.length > 0 ? (
+                                                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                                                    <CommonHeader />
+                                                    <tbody>
+                                                        {prodRows.map((r, idx) => (
+                                                            <tr key={idx} style={{ borderBottom: "1px solid var(--border-light)", background: idx % 2 === 0 ? "transparent" : "rgba(0,0,0,0.02)" }}>
+                                                                <td style={tdStyle}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
+                                                                <td style={{ ...tdStyle, color: "var(--accent)", fontWeight: 600 }}>{r.materiale}</td>
+                                                                <td style={tdStyle}>{r.acq_da || "—"}</td>
+                                                                <td style={tdStyle}>{r.macchina || r.macchina_id || r.work_center_sap || r.macchinaConfigured || "—"}</td>
+                                                                <td style={tdStyle}>{r.fino || "—"}</td>
+                                                                <td style={{ ...tdStyle, color: "var(--accent)", fontWeight: 600, textAlign: "right" }}>{r.qta_ottenuta || 0}</td>
+                                                                <td style={{ ...tdStyle, textAlign: "right" }}>{r.qta_scarto || 0}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            ) : (
+                                                <p style={{ padding: "20px", textAlign: "center", color: "var(--text-muted)", fontSize: "12px" }}>Nessuna operazione di produzione.</p>
+                                            )}
+                                        </div>
 
-                                    {/* SEZIONE STORNI */}
-                                    <div>
-                                        <h4 style={{ margin: "0 0 12px 0", fontSize: 14, fontWeight: 700, color: "var(--text-primary)" }}>Storni</h4>
-                                        {filtered.filter(r => r.sto === "X").length > 0 ? (
-                                            <table style={{ width: "100%", borderCollapse: "collapse", background: "rgba(239,68,68,0.05)", borderRadius: "8px", overflow: "hidden" }}>
-                                                <thead>
-                                                    <tr style={{ background: "rgba(239,68,68,0.1)" }}>
-                                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)", borderRadius: "6px 0 0 0" }}>Data</th>
-                                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Materiale</th>
-                                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Acqu.da</th>
-                                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Macchina</th>
-                                                        <th style={{ padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)" }}>Fino</th>
-                                                        <th style={{ padding: "10px", textAlign: "right", fontSize: "12px", color: "var(--text-muted)", borderRadius: "0 6px 0 0" }}>Q.tà Scarto</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {filtered.filter(r => r.sto === "X").map((r, idx) => (
-                                                        <tr key={idx} style={{ borderBottom: "1px solid rgba(239,68,68,0.1)", background: idx % 2 === 0 ? "transparent" : "rgba(239,68,68,0.02)" }}>
-                                                            <td style={{ padding: "10px", fontSize: "12px", color: "var(--text-secondary)" }}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
-                                                            <td style={{ padding: "10px", fontSize: "12px", color: "#ef4444", fontWeight: 600 }}>{r.materiale}</td>
-                                                            <td style={{ padding: "10px", fontSize: "12px", color: "var(--text-secondary)" }}>{r.acq_da || "—"}</td>
-                                                            <td style={{ padding: "10px", fontSize: "12px", color: "var(--text-secondary)" }}>{r.macchina || r.macchina_id || r.work_center_sap || r.macchinaConfigured || "—"}</td>
-                                                            <td style={{ padding: "10px", fontSize: "12px", color: "var(--text-secondary)" }}>{r.fino || "—"}</td>
-                                                            <td style={{ padding: "10px", fontSize: "12px", color: "#ef4444", fontWeight: 600, textAlign: "right" }}>{r.qta_scarto || 0}</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        ) : (
-                                            <p style={{ padding: "20px", textAlign: "center", color: "var(--text-muted)", fontSize: "12px" }}>
-                                                Nessuno storno {filterExcludeSto || filterExcludeOperators.length > 0 ? "con i filtri attuali" : ""}.
-                                            </p>
-                                        )}
+                                        {/* SEZIONE ATTIVITÀ ANALISTI */}
+                                        <div>
+                                            <h4 style={{ margin: "0 0 12px 0", fontSize: 14, fontWeight: 700, color: "#f59e0b" }}>👤 Attività Analisti</h4>
+                                            {analystRows.length > 0 ? (
+                                                <table style={{ width: "100%", borderCollapse: "collapse", background: "rgba(245,158,11,0.03)", borderRadius: "8px", overflow: "hidden" }}>
+                                                    <CommonHeader bg="rgba(245,158,11,0.1)" accent="#f59e0b" />
+                                                    <tbody>
+                                                        {analystRows.map((r, idx) => (
+                                                            <tr key={idx} style={{ borderBottom: "1px solid rgba(245,158,11,0.1)", background: idx % 2 === 0 ? "transparent" : "rgba(245,158,11,0.02)" }}>
+                                                                <td style={tdStyle}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
+                                                                <td style={{ ...tdStyle, color: "var(--accent)", fontWeight: 600 }}>{r.materiale}</td>
+                                                                <td style={{ ...tdStyle, color: "#f59e0b", fontWeight: 700 }}>{r.acq_da || "—"}</td>
+                                                                <td style={tdStyle}>{r.macchina || r.macchina_id || r.work_center_sap || r.macchinaConfigured || "—"}</td>
+                                                                <td style={tdStyle}>{r.fino || "—"}</td>
+                                                                <td style={{ ...tdStyle, color: "#f59e0b", fontWeight: 700, textAlign: "right" }}>{r.qta_ottenuta || 0}</td>
+                                                                <td style={{ ...tdStyle, textAlign: "right" }}>{r.qta_scarto || 0}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            ) : (
+                                                <p style={{ padding: "20px", textAlign: "center", color: "var(--text-muted)", fontSize: "12px" }}>Nessuna attività analisti.</p>
+                                            )}
+                                        </div>
+
+                                        {/* SEZIONE STORNI */}
+                                        <div>
+                                            <h4 style={{ margin: "0 0 12px 0", fontSize: 14, fontWeight: 700, color: "#ef4444" }}>Storni</h4>
+                                            {stornoRows.length > 0 ? (
+                                                <table style={{ width: "100%", borderCollapse: "collapse", background: "rgba(239,68,68,0.05)", borderRadius: "8px", overflow: "hidden" }}>
+                                                    <CommonHeader bg="rgba(239,68,68,0.1)" />
+                                                    <tbody>
+                                                        {stornoRows.map((r, idx) => (
+                                                            <tr key={idx} style={{ borderBottom: "1px solid rgba(239,68,68,0.1)", background: idx % 2 === 0 ? "transparent" : "rgba(239,68,68,0.02)" }}>
+                                                                <td style={tdStyle}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
+                                                                <td style={{ ...tdStyle, color: "#ef4444", fontWeight: 600 }}>{r.materiale}</td>
+                                                                <td style={tdStyle}>{r.acq_da || "—"}</td>
+                                                                <td style={tdStyle}>{r.macchina || r.macchina_id || r.work_center_sap || r.macchinaConfigured || "—"}</td>
+                                                                <td style={tdStyle}>{r.fino || "—"}</td>
+                                                                <td style={{ ...tdStyle, textAlign: "right" }}>{r.qta_ottenuta || 0}</td>
+                                                                <td style={{ ...tdStyle, color: "#ef4444", fontWeight: 600, textAlign: "right" }}>{r.qta_scarto || 0}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            ) : (
+                                                <p style={{ padding: "20px", textAlign: "center", color: "var(--text-muted)", fontSize: "12px" }}>Nessuno storno.</p>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                    );
+                                })()
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>
@@ -1918,6 +1995,90 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     </div>
                 </Modal>
             )}
+
+            {showRiepilogoModal && (() => {
+                const ANALYST_CODES = ["STEFPUTR"];
+                const isAnalyst = r => ANALYST_CODES.includes((r.acq_da || "").toUpperCase());
+                const allRecords = [];
+                Object.values(matrixData).forEach(compMap => {
+                    Object.values(compMap).forEach(stepMap => {
+                        Object.values(stepMap).forEach(cell => {
+                            (cell.records || []).forEach(r => allRecords.push(r));
+                        });
+                    });
+                });
+                const prodRows = allRecords.filter(r => r.sto !== "X" && !isAnalyst(r));
+                const analystRows = allRecords.filter(r => r.sto !== "X" && isAnalyst(r));
+                const stornoRows = allRecords.filter(r => r.sto === "X");
+                const sumQty = rows => rows.reduce((s, r) => s + (r.qta_ottenuta || 0), 0);
+                const sumScarto = rows => rows.reduce((s, r) => s + (r.qta_scarto || 0), 0);
+                const qProd = sumQty(prodRows);
+                const qAnalisti = sumQty(analystRows);
+                const qStorni = sumQty(stornoRows);
+                const netto = qProd - qAnalisti - qStorni;
+                const thS = { padding: "8px 10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)", whiteSpace: "nowrap", borderBottom: "1px solid var(--border-light)" };
+                const tdS = { padding: "8px 10px", fontSize: "12px", color: "var(--text-secondary)", whiteSpace: "nowrap" };
+                const combined = [...stornoRows.map(r => ({ ...r, _tipo: "Storno" })), ...analystRows.map(r => ({ ...r, _tipo: "Analista" }))];
+                combined.sort((a, b) => (a.data || "").localeCompare(b.data || ""));
+                return (
+                    <Modal title="📋 Riepilogo Movimentazioni" onClose={() => setShowRiepilogoModal(false)} width={780}>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                            {/* Totali */}
+                            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+                                {[
+                                    { label: "Q.tà Produzione", value: qProd, color: "#10b981" },
+                                    { label: "Attività Analisti", value: qAnalisti, color: "#f59e0b" },
+                                    { label: "Storni", value: qStorni, color: "#ef4444" },
+                                    { label: "Netto", value: netto, color: netto >= 0 ? "#10b981" : "#ef4444" },
+                                ].map(({ label, value, color }) => (
+                                    <div key={label} style={{ background: "var(--bg-tertiary)", borderRadius: 8, padding: "12px 16px", display: "flex", flexDirection: "column", gap: 4 }}>
+                                        <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</span>
+                                        <span style={{ fontSize: 22, fontWeight: 700, color }}>{value.toLocaleString("it-IT")}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            {/* Tabella combinata storni + analisti */}
+                            <div>
+                                <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Storni e Attività Analisti</div>
+                                <div style={{ maxHeight: 560, overflowY: "auto", borderRadius: 8, border: "1px solid var(--border-light)" }}>
+                                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                                        <thead style={{ position: "sticky", top: 0, background: "var(--bg-secondary)", zIndex: 1 }}>
+                                            <tr>
+                                                <th style={thS}>Tipo</th>
+                                                <th style={thS}>Data</th>
+                                                <th style={thS}>Materiale</th>
+                                                <th style={thS}>Acq. da</th>
+                                                <th style={thS}>Macchina</th>
+                                                <th style={thS}>Fino</th>
+                                                <th style={{ ...thS, textAlign: "right" }}>Q.tà</th>
+                                                <th style={{ ...thS, textAlign: "right" }}>Q.tà Scarto</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {combined.length === 0 ? (
+                                                <tr><td colSpan={8} style={{ ...tdS, textAlign: "center", color: "var(--text-muted)" }}>Nessun dato</td></tr>
+                                            ) : combined.map((r, i) => (
+                                                <tr key={i} style={{ background: i % 2 === 0 ? "transparent" : "var(--bg-tertiary)" }}>
+                                                    <td style={tdS}>
+                                                        <span style={{ background: r._tipo === "Storno" ? "rgba(239,68,68,0.12)" : "rgba(245,158,11,0.12)", color: r._tipo === "Storno" ? "#ef4444" : "#f59e0b", borderRadius: 4, padding: "2px 6px", fontSize: 11, fontWeight: 600 }}>{r._tipo}</span>
+                                                    </td>
+                                                    <td style={tdS}>{r.data}</td>
+                                                    <td style={tdS}>{r.materiale || r.codice_materiale || "—"}</td>
+                                                    <td style={{ ...tdS, color: r._tipo === "Analista" ? "#f59e0b" : undefined, fontWeight: r._tipo === "Analista" ? 600 : undefined }}>{r.acq_da || "—"}</td>
+                                                    <td style={tdS}>{r.macchina || r.centro_di_lavoro || "—"}</td>
+                                                    <td style={tdS}>{r.fino || r.unita_di_misura || "—"}</td>
+                                                    <td style={{ ...tdS, textAlign: "right", fontWeight: 600 }}>{(r.qta_ottenuta || 0).toLocaleString("it-IT")}</td>
+                                                    <td style={{ ...tdS, textAlign: "right" }}>{(r.qta_scarto || 0).toLocaleString("it-IT")}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </Modal>
+                );
+            })()}
 
             {showOperatorReport && (
                 <Modal
