@@ -1831,15 +1831,17 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                     const allMovRecs = selectedDetail.records;
                                     const ANALYST_CODES = ["STEFPUTR"];
                                     const isAnalyst = r => ANALYST_CODES.includes((r.acq_da || "").toUpperCase());
-                                    const prodRows = allMovRecs.filter(r => r.sto !== "X" && !isAnalyst(r));
-                                    const analystRows = allMovRecs.filter(r => r.sto !== "X" && isAnalyst(r));
-                                    const stornoRows = allMovRecs.filter(r => r.sto === "X");
+                                    const sortByOra = (a, b) => (a.orario || "").localeCompare(b.orario || "");
+                                    const prodRows = allMovRecs.filter(r => r.sto !== "X" && !isAnalyst(r)).sort(sortByOra);
+                                    const analystRows = allMovRecs.filter(r => r.sto !== "X" && isAnalyst(r)).sort(sortByOra);
+                                    const stornoRows = allMovRecs.filter(r => r.sto === "X").sort(sortByOra);
                                     const thStyle = { padding: "10px", textAlign: "left", fontSize: "12px", color: "var(--text-muted)", whiteSpace: "nowrap" };
                                     const tdStyle = { padding: "10px", fontSize: "12px", color: "var(--text-secondary)", whiteSpace: "nowrap" };
                                     const CommonHeader = ({ bg, accent }) => (
                                         <thead>
                                             <tr style={{ background: bg || "var(--bg-tertiary)" }}>
                                                 <th style={{ ...thStyle, borderRadius: "6px 0 0 0" }}>Data</th>
+                                                <th style={thStyle}>Turno</th>
                                                 <th style={accent ? { ...thStyle, color: accent, fontWeight: 700 } : thStyle}>Acqu.da</th>
                                                 <th style={thStyle}>Materiale</th>
                                                 <th style={thStyle}>Macchina</th>
@@ -1862,6 +1864,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                         {prodRows.map((r, idx) => (
                                                             <tr key={idx} style={{ borderBottom: "1px solid var(--border-light)", background: idx % 2 === 0 ? "transparent" : "rgba(0,0,0,0.02)" }}>
                                                                 <td style={tdStyle}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
+                                                                <td style={tdStyle}>{r.turno_id || "—"}</td>
                                                                 <td style={tdStyle}>{r.acq_da || "—"}</td>
                                                                 <td style={{ ...tdStyle, color: "var(--accent)", fontWeight: 600 }}>{r.materiale}</td>
                                                                 <td style={tdStyle}>{r.macchina || r.macchina_id || r.work_center_sap || r.macchinaConfigured || "—"}</td>
@@ -1888,6 +1891,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                         {analystRows.map((r, idx) => (
                                                             <tr key={idx} style={{ borderBottom: "1px solid rgba(245,158,11,0.1)", background: idx % 2 === 0 ? "transparent" : "rgba(245,158,11,0.02)" }}>
                                                                 <td style={tdStyle}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
+                                                                <td style={tdStyle}>{r.turno_id || "—"}</td>
                                                                 <td style={{ ...tdStyle, color: "#f59e0b", fontWeight: 700 }}>{r.acq_da || "—"}</td>
                                                                 <td style={{ ...tdStyle, color: "var(--accent)", fontWeight: 600 }}>{r.materiale}</td>
                                                                 <td style={tdStyle}>{r.macchina || r.macchina_id || r.work_center_sap || r.macchinaConfigured || "—"}</td>
@@ -1914,6 +1918,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                         {stornoRows.map((r, idx) => (
                                                             <tr key={idx} style={{ borderBottom: "1px solid rgba(239,68,68,0.1)", background: idx % 2 === 0 ? "transparent" : "rgba(239,68,68,0.02)" }}>
                                                                 <td style={tdStyle}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
+                                                                <td style={tdStyle}>{r.turno_id || "—"}</td>
                                                                 <td style={tdStyle}>{r.acq_da || "—"}</td>
                                                                 <td style={{ ...tdStyle, color: "#ef4444", fontWeight: 600 }}>{r.materiale}</td>
                                                                 <td style={tdStyle}>{r.macchina || r.macchina_id || r.work_center_sap || r.macchinaConfigured || "—"}</td>
