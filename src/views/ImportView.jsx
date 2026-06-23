@@ -325,9 +325,11 @@ export default function ImportView({ showToast, macchine = [], setCurrentView })
                 const fino = String(get(row, mapping.fino) || "").trim() || "Sconosciuto";
                 const acq_da = String(get(row, mapping.acq_da) || "").trim() || null;
                 const sto = String(get(row, mapping.sto) || "").trim() || null;
+                const ordine = String(get(row, mapping.ordine) || "").trim() || null;
+                const rack = String(get(row, mapping.rack) || "").trim() || null;
 
                 // create a key based on the grouping criteria
-                const key = `${data_val}_${turno_id}_${materiale}_${fino}`;
+                const key = `${data_val}_${turno_id}_${materiale}_${fino}_${sto || ''}_${ordine || ''}_${rack || ''}`;
 
                 if (!prodAgg[key]) {
                     prodAgg[key] = {

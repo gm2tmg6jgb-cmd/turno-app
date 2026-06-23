@@ -84,7 +84,16 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     });
     const [wDate, setWDate] = useState(() => new Date().toISOString().split("T")[0]);
     const activeProject = "DCT300";
-    const [localTurno, setLocalTurno] = useState(turnoCorrente || "ALL");
+    const [localTurnoRaw, setLocalTurno] = useState(turnoCorrente ? [turnoCorrente] : ["ALL"]);
+    const localTurno = Array.isArray(localTurnoRaw) ? localTurnoRaw : [localTurnoRaw];
+    const isAllTurni = localTurno.includes("ALL") || localTurno.length === 0;
+    const isSingleTurno = !isAllTurni && localTurno.length === 1;
+    const toggleTurno = (t) => {
+        if (t === "ALL") { setLocalTurno(["ALL"]); return; }
+        let next = localTurno.filter(x => x !== "ALL");
+        if (next.includes(t)) { next = next.filter(x => x !== t); } else { next = [...next, t]; }
+        if (next.length === 0 || next.length === 4) { setLocalTurno(["ALL"]); } else { setLocalTurno(next); }
+    };
     const [loading, setLoading] = useState(false);
     const [rawMatrixData, setRawMatrixData] = useState({}); // Dati non filtrati da database
     const [matrixData, setMatrixData] = useState({}); // Dati filtrati visualizzati
@@ -477,15 +486,18 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 const proj = (cfg.progetto || "").trim();
                 if (comp && proj) {
                     const codicis = parseCodicisArray(cfg.codici);
+                    const cfgFino = cfg.fino ? String(cfg.fino).padStart(4, "0") : null;
                     codicis.forEach(code => {
-                        extraOverrides.push({
-                            mat: code,
-                            fino: null,
-                            phase: "unknown", // Verrà determinato dai dati SAP
-                            comp: comp,
-                            proj: proj,
-                            macchina_id: (cfg.macchina_id || "").toUpperCase()
-                        });
+                        if (!dbMaterialOverrides.find(o => o.mat === code && o.comp === comp && o.proj === proj)) {
+                            extraOverrides.push({
+                                mat: code,
+                                fino: cfgFino,
+                                phase: "unknown",
+                                comp: comp,
+                                proj: proj,
+                                macchina_id: (cfg.macchina_id || "").toUpperCase()
+                            });
+                        }
                     });
                 }
             });
@@ -502,7 +514,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 } else {
                     q = q.eq("data", wDate);
                 }
-                if (localTurno && localTurno !== "ALL") q = q.eq("turno_id", localTurno);
+                if (!isAllTurni) q = q.in("turno_id", localTurno);
                 return q;
             };
 
@@ -539,13 +551,26 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
 
                     const fino = String(r.fino || "").padStart(4, "0");
 
-                    // SOLO configurazione manuale — match specifico (fino esatto) ha priorità su match generico (fino null)
-                    // Cerca prima in dbMaterialOverrides, poi in extraOverrides (codici multipli da componente_report_config)
-                    const override = dbMaterialOverrides.find(o => o.mat === matCode && o.fino === fino)
-                        || dbMaterialOverrides.find(o => o.mat === matCode && !o.fino)
-                        || extraOverrides.find(o => o.mat === matCode);
-                    if (!override) return;
+                    // Trova TUTTE le configurazioni che matchano questo materiale+fino
+                    let matchedOverrides = dbMaterialOverrides.filter(o => o.mat === matCode && o.fino === fino);
+                    if (matchedOverrides.length === 0) {
+                        matchedOverrides = dbMaterialOverrides.filter(o => o.mat === matCode && !o.fino);
+                    }
+                    if (matchedOverrides.length === 0) {
+                        matchedOverrides = extraOverrides.filter(o => o.mat === matCode);
+                    }
+                    if (matchedOverrides.length === 0) return;
 
+                    // Deduplica per comp+fase+progetto (varianti 1A/21A si normalizzano allo stesso componente)
+                    const seen = new Set();
+                    matchedOverrides = matchedOverrides.filter(o => {
+                        const key = `${o.comp}::${o.phase}::${o.proj}`;
+                        if (seen.has(key)) return false;
+                        seen.add(key);
+                        return true;
+                    });
+
+                    matchedOverrides.forEach(override => {
                     const phase = override.phase;
                     if (!phase || phase === "baa") return;
 
@@ -566,6 +591,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     if (!newScartiMatrix[proj][comp]) newScartiMatrix[proj][comp] = {};
                     if (!newScartiMatrix[proj][comp][phase]) newScartiMatrix[proj][comp][phase] = { value: 0 };
                     newScartiMatrix[proj][comp][phase].value += (r.qta_scarto || 0);
+                    });
                 });
             }
 
@@ -580,15 +606,14 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 } else {
                     q = q.eq("data", wDate);
                 }
-                if (localTurno && localTurno !== "ALL") {
+                if (!isAllTurni && isSingleTurno) {
                     const refDate = viewMode === "weekly" ? new Date(wWeek) : new Date(wDate + "T12:00:00");
-                    const slot = getSlotForGroup(localTurno, refDate);
+                    const slot = getSlotForGroup(localTurno[0], refDate);
                     if (slot) {
                         const [startH, endH] = slot.orario.split("–").map(s => s.trim().replace(":", ":"));
                         const start = startH.length === 5 ? startH + ":00" : startH;
                         const end = endH === "24:00" ? "23:59:59" : (endH.length === 5 ? endH + ":00" : endH);
                         if (slot.id === "N") {
-                            // Notte: 00:00 – 06:00
                             q = q.gte("orario", "00:00:00").lt("orario", end);
                         } else {
                             q = q.gte("orario", start).lt("orario", end === "23:59:59" ? "24:00:00" : end);
@@ -681,7 +706,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
 
     useEffect(() => {
         fetchData();
-    }, [wWeek, wDate, viewMode, activeProject, localTurno, dynamicOverrides, refreshTick]);
+    }, [wWeek, wDate, viewMode, activeProject, localTurno.join(","), dynamicOverrides, refreshTick]);
 
     // Applica filtri ai dati grezzi e calcola matrixData (istantaneo, senza ricaricare)
     useMemo(() => {
@@ -804,7 +829,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
     };
 
     useEffect(() => {
-        if (turnoCorrente) setLocalTurno(turnoCorrente);
+        if (turnoCorrente) setLocalTurno([turnoCorrente]);
     }, [turnoCorrente]);
 
     useEffect(() => {
@@ -953,7 +978,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                 alignItems: "center",
                                 gap: "8px"
                             }}>
-                                <span>Target {viewMode === "weekly" ? "Settimanale" : (localTurno !== "ALL" ? `Turno ${localTurno}` : "Giorno")}</span>
+                                <span>Target {viewMode === "weekly" ? "Settimanale" : (!isAllTurni ? `Turno ${localTurno.join("+")}` : "Giorno")}</span>
                                 {viewMode === "weekly" ? (() => {
                                     const base = targetOverrides[proj] || 0;
                                     const allProjRecords = Object.values(matrixData[proj] || {})
@@ -969,7 +994,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                     <span style={{ fontSize: isExpanded ? "32px" : "24px", color: "var(--text-primary)" }}>
                                         {(() => {
                                             const base = targetOverrides[proj] || 0;
-                                            if (localTurno !== "ALL") return Math.round(base / 3);
+                                            if (!isAllTurni) return Math.round(base * localTurno.length / 4);
                                             return base;
                                         })()}
                                     </span>
@@ -1009,6 +1034,76 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                     </div>
                                 );
                             })}
+                        </div>
+
+                        {/* Riga Medie */}
+                        <div style={{
+                            display: "flex",
+                            alignItems: "center",
+                            padding: "12px 0",
+                            borderBottom: "2px solid var(--border)",
+                            background: "rgba(0,0,0,0.03)"
+                        }}>
+                            <div style={{
+                                width: "110px",
+                                flexShrink: 0,
+                                fontSize: isExpanded ? "18px" : "14px",
+                                fontWeight: "900",
+                                color: theme.main,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.03em"
+                            }}>
+                                Media
+                            </div>
+                            <div style={{ display: "flex" }}>
+                                {projectVisibleSteps.map((step, idx) => {
+                                    if (step.separator) return <div key={idx} style={{ width: "40px", flexShrink: 0 }} />;
+                                    const values = projectComps.map(comp => {
+                                        let isHardExcluded = COMPONENT_EXCLUSIONS[comp]?.includes(step.id);
+                                        if (proj === "DCT300" && ["SG7", "SGR", "RG"].includes(comp) && step.id === "grinding_cone") isHardExcluded = true;
+                                        if (proj === "DCT300" && ["SG3", "SGR"].includes(comp) && step.id === "start_soft") isHardExcluded = true;
+                                        if (proj === "8Fe" && comp !== "SG3" && step.id === "laser_welding_soft_2") isHardExcluded = true;
+                                        if (["RG + DH", "8Fe", "DCT300"].includes(proj) && comp.startsWith("DH") && !["start_hard", "laser_welding_2"].includes(step.id)) isHardExcluded = true;
+                                        if (proj === "DCT ECO" && comp.startsWith("RG") && step.id === "grinding_cone") isHardExcluded = true;
+                                        if (proj === "DCT ECO" && ["SG2", "SG3", "SGR"].includes(comp) && (step.id === "ut" || step.id === "ut_soft")) isHardExcluded = false;
+                                        const isDynamicIncluded = !!cellInclusions[`${proj}:${comp}:${step.id}`];
+                                        const isDynamicExcluded = !!cellExclusions[`${proj}:${comp}:${step.id}`];
+                                        if ((isHardExcluded && !isDynamicIncluded) || isDynamicExcluded) return null;
+                                        const data = matrixData[proj]?.[comp]?.[step.id];
+                                        let qty = data?.value || 0;
+                                        if (viewMode === "weekly") {
+                                            const recs = (data?.records || []).filter(r => r.data <= wDate);
+                                            qty = recs.reduce((sum, r) => sum + (r.qta_ottenuta || 0), 0);
+                                        }
+                                        return qty;
+                                    }).filter(v => v !== null);
+                                    const avg = values.length > 0 ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : 0;
+                                    return (
+                                        <div key={idx} style={{
+                                            width: "85px",
+                                            display: "flex",
+                                            justifyContent: "center",
+                                            flexShrink: 0
+                                        }}>
+                                            <div style={{
+                                                width: "75px",
+                                                height: "45px",
+                                                background: avg > 0 ? `${theme.main}22` : "var(--bg-tertiary)",
+                                                borderRadius: "10px",
+                                                display: "flex",
+                                                alignItems: "center",
+                                                justifyContent: "center",
+                                                color: avg > 0 ? theme.main : "#374151",
+                                                fontSize: isExpanded ? "18px" : "14px",
+                                                fontWeight: "900",
+                                                border: `1px solid ${avg > 0 ? theme.main + '44' : 'transparent'}`
+                                            }}>
+                                                {avg || ""}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
 
                         {/* Component Rows */}
@@ -1091,14 +1186,14 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                             <div key={idx} style={{ width: "85px", flexShrink: 0, display: "flex", justifyContent: "center", alignItems: "center" }}>
                                                 <div
                                                     onClick={() => toggleCellExclusion(proj, comp, step.id)}
-                                                    title="Ripristina cella"
+                                                    title="Aggiungi cella"
                                                     style={{
                                                         width: "75px", height: "45px",
-                                                        border: "2px dashed var(--accent)",
+                                                        border: "2px dashed var(--border)",
                                                         borderRadius: "10px",
                                                         display: "flex", alignItems: "center", justifyContent: "center",
-                                                        cursor: "pointer", color: "var(--accent)", fontSize: "20px",
-                                                        opacity: 0.5, transition: "all 0.2s"
+                                                        cursor: "pointer", color: "var(--text-muted)", fontSize: "20px",
+                                                        opacity: 0.35, transition: "all 0.2s"
                                                     }}
                                                 >+</div>
                                             </div>
@@ -1115,8 +1210,8 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                             currentTarget = base * numGiorni;
                                         } else {
                                             const base = targetOverrides[proj] || 0;
-                                            if (localTurno !== "ALL") {
-                                                currentTarget = Math.round(base / 4);
+                                            if (!isAllTurni) {
+                                                currentTarget = Math.round(base * localTurno.length / 4);
                                             } else {
                                                 currentTarget = base;
                                             }
@@ -1275,11 +1370,11 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                         })()}
 
                                                         {/* Bottone aggiungi fermo — solo in modalità turno singolo */}
-                                                        {!isConfigMode && !NO_FERMO_PHASES.includes(step.id) && localTurno !== "ALL" && (
+                                                        {!isConfigMode && !NO_FERMO_PHASES.includes(step.id) && isSingleTurno && (
                                                             <button
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    setFermoModal({ project: proj, comp, fase: step.id, phaseLabel: step.label, turno: localTurno });
+                                                                    setFermoModal({ project: proj, comp, fase: step.id, phaseLabel: step.label, turno: localTurno[0] });
                                                                     const macchinaId = cellMachineMap[`${proj}:${comp}:${step.id}`] || "";
                                                                     setFermoForm({ macchinaId, motivo: "", durata: "", note: "" });
                                                                 }}
@@ -1456,12 +1551,15 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                         <span style={{ fontSize: "11px", fontWeight: "600", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Turno</span>
                         <div style={{ display: "flex", borderRadius: "8px", border: "1px solid var(--border-light)", overflow: "hidden", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}>
-                            {[{ value: "ALL", label: "Tutti" }, ...["A","B","C","D"].map(t => ({ value: t, label: t }))].map(({ value, label }, idx, arr) => (
-                                <button key={value} onClick={() => setLocalTurno(value)}
-                                    style={{ padding: "0 12px", height: "38px", fontSize: 14, fontWeight: 600, border: "none", borderRight: idx < arr.length - 1 ? "1px solid var(--border-light)" : "none", cursor: "pointer", backgroundColor: localTurno === value ? "var(--accent)" : "white", color: localTurno === value ? "white" : "#374151", boxShadow: localTurno === value ? "0 1px 3px rgba(0,0,0,0.15)" : "none", transition: "all 0.15s" }}>
+                            {[{ value: "ALL", label: "Tutti" }, ...["A","B","C","D"].map(t => ({ value: t, label: t }))].map(({ value, label }, idx, arr) => {
+                                const isActive = value === "ALL" ? isAllTurni : localTurno.includes(value);
+                                return (
+                                <button key={value} onClick={() => toggleTurno(value)}
+                                    style={{ padding: "0 12px", height: "38px", fontSize: 14, fontWeight: 600, border: "none", borderRight: idx < arr.length - 1 ? "1px solid var(--border-light)" : "none", cursor: "pointer", backgroundColor: isActive ? "var(--accent)" : "white", color: isActive ? "white" : "#374151", boxShadow: isActive ? "0 1px 3px rgba(0,0,0,0.15)" : "none", transition: "all 0.15s" }}>
                                     {label}
                                 </button>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
 
@@ -1742,12 +1840,13 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                         <thead>
                                             <tr style={{ background: bg || "var(--bg-tertiary)" }}>
                                                 <th style={{ ...thStyle, borderRadius: "6px 0 0 0" }}>Data</th>
-                                                <th style={thStyle}>Materiale</th>
                                                 <th style={accent ? { ...thStyle, color: accent, fontWeight: 700 } : thStyle}>Acqu.da</th>
+                                                <th style={thStyle}>Materiale</th>
                                                 <th style={thStyle}>Macchina</th>
                                                 <th style={thStyle}>Fino</th>
                                                 <th style={{ ...thStyle, textAlign: "right" }}>Q.tà</th>
-                                                <th style={{ ...thStyle, textAlign: "right", borderRadius: "0 6px 0 0" }}>Q.tà Scarto</th>
+                                                <th style={{ ...thStyle, textAlign: "right" }}>Q.tà Scarto</th>
+                                                <th style={{ ...thStyle, borderRadius: "0 6px 0 0" }}>Ora</th>
                                             </tr>
                                         </thead>
                                     );
@@ -1763,12 +1862,13 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                         {prodRows.map((r, idx) => (
                                                             <tr key={idx} style={{ borderBottom: "1px solid var(--border-light)", background: idx % 2 === 0 ? "transparent" : "rgba(0,0,0,0.02)" }}>
                                                                 <td style={tdStyle}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
-                                                                <td style={{ ...tdStyle, color: "var(--accent)", fontWeight: 600 }}>{r.materiale}</td>
                                                                 <td style={tdStyle}>{r.acq_da || "—"}</td>
+                                                                <td style={{ ...tdStyle, color: "var(--accent)", fontWeight: 600 }}>{r.materiale}</td>
                                                                 <td style={tdStyle}>{r.macchina || r.macchina_id || r.work_center_sap || r.macchinaConfigured || "—"}</td>
                                                                 <td style={tdStyle}>{r.fino || "—"}</td>
                                                                 <td style={{ ...tdStyle, color: "var(--accent)", fontWeight: 600, textAlign: "right" }}>{r.qta_ottenuta || 0}</td>
                                                                 <td style={{ ...tdStyle, textAlign: "right" }}>{r.qta_scarto || 0}</td>
+                                                                <td style={tdStyle}>{r.orario || "—"}</td>
                                                             </tr>
                                                         ))}
                                                     </tbody>
@@ -1788,12 +1888,13 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                         {analystRows.map((r, idx) => (
                                                             <tr key={idx} style={{ borderBottom: "1px solid rgba(245,158,11,0.1)", background: idx % 2 === 0 ? "transparent" : "rgba(245,158,11,0.02)" }}>
                                                                 <td style={tdStyle}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
-                                                                <td style={{ ...tdStyle, color: "var(--accent)", fontWeight: 600 }}>{r.materiale}</td>
                                                                 <td style={{ ...tdStyle, color: "#f59e0b", fontWeight: 700 }}>{r.acq_da || "—"}</td>
+                                                                <td style={{ ...tdStyle, color: "var(--accent)", fontWeight: 600 }}>{r.materiale}</td>
                                                                 <td style={tdStyle}>{r.macchina || r.macchina_id || r.work_center_sap || r.macchinaConfigured || "—"}</td>
                                                                 <td style={tdStyle}>{r.fino || "—"}</td>
                                                                 <td style={{ ...tdStyle, color: "#f59e0b", fontWeight: 700, textAlign: "right" }}>{r.qta_ottenuta || 0}</td>
                                                                 <td style={{ ...tdStyle, textAlign: "right" }}>{r.qta_scarto || 0}</td>
+                                                                <td style={tdStyle}>{r.orario || "—"}</td>
                                                             </tr>
                                                         ))}
                                                     </tbody>
@@ -1813,12 +1914,13 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                         {stornoRows.map((r, idx) => (
                                                             <tr key={idx} style={{ borderBottom: "1px solid rgba(239,68,68,0.1)", background: idx % 2 === 0 ? "transparent" : "rgba(239,68,68,0.02)" }}>
                                                                 <td style={tdStyle}>{new Date(r.data).toLocaleDateString("it-IT")}</td>
-                                                                <td style={{ ...tdStyle, color: "#ef4444", fontWeight: 600 }}>{r.materiale}</td>
                                                                 <td style={tdStyle}>{r.acq_da || "—"}</td>
+                                                                <td style={{ ...tdStyle, color: "#ef4444", fontWeight: 600 }}>{r.materiale}</td>
                                                                 <td style={tdStyle}>{r.macchina || r.macchina_id || r.work_center_sap || r.macchinaConfigured || "—"}</td>
                                                                 <td style={tdStyle}>{r.fino || "—"}</td>
                                                                 <td style={{ ...tdStyle, textAlign: "right" }}>{r.qta_ottenuta || 0}</td>
                                                                 <td style={{ ...tdStyle, color: "#ef4444", fontWeight: 600, textAlign: "right" }}>{r.qta_scarto || 0}</td>
+                                                                <td style={tdStyle}>{r.orario || "—"}</td>
                                                             </tr>
                                                         ))}
                                                     </tbody>
@@ -2052,13 +2154,20 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
             {showRiepilogoModal && (() => {
                 const ANALYST_CODES = ["STEFPUTR"];
                 const isAnalyst = r => ANALYST_CODES.includes((r.acq_da || "").toUpperCase());
-                const allRecords = [];
+                const allRecordsRaw = [];
                 Object.values(matrixData).forEach(compMap => {
                     Object.values(compMap).forEach(stepMap => {
                         Object.values(stepMap).forEach(cell => {
-                            (cell.records || []).forEach(r => allRecords.push(r));
+                            (cell.records || []).forEach(r => allRecordsRaw.push(r));
                         });
                     });
+                });
+                const seenIds = new Set();
+                const allRecords = allRecordsRaw.filter(r => {
+                    const key = `${r.data}_${r.materiale}_${r.fino}_${r.orario}_${r.qta_ottenuta}_${r.acq_da}`;
+                    if (seenIds.has(key)) return false;
+                    seenIds.add(key);
+                    return true;
                 });
                 const prodRows = allRecords.filter(r => r.sto !== "X" && !isAnalyst(r));
                 const analystRows = allRecords.filter(r => r.sto !== "X" && isAnalyst(r));
@@ -2074,7 +2183,7 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                 const combined = [...stornoRows.map(r => ({ ...r, _tipo: "Storno" })), ...analystRows.map(r => ({ ...r, _tipo: "Analista" }))];
                 combined.sort((a, b) => (a.data || "").localeCompare(b.data || ""));
                 return (
-                    <Modal title="📋 Riepilogo Movimentazioni" onClose={() => setShowRiepilogoModal(false)} width={780}
+                    <Modal title="📋 Riepilogo Movimentazioni" onClose={() => setShowRiepilogoModal(false)} width="75vw" maxHeight="95vh"
                         headerExtra={
                             <button onClick={async () => {
                                 const { jsPDF } = await import("jspdf");
@@ -2163,38 +2272,46 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                             {/* Totali */}
                             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
                                 {[
-                                    { label: "Q.tà Produzione", value: qProd, color: "#10b981" },
-                                    { label: "Attività Analisti", value: qAnalisti, color: "#f59e0b" },
-                                    { label: "Storni", value: qStorni, color: "#ef4444" },
+                                    { label: "Q.tà Produzione", value: qProd, sub: `${prodRows.length} record`, color: "#10b981" },
+                                    { label: "Attività Analisti", value: qAnalisti, sub: `${analystRows.length} record`, color: "#f59e0b" },
+                                    { label: "Storni", value: qStorni, sub: `${stornoRows.length} record`, color: "#ef4444" },
                                     { label: "Netto", value: netto, color: netto >= 0 ? "#10b981" : "#ef4444" },
-                                ].map(({ label, value, color }) => (
+                                ].map(({ label, value, sub, color }) => (
                                     <div key={label} style={{ background: "var(--bg-tertiary)", borderRadius: 8, padding: "12px 16px", display: "flex", flexDirection: "column", gap: 4 }}>
                                         <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</span>
                                         <span style={{ fontSize: 22, fontWeight: 700, color }}>{value.toLocaleString("it-IT")}</span>
+                                        {sub && <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{sub}</span>}
                                     </div>
                                 ))}
                             </div>
                             {/* Tabella combinata storni + analisti */}
                             <div>
                                 <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>Storni e Attività Analisti</div>
-                                <div style={{ maxHeight: 560, overflowY: "auto", borderRadius: 8, border: "1px solid var(--border-light)" }}>
+                                <div style={{ borderRadius: 8, border: "1px solid var(--border-light)" }}>
                                     <table style={{ width: "100%", borderCollapse: "collapse" }}>
                                         <thead style={{ position: "sticky", top: 0, background: "var(--bg-secondary)", zIndex: 1 }}>
                                             <tr>
                                                 <th style={thS}>Tipo</th>
-                                                <th style={thS}>Data</th>
-                                                <th style={thS}>Materiale</th>
                                                 <th style={thS}>Acq. da</th>
-                                                <th style={thS}>Macchina</th>
+                                                <th style={thS}>Data</th>
+                                                <th style={thS}>Turno</th>
+                                                <th style={thS}>Materiale</th>
                                                 <th style={thS}>Fino</th>
                                                 <th style={{ ...thS, textAlign: "right" }}>Q.tà</th>
                                                 <th style={{ ...thS, textAlign: "right" }}>Q.tà Scarto</th>
+                                                <th style={thS}>Ora</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {combined.length === 0 ? (
-                                                <tr><td colSpan={8} style={{ ...tdS, textAlign: "center", color: "var(--text-muted)" }}>Nessun dato</td></tr>
-                                            ) : combined.map((r, i) => (
+                                            {(() => {
+                                                if (combined.length === 0) return (
+                                                    <tr><td colSpan={9} style={{ ...tdS, textAlign: "center", color: "var(--text-muted)" }}>Nessun dato</td></tr>
+                                                );
+                                                const orariCount = {};
+                                                combined.forEach(r => { if (r.orario) orariCount[r.orario] = (orariCount[r.orario] || 0) + 1; });
+                                                return combined.map((r, i) => {
+                                                    const isDupOrario = r.orario && orariCount[r.orario] > 1;
+                                                    return (
                                                 <tr key={i}
                                                     onClick={() => setRiepilogoDetail(r)}
                                                     style={{ background: i % 2 === 0 ? "transparent" : "var(--bg-tertiary)", cursor: "pointer" }}
@@ -2204,15 +2321,18 @@ export default function ComponentFlowView({ showToast, globalDate, turnoCorrente
                                                     <td style={tdS}>
                                                         <span style={{ background: r._tipo === "Storno" ? "rgba(239,68,68,0.12)" : "rgba(245,158,11,0.12)", color: r._tipo === "Storno" ? "#ef4444" : "#f59e0b", borderRadius: 4, padding: "2px 6px", fontSize: 11, fontWeight: 600 }}>{r._tipo}</span>
                                                     </td>
-                                                    <td style={tdS}>{r.data ? r.data.split("-").reverse().join("/") : "—"}</td>
-                                                    <td style={tdS}>{r.materiale || r.codice_materiale || "—"}</td>
                                                     <td style={{ ...tdS, color: r._tipo === "Analista" ? "#f59e0b" : undefined, fontWeight: r._tipo === "Analista" ? 600 : undefined }}>{r.acq_da || "—"}</td>
-                                                    <td style={tdS}>{r.macchina || r.centro_di_lavoro || "—"}</td>
+                                                    <td style={tdS}>{r.data ? r.data.split("-").reverse().join("/") : "—"}</td>
+                                                    <td style={tdS}>{r.turno_id || "—"}</td>
+                                                    <td style={tdS}>{r.materiale || r.codice_materiale || "—"}</td>
                                                     <td style={tdS}>{r.fino || r.unita_di_misura || "—"}</td>
                                                     <td style={{ ...tdS, textAlign: "right", fontWeight: 600 }}>{(r.qta_ottenuta || 0).toLocaleString("it-IT")}</td>
                                                     <td style={{ ...tdS, textAlign: "right" }}>{(r.qta_scarto || 0).toLocaleString("it-IT")}</td>
+                                                    <td style={{ ...tdS, ...(isDupOrario ? { background: "rgba(239,68,68,0.15)", color: "#ef4444", fontWeight: 700 } : {}) }}>{r.orario || "—"}</td>
                                                 </tr>
-                                            ))}
+                                                    );
+                                                });
+                                            })()}
                                         </tbody>
                                     </table>
                                 </div>
@@ -2539,35 +2659,50 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
     useEffect(() => {
         const fetchExisting = async () => {
             try {
-                // Normalizza progetto per confronto (ignora spazi e case)
                 const normalizeProj = (p) => (p || "").trim().replace(/\s+/g, "").toLowerCase();
 
-                // Carica da componente_report_config per i codici multipli
-                const { data: compConfigs, error: compErr } = await supabase
-                    .from('componente_report_config')
+                // Prima: cerca configurazione specifica per fase in material_fino_overrides
+                const { data: phaseOverrides } = await supabase
+                    .from('material_fino_overrides')
                     .select('*')
+                    .eq('fase', data.phase)
                     .ilike('componente', data.comp);
 
-                if (compErr) console.error("QuickConfigModal componente_report_config error:", compErr);
+                const phaseMatches = (phaseOverrides || [])
+                    .filter(r => normalizeProj(r.progetto) === normalizeProj(data.project));
 
-                // Cerca la configurazione per questo progetto
-                const compConfig = (compConfigs || [])
-                    .find(r => normalizeProj(r.progetto) === normalizeProj(data.project));
-
-                if (compConfig) {
-                    const codicis = parseCodicisArray(compConfig.codici);
-                    console.log("[DEBUG fetchExisting] compConfig:", compConfig);
-                    console.log("[DEBUG fetchExisting] parseCodicisArray result:", codicis);
+                if (phaseMatches.length > 0) {
+                    const codici = phaseMatches.map(r => (r.materiale || "").toUpperCase());
+                    const first = phaseMatches[0];
                     setForm({
-                        fino:       compConfig.fino ? String(compConfig.fino).padStart(4, "0") : "",
-                        componente: compConfig.componente || data.comp || "",
-                        macchina:   compConfig.macchina_id || "",
-                        codice:     codicis[0] || "",
-                        codice2:    codicis[1] || "",
-                        codice3:    codicis[2] || "",
+                        fino:       first.fino ? String(first.fino).padStart(4, "0") : "",
+                        componente: first.componente || data.comp || "",
+                        macchina:   first.macchina_id || "",
+                        codice:     codici[0] || "",
+                        codice2:    codici[1] || "",
+                        codice3:    codici[2] || "",
                     });
                 } else {
-                    console.log("[DEBUG fetchExisting] No compConfig found for:", data.comp, data.project);
+                    // Fallback: carica da componente_report_config (senza fase)
+                    const { data: compConfigs } = await supabase
+                        .from('componente_report_config')
+                        .select('*')
+                        .ilike('componente', data.comp);
+
+                    const compConfig = (compConfigs || [])
+                        .find(r => normalizeProj(r.progetto) === normalizeProj(data.project));
+
+                    if (compConfig) {
+                        const codicis = parseCodicisArray(compConfig.codici);
+                        setForm({
+                            fino:       compConfig.fino ? String(compConfig.fino).padStart(4, "0") : "",
+                            componente: compConfig.componente || data.comp || "",
+                            macchina:   compConfig.macchina_id || "",
+                            codice:     codicis[0] || "",
+                            codice2:    codicis[1] || "",
+                            codice3:    codicis[2] || "",
+                        });
+                    }
                 }
             } catch (err) {
                 console.error("QuickConfigModal fetchExisting error:", err);
@@ -2613,13 +2748,11 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
             macchina_id: macchina.trim() || null,
         };
 
-        // Cerca record esistente tollerando varianti del progetto (es. "DCT 300" vs "DCT300")
-        let ovSearchQ = supabase.from('material_fino_overrides').select('id, progetto')
+        // Cerca record esistente per materiale+fase+componente (senza fino, per evitare duplicati)
+        const { data: ovRows } = await supabase.from('material_fino_overrides').select('id, progetto')
             .eq('materiale', matCode)
             .eq('fase', phase)
             .ilike('componente', comp);
-        ovSearchQ = finoStr ? ovSearchQ.eq('fino', finoStr) : ovSearchQ.is('fino', null);
-        const { data: ovRows } = await ovSearchQ;
         const existingOv = (ovRows || []).find(r => normalizeProj(r.progetto) === normalizeProj(project));
 
         if (existingOv) {
@@ -2683,6 +2816,12 @@ function QuickConfigModal({ data, onClose, onSave, showToast }) {
                 .from('componente_report_config')
                 .insert([payload]);
             if (insErr) throw insErr;
+
+            // Sincronizza ogni codice materiale con material_fino_overrides
+            const finoStr = form.fino ? String(form.fino).padStart(4, "0") : null;
+            for (const matCode of codicis) {
+                await saveSingleMaterial(matCode.toUpperCase(), finoStr, comp, data.project, data.phase, form.macchina);
+            }
 
             showToast("Configurazione salvata con successo!");
             onSave();

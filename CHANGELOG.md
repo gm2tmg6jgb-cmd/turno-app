@@ -4,6 +4,30 @@ Tutte le modifiche significative di Turno App sono documentate in questo file.
 
 ---
 
+## [2.2.0] — 2026-06-23 — Fix Import SAP, Miglioramenti Griglia Produzione e Riepilogo
+
+### 🐛 Bug Fix
+- **Import SAP — aggregazione errata**: la chiave di raggruppamento ora include `sto`, `ordine` e `rack`, evitando che storni e produzione vengano sommati insieme e che rack diversi vengano aggregati
+- **Import SAP — duplicati configurazione**: `saveSingleMaterial` non usa più il fino come criterio di ricerca, evitando record duplicati in `material_fino_overrides`
+- **Matching multi-fase**: i record SAP ora vengono assegnati a tutte le fasi configurate con lo stesso materiale+fino (prima solo la prima fase riceveva i dati)
+- **Deduplicazione varianti 1A/21A**: le varianti che si normalizzano allo stesso componente non causano più doppio conteggio
+- **Configura Singolo Cell**: la modal ora carica dati specifici per fase da `material_fino_overrides` anziché dati generici da `componente_report_config`
+- **Sincronizzazione fino config**: il salvataggio dalla modal ora aggiorna anche `material_fino_overrides` con fase e fino corretti
+
+### ✨ Nuove Funzionalità
+- **Riga Media**: aggiunta riga con media per colonna sopra i componenti in ogni box progetto (include tutte le celle attive, anche a 0)
+- **Selezione multi-turno**: è possibile selezionare più turni contemporaneamente (es. A+B) con target proporzionale
+- **Riepilogo Movimentazioni**: aggiunto numero record sotto i totali, colonne Turno e Ora, evidenziazione orari duplicati, rimossa colonna Macchina
+- **Tab Movimentazioni**: aggiunte colonne Turno e Ora, riordinamento colonne (Data, Acqu.da, Materiale, Macchina, Fino, Q.tà, Q.tà Scarto, Ora)
+- **Celle eliminate uniformi**: le celle eliminate manualmente ora appaiono identiche a quelle escluse di default (stile "Aggiungi cella")
+- **Modal Riepilogo allargata**: larghezza 75vw e altezza 95vh senza scroll interno
+
+### 🔧 Miglioramenti
+- **Modal component**: supporto prop `maxHeight`
+- **Deduplicazione riepilogo**: i record duplicati nel Riepilogo Movimentazioni vengono filtrati automaticamente
+
+---
+
 ## [2.1.0] — 2026-06-10 — Fix Laboratorio Inventario, UI, Filtri SAP e Dashboard Analisi
 
 ### ✨ Nuove Funzionalità

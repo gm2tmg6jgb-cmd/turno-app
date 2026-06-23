@@ -10,7 +10,7 @@
  *     </div>
  *   </Modal>
  */
-export default function Modal({ title, subtitle, onClose, children, width, zIndex, headerExtra }) {
+export default function Modal({ title, subtitle, onClose, children, width, maxHeight, zIndex, headerExtra }) {
     return (
         <div
             className="modal-backdrop"
@@ -19,7 +19,7 @@ export default function Modal({ title, subtitle, onClose, children, width, zInde
         >
             <div
                 className="modal-content"
-                style={width ? { width } : {}}
+                style={{ ...(width ? { width } : {}), ...(maxHeight ? { maxHeight, overflow: "auto" } : {}) }}
                 onClick={e => e.stopPropagation()}
             >
                 {(title || onClose) && (
