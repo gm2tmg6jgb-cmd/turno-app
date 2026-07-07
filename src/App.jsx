@@ -13,7 +13,6 @@ import { useSessionTimeout } from "./lib/sessionTimeout";
 import AgentChatTab from "./components/AgentChatTab";
 
 // Views — lazy loaded per ridurre bundle iniziale
-const DashboardView = lazy(() => import("./views/DashboardView"));
 const AssegnazioniView = lazy(() => import("./views/AssegnazioniView"));
 const AnagraficaMacchineView = lazy(() => import("./views/AnagraficaMacchineView"));
 const PlanningView = lazy(() => import("./views/PlanningView"));
@@ -34,6 +33,7 @@ const ThroughputView = lazy(() => import("./views/ThroughputView"));
 const GanttPianificazioneView = lazy(() => import("./views/GanttPianificazioneView"));
 const SapHubView = lazy(() => import("./views/SapHubView"));
 const InventarioAnalysisView = lazy(() => import("./views/InventarioAnalysisView"));
+const ProductionSummaryView = lazy(() => import("./views/ProductionSummaryView"));
 import { AdminSecurityWrapper } from "./components/AdminSecurityWrapper";
 
 function AppContent({ session, onLogout }) {
@@ -240,7 +240,6 @@ function AppContent({ session, onLogout }) {
   }).length;
 
   const navItems = [
-    { id: "dashboard", label: "Gestione Dipendenti", icon: Icons.dashboard },
     { id: "assegnazioni", label: "Assegnazioni", icon: Icons.machine, badge: alertCount || null },
     { id: "op10", label: "Asservimento OP10", icon: Icons.check },
     { id: "skills", label: "Competenze", icon: Icons.brain },
@@ -253,6 +252,7 @@ function AppContent({ session, onLogout }) {
     { id: "prioritiesSummary", label: "Riepilogo Priorità", icon: Icons.dashboard, status: "new" },
     { id: "productionFlowReport", label: "Flusso Report Produzione", icon: Icons.report, status: "new" },
     { id: "productionReport", label: "Report Produzione", icon: Icons.report },
+    { id: "productionSummary", label: "Consuntivo Produzione", icon: "📋", status: "new" },
     { id: "sapHub", label: "Hub Dati SAP", icon: Icons.settings },
     { id: "inventarioAnalysis", label: "Analisi Inventario", icon: "📊", status: "new" },
     { id: "productionDelays", label: "Gestione Ritardi Produzione", icon: Icons.alert, status: "new" },
@@ -263,7 +263,6 @@ function AppContent({ session, onLogout }) {
   ].filter(item => !item.adminOnly || isAdmin);
 
   const viewTitles = {
-    dashboard: "Gestione dipendenti",
     assegnazioni: "Assegnazione Macchine",
     op10: "Asservimento OP10",
     componentFlow: "Avanzamento Componenti",
@@ -274,6 +273,7 @@ function AppContent({ session, onLogout }) {
     prioritiesSummary: "Riepilogo Priorità Macchine",
     productionFlowReport: "Flusso Report Produzione",
     productionReport: "Report Produzione",
+    productionSummary: "Consuntivo Produzione",
     productionDelays: "Gestione Ritardi Produzione",
     fermi: "Report Fermi",
     anagraficaFermi: "Anagrafica Fermi Macchine",
@@ -417,7 +417,6 @@ function AppContent({ session, onLogout }) {
             return (
               <>
                 {!sidebarCollapsed && <div className="nav-section-label">Operatività</div>}
-                {renderItem(ni("dashboard"))}
                 {renderItem(ni("assegnazioni"))}
                 {renderItem(ni("planning"))}
 
@@ -431,6 +430,7 @@ function AppContent({ session, onLogout }) {
                 {renderItem(ni("priorita"))}
                 {renderItem(ni("productionFlowReport"))}
                 {renderItem(ni("productionReport"))}
+                {renderItem(ni("productionSummary"))}
                 {renderItem(ni("sapHub"))}
                 {renderItem(ni("inventarioAnalysis"))}
                 {renderItem(ni("lpaPlan"))}
@@ -578,42 +578,9 @@ function AppContent({ session, onLogout }) {
 
       {/* Main */}
       <div className="main">
-        {currentView === "dashboard" && (
-          <div className="main-header">
-            <div>
-              <h1>{viewTitles[currentView]}</h1>
-              <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 2 }}>
-                {reparto ? reparto.nome : "Tutti i Reparti"} • {turno?.nome} ({activeTurnoSlot?.nome}) • {new Date().toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long" })}
-              </div>
-            </div>
-            <div className="main-header-actions">
-              <button className="btn btn-primary" onClick={handleSendPlan}>{Icons.send} Invia Piano Turno</button>
-            </div>
-          </div>
-        )}
-
         <ErrorBoundary>
         <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "var(--text-muted)", fontSize: 14 }}>Caricamento...</div>}>
         <div className="main-content">
-          {currentView === "dashboard" && (
-            <DashboardView
-              dipendenti={dipendenti}
-              setDipendenti={setDipendenti}
-              presenze={presenze}
-              setPresenze={setPresenze}
-              pianificazione={pianificazione}
-              setPianificazione={setPianificazione}
-              assegnazioni={assegnazioni}
-              macchine={macchine}
-              repartoCorrente={repartoCorrente}
-              turnoCorrente={turnoCorrente}
-              showToast={showToast}
-              motivi={motivi}
-              setMotivi={setMotivi}
-              zones={zone}
-              globalDate={globalDate}
-            />
-          )}
           {currentView === "assegnazioni" && (
             <AssegnazioniView
               dipendenti={dipendenti}
@@ -674,6 +641,9 @@ function AppContent({ session, onLogout }) {
               assegnazioni={assegnazioni}
               dipendenti={dipendenti}
             />
+          )}
+          {currentView === "productionSummary" && (
+            <ProductionSummaryView globalDate={globalDate} />
           )}
           {currentView === "productionDelays" && (
             <ProductionDelaysView
